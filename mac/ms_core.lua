@@ -309,6 +309,7 @@
                     ms._defineAuthoredSettings = function() end
                     ms.addAuthoredSetting      = function() return false, "settings unavailable" end
                     ms.removeAuthoredSetting   = function() return false, "settings unavailable" end
+                    ms.updateAuthoredSetting   = function() return false, "settings unavailable" end
                     ms.saveDefault     = function() end
                     ms.resetToDefault  = function() return false end
                     ms.reloadSettings  = function() end
@@ -2283,17 +2284,32 @@
             end)
 
             ms.octane = ms.octane or {}
+            -- A visible pulse whenever octane flips, so a bind toggle (easy to
+            -- hit by accident) never silently changes behaviour. Styled to match
+            -- the macro bind-state alert (same id-replace + system source), with
+            -- the toggle sounds.
+            ms.octane._notify = function(on)
+                if ms.playSlot then pcall(ms.playSlot, on and "toggleOn" or "toggleOff") end
+                if not ms.alert then return end
+                pcall(ms.alert,
+                    on and "Octane enabled!" or "Octane disabled.",
+                    3, true, { id = "octane_state", source = "system" })
+            end
             ms.octane.on = function()
                 if ms._octaneMode then return end
                 ms._octaneMode = true
                 if ms.saveSettings then pcall(ms.saveSettings) end
                 ms.octane._apply()
+                ms.octane._notify(true)
+                if ms.ui and ms.ui.refresh then pcall(ms.ui.refresh) end
             end
             ms.octane.off = function()
                 if not ms._octaneMode then return end
                 ms._octaneMode = false
                 if ms.saveSettings then pcall(ms.saveSettings) end
                 ms.octane._remove()
+                ms.octane._notify(false)
+                if ms.ui and ms.ui.refresh then pcall(ms.ui.refresh) end
             end
             ms.octane.toggle = function()
                 if ms._octaneMode then ms.octane.off() else ms.octane.on() end
@@ -2341,10 +2357,6 @@
                 openMenu    = {
                     mods = {"alt"},
                     key = "p",
-                },
-                octane      = {
-                    mods = {"alt"},
-                    key = "o",
                 },
             }
             ms._hotkeyHandles = {}
@@ -2523,13 +2535,6 @@
                     if ok and hotkey then ms._openMenuHotkey = hotkey end
                 end
 
-                hk = ms._hotkeys.octane
-                tap = ms._makeKeyWatcher(hk.mods, hk.key, function()
-                    if not ms._hotkeysReady then return end
-                    if not ms._targetActive and not ms._isSafeZone() then return end
-                    ms.octane.toggle()
-                end)
-                if tap then _register("octane", tap) end
             end
 
             ms._tapWatchdog = hs.timer.doEvery(2, function()
@@ -2847,6 +2852,10 @@
                         default = def.default,
                         label   = type(def.label) == "string" and def.label or name,
                         hint    = type(def.hint) == "string" and def.hint or nil,
+                        -- Where the declaration came from, for the Tools filter:
+                        -- "pack" while ms_macros.lua runs, "plugin" during a
+                        -- plugin load, else the user's own builder.
+                        origin  = def.origin or ms._defineOrigin or "user",
                     }
                     if store.vals[name] == nil then
                         store.vals[name] = coerce(store.defs[name], def.default)
@@ -2878,6 +2887,7 @@
                             label   = def.label,
                             hint    = def.hint,
                             value   = store.vals[name],
+                            origin  = def.origin or "user",
                         }
                     end
                     table.sort(out, function(a, b) return a.name < b.name end)
@@ -4064,12 +4074,21 @@
                         key = "escape",
                     },
                 },
+                octane  = {
+                    label = "Toggle Octane Mode",
+                    default = {
+                        type = "key",
+                        mods = {"alt"},
+                        key = "o",
+                    },
+                },
             }
 
             ms.systemBinds._actions = {
                 enable  = function() ms.setMacros(1) end,
                 disable = function() ms.setMacros(0) end,
                 toggle  = function() ms.setMacros(BindValidity == 1 and 0 or 1) end,
+                octane  = function() ms.octane.toggle() end,
             }
 
             ms.systemBinds.effective = function(id)
@@ -5984,7 +6003,7 @@
                                     fns[#fns + 1] = {
                                         id     = def.id,
                                         name   = def.name or def.id,
-                                        source = "plugin",
+                                        source = def._origin or "plugin",
                                     }
                                 end
                             end
@@ -6325,7 +6344,9 @@
                 if not chunk then
                     error("ms_macros.lua: failed to load: " .. tostring(loadErr))
                 end
+                ms._defineOrigin = "pack"
                 local ok, runErr = pcall(chunk)
+                ms._defineOrigin = nil
                 if not ok then
                     error("ms_macros.lua: error during execution: " .. tostring(runErr))
                 end
@@ -6374,13 +6395,20 @@
                         print("ms.package.migrateMacroPacks (boot): " .. tostring(migErr))
                     end
                 end
-                -- Always-run: keep each kind's active marker tracking whatever
-                -- slice is actually live, by content fingerprint. All three
-                -- kinds reconcile the same way now — the old macro-only name-slug
-                -- path (reconcileActiveMacro) matched a fragile ms.macroMeta.name
-                -- and flipped the badge to the wrong entry after a swap. With
-                -- clean-replace activation the live macro slice is byte-identical
-                -- to the activated entry, so content matching flags it correctly.
+                -- Backfill packs.json links for legacy profiles (idempotent).
+                if ms.package and ms.package.migrateProfilePacks then
+                    local mpOk, mpErr = pcall(ms.package.migrateProfilePacks)
+                    if not mpOk then
+                        print("ms.package.migrateProfilePacks (boot): " .. tostring(mpErr))
+                    end
+                end
+                -- Keep each kind's active marker tracking whatever slice is live,
+                -- by content fingerprint. switchProfile activates a profile's packs
+                -- (copying their files live), so live == pack and reconcile re-flags
+                -- them here on every boot. The fingerprint now canonicalizes JSON
+                -- and ignores profile-owned macro binds, so macro packs reconcile as
+                -- reliably as theme/sound. A live slice that matches no stored pack
+                -- (a custom/edited mix) simply leaves that kind's badge clear.
                 if ms.package and ms.package.reconcileActive then
                     for _, k in ipairs({ "theme", "sound", "macro" }) do
                         local rcOk, rcErr = pcall(ms.package.reconcileActive, k)

@@ -176,6 +176,7 @@ return function(ms)
                 "enable",
                 "disable",
                 "toggle",
+                "octane",
             }) do
                 local def = ms.systemBinds._defs[id]
                 if def then
@@ -263,6 +264,8 @@ return function(ms)
                     label    = d.label,
                     hint     = d.hint,
                     authored = d.key and _authoredKeys[d.key] or nil,
+                    section  = d.section,
+                    origin   = d._origin or "pack",
                 }
                 if d.type == "slider" then
                     it.min  = d.min
@@ -331,8 +334,10 @@ return function(ms)
                 if okF and type(flist) == "table" then
                     for _, f in ipairs(flist) do
                         userFunctions[#userFunctions + 1] = {
-                            id    = f.id,
-                            label = f.name or f.id,
+                            id     = f.id,
+                            label  = f.name or f.id,
+                            -- Compiler-listed functions are all builder-authored.
+                            origin = "user",
                         }
                     end
                 end
@@ -371,10 +376,11 @@ return function(ms)
                     table.insert(items, entry)
                 end
                 table.insert(userMenus, {
-                    id    = menuDef.id,
-                    title = menuDef.title,
-                    icon  = menuDef.icon,
-                    items = items,
+                    id     = menuDef.id,
+                    title  = menuDef.title,
+                    icon   = menuDef.icon,
+                    items  = items,
+                    origin = menuDef._origin or "pack",
                 })
             end
 
@@ -969,7 +975,9 @@ return function(ms)
                 ms._userSettingIndex = {}
                 ms._userSettingVals  = {}
 
+                ms._defineOrigin = "pack"
                 local ok, runErr = xpcall(chunk, debug.traceback)
+                ms._defineOrigin = nil
                 if not ok then
                     local tb = tostring(runErr)
                     print("=== ms_macros.lua reload error ===\n" .. tb)
@@ -1904,10 +1912,27 @@ return function(ms)
                         if ms._soundsDirty then ms._discoverSounds() end
                         if ms.loadTheme then ms.loadTheme() end
                         ms.playSlot("update")
-                        ms.alert(
-                            (result.manifest.name or "Package") .. " imported (" ..
-                            #result.installed .. " files).", 4, true
-                        )
+                        -- A profile import lands in the Profiles menu rather
+                        -- than going live, so its toast points there, and
+                        -- markDirty forces the pushed state to rebuild from
+                        -- getProfiles (a plain refresh would re-send the stale
+                        -- cache and the new entry would only show after a
+                        -- reload — see [[create-new-profile-makes-empty-entry]]).
+                        if result.manifest.type == "profile" then
+                            ms._profilesDirty = true
+                            ms.alert(
+                                "\"" .. (result.profile or result.manifest.name
+                                    or "Profile") .. "\" imported.\n" ..
+                                "Switch to it from Settings \xe2\x86\x92 Profiles.",
+                                5, true
+                            )
+                            if ms.ui.markDirty then ms.ui.markDirty() end
+                        else
+                            ms.alert(
+                                (result.manifest.name or "Package") .. " imported (" ..
+                                #result.installed .. " files).", 4, true
+                            )
+                        end
                         ms.ui.refresh()
                     end)
                 end
@@ -2070,15 +2095,14 @@ return function(ms)
                     return
                 end
 
-                -- A manual single-pack hotswap diverges the live setup from any
-                -- one profile — it is now a custom mix. Clear the active-profile
-                -- marker so the Settings panel stops showing a profile as Active.
-                -- (switchProfile calls the package-level libraryActivate, not
-                -- this UI action, so its own alignment activations are unaffected
-                -- and it re-sets the marker afterward.)
-                if ms.package.setActiveProfile then
-                    pcall(ms.package.setActiveProfile, nil)
-                end
+                -- A profile is a collection of component packs, so hotswapping one
+                -- component keeps the profile active — it just swaps that slot's
+                -- live pack (the per-kind .active marker libraryActivate set). The
+                -- profile's saved packs.json still points at the old pack until the
+                -- user explicitly saves, so the live setup is "diverged but still
+                -- on this profile" rather than orphaned. (Previously this cleared
+                -- the active-profile marker, which for a macro pack — the profile's
+                -- core — left the user with no active profile to save into.)
 
                 -- Hotswap the running state in place for whatever the slice
                 -- touched — the same surfaces boot/reloadMacros rebuild — so no
@@ -2514,6 +2538,19 @@ return function(ms)
                 else
                     ms.playSlot("alert")
                     ms.alert("Couldn't remove tool: " .. (err or "invalid"), 4)
+                end
+            end,
+
+            updateUserSetting = function(data)
+                local ok, err = ms.updateAuthoredSetting(
+                    data and data.key, data and data.def)
+                if ok then
+                    ms.playSlot("update")
+                    ms.ui.refresh()
+                    ms.alert("Setting updated.", 3)
+                else
+                    ms.playSlot("alert")
+                    ms.alert("Couldn't update setting: " .. (err or "invalid"), 4)
                 end
             end,
 

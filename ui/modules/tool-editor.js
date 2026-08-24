@@ -18,19 +18,22 @@
       "ms.release":       { key: "key" },
       "ms.wait":          { ms: "number" },
       "ms.cam":           { dx: "number", dy: "number" },
-      "ms.Mouse":         { operation: { type: "select", options: ["Move","Click","Drag","Press","Release"] },
-                            button:    { type: "select", options: ["Left","Right","Middle"] },
-                            reference: { type: "select", options: ["Mouse","Screen","Window"] },
+      // NOTE: these option sets must match ms_core.lua's OPS/BTNS/REFS. They are
+      // normally shadowed by the shared registry (see _getParamDefs); kept here
+      // only as a correct fallback.
+      "ms.Mouse":         { operation: { type: "select", options: ["Move","Click","DoubleClick","TripleClick","Drag","Press","Release"] },
+                            button:    { type: "select", options: ["Left","Right","Center","Button4","Button5"] },
+                            reference: { type: "select", options: ["Absolute","Mouse","WindowTL","WindowTR","WindowBL","WindowBR","WindowCenter","ScreenTL","ScreenTR","ScreenBL","ScreenBR","ScreenCenter"] },
+                            x1: "number", y1: "number", x2: "number", y2: "number" },
+      "ms.click":         { button: { type: "select", options: ["Left","Right","Center","Button4","Button5"] },
                             x: "number", y: "number" },
-      "ms.click":         { button: { type: "select", options: ["Left","Right","Middle"] },
-                            x: "number", y: "number" },
-      "ms.scroll":        { dx: "number", dy: "number" },
+      "ms.scroll":        { direction: { type: "select", options: ["up","down","left","right"] }, clicks: "number" },
       "ms.copy":          { text: "string" },
       "ms.input":         { text: "string" },
       "ms.search":        { text: "string" },
       "ms.variable":      { name: "string", value: "string" },
       "ms.watch":         { event: "string" },
-      "ms.window":        { operation: "string" },
+      "ms.window":        { operation: { type: "select", options: ["Move","Resize","Frame"] } },
       "ms.alert":         { text: "string" },
       "ms.load":          { path: "string" },
       "ms.save":          { path: "string" },
@@ -728,6 +731,26 @@
 
         _getParamDefs(tool) {
             const action = tool.action;
+
+            // Prefer the shared Add-Module registry (window.fnPicker.registry) so
+            // the inline editor and the add panel agree on param types and — for
+            // enums — the exact constant sets ms_core.lua asserts on. An `enum`
+            // param maps to this editor's `select` control.
+            const reg = window.fnPicker && window.fnPicker.registry;
+            if (reg) {
+                for (let i = 0; i < reg.length; i++) {
+                    if (reg[i].id !== action && reg[i].name !== action) continue;
+                    const defs = {};
+                    (reg[i].params || []).forEach(function(p) {
+                        if (p.type === "enum") {
+                            defs[p.name] = { type: "select", options: p.options || [] };
+                        } else {
+                            defs[p.name] = { type: p.type };
+                        }
+                    });
+                    return defs;
+                }
+            }
 
             if (PARAM_DEFS[action]) {
                 const defs = {};

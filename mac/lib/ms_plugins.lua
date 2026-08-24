@@ -178,7 +178,12 @@
                     return chunk(short, init)
                 end
 
+                -- Tag every setting/menu/var/tool the plugin defines as
+                -- plugin-origin so the Tools panel can filter it out.
+                local prevOrigin = ms._defineOrigin
+                ms._defineOrigin = "plugin"
                 local ok, err = pcall(function() return hs.loadSpoon(short) end)
+                ms._defineOrigin = prevOrigin
 
                 package.preload[short] = prevPreload
 

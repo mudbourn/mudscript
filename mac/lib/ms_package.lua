@@ -743,6 +743,103 @@ return function(ms)
     -- END Apply dropped files --
 
     -- Install --
+        -- Install a full profile package into profiles/<name>/, seed its
+        -- component packs into the library, and link packs.json — the
+        -- reciprocal of a profile export. Unlike the generic install path it
+        -- does NOT splatter files over the live setup: importing a profile
+        -- adds it to the Profiles menu, and switching to it (switchProfile) is
+        -- what goes live. Routing a profile through the plain install had three
+        -- faults this fixes: no library packs were seeded (libKind "profile"
+        -- is not a library kind, so the seed gate was never true), no
+        -- profiles/<name>/ entry was created (so it never showed in the menu,
+        -- even after a reload), and the live splatter only took effect after a
+        -- full hs.reload().
+        local function installProfile(staging, manifest, opts)
+            -- Profile identity: the macroMeta.name inside ms_macros.lua (what
+            -- the Profiles menu and the pack-slug convention key on), falling
+            -- back to the manifest name. Sanitised to a filesystem-safe folder
+            -- name the same way ms_settings.sanitizeName does.
+            local folderName
+            local body = readFile(staging .. "/ms_macros.lua")
+            if body then
+                folderName = body:match('macroMeta%s*=%s*{.-name%s*=%s*"([^"]*)"')
+            end
+            if not folderName or folderName == "" then
+                folderName = manifest.name or "Imported Profile"
+            end
+            folderName = folderName:gsub('[/\\:*?"<>|%c]', "_")
+                :gsub("^%s+", ""):gsub("%s+$", "")
+            if folderName == "" then folderName = "Imported Profile" end
+
+            local profileDir = _hsDir .. "/profiles/" .. folderName
+            hs.execute("mkdir -p " .. sq(profileDir))
+            if not hs.fs.attributes(profileDir) then
+                return nil, "Could not create profile folder."
+            end
+
+            -- Copy every profile-eligible file from staging into the profile
+            -- dir, preserving relative structure.
+            local installed = {}
+            for rel in pairs(manifest.contents or {}) do
+                local clean = safeRelPath(rel)
+                if clean and pathAllowed("profile", clean) then
+                    local src = staging .. "/" .. clean
+                    if fileExists(src) then
+                        local dest = profileDir .. "/" .. clean
+                        local destDir = dest:match("(.*)/")
+                        if destDir then hs.execute("mkdir -p " .. sq(destDir)) end
+                        local _, ok = hs.execute("/bin/cp " .. sq(src) .. " " .. sq(dest))
+                        if ok then installed[#installed + 1] = clean end
+                    end
+                end
+            end
+
+            if #installed == 0 then return nil, "Nothing could be installed." end
+
+            -- Seed each component pack into the installed library from the
+            -- STAGED files (not the live setup — the live slice is unrelated to
+            -- the profile being imported), so the profile's look, sounds, and
+            -- macros can be hotswapped and switchProfile can activate them.
+            local pslug = ms.package.librarySlug(folderName)
+            local refs  = {}
+            for _, kind in ipairs({ "macro", "theme", "sound" }) do
+                local files = {}
+                for rel in pairs(manifest.contents or {}) do
+                    local clean = safeRelPath(rel)
+                    if clean and pathAllowed(kind, clean)
+                        and fileExists(staging .. "/" .. clean) then
+                        files[clean] = staging .. "/" .. clean
+                    end
+                end
+                if next(files) then
+                    local ok, rec = pcall(ms.package.librarySave, kind, files, {
+                        name    = folderName,
+                        origin  = "profile",
+                        version = manifest.version,
+                    })
+                    if ok and rec then refs[kind] = pslug end
+                end
+            end
+
+            -- Link the profile to the component packs just seeded (packs.json),
+            -- the authoritative map switchProfile and boot read.
+            if next(refs) and ms.package.setProfilePacks then
+                pcall(ms.package.setProfilePacks, folderName, refs)
+            end
+
+            if not opts.component then
+                pcall(function() ms.package.recordContent(manifest, opts.id) end)
+            end
+            ms._profilesDirty = true
+
+            return {
+                manifest  = manifest,
+                installed = installed,
+                failed    = {},
+                profile   = folderName,
+            }
+        end
+
         ms.package.install = function(path, opts)
             opts = opts or {}
 
@@ -781,6 +878,17 @@ return function(ms)
             local manifest = report.manifest
             local staging  = tempDir("install")
             hs.execute("/usr/bin/unzip -qq -o " .. sq(path) .. " -d " .. sq(staging) .. " 2>/dev/null")
+
+            -- A full profile import is installed as a first-class profile (its
+            -- own dir + seeded component packs + packs.json), not splattered
+            -- over the live setup. A component slice pulled FROM a profile
+            -- (opts.component) still takes the generic single-kind path below.
+            if manifest.type == "profile" and not opts.component then
+                local res, perr = installProfile(staging, manifest, opts)
+                rmrf(staging)
+                if not res then return nil, perr end
+                return res
+            end
 
             local sliceSet = nil
             if opts.component and type(manifest.components) == "table" then
@@ -1145,8 +1253,10 @@ return function(ms)
 
         -- The profile the live setup is "on", tracked explicitly rather than
         -- inferred from the three pack markers. A profile switch records the
-        -- profile name here; a manual single-pack hotswap clears it (the live
-        -- state is now a custom mix, not any one profile). This decouples "which
+        -- profile name here. A single-pack hotswap NO LONGER clears it: a profile
+        -- is a collection of component packs, so swapping one component just swaps
+        -- that slot's live pack while the profile stays active (its packs.json
+        -- still names the saved pack until the user saves). This decouples "which
         -- profile is active" from pack naming — same-named packs are not required
         -- to exist, and packs named off-convention (e.g. a shared sound pack) no
         -- longer make the profile read as unaligned. The value is a raw profile
@@ -1165,6 +1275,37 @@ return function(ms)
             else
                 os.remove(activeProfilePath)
             end
+        end
+
+        -- A profile is an explicit collection of component packs, one per kind.
+        -- profiles/<name>/packs.json records the library slug the profile uses for
+        -- each kind, so a profile can point at off-convention or shared packs (a
+        -- profile named "Combat Warriors Macros" can own a macro pack named
+        -- anything). A missing key = that slot is a custom/unsaved mix with no
+        -- linked pack. This is the authoritative link; the old same-name slug
+        -- convention is only a fallback for legacy profiles that predate this file.
+        local function profilePacksPath(name)
+            return _hsDir .. "/profiles/" .. tostring(name) .. "/packs.json"
+        end
+        ms.package.getProfilePacks = function(name)
+            if not name or name == "" then return nil end
+            local t = readJSON(profilePacksPath(name))
+            if type(t) ~= "table" then return nil end
+            local out = {}
+            for _, k in ipairs({ "theme", "sound", "macro" }) do
+                if type(t[k]) == "string" and t[k] ~= "" then out[k] = t[k] end
+            end
+            return out
+        end
+        ms.package.setProfilePacks = function(name, tbl)
+            if not name or name == "" or type(tbl) ~= "table" then return false end
+            local rec = {}
+            for _, k in ipairs({ "theme", "sound", "macro" }) do
+                if type(tbl[k]) == "string" and tbl[k] ~= "" then rec[k] = tbl[k] end
+            end
+            local dir = _hsDir .. "/profiles/" .. tostring(name)
+            hs.execute("mkdir -p " .. sq(dir))
+            return writeFile(profilePacksPath(name), hs.json.encode(rec) .. "\n")
         end
 
         -- Copy a slice into the library. `files` is { relpath = absSource },
@@ -1636,6 +1777,28 @@ return function(ms)
             writeFile(doneMarker, os.date("!%Y-%m-%dT%H:%M:%SZ") .. "\n")
         end
 
+        -- Backfill profiles/<name>/packs.json for legacy profiles that predate it,
+        -- by linking to any already-existing same-named component pack. Runs every
+        -- boot but no-ops per profile that already has packs.json, and never
+        -- CREATES packs (that would be an implicit save) — a profile with no
+        -- same-named pack in a kind is left unlinked for that slot until the user
+        -- explicitly saves. Idempotent and cheap (a few fs stats per profile).
+        ms.package.migrateProfilePacks = function()
+            local profilesDir = _hsDir .. "/profiles/"
+            if not hs.fs.attributes(profilesDir) then return end
+            for entry in hs.fs.dir(profilesDir) do
+                if entry ~= "." and entry ~= ".." and not entry:find("^%.")
+                    and not hs.fs.attributes(profilePacksPath(entry)) then
+                    local slug = librarySlug(entry)
+                    local refs = {}
+                    for _, k in ipairs({ "theme", "sound", "macro" }) do
+                        if ms.package.libraryHasEntry(k, slug) then refs[k] = slug end
+                    end
+                    if next(refs) then ms.package.setProfilePacks(entry, refs) end
+                end
+            end
+        end
+
         -- Files whose bytes are regenerated on the fly (so they never compare
         -- equal even when the slice is otherwise identical) — excluded from the
         -- reconcile fingerprint. sound_assign.json is re-encoded by collect();
@@ -1646,9 +1809,59 @@ return function(ms)
             ["ms_macros_visual.lua"]  = true,
         }
 
-        -- A stable content fingerprint of a { rel = abs } slice: sorted rel paths
-        -- each md5'd. Returns nil if the slice is empty or md5 is unavailable, so
-        -- a failed hash never masquerades as a match.
+        -- Deterministic JSON serialization (sorted object keys) so a slice's
+        -- *.json files fingerprint by CONTENT, not by hs.json.encode's unstable
+        -- key order. Without this, a plain re-encode of an identical table (e.g.
+        -- a bind serialized {type,key,mods} vs {key,type,mods}) produced different
+        -- bytes and flipped the reconcile badge. Array vs object is inferred:
+        -- a non-empty pure-sequence table is an array, everything else an object.
+        local function canonicalJSON(v)
+            local t = type(v)
+            if t == "table" then
+                local n, isSeq = 0, true
+                for k in pairs(v) do
+                    n = n + 1
+                    if type(k) ~= "number" then isSeq = false end
+                end
+                if isSeq and n > 0 and #v == n then
+                    local parts = {}
+                    for i = 1, n do parts[i] = canonicalJSON(v[i]) end
+                    return "[" .. table.concat(parts, ",") .. "]"
+                end
+                local keys = {}
+                for k in pairs(v) do keys[#keys + 1] = tostring(k) end
+                table.sort(keys)
+                local parts = {}
+                for _, k in ipairs(keys) do
+                    parts[#parts + 1] = string.format("%q", k) .. ":" .. canonicalJSON(v[k])
+                end
+                return "{" .. table.concat(parts, ",") .. "}"
+            elseif t == "string" then
+                return string.format("%q", v)
+            elseif t == "number" or t == "boolean" then
+                return tostring(v)
+            end
+            return "null"
+        end
+
+        -- Per-macro key binds are profile-owned (they live in ms_settings.json and
+        -- are folded into the pack only so they travel on activation). Two macro
+        -- slices with identical macro CONTENT but different binds are the same pack
+        -- for reconcile purposes, so strip binds before fingerprinting.
+        local function stripVisualBinds(tbl)
+            if type(tbl) == "table" and type(tbl.macros) == "table" then
+                for _, m in pairs(tbl.macros) do
+                    if type(m) == "table" then m.bind = nil end
+                end
+            end
+            return tbl
+        end
+
+        -- A stable content fingerprint of a { rel = abs } slice: sorted rel paths,
+        -- each reduced to a content token. JSON files are canonicalized (and macro
+        -- binds stripped) so key-order and bind drift never cause a false mismatch;
+        -- other files are md5'd. Returns nil if the slice is empty or a hash is
+        -- unavailable, so a failed hash never masquerades as a match.
         local function sliceFingerprint(files)
             local rels = {}
             for rel in pairs(files) do
@@ -1659,10 +1872,21 @@ return function(ms)
 
             local parts = {}
             for _, rel in ipairs(rels) do
-                local h = hs.execute("/sbin/md5 -q " .. sq(files[rel]) .. " 2>/dev/null") or ""
-                h = h:gsub("%s+", "")
-                if h == "" then return nil end
-                parts[#parts + 1] = rel .. ":" .. h
+                local token
+                if rel:match("%.json$") then
+                    local tbl = readJSON(files[rel])
+                    if tbl then
+                        if rel == "ms_macros_visual.json" then stripVisualBinds(tbl) end
+                        token = "json:" .. canonicalJSON(tbl)
+                    end
+                end
+                if not token then
+                    local h = hs.execute("/sbin/md5 -q " .. sq(files[rel]) .. " 2>/dev/null") or ""
+                    h = h:gsub("%s+", "")
+                    if h == "" then return nil end
+                    token = h
+                end
+                parts[#parts + 1] = rel .. ":" .. token
             end
             return table.concat(parts, "|")
         end

@@ -58,12 +58,25 @@ return function(ms)
         ms.loading.create = function()
             local _startBootChoreography
 
+            -- Reset the ready-handshake guard so THIS create() owns a fresh boot
+            -- choreography. The flag lives on _G and survives a config re-entry
+            -- (see the __ms_core_running guard in ms_core), so without this reset
+            -- a stale `true` from a prior boot makes the fallback below skip the
+            -- fade-in and the loading screen never appears. This reset lived in
+            -- ms_core pre-extraction and was dropped when the module was split
+            -- out — restoring it here, where create() owns the choreography.
+            _G._bootChoreographyStarted = false
+
             local sf  = hs.screen.mainScreen():frame()
             local lw, lh = 360, 140
             local lx  = sf.x + math.floor((sf.w - lw) / 2)
             local ly  = sf.y + math.floor((sf.h - lh) / 2)
 
-            local _ucLoad = hs.webview.usercontent.new("loadingScreen")
+            -- Handler name MUST match the one the page posts to
+            -- (window.webkit.messageHandlers.loading in ms_loading.html); a
+            -- mismatch silently drops the ready handshake, leaving the reveal to
+            -- depend entirely on the 0.5s fallback timer below.
+            local _ucLoad = hs.webview.usercontent.new("loading")
             _ucLoad:setCallback(function(message)
                 local ok, data = pcall(hs.json.decode, message.body)
                 if not ok or type(data) ~= "table" then return end
@@ -114,6 +127,11 @@ return function(ms)
                 _G._loadTimers = {}
 
                 pcall(function() ms.loadTheme() end)
+                -- Deliberately do NOT push the theme here: the screen comes up in
+                -- the neutral default look and snaps to the user's theme at the
+                -- animGate "Applying theme…" step, in sync with the themeLoaded
+                -- sound (ms_core ~6556). The compat label themes with everything
+                -- else at that moment via CSS vars (its font is var(--font)).
 
                 if ms.macroMeta and ms.macroMeta.name then
                     js("setProfileName('" .. ms.macroMeta.name:gsub("'", "\\'") .. "')")

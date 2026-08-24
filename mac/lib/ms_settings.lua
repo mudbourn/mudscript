@@ -665,6 +665,83 @@ return function(ms)
             return true
         end
 
+        -- Replace an authored setting's definition in place, keeping its slot in
+        -- the list. A same-key edit preserves the user's current value (when it
+        -- still validates against the new def). Renaming the key starts fresh at
+        -- the new default. Renaming onto an existing key is refused.
+        ms.updateAuthoredSetting = function(oldKey, raw)
+            if type(oldKey) ~= "string" or oldKey == "" then
+                return false, "a key is required"
+            end
+            local def, err = ms._sanitizeAuthoredDef(raw)
+            if not def then return false, err end
+            if not def.key then
+                return false, "this setting type cannot be edited"
+            end
+
+            ms._authoredSettings = ms._authoredSettings or {}
+            local foundAt
+            for i, d in ipairs(ms._authoredSettings) do
+                if d.key == oldKey then foundAt = i break end
+            end
+            if not foundAt then
+                return false, "'" .. oldKey .. "' is not an authored setting"
+            end
+            if def.key ~= oldKey and ms._userSettingIndex
+                and ms._userSettingIndex[def.key] then
+                return false, "a setting named '" .. def.key .. "' already exists"
+            end
+
+            -- Snapshot the live value so a same-key edit doesn't reset it.
+            local prevVal = ms._userSettingVals and ms._userSettingVals[oldKey]
+
+            -- Tear down the old registration (index / value / defs), mirroring
+            -- removeAuthoredSetting, remembering where the def sat so the new
+            -- one can take the same slot.
+            if ms._userSettingIndex then ms._userSettingIndex[oldKey] = nil end
+            if ms._userSettingVals  then ms._userSettingVals[oldKey]  = nil end
+            local defsPos
+            if ms._userSettingDefs then
+                for i = #ms._userSettingDefs, 1, -1 do
+                    local d = ms._userSettingDefs[i]
+                    if type(d) == "table" and d.key == oldKey then
+                        defsPos = i
+                        table.remove(ms._userSettingDefs, i)
+                    end
+                end
+            end
+
+            -- Seed the retained value so define() adopts it (same-key edits
+            -- only, and only when it still validates against the new def).
+            if def.key == oldKey and prevVal ~= nil then
+                ms._pendingUserSettings = ms._pendingUserSettings or {}
+                ms._pendingUserSettings[def.key] = prevVal
+            end
+
+            local prevDef = ms._authoredSettings[foundAt]
+            ms._authoredSettings[foundAt] = def
+            local ok = pcall(ms.settings.define, def)
+            if not ok then
+                ms._authoredSettings[foundAt] = prevDef   -- roll back
+                return false, "could not register the setting"
+            end
+
+            -- define() appends to _userSettingDefs; move it back to the slot the
+            -- old def held so the setting keeps its position in the list.
+            if defsPos and ms._userSettingDefs then
+                local last = #ms._userSettingDefs
+                if last > defsPos then
+                    local moved = table.remove(ms._userSettingDefs, last)
+                    table.insert(ms._userSettingDefs, defsPos, moved)
+                end
+            end
+
+            ms._saveAuthoredSettings()
+            ms.saveSettings()
+            if ms.bus and ms.bus.emit then pcall(ms.bus.emit, "ui:macros:listTools") end
+            return true
+        end
+
         ms.loadSettings = function()
             ms.dev.log({
                 type = "system",
@@ -1363,6 +1440,15 @@ return function(ms)
                     end)
                 elseif result == false then
                     reloadOk = false
+                else
+                    -- reloadMacros re-runs the macro chunk and plugins.loadAll,
+                    -- but not the authored settings — the macro-slice hotswap
+                    -- path (ms_ui.lua) pairs it with these two for that reason.
+                    -- Run them here so authored settings survive without letting
+                    -- reloadUI run below (which would wipe the setting/tool defs
+                    -- reloadMacros just restored and never re-load plugins).
+                    if ms._loadAuthoredSettings then pcall(ms._loadAuthoredSettings) end
+                    if ms._defineAuthoredSettings then pcall(ms._defineAuthoredSettings) end
                 end
             end
 
@@ -1393,7 +1479,13 @@ return function(ms)
                 pcall(function() ms.reloadSettings() end)
             end
 
-            if qr.ui then
+            -- When macros were reloaded, reloadMacros already rebuilt every UI
+            -- surface (registry, binds, settings, plugins). Running reloadUI on
+            -- top of that tears down the plugin-registered tools and setting
+            -- modules and never re-loads the plugins (they stay flagged loaded,
+            -- so plugins.load early-returns) — bricking installed plugins until
+            -- a full hs.reload. Same guard the settings block above uses.
+            if qr.ui and not qr.macros then
                 pcall(function() ms.reloadUI() end)
             end
 
@@ -1443,6 +1535,11 @@ return function(ms)
             ms.settings.define = function(def)
                 assert(type(def) == "table",
                     "ms.settings.define: argument must be a table")
+                -- Stamp where this def came from so the Tools panel can filter by
+                -- origin. ms._defineOrigin is set to "pack" while ms_macros.lua
+                -- runs and "plugin" while a plugin loads; a runtime define with no
+                -- context (the authored-setting builder) is the user's own.
+                if def._origin == nil then def._origin = ms._defineOrigin or "user" end
                 local t = def.type
                 assert(_SETTING_TYPES[t],
                     "ms.settings.define: unknown type '" .. tostring(t) .. "'")
@@ -1571,6 +1668,7 @@ return function(ms)
                     "ms.menu.define: 'title' is required")
                 assert(type(def.items) == "table",
                     "ms.menu.define: 'items' must be a table")
+                if def._origin == nil then def._origin = ms._defineOrigin or "user" end
                 for _, item in ipairs(def.items) do
                     if type(item) == "table"
                         and type(item.key) == "string" and #item.key > 0
@@ -1600,6 +1698,7 @@ return function(ms)
             ms.tools.define = function(def)
                 assert(type(def) == "table",
                     "ms.tools.define: argument must be a table")
+                if def._origin == nil then def._origin = ms._defineOrigin or "user" end
                 assert(type(def.id) == "string" and #def.id > 0,
                     "ms.tools.define: 'id' is required")
                 assert(def.id:match("^[%a_][%w_%.]*$"),
@@ -2150,10 +2249,16 @@ return function(ms)
             local alignedKinds = {}
             if ms.package and ms.package.librarySlug
                 and ms.package.libraryActivate and ms.package.libraryHasEntry then
+                -- Authoritative: the target profile's explicit component-pack
+                -- links (packs.json). Fall back per-kind to the same-name slug
+                -- convention for legacy profiles that predate packs.json.
+                local links = ms.package.getProfilePacks
+                    and ms.package.getProfilePacks(targetName) or nil
                 local pslug = ms.package.librarySlug(targetName)
                 for _, k in ipairs({ "theme", "sound", "macro" }) do
-                    if pslug and ms.package.libraryHasEntry(k, pslug) then
-                        local ok, res = pcall(ms.package.libraryActivate, k, pslug)
+                    local slug = (links and links[k]) or pslug
+                    if slug and ms.package.libraryHasEntry(k, slug) then
+                        local ok, res = pcall(ms.package.libraryActivate, k, slug)
                         if ok and res then alignedKinds[k] = true end
                     end
                 end
@@ -2514,8 +2619,12 @@ return function(ms)
             mf:close()
 
             -- Seed from the current setup so a new profile need not come up
-            -- default/silent. Macros stay blank (it is a fresh macro profile);
-            -- only the look + settings + sounds are carried in.
+            -- default/silent. This is the "save my current combination of
+            -- theme + sound + macro packs as a profile" path, so it must capture
+            -- the live MACROS too — not just the look + settings + sounds.
+            -- Dropping macros here was the root of two bugs: a seeded profile
+            -- could never bundle the macro pack you had live, and switching to
+            -- it equipped the blank stub. Mirror saveCurrentProfile's file set.
             if seed then
                 if hs.fs.attributes(jsonPath) then
                     hs.execute("/bin/cp " .. sq(jsonPath) .. " " .. sq(dir .. "/ms_settings.json"))
@@ -2528,6 +2637,28 @@ return function(ms)
                 end
                 copyDirContents(SoundActiveDir, dir .. "/sounds/active/")
                 copyDirContents(SoundMacroDir,  dir .. "/sounds/macro/")
+                -- Live handwritten macros overwrite the blank stub written above
+                -- so the profile carries the current macro pack, not an empty one.
+                if hs.fs.attributes(macrosPath) then
+                    hs.execute("/bin/cp " .. sq(macrosPath) .. " " .. sq(dir .. "/ms_macros.lua"))
+                end
+                -- Visual macros, authored tools, and helper vars travel too, the
+                -- same content saveCurrentProfile banks (see profileContentFiles).
+                for _, cf in ipairs(profileContentFiles()) do
+                    if hs.fs.attributes(cf.live) then
+                        hs.execute("/bin/cp " .. sq(cf.live) .. " " .. sq(dir .. "/" .. cf.name))
+                    end
+                end
+                -- Bank the seeded slices as profile-named component packs so the
+                -- profile is an explicit collection of packs from creation. Import
+                -- (copy-only) rather than capture: creating a profile must not flip
+                -- the live per-kind .active markers (we are not switching to it).
+                if ms.package and ms.package.libraryImportDir then
+                    for _, k in ipairs({ "macro", "theme", "sound" }) do
+                        pcall(ms.package.libraryImportDir, k, dir,
+                            { name = folderName, origin = "profile" })
+                    end
+                end
             end
 
             -- Parity: a blank profile spawns matching blank theme + sound packs
@@ -2556,6 +2687,20 @@ return function(ms)
                         end
                     end
                 end
+            end
+
+            -- Record the profile's explicit component-pack links (packs.json) for
+            -- whichever kinds now have a same-named pack — blank profiles created
+            -- them above, seeded profiles imported them. switchProfile and boot
+            -- read this as the authoritative link instead of the name convention.
+            if ms.package and ms.package.setProfilePacks
+                and ms.package.libraryHasEntry and ms.package.librarySlug then
+                local slug = ms.package.librarySlug(folderName)
+                local refs = {}
+                for _, k in ipairs({ "theme", "sound", "macro" }) do
+                    if ms.package.libraryHasEntry(k, slug) then refs[k] = slug end
+                end
+                pcall(ms.package.setProfilePacks, folderName, refs)
             end
 
             ms._profilesDirty = true
@@ -2626,6 +2771,25 @@ return function(ms)
             for _, cf in ipairs(profileContentFiles()) do
                 if hs.fs.attributes(cf.live) then
                     hs.execute("/bin/cp " .. sq(cf.live) .. " " .. sq(profilesPath .. folderName .. "/" .. cf.name))
+                end
+            end
+            -- A profile is a collection of component packs. Capture the live slice
+            -- of each kind into a profile-named library pack (overwriting in place),
+            -- mark it active, and record the links in packs.json — so the shelves
+            -- show the profile's own packs as active and a later switch restores
+            -- them explicitly (not by fragile fingerprint). This is the explicit
+            -- save the "don't auto-save on hotswap" model defers to.
+            if ms.package and ms.package.libraryCapture and ms.package.setProfilePacks then
+                local refs = {}
+                for _, k in ipairs({ "theme", "sound", "macro" }) do
+                    local rec = ms.package.libraryCapture(k, name)
+                    if rec and rec.slug then refs[k] = rec.slug end
+                end
+                pcall(ms.package.setProfilePacks, folderName, refs)
+                if ms.ui._actions and ms.ui._actions.libraryList then
+                    for _, k in ipairs({ "theme", "sound", "macro" }) do
+                        pcall(ms.ui._actions.libraryList, { kind = k })
+                    end
                 end
             end
             ms.playSlot("update")

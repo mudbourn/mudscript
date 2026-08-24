@@ -122,9 +122,11 @@
                 position: absolute;
                 top: 14px;
                 left: 18px;
-                /* ui-lint-allow: intentional system-font fallback, the themed
-                   font may be the thing that failed to load (see note above). */
-                font-family: Georgia, "Times New Roman", serif;
+                /* Themed like the rest of the screen. var(--font) already ends
+                   in an Arial/sans-serif fallback (see applyTheme), so this
+                   still renders even if the themed web font failed to load —
+                   keeping the fallback's whole purpose intact while theming. */
+                font-family: var(--font);
                 font-size: 18px;
                 font-weight: 700;
                 color: var(--text);

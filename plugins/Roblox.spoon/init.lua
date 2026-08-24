@@ -166,6 +166,28 @@ function obj:init()
         })
     -- END Anti-Timeout --
 
+    -- Camera Sensitivity --
+        -- The manual camera-sensitivity slider. It used to live in the pack's
+        -- ms_macros.lua; it belongs here because it only means anything for the
+        -- Roblox camera, and the Sensitivity Tether below drives it. Defined
+        -- before the tether so the tether's graft finds it. Persisted value is
+        -- restored by ms.settings.define (pending user settings) as before.
+        ms.settings.define({
+            type    = "slider",
+            key     = "cameraSensitivity",
+            label   = "Camera Sensitivity",
+            min     = 0.1,
+            max     = 4,
+            step    = 0.1,
+            default = 1.5,
+            save    = true,
+            section = "roblox",
+            onChange = function(val)
+                ms._camSens = val
+            end,
+        })
+    -- END Camera Sensitivity --
+
     -- Sensitivity Tether --
         local function syncSensitivity()
             if ms.settings.get("robloxSyncSensitivity") == false then return end

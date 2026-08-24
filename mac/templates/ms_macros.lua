@@ -31,16 +31,4 @@ ms.bind.define("NewMacro1", NewMacro1Function, {
     },
 })
 
--- Camera Sensitivity --
-ms.settings.define({
-    type    = "slider",
-    key     = "cameraSensitivity",
-    label   = "Camera Sensitivity",
-    min     = 0.1,
-    max     = 4,
-    step    = 0.1,
-    default = 1.5,
-    onChange = function(val)
-        ms._camSens = val
-    end,
-})
+-- Camera Sensitivity lives in the Roblox plugin (Roblox.spoon) now. --

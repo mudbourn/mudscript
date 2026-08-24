@@ -3,6 +3,28 @@
 (function() {
         "use strict";
 
+        /* -- Enum option sets (mirror the constants ms_core.lua asserts on;
+           keep these in exact sync with ms.Mouse's OPS/BTNS/REFS, ms.scroll's
+           directions, and ms.window's ops, or the compiled call will error) -- */
+        var MOUSE_OPS = ["Move", "Click", "DoubleClick", "TripleClick", "Drag", "Press", "Release"];
+        var MOUSE_BTNS = ["Left", "Right", "Center", "Button4", "Button5"];
+        var MOUSE_REFS = [
+            { value: "Absolute",     label: "Absolute (screen coords)" },
+            { value: "Mouse",        label: "Mouse (relative to cursor)" },
+            { value: "WindowTL",     label: "Window · Top-Left" },
+            { value: "WindowTR",     label: "Window · Top-Right" },
+            { value: "WindowBL",     label: "Window · Bottom-Left" },
+            { value: "WindowBR",     label: "Window · Bottom-Right" },
+            { value: "WindowCenter", label: "Window · Center" },
+            { value: "ScreenTL",     label: "Screen · Top-Left" },
+            { value: "ScreenTR",     label: "Screen · Top-Right" },
+            { value: "ScreenBL",     label: "Screen · Bottom-Left" },
+            { value: "ScreenBR",     label: "Screen · Bottom-Right" },
+            { value: "ScreenCenter", label: "Screen · Center" }
+        ];
+        var SCROLL_DIRS = ["up", "down", "left", "right"];
+        var WINDOW_OPS = ["Move", "Resize", "Frame"];
+
         /* -- Function Registry -- */
         var REGISTRY = [
             /* -- input -- */
@@ -167,9 +189,9 @@
                 desc: "Unified mouse API (click, move, drag at coordinates).",
                 category: "mouse",
                 params: [
-                    { name: "operation", type: "string",  label: "Operation (click/move/drag)", required: true },
-                    { name: "button",    type: "string",  label: "Button (left/right/middle)",  required: true },
-                    { name: "reference", type: "string",  label: "Reference",                   required: true },
+                    { name: "operation", type: "enum", options: MOUSE_OPS,  label: "Operation", required: true },
+                    { name: "button",    type: "enum", options: MOUSE_BTNS, label: "Button",    required: true },
+                    { name: "reference", type: "enum", options: MOUSE_REFS, label: "Reference", required: true },
                     { name: "unscaled",  type: "boolean", label: "Unscaled (raw pixels, bypass REF scaling)", required: false },
                     { name: "x1",        type: "number",  label: "X1",                          required: true },
                     { name: "y1",        type: "number",  label: "Y1",                          required: true },
@@ -184,7 +206,7 @@
                 desc: "Post a scroll event.",
                 category: "mouse",
                 params: [
-                    { name: "direction", type: "string", label: "Direction (up/down/left/right)", required: true },
+                    { name: "direction", type: "enum", options: SCROLL_DIRS, label: "Direction", required: true },
                     { name: "clicks",    type: "number", label: "Clicks",                        required: true }
                 ]
             },
@@ -197,7 +219,7 @@
                 params: [
                     { name: "x",          type: "number", label: "X",          required: true },
                     { name: "y",          type: "number", label: "Y",          required: true },
-                    { name: "ref",        type: "string", label: "Reference",  required: false },
+                    { name: "ref",        type: "enum", options: MOUSE_REFS, label: "Reference",  required: false },
                     { name: "durationMs", type: "number", label: "Duration (ms)", required: false }
                 ]
             },
@@ -209,8 +231,8 @@
                 category: "mouse",
                 params: [
                     { name: "points", type: "string", label: "Points (x,y;x,y)", required: true },
-                    { name: "button", type: "string", label: "Button",           required: false },
-                    { name: "ref",    type: "string", label: "Reference",        required: false },
+                    { name: "button", type: "enum", options: MOUSE_BTNS, label: "Button",     required: false },
+                    { name: "ref",    type: "enum", options: MOUSE_REFS, label: "Reference",  required: false },
                     { name: "delayMs",type: "number", label: "Delay (ms)",       required: false }
                 ]
             },
@@ -239,11 +261,21 @@
                 desc: "Move or resize the focused window. Move uses (x,y); Resize uses (x=width, y=height); Frame uses all four.",
                 category: "window",
                 params: [
-                    { name: "operation", type: "string", label: "Operation (Move/Resize/Frame)", required: true },
+                    { name: "operation", type: "enum", options: WINDOW_OPS, label: "Operation", required: true },
                     { name: "x", type: "number", label: "X / Width",  required: true },
                     { name: "y", type: "number", label: "Y / Height", required: true },
                     { name: "w", type: "number", label: "Width (Frame)",  required: false },
                     { name: "h", type: "number", label: "Height (Frame)", required: false }
+                ]
+            },
+            {
+                id: "ms.windowPos",
+                name: "ms.windowPos",
+                sig: "ms.windowPos(appName)",
+                desc: "Get the position of an app's window.",
+                category: "window",
+                params: [
+                    { name: "appName", type: "string", label: "App Name", required: true }
                 ]
             },
 
@@ -286,7 +318,7 @@
                 params: [
                     { name: "x",         type: "number", label: "X",         required: true },
                     { name: "y",         type: "number", label: "Y",         required: true },
-                    { name: "reference", type: "string", label: "Reference", required: false }
+                    { name: "reference", type: "enum", options: MOUSE_REFS, label: "Reference", required: false }
                 ]
             },
             {
@@ -298,7 +330,7 @@
                 params: [
                     { name: "x",         type: "number", label: "X",         required: true },
                     { name: "y",         type: "number", label: "Y",         required: true },
-                    { name: "reference", type: "string", label: "Reference", required: false },
+                    { name: "reference", type: "enum", options: MOUSE_REFS, label: "Reference", required: false },
                     { name: "r",         type: "number", label: "R",         required: true },
                     { name: "g",         type: "number", label: "G",         required: true },
                     { name: "b",         type: "number", label: "B",         required: true },
@@ -314,7 +346,7 @@
                 params: [
                     { name: "x",         type: "number", label: "X",         required: true },
                     { name: "y",         type: "number", label: "Y",         required: true },
-                    { name: "ref",       type: "string", label: "Reference", required: false },
+                    { name: "ref",       type: "enum", options: MOUSE_REFS, label: "Reference", required: false },
                     { name: "r",         type: "number", label: "R",         required: true },
                     { name: "g",         type: "number", label: "G",         required: true },
                     { name: "b",         type: "number", label: "B",         required: true },
@@ -331,7 +363,7 @@
                 params: [
                     { name: "x",         type: "number", label: "X",         required: true },
                     { name: "y",         type: "number", label: "Y",         required: true },
-                    { name: "ref",       type: "string", label: "Reference", required: false },
+                    { name: "ref",       type: "enum", options: MOUSE_REFS, label: "Reference", required: false },
                     { name: "r",         type: "number", label: "R",         required: true },
                     { name: "g",         type: "number", label: "G",         required: true },
                     { name: "b",         type: "number", label: "B",         required: true },
@@ -454,6 +486,16 @@
                 category: "state",
                 params: []
             },
+            {
+                id: "ms.mousestate",
+                name: "ms.mousestate",
+                sig: "ms.mousestate(button)",
+                desc: "Check if a mouse button is currently held (left/right/middle).",
+                category: "state",
+                params: [
+                    { name: "button", type: "string", label: "Button (left/right/middle)", required: true }
+                ]
+            },
 
             /* -- audio -- */
             {
@@ -555,6 +597,30 @@
                 name: "ms.cancelMacros",
                 sig: "ms.cancelMacros()",
                 desc: "Cancel all active macro coroutines.",
+                category: "flow",
+                params: []
+            },
+            {
+                id: "ms.pause",
+                name: "ms.pause",
+                sig: "ms.pause()",
+                desc: "Pause the current macro.",
+                category: "flow",
+                params: []
+            },
+            {
+                id: "ms.resume",
+                name: "ms.resume",
+                sig: "ms.resume()",
+                desc: "Resume a paused macro.",
+                category: "flow",
+                params: []
+            },
+            {
+                id: "ms.done",
+                name: "ms.done",
+                sig: "ms.done()",
+                desc: "Signal macro completion.",
                 category: "flow",
                 params: []
             },
@@ -1046,6 +1112,8 @@
                     _paramValues[p.name] = 0;
                 } else if (p.type === "boolean") {
                     _paramValues[p.name] = false;
+                } else if (p.type === "enum") {
+                    _paramValues[p.name] = enumDefault(p);
                 } else {
                     _paramValues[p.name] = "";
                 }
@@ -1366,6 +1434,14 @@
             }
         }
 
+        // First option's value for an enum param (options are strings or
+        // {value,label} objects). Used to seed a valid default.
+        function enumDefault(p) {
+            var o = (p.options || [])[0];
+            if (o == null) return "";
+            return (typeof o === "object") ? o.value : o;
+        }
+
         function renderParamField(p) {
             var bindable = !!BINDABLE[p.type];
             var bound = bindable && !!_paramBind[p.name];
@@ -1393,6 +1469,13 @@
 
                 case "number":
                     html += '<input type="number" data-param="' + esc(p.name) + '" value="0" step="1">';
+                    break;
+
+                case "enum":
+                    // A fixed constant set (mouse button, reference, etc.).
+                    // Rendered as a themed createSelect, mounted after the HTML
+                    // lands, so an invalid value can't be typed in the first place.
+                    html += '<div class="fn-enum-select-mount" data-enummount="' + esc(p.name) + '"></div>';
                     break;
 
                 case "boolean":
@@ -1560,9 +1643,40 @@
                 })(switches[s]);
             }
 
+            // Enum selects, a fixed constant set per param.
+            mountEnumSelects(fn);
+
             // Tool selects, pick which tool a bound parameter reads from.
             // Mounted as themed createSelect nodes (each wires its own onChange).
             mountToolSelects(fn);
+        }
+
+        // Replace each enum mount point with a themed createSelect. The value is
+        // seeded from _paramValues (set to the first option in selectFunction),
+        // so a required enum is always valid without any user interaction.
+        function mountEnumSelects(fn) {
+            if (typeof window.createSelect !== "function") return;
+            var byName = {};
+            for (var i = 0; i < fn.params.length; i++) byName[fn.params[i].name] = fn.params[i];
+            var mounts = detailPane.querySelectorAll(".fn-enum-select-mount");
+            for (var m = 0; m < mounts.length; m++) {
+                (function(mount) {
+                    var name = mount.getAttribute("data-enummount");
+                    var p = byName[name];
+                    if (!p) return;
+                    var sel = window.createSelect({
+                        options: p.options || [],
+                        value: _paramValues[name] || "",
+                        className: "fn-enum-select",
+                        onChange: function(v) {
+                            if (window.playSlot) playSlot("interact");
+                            _paramValues[name] = v;
+                            updatePreview(fn);
+                        },
+                    });
+                    mount.appendChild(sel);
+                })(mounts[m]);
+            }
         }
 
         /* -- Key Capture -- */
@@ -1635,7 +1749,7 @@
                     parts.push(p.name + ':ms.settings.get("' + val.__toolRef + '")');
                 } else if (p.type === "mods") {
                     parts.push(p.name + ":[" + (val || []).join(",") + "]");
-                } else if (p.type === "string") {
+                } else if (p.type === "string" || p.type === "enum") {
                     parts.push(p.name + ':"' + (val || "") + '"');
                 } else {
                     parts.push(p.name + ":" + (val !== undefined ? val : ""));
@@ -1938,6 +2052,7 @@
         }
         this._render();
         this._fireChange();
+        return step._sid;
     };
 
     // Insert a new top-level module before `beforeSid` (or at the end when
@@ -3484,6 +3599,7 @@
             (fn.params || []).forEach(function(p) {
                 if (p.type === "mods") params[p.name] = [];
                 else if (p.type === "number") params[p.name] = 0;
+                else if (p.type === "enum") params[p.name] = enumDefault(p);
                 else params[p.name] = "";
             });
             return { action: fn.name, params: params };
@@ -4626,6 +4742,29 @@
     /* -- Close panel (called by header pop-out button) -- */
     window.closePanel = function() {
         if (window.shellPost) shellPost("macros", "close", {});
+    };
+
+    /* -- Macro-engine (bind validity) header toggle -- */
+    // Mirrors the enable/disable hotkey: flips BindValidity via the same
+    // setMacros host action the Settings master switch uses. The lit state is
+    // driven only by the real macrosEnabled the host reports, so it stays
+    // correct when the state is changed elsewhere — the hotkey, the Settings
+    // toggle, or target focus/blur — not just by this button.
+    window._macrosEnabled = window._macrosEnabled || false;
+    window.updateMacrosToggleBtn = function(enabled) {
+        window._macrosEnabled = !!enabled;
+        var btn = document.getElementById("macrosEnabledToggle");
+        if (!btn) return;
+        btn.classList.toggle("active", !!enabled);
+        btn.textContent = enabled ? "On" : "Off";
+    };
+    window.toggleMacrosEnabled = function() {
+        if (window.shellPost) {
+            shellPost("settings", "setMacros", {
+                action: "setMacros",
+                value: window._macrosEnabled ? 0 : 1,
+            });
+        }
     };
 
     /* -- Initial state -- */

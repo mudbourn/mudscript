@@ -812,6 +812,14 @@
                 if (item.authored) {
                     out.push({
                         icon: "",
+                        label: "Edit tool",
+                        action: () => {
+                            if (window._loadSettingIntoBuilder)
+                                window._loadSettingIntoBuilder(item);
+                        },
+                    });
+                    out.push({
+                        icon: "",
                         label: "Delete tool",
                         danger: true,
                         action: async () => {
@@ -961,7 +969,7 @@
 
             // buildSettings, the pack's own user-defined settings //
             function buildSettings(body) {
-                const items = S.userSettings || [];
+                const items = filterByOrigin(S.userSettings || []);
                 if (items.length > 0) {
                     for (const item of items) {
                         renderUserItem(body, item);
@@ -984,7 +992,7 @@
 
             // Function tools — each callable from here or from a macro.
             function buildFunctions(body) {
-                const items = S.userFunctions || [];
+                const items = filterByOrigin(S.userFunctions || []);
                 if (!items.length) {
                     body.appendChild(groupLabel("No functions defined."));
                     return;
@@ -1025,7 +1033,7 @@
             }
 
             function buildVariables(body) {
-                const items = S.userVariables || [];
+                const items = filterByOrigin(S.userVariables || []);
                 if (!items.length) {
                     body.appendChild(groupLabel("No variables defined."));
                     return;
@@ -1212,7 +1220,7 @@
                                         playSlot("interact");
                                         const r = await openModal(
                                             "Create New Profile",
-                                            "Start it from your current theme, settings, and sounds — or blank?",
+                                            "Start it from your current macros, theme, settings, and sounds — or blank?",
                                             "Seed from current",
                                             "Start blank",
                                         );
@@ -1603,7 +1611,10 @@
                 scroll.scrollTop = scrollTop;
             }
 
-            function buildSettingBuilder(body) {
+            // `preset` (optional) puts the builder in edit mode: { editKey, item }
+            // seeds the draft from an existing authored setting so Save updates it
+            // in place instead of adding a new one.
+            function buildSettingBuilder(body, preset) {
                 const draft = {
                     type: "toggle",
                     key: "",
@@ -1622,6 +1633,38 @@
                     danger: false,
                     target: "settings",
                 };
+
+                // Non-null while editing an existing setting; carries the ORIGINAL
+                // key so the host can locate the def even if the key is renamed.
+                let editKey = (preset && preset.editKey) || null;
+                if (preset && preset.item) seedDraftFrom(draft, preset.item);
+
+                // Map a serialized authored-setting item back onto the draft.
+                function seedDraftFrom(dr, item) {
+                    dr.type   = item.type || "toggle";
+                    dr.key    = item.key || "";
+                    dr.label  = item.label || "";
+                    dr.hint   = item.hint || "";
+                    dr.target = item.section === "calibration"
+                        ? "calibration" : "settings";
+                    if (item.type === "toggle") {
+                        dr.default = (item.default === true) || (item.value === true);
+                    } else if (item.type === "slider") {
+                        dr.min  = item.min  != null ? item.min  : 0;
+                        dr.max  = item.max  != null ? item.max  : 100;
+                        dr.step = item.step != null ? item.step : 1;
+                        dr.unit = item.unit || "";
+                        dr.default = item.default != null ? item.default : dr.min;
+                    } else if (item.type === "seg") {
+                        dr.options = (item.options || []).map(
+                            (o) => ({ label: o.label, value: o.value }));
+                        if (!dr.options.length)
+                            dr.options = [{ label: "", value: "" }];
+                    } else if (item.type === "action") {
+                        dr.btnLabel = item.btnLabel || "Run";
+                        dr.danger   = item.danger === true;
+                    }
+                }
 
                 const typeLabels = [
                     { label: "Toggle", value: "toggle" },
@@ -1694,33 +1737,37 @@
                 const preview = h("div", { cls: "setting-builder-preview" });
                 body.appendChild(preview);
 
-                // Add / Reset //
-                body.appendChild(
-                    btnRow(
-                        actionBtn("Add Setting", "accent", () => {
-                            const def = buildDef();
-                            const err = validate(def);
-                            if (err) {
-                                showAlert(err);
-                                return;
-                            }
+                // Add / Update / Reset //
+                // Return the builder to add-mode (identity cleared, edit target
+                // dropped). Called after a save and by the Reset button.
+                const clearIdentity = () => {
+                    editKey = null;
+                    primaryBtn.textContent = "Add Setting";
+                    draft.key = "";
+                    draft.label = "";
+                    draft.hint = "";
+                    syncIdentityInputs();
+                    renderDynamic();
+                    updatePreview();
+                };
+                const primaryBtn = actionBtn(
+                    editKey ? "Update Setting" : "Add Setting", "accent", () => {
+                        const def = buildDef();
+                        const err = validate(def);
+                        if (err) {
+                            showAlert(err);
+                            return;
+                        }
+                        if (editKey) {
+                            sendToHost({
+                                action: "updateUserSetting", key: editKey, def: def });
+                        } else {
                             sendToHost({ action: "addUserSetting", def: def });
-                            draft.key = "";
-                            draft.label = "";
-                            draft.hint = "";
-                            syncIdentityInputs();
-                            renderDynamic();
-                            updatePreview();
-                        }),
-                        actionBtn("Reset", "", () => {
-                            draft.key = "";
-                            draft.label = "";
-                            draft.hint = "";
-                            syncIdentityInputs();
-                            renderDynamic();
-                            updatePreview();
-                        }),
-                    ),
+                        }
+                        clearIdentity();
+                    });
+                body.appendChild(
+                    btnRow(primaryBtn, actionBtn("Reset", "", clearIdentity)),
                 );
 
                 // Builders //
@@ -1932,9 +1979,29 @@
                 updatePreview();
             }
 
+            // Load an existing authored setting into the Setting Builder (edit
+            // mode) and reveal the builder tab. Called by each setting's "Edit
+            // tool" context item; rebuilds the builder body from scratch so the
+            // Type control and every field reflect the loaded def.
+            window._loadSettingIntoBuilder = (item) => {
+                if (!item || !item.key) return;
+                const bscroll = document.getElementById("tools-builder-scroll");
+                if (!bscroll) return;
+                const bodyEl = bscroll.querySelector(
+                    '[data-section="builder"] .section-body');
+                if (!bodyEl) return;
+                bodyEl.innerHTML = "";
+                buildSettingBuilder(bodyEl, { editKey: item.key, item: item });
+                switchToolsTab("builder");
+            };
+
             function renderToolsPanel() {
                 const scroll = document.getElementById("tools-scroll");
                 if (!scroll) return;
+                // Keep the origin-filter header button in step with the flag,
+                // which outlives a panel rebuild.
+                syncToolsFilterBtn();
+                const active = window._toolsFilter !== "all";
                 // Populate window.msMacroTools so the Function/Setting builders'
                 // Value->Tool dropdowns have data. It is otherwise filled only when
                 // the macro builder calls refreshToolList(), so opening Tools
@@ -1944,6 +2011,9 @@
                 scroll.innerHTML = "";
 
                 for (const menu of S.userMenus || []) {
+                    // A whole menu carries one origin — skip it under a filter it
+                    // doesn't match.
+                    if (active && !toolOriginMatches(menu.origin)) continue;
                     const title = menu.icon
                         ? menu.icon + " " + menu.title
                         : menu.title;
@@ -1956,21 +2026,28 @@
 
                 // The three user-defined tool kinds sit at the bottom of the
                 // window: Settings (adjustable values), Functions (callable), and
-                // Variables (shared helper vars).
-                scroll.appendChild(
-                    section("settings", "Settings", buildSettings,
-                        "Defined by your macro pack"),
-                );
-                scroll.appendChild(
-                    section("functions", "Functions", buildFunctions,
-                        "Function tools your macros can call"),
-                );
-                scroll.appendChild(
-                    section("variables", "Variables", buildVariables,
-                        "Shared helper variables"),
-                );
+                // Variables (shared helper vars). Under an origin filter, a kind
+                // with nothing left to show is dropped rather than left empty.
+                if (!active || filterByOrigin(S.userSettings).length) {
+                    scroll.appendChild(
+                        section("settings", "Settings", buildSettings,
+                            "Defined by your macro pack"),
+                    );
+                }
+                if (!active || filterByOrigin(S.userFunctions).length) {
+                    scroll.appendChild(
+                        section("functions", "Functions", buildFunctions,
+                            "Function tools your macros can call"),
+                    );
+                }
+                if (!active || filterByOrigin(S.userVariables).length) {
+                    scroll.appendChild(
+                        section("variables", "Variables", buildVariables,
+                            "Shared helper variables"),
+                    );
+                }
 
-                const calib = S.userCalibrationSettings || [];
+                const calib = filterByOrigin(S.userCalibrationSettings || []);
                 if (calib.length > 0) {
                     scroll.appendChild(
                         section("calibration", "Calibration", (body) => {
@@ -1993,6 +2070,37 @@
                 renderToolVariablesTab();
             }
             window.renderToolsPanel = renderToolsPanel;
+
+            // Header origin filter: cycles All -> User -> Pack -> Plugin. Each
+            // tool carries an `origin` ("user" = builder, "pack" = ms_macros.lua,
+            // "plugin" = a loaded plugin); the non-"all" states show only that
+            // origin. Read by the Tuning-tab builders and the Function tab list.
+            const TOOL_FILTER_ORDER = ["all", "user", "pack", "plugin"];
+            const TOOL_FILTER_LABEL = {
+                all: "All", user: "User", pack: "Pack", plugin: "Plugin",
+            };
+            window._toolsFilter = window._toolsFilter || "all";
+            function toolOriginMatches(origin) {
+                if (window._toolsFilter === "all") return true;
+                return (origin || "pack") === window._toolsFilter;
+            }
+            function filterByOrigin(arr) {
+                return (arr || []).filter((x) => toolOriginMatches(x && x.origin));
+            }
+            function syncToolsFilterBtn() {
+                const btn = document.getElementById("toolsFilterToggle");
+                if (!btn) return;
+                btn.textContent = TOOL_FILTER_LABEL[window._toolsFilter] || "All";
+                btn.classList.toggle("active", window._toolsFilter !== "all");
+            }
+            function cycleToolsFilter() {
+                const i = TOOL_FILTER_ORDER.indexOf(window._toolsFilter);
+                window._toolsFilter =
+                    TOOL_FILTER_ORDER[(i + 1) % TOOL_FILTER_ORDER.length];
+                syncToolsFilterBtn();
+                renderToolsPanel();
+            }
+            window.cycleToolsFilter = cycleToolsFilter;
 
             function sendToTools(action, data) {
                 if (window.shellPost) {
@@ -2139,10 +2247,15 @@
                         onChange: (v) => {
                             if (!v || !_fnCanvas) return;
                             const def = buildStepDef(v);
-                            if (def) _fnCanvas.addTool(def);
+                            if (!def) return;
+                            const sid = _fnCanvas.addTool(def);
+                            // Open the parameter editor on the step we just added so
+                            // its params can be set inline, rather than making the
+                            // user right-click to find it.
+                            if (sid && _fnEditor) _fnEditor.open(sid);
                         },
                     });
-                    body.appendChild(row("Step", "Right-click a step to set its parameters",
+                    body.appendChild(row("Step", "Pick a module to add it, then set its parameters",
                         addSel, "row-sub"));
                 }
 
@@ -2203,12 +2316,24 @@
 
             function fillFunctionList(host) {
                 host.innerHTML = "";
-                const fns = window.msMacroFunctions || [];
+                let fns = window.msMacroFunctions || [];
+                // Apply the header origin filter. A function tool's `source`
+                // ("pack"/"plugin", else builder) maps onto the same origins the
+                // rest of the panel uses.
+                if (window._toolsFilter && window._toolsFilter !== "all") {
+                    fns = fns.filter((fn) => {
+                        const origin = fn.source === "pack" ? "pack"
+                            : fn.source === "plugin" ? "plugin" : "user";
+                        return origin === window._toolsFilter;
+                    });
+                }
                 if (fns.length === 0) {
                     host.appendChild(h("div", {
                         cls: "row-sub",
                         style: "padding:8px 14px;color:var(--text3);font-style:italic;",
-                    }, "No function tools yet."));
+                    }, (window._toolsFilter && window._toolsFilter !== "all")
+                        ? "No " + window._toolsFilter + " function tools."
+                        : "No function tools yet."));
                     return;
                 }
                 fns.forEach((fn) => {
@@ -2271,10 +2396,20 @@
             }
             window.renderToolVariablesTab = renderToolVariablesTab;
 
-            function buildVariableBuilder(body) {
-                const draft = { name: "", type: "number", default: "", hint: "" };
+            // `preset` (optional) puts the builder in edit mode, seeding the draft
+            // from an existing helper var so Save updates it (re-declaring by the
+            // same name overwrites in place; a rename drops the old declaration).
+            function buildVariableBuilder(body, preset) {
+                const draft = preset
+                    ? { name: preset.name || "",
+                        type: preset.type || "number",
+                        default: (preset.default != null ? String(preset.default) : ""),
+                        hint: preset.hint || "" }
+                    : { name: "", type: "number", default: "", hint: "" };
+                let editName = (preset && preset.name) || null;
                 const nameInput = h("input", {
                     type: "text", cls: "input-sm", placeholder: "myCounter",
+                    value: draft.name,
                     oninput: (e) => { draft.name = e.target.value; },
                 });
                 body.appendChild(row("Name", "Identifier macros use to read it",
@@ -2293,18 +2428,20 @@
                     })));
                 const defInput = h("input", {
                     type: "text", cls: "input-sm", placeholder: DEF_PLACEHOLDER[draft.type],
+                    value: draft.default,
                     oninput: (e) => { draft.default = e.target.value; },
                 });
                 _varDefaultInput = defInput;
                 body.appendChild(row("Default", "Starting value", defInput, "row-sub"));
                 const hintInput = h("input", {
                     type: "text", cls: "input-sm", placeholder: "",
+                    value: draft.hint,
                     oninput: (e) => { draft.hint = e.target.value; },
                 });
                 body.appendChild(row("Hint", "Optional one-line help", hintInput, "row-sub"));
 
-                body.appendChild(btnRow(
-                    actionBtn("Save Variable", "accent", () => {
+                const saveVarBtn = actionBtn(
+                    editName ? "Update Variable" : "Save Variable", "accent", () => {
                         const nm = (draft.name || "").trim();
                         if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(nm)) {
                             showAlert("Name must be a valid identifier.");
@@ -2313,15 +2450,40 @@
                         let dv = draft.default;
                         if (draft.type === "number") dv = parseFloat(dv) || 0;
                         else if (draft.type === "boolean") dv = (dv === "true" || dv === "1" || dv === "yes");
+                        // A rename leaves the old declaration behind, so drop it.
+                        if (editName && editName !== nm) {
+                            sendToTools("deleteHelperVar", { name: editName });
+                        }
                         sendToTools("saveHelperVar", {
                             def: { name: nm, type: draft.type, default: dv,
                                    hint: (draft.hint || "").trim() },
                         });
+                        editName = null;
+                        saveVarBtn.textContent = "Save Variable";
                         draft.name = ""; draft.default = ""; draft.hint = "";
                         nameInput.value = ""; defInput.value = ""; hintInput.value = "";
-                    }),
-                ));
+                    });
+                body.appendChild(btnRow(saveVarBtn));
             }
+
+            // Load an existing helper var into the Variable builder (edit mode)
+            // and reveal the Variable tab. Rebuilds the builder body so the Type
+            // control and every field reflect the loaded declaration.
+            window._loadVariableIntoBuilder = (v) => {
+                if (!v || !v.name) return;
+                const vscroll = document.getElementById("tools-variables-scroll");
+                if (!vscroll) return;
+                const bodyEl = vscroll.querySelector(
+                    '[data-section="var-builder"] .section-body');
+                if (!bodyEl) return;
+                bodyEl.innerHTML = "";
+                buildVariableBuilder(bodyEl, {
+                    name: v.name, type: v.type || "number",
+                    default: (v.default != null ? v.default : v.value),
+                    hint: v.hint || "",
+                });
+                switchToolsTab("variables");
+            };
 
             function buildVariableList(body) {
                 const listBody = h("div", { id: "tool-var-list-body" });
@@ -2375,6 +2537,11 @@
                     });
                     ins.title = "Append " + token + " to the Default field";
                     r.appendChild(ins);
+                    const edit = actionBtn("Edit", "", () => {
+                        if (window._loadVariableIntoBuilder)
+                            window._loadVariableIntoBuilder(v);
+                    });
+                    r.appendChild(edit);
                     const del = actionBtn("Delete", "danger", () => {
                         sendToTools("deleteHelperVar", { name: v.name });
                     });
@@ -2557,6 +2724,12 @@
                 render();
                 renderToolsPanel();
                 renderProfilesPanel();
+                // Keep the Macro Lab header's engine toggle in step with the real
+                // bind validity, however it was changed (hotkey, Settings switch,
+                // target focus/blur).
+                if (window.updateMacrosToggleBtn) {
+                    window.updateMacrosToggleBtn(S.macrosEnabled ?? false);
+                }
                 if (window.renderThemePanel) window.renderThemePanel(state);
                 if (window.renderPluginsPanel) window.renderPluginsPanel(state);
             }
