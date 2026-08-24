@@ -559,13 +559,6 @@
         .section:first-child .section-head { padding-top: 14px; }
         .section-title { font-weight: 700; font-size: 12px; color: var(--text); text-transform: uppercase; letter-spacing: 1.4px; flex-shrink: 0; }
         .section-desc { font-size: 11px; color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-        /* Inline-editable header for user-created sections: the title/icon are
-           text fields the user clicks into, plus a remove control. */
-        .section-head-edit { align-items: center; }
-        .section-head-edit .section-icon-input { width: 34px; flex: 0 0 auto; text-align: center; padding-left: 4px; padding-right: 4px; }
-        .section-head-edit .section-title-input { flex: 1 1 auto; min-width: 0; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text); }
-        .section-del-btn { flex: 0 0 auto; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border: none; background: none; color: var(--text3); font-size: 14px; line-height: 1; border-radius: var(--radius); cursor: pointer; transition: background 0.12s, color 0.12s; }
-        .section-del-btn:hover { background: var(--dangerBg); color: var(--danger); }
         .section-body { margin: 10px 14px 6px; background: var(--surface); border: 1px solid var(--border-dim); border-radius: var(--radius); overflow: hidden; }
 
         .row { display: flex; align-items: center; gap: 14px; padding: 11px 14px; border-bottom: 1px solid var(--border-faint); transition: background 0.12s; min-height: 44px; }
@@ -914,8 +907,10 @@
         .bind-row-sub .bind-label { color: var(--text2); font-size: 12px; }
         .bind-label { flex: 1; min-width: 0; font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .bind-acts { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-        .bind-pill { padding: 2px 8px; border-radius: var(--radius); font: 12px var(--font-mono); color: var(--text); background: var(--surface2); border: 1px solid var(--border); cursor: pointer; white-space: nowrap; transition: color 0.15s, border-color 0.15s; }
+        .bind-pill { padding: 2px 8px; border-radius: var(--radius); font-family: inherit; font-size: 12px; color: var(--text); background: var(--surface2); border: 1px solid var(--border); cursor: pointer; white-space: nowrap; transition: color 0.15s, border-color 0.15s; }
         .bind-pill:hover { color: var(--accent); border-color: var(--accent); }
+        /* Placeholder inherits the themed body font (like the "Bind" label beside it),
+           so both track the active theme instead of pinning a hardcoded mono stack. */
         .bind-pill.unset { color: var(--text3); font-style: italic; }
         .bind-act { width: 22px; height: 22px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; line-height: 1; color: var(--text2); background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-s); cursor: pointer; transition: color 0.15s, border-color 0.15s; }
         .bind-act .icon { width: 13px; height: 13px; }

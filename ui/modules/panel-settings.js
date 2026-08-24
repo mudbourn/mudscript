@@ -967,18 +967,17 @@
                 );
             }
 
-            // Settings that render inside a user-created section (their
-            // `section` matches a menu id) are shown there, not in the generic
-            // Settings group.
-            function inUserMenu(item) {
-                return !!(item && item.section
-                    && window._userMenuIds && window._userMenuIds[item.section]);
+            // A setting belongs to the default Settings group when it names no
+            // section (or names "settings"); anything else groups by section.
+            function isDefaultSection(item) {
+                const s = item && item.section;
+                return !s || s === "settings";
             }
 
-            // buildSettings, the pack's own user-defined settings //
+            // buildSettings, the default Settings group //
             function buildSettings(body) {
                 const items = filterByOrigin(S.userSettings || [])
-                    .filter((it) => !inUserMenu(it));
+                    .filter(isDefaultSection);
                 if (items.length > 0) {
                     for (const item of items) {
                         renderUserItem(body, item);
@@ -1052,100 +1051,115 @@
                 }
             }
 
-            // buildUserSection, custom user-defined sections //
+            // buildUserSection, a pack ms.menu.define() menu (its own item list) //
             function buildUserSection(body, menu) {
                 for (const item of menu.items || []) {
                     renderUserItem(body, item);
                 }
-                // Authored settings placed into this section (user-created
-                // sections carry no items of their own; they aggregate settings
-                // whose `section` equals the menu id).
-                const owned = filterByOrigin(S.userSettings || [])
-                    .filter((it) => it.section === menu.id);
-                for (const item of owned) renderUserItem(body, item);
-
-                if (menu.origin === "user"
-                    && !(menu.items && menu.items.length) && !owned.length) {
-                    body.appendChild(groupLabel("Empty section."));
-                    const r = h("div", { cls: "row" });
-                    const lbl = h("div", { cls: "row-label" });
-                    lbl.appendChild(h("small", {},
-                        "Add a setting to it with the Setting builder — pick "
-                        + "this section as the destination."));
-                    r.appendChild(lbl);
-                    body.appendChild(r);
-                }
             }
 
-            // A user-created section, rendered with an inline-editable title and
-            // icon and a remove control. Committing a field posts updateUserMenu;
-            // the body reuses buildUserSection.
-            function userMenuSection(menu) {
-                const wrap = h("div", { cls: "section" });
-                wrap.setAttribute("data-section", "user_" + menu.id);
+            // Render a list of user items, dropping leading/trailing dividers and
+            // merging consecutive ones so a section never shows an empty cell.
+            function renderItemsCollapsed(body, items) {
+                let lastWasDivider = true;
+                let rendered = 0;
+                const start = body.childElementCount;
+                for (const item of items) {
+                    if (item.type === "divider") {
+                        if (lastWasDivider) continue;
+                        lastWasDivider = true;
+                        renderUserItem(body, item);
+                        continue;
+                    }
+                    lastWasDivider = false;
+                    rendered++;
+                    renderUserItem(body, item);
+                }
+                // Trailing divider, if any, is the last child added here.
+                if (lastWasDivider && body.childElementCount > start) {
+                    const last = body.lastElementChild;
+                    if (last && last.classList.contains("divider")) last.remove();
+                }
+                return rendered;
+            }
 
-                const head = h("div", { cls: "section-head section-head-edit" });
+            // Display title/desc for a section id that has no user metadata (pack
+            // sections such as "calibration", or any section= a pack chose).
+            function packSectionDisplay(id) {
+                if (id === "calibration")
+                    return { title: "Calibration", desc: "Tune the pack to your setup" };
+                const title = id.replace(/^user_/, "").replace(/[_-]+/g, " ")
+                    .replace(/\b\w/g, (c) => c.toUpperCase());
+                return { title: title || id, desc: null };
+            }
 
-                const iconInp = h("input", {
-                    type: "text",
-                    cls: "input-sm section-icon-input",
-                    value: menu.icon || "",
-                    placeholder: "icon",
-                    title: "Section icon (optional emoji)",
-                });
-                const titleInp = h("input", {
-                    type: "text",
-                    cls: "input-sm section-title-input",
-                    value: menu.title || "",
-                    placeholder: "Section name",
-                });
-                // Keep global keybindings from swallowing typed characters.
-                [iconInp, titleInp].forEach((el) =>
-                    el.addEventListener("keydown", (e) => {
-                        e.stopPropagation();
-                        if (e.key === "Enter") el.blur();
-                    }));
-                const commit = () => {
-                    const t = titleInp.value.trim();
-                    const ic = iconInp.value.trim();
-                    if (t === (menu.title || "") && ic === (menu.icon || "")) return;
-                    if (!t) { titleInp.value = menu.title || ""; return; }
-                    sendToHost({
-                        action: "updateUserMenu",
-                        id: menu.id,
-                        title: t,
-                        icon: ic,
-                    });
+            // A user-created section: a plain heading (title + optional hint)
+            // whose name and hint are edited by right-clicking it, plus its
+            // settings (divider-collapsed). Right-click editing keeps this
+            // distinct from pack/handwritten sections, which have no edit menu.
+            function userSectionGroup(meta, items) {
+                const title = meta.icon
+                    ? meta.icon + " " + (meta.title || "")
+                    : (meta.title || "");
+                const wrap = section(meta.id, title, (body) => {
+                    const n = renderItemsCollapsed(body, items);
+                    if (!n) {
+                        body.appendChild(groupLabel("Empty section."));
+                        const r = h("div", { cls: "row" });
+                        const lbl = h("div", { cls: "row-label" });
+                        lbl.appendChild(h("small", {},
+                            "Add a setting with the Setting builder and pick this "
+                            + "section as its destination."));
+                        r.appendChild(lbl);
+                        body.appendChild(r);
+                    }
+                }, meta.hint || null);
+
+                // Right-click the heading to rename, edit the hint, or remove.
+                const editName = async () => {
+                    const res = await openModal(
+                        "Rename Section", "Name for this section.",
+                        "Save", "Cancel", true, meta.title || "");
+                    const v = (res.value || "").trim();
+                    if (res.confirmed && v)
+                        sendToHost({ action: "updateUserMenu", id: meta.id, title: v });
                 };
-                iconInp.addEventListener("change", commit);
-                titleInp.addEventListener("change", commit);
-
-                const del = h("button", {
-                    cls: "btn-icon section-del-btn",
-                    title: "Remove section",
-                    onmouseenter: () => playSlot("hover"),
-                    onclick: async () => {
+                const editHint = async () => {
+                    const res = await openModal(
+                        "Edit Hint", "Short hint shown under the section name "
+                        + "(leave blank for none).",
+                        "Save", "Cancel", true, meta.hint || "");
+                    if (res.confirmed)
+                        sendToHost({
+                            action: "updateUserMenu", id: meta.id,
+                            hint: (res.value || "").trim(),
+                        });
+                };
+                const remove = async () => {
+                    const res = await openModal(
+                        "Remove Section",
+                        `Remove "${meta.title}"?\n\nAny settings inside it move `
+                        + `back to the Settings group; nothing is deleted.`,
+                        "Remove",
+                    );
+                    if (res.confirmed)
+                        sendToHost({ action: "removeUserMenu", id: meta.id });
+                };
+                const head = wrap.querySelector(".section-head");
+                if (head) {
+                    head.style.cursor = "context-menu";
+                    head.addEventListener("contextmenu", (e) => {
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
                         playSlot("interact");
-                        const res = await openModal(
-                            "Remove Section",
-                            `Remove "${menu.title}"?\n\nSettings inside it move back to `
-                            + `the Settings group; nothing is deleted.`,
-                            "Remove",
-                        );
-                        if (res.confirmed)
-                            sendToHost({ action: "removeUserMenu", id: menu.id });
-                    },
-                }, "✕");
-
-                head.appendChild(iconInp);
-                head.appendChild(titleInp);
-                head.appendChild(del);
-
-                const body = h("div", { cls: "section-body" });
-                buildUserSection(body, menu);
-
-                wrap.appendChild(head);
-                wrap.appendChild(body);
+                        showCtxMenu(e.clientX, e.clientY, [
+                            { label: "Edit name...", action: editName },
+                            { label: "Edit hint...", action: editHint },
+                            "divider",
+                            { label: "Remove section", danger: true, action: remove },
+                        ], meta.title || "Section");
+                    });
+                }
                 return wrap;
             }
 
@@ -1987,14 +2001,24 @@
 
                     if (keyed(t) || t === "groupLabel") {
                         dyn.appendChild(divider());
-                        const destOpts = [
-                            { label: "Settings", value: "settings" },
-                            { label: "Calibration", value: "calibration" },
-                        ];
-                        // Offer every user-created section as a destination too.
-                        for (const m of S.userMenus || []) {
-                            if (m.origin === "user")
-                                destOpts.push({ label: m.title, value: m.id });
+                        // Every known section is a valid destination: the default
+                        // Settings group, user-created sections, and any section a
+                        // pack already uses (calibration and the like).
+                        const destOpts = [{ label: "Settings", value: "settings" }];
+                        const seen = { settings: true };
+                        for (const m of S.userSections || []) {
+                            if (seen[m.id]) continue;
+                            seen[m.id] = true;
+                            destOpts.push({ label: m.title, value: m.id });
+                        }
+                        for (const it of S.userSettings || []) {
+                            const s = it.section;
+                            if (!s || seen[s]) continue;
+                            seen[s] = true;
+                            destOpts.push({
+                                label: packSectionDisplay(s).title,
+                                value: s,
+                            });
                         }
                         dyn.appendChild(
                             row(
@@ -2111,39 +2135,23 @@
                 const scrollTop = scroll.scrollTop;
                 scroll.innerHTML = "";
 
-                // Ids of every section shown as its own menu, so settings that
-                // belong to one are rendered there and not duplicated in the
-                // generic Settings group below.
-                const menuIds = {};
-                for (const menu of S.userMenus || []) menuIds[menu.id] = true;
-                window._userMenuIds = menuIds;
-
+                // Pack menus authored with ms.menu.define() (they carry their own
+                // item lists) render first, unchanged.
                 for (const menu of S.userMenus || []) {
-                    // A whole menu carries one origin — skip it under a filter it
-                    // doesn't match.
                     if (active && !toolOriginMatches(menu.origin)) continue;
-                    if (menu.origin === "user") {
-                        // User-created sections get an inline-editable header so
-                        // the title/icon can be changed by clicking the fields.
-                        scroll.appendChild(userMenuSection(menu));
-                    } else {
-                        const title = menu.icon
-                            ? menu.icon + " " + menu.title
-                            : menu.title;
-                        scroll.appendChild(
-                            section("user_" + menu.id, title, (body) =>
-                                buildUserSection(body, menu),
-                            ),
-                        );
-                    }
+                    const title = menu.icon
+                        ? menu.icon + " " + menu.title
+                        : menu.title;
+                    scroll.appendChild(
+                        section("user_" + menu.id, title, (body) =>
+                            buildUserSection(body, menu),
+                        ),
+                    );
                 }
 
-                // The three user-defined tool kinds sit at the bottom of the
-                // window: Settings (adjustable values), Functions (callable), and
-                // Variables (shared helper vars). Under an origin filter, a kind
-                // with nothing left to show is dropped rather than left empty.
+                // Default Settings group: settings that name no section.
                 if (!active
-                    || filterByOrigin(S.userSettings).some((it) => !inUserMenu(it))) {
+                    || filterByOrigin(S.userSettings).some(isDefaultSection)) {
                     scroll.appendChild(
                         section("settings", "Settings", buildSettings,
                             "Defined by your macro pack"),
@@ -2162,19 +2170,49 @@
                     );
                 }
 
-                const calib = filterByOrigin(S.userCalibrationSettings || []);
-                if (calib.length > 0) {
-                    scroll.appendChild(
-                        section("calibration", "Calibration", (body) => {
-                            for (const item of calib) renderUserItem(body, item);
-                        }, "Tune the pack to your setup"),
-                    );
+                // Named sections, driven by the settings' `section` field. User
+                // metadata (userSections) lists ones made in the UI; any other
+                // referenced section id is a pack section. User-created first,
+                // then pack sections in first-seen order.
+                const userMeta = {};
+                const order = [];
+                for (const m of S.userSections || []) {
+                    userMeta[m.id] = m;
+                    order.push(m.id);
+                }
+                for (const it of S.userSettings || []) {
+                    const s = it.section;
+                    if (s && s !== "settings" && order.indexOf(s) === -1)
+                        order.push(s);
                 }
 
-                // At the very bottom: create your own section. Pack authors do
-                // this from ms_macros.lua with ms.menu.define(); this is the UI
-                // equivalent. Only shown when not filtering to a non-user origin.
-                if (!active || window._toolsFilter === "user") {
+                for (const id of order) {
+                    const meta = userMeta[id];
+                    const items = filterByOrigin(S.userSettings || [])
+                        .filter((it) => it.section === id);
+                    if (meta) {
+                        // User-created section: always shown (even empty) unless a
+                        // non-user origin filter is active.
+                        if (active && window._toolsFilter !== "user" && !items.length)
+                            continue;
+                        scroll.appendChild(
+                            userSectionGroup(meta, items));
+                    } else {
+                        if (!items.length) continue;
+                        const disp = packSectionDisplay(id);
+                        scroll.appendChild(
+                            section(id, disp.title, (body) => {
+                                renderItemsCollapsed(body, items);
+                            }, disp.desc));
+                    }
+                }
+
+                // At the very bottom: create your own section. Only one custom
+                // section is allowed, so this creator is hidden once any section
+                // exists — whether made here or defined in the handwritten file
+                // (a setting tagged section= in ms_macros.lua). `order` holds
+                // every custom section id, so an empty `order` means none yet.
+                if ((!active || window._toolsFilter === "user") && !order.length) {
                     scroll.appendChild(
                         section("new-section", "New Section", (body) => {
                             const inp = h("input", {

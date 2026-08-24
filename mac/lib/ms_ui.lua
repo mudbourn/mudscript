@@ -314,15 +314,25 @@ return function(ms)
                 return it
             end
 
+            -- All user settings ride in one list; each carries its `section`
+            -- and the panel groups by that field. calibration is not special.
             local userSettings = {}
-            local userCalibrationSettings = {}
             for _, def in ipairs(ms._userSettingDefs) do
-                local item = _serItem(def)
-                if (def.section or "settings") == "calibration" then
-                    table.insert(userCalibrationSettings, item)
-                else
-                    table.insert(userSettings, item)
-                end
+                table.insert(userSettings, _serItem(def))
+            end
+
+            -- Metadata for sections the user created in the UI (title/icon), so
+            -- an empty one still renders and can be renamed. Pack sections need
+            -- no entry.
+            local userSections = {}
+            for _, m in ipairs(ms._authoredMenus or {}) do
+                table.insert(userSections, {
+                    id    = m.id,
+                    title = m.title,
+                    icon  = m.icon,
+                    hint  = m.hint,
+                    origin = "user",
+                })
             end
             -- The other two user-defined tool kinds, for the Tuning tab's
             -- Functions and Variables sections. Functions are the builder-authored
@@ -477,7 +487,7 @@ return function(ms)
                 userSettings            = userSettings,
                 userFunctions           = userFunctions,
                 userVariables           = userVariables,
-                userCalibrationSettings = userCalibrationSettings,
+                userSections            = userSections,
                 userSoundSlots          = userSoundSlots,
                 userMenus               = userMenus,
                 hiddenFeatures          = ms._hiddenFeatures,
@@ -974,7 +984,6 @@ return function(ms)
                 ms._userSettingDefs  = {}
                 ms._userSettingIndex = {}
                 ms._userSettingVals  = {}
-                ms._userMenuDefs     = {}
 
                 ms._defineOrigin = "pack"
                 local ok, runErr = xpcall(chunk, debug.traceback)
@@ -2127,7 +2136,6 @@ return function(ms)
                     if ms._loadAuthoredSettings then pcall(ms._loadAuthoredSettings) end
                     if ms._defineAuthoredSettings then pcall(ms._defineAuthoredSettings) end
                     if ms._loadAuthoredMenus then pcall(ms._loadAuthoredMenus) end
-                    if ms._defineAuthoredMenus then pcall(ms._defineAuthoredMenus) end
                 elseif data.kind == "theme" then
                     if ms.loadTheme then pcall(ms.loadTheme) end
                     pcall(function() ms.alert:recolor() end)

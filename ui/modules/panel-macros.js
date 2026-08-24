@@ -2881,7 +2881,7 @@
     toolbar.className = "macro-toolbar";
 
     var macroLabel = document.createElement("span");
-    macroLabel.style.cssText = "font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-right:4px";
+    macroLabel.style.cssText = "font-family:inherit;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-right:4px";
     macroLabel.textContent = "Macro";
     toolbar.appendChild(macroLabel);
 
@@ -3005,13 +3005,13 @@
 
     // Bind field, sets macroDef.bind for the compiler.
     var bindLabel = document.createElement("span");
-    bindLabel.style.cssText = "font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-left:8px;margin-right:4px";
+    bindLabel.style.cssText = "font-family:inherit;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-left:8px;margin-right:4px";
     bindLabel.textContent = "Bind";
     toolbar.appendChild(bindLabel);
 
     var bindBtn = document.createElement("button");
     bindBtn.className = "bind-pill unset";
-    bindBtn.textContent = "unset";
+    bindBtn.textContent = "UNSET";
     bindBtn.title = "Click to capture a bind for this macro";
     toolbar.appendChild(bindBtn);
 
@@ -3019,7 +3019,7 @@
     var _currentMacroClass = "main";   // "main" | "optional"
 
     var classLabel = document.createElement("span");
-    classLabel.style.cssText = "font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-left:8px;margin-right:4px";
+    classLabel.style.cssText = "font-family:inherit;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-left:8px;margin-right:4px";
     classLabel.textContent = "Class";
     toolbar.appendChild(classLabel);
 
@@ -3774,7 +3774,7 @@
     function bindPill(text, onClick, title) {
         var b = document.createElement("button");
         b.className = "bind-pill" + (text ? "" : " unset");
-        b.textContent = text || "unset";
+        b.textContent = text || "Unset";
         if (title) b.title = title;
         b.addEventListener("mouseenter", function() {
             if (window.playSlot) playSlot("hover");
@@ -4136,7 +4136,7 @@
             else if (b.type === "mods") text = (b.mods || []).join("+");
             else if (b.key) text = (b.mods || []).concat([b.key]).join("+");
         }
-        bindBtn.textContent = text || "unset";
+        bindBtn.textContent = text || "Unset";
         bindBtn.className = "bind-pill" + (text ? "" : " unset");
     }
 
