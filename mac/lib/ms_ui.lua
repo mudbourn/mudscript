@@ -263,7 +263,8 @@ return function(ms)
                     key      = d.key,
                     label    = d.label,
                     hint     = d.hint,
-                    authored = d.key and _authoredKeys[d.key] or nil,
+                    authored = (d.uid ~= nil) or (d.key and _authoredKeys[d.key]) or nil,
+                    uid      = d.uid,
                     section  = d.section,
                     origin   = d._origin or "pack",
                 }
@@ -2562,6 +2563,32 @@ return function(ms)
                 else
                     ms.playSlot("alert")
                     ms.alert("Couldn't update setting: " .. (err or "invalid"), 4)
+                end
+            end,
+
+            -- Delete any authored item by uid (the only route for keyless
+            -- dividers/labels, which the Arrange list exposes).
+            removeUserSettingByUid = function(data)
+                local ok, err = ms.removeAuthoredSettingByUid(data and data.uid)
+                if ok then
+                    ms.playSlot("reset")
+                    ms.ui.refresh()
+                    ms.alert("Item removed from your pack.", 2)
+                else
+                    ms.playSlot("alert")
+                    ms.alert("Couldn't remove item: " .. (err or "invalid"), 4)
+                end
+            end,
+
+            -- New order for the authored list, from the Arrange list's drag.
+            reorderUserSettings = function(data)
+                local ok, err = ms.reorderAuthoredSettings(data and data.order)
+                if ok then
+                    ms.playSlot("interact")
+                    ms.ui.refresh()
+                else
+                    ms.playSlot("alert")
+                    ms.alert("Couldn't reorder: " .. (err or "invalid"), 4)
                 end
             end,
 

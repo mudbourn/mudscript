@@ -483,6 +483,10 @@ return function(ms)
 
         local function _loadDevHistory(panel, categories, shellPanelId, skipEvents)
             local entries = {}
+            -- Insertion order per entry, so the merge below is a *stable* sort:
+            -- entries sharing a timestamp keep their real arrival order instead
+            -- of being shuffled by table.sort (which is not stable).
+            local order = {}
             for _, cat in ipairs(categories) do
                 local path = _catPaths[cat]
                 if path then
@@ -499,6 +503,7 @@ return function(ms)
                             if ok and entry then
                                 if not skipEvents or not (entry.event and skipEvents[entry.event]) then
                                     entries[#entries + 1] = entry
+                                    order[entry] = #entries
                                 end
                             end
                         end
@@ -506,6 +511,16 @@ return function(ms)
                 end
             end
             if #entries == 0 then return end
+            -- Merge the per-category streams into one timeline. Without this the
+            -- panel shows every console entry, then every system entry, so the
+            -- clock jumps backwards at each category boundary. entry.ts is a
+            -- zero-padded "%H:%M:%S" string, so a lexicographic compare orders
+            -- correctly (within a single day).
+            table.sort(entries, function(a, b)
+                local ta, tb = a.ts or "", b.ts or ""
+                if ta == tb then return order[a] < order[b] end
+                return ta < tb
+            end)
             local ok, json = pcall(hs.json.encode, entries)
             if ok then
                 if shellPanelId then

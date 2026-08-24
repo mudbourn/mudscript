@@ -432,6 +432,28 @@
         .sb-opt-row .sb-opt-rm { flex: 0 0 auto; min-width: 30px; padding: 5px 8px; }
         .setting-builder-preview { min-height: 8px; margin: 2px 0; border-top: 1px dashed var(--border-dim); border-bottom: 1px dashed var(--border-dim); background: color-mix(in srgb, var(--accent) 5%, transparent); }
 
+        /* Arrange list: draggable rows that position authored items (settings,
+           dividers, labels) within a section. Pointer-driven reorder (see
+           wireArrangeDrag) — no native HTML5 drag. */
+        .arrange-list { display: flex; flex-direction: column; padding: 4px 14px 2px; }
+        .arrange-head { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text3); margin: 10px 0 4px; }
+        .arrange-head:first-child { margin-top: 2px; }
+        .arrange-row { display: flex; align-items: center; gap: 8px; padding: 5px 8px; margin: 2px 0; border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--surface); position: relative; }
+        .arrange-row.is-divider, .arrange-row.is-label { background: color-mix(in srgb, var(--accent) 6%, var(--surface)); border-style: dashed; }
+        .arrange-row.dragging { opacity: 0.4; }
+        .arrange-row.drop-above::before, .arrange-row.drop-below::after { content: ""; position: absolute; left: 0; right: 0; height: 2px; background: var(--accent); border-radius: 1px; }
+        .arrange-row.drop-above::before { top: -2px; }
+        .arrange-row.drop-below::after { bottom: -2px; }
+        .arrange-handle { flex: 0 0 auto; display: flex; align-items: center; color: var(--text3); cursor: grab; padding: 2px; }
+        .arrange-handle:active { cursor: grabbing; }
+        .arrange-handle .icon { width: 16px; height: 16px; }
+        .arrange-label { flex: 1; min-width: 0; font-size: 12px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .arrange-row.is-divider .arrange-label, .arrange-row.is-label .arrange-label { color: var(--text2); font-style: italic; }
+        .arrange-btn { flex: 0 0 auto; min-width: 0; padding: 3px 8px; font-size: 11px; }
+        .arrange-del { color: var(--danger); }
+        .arrange-ghost { position: fixed; z-index: 9999; pointer-events: none; opacity: 0.9; box-shadow: 0 4px 14px rgba(0,0,0,0.35); border-color: var(--accent) !important; }
+        .arrange-hint { padding: 8px 14px 2px; font-size: 11px; line-height: 1.45; color: var(--text3); font-style: italic; }
+
         /* -- Profiles panel -- */
         /* Single view, no tab strip (Browse moved to its own stage). The
            .ptab-section wrapper is kept as the flex container for the list. */
@@ -1608,9 +1630,10 @@
                 <button
                     id="toolsFilterToggle"
                     class="btn-ghost"
-                    title="Filter tools by origin: All, User (builder), Pack (ms_macros.lua), Plugin"
+                    title="Filter tools by origin: All, Visual (builder / ms_authored.json), Hand (ms_macros.lua), Plugin. Click to cycle, right-click to pick one."
                     onmouseenter="playSlot('hover')"
                     onclick="playSlot('interact'); cycleToolsFilter();"
+                    oncontextmenu="event.preventDefault(); event.stopPropagation(); playSlot('interact'); showToolsFilterMenu(event.clientX, event.clientY); return false;"
                 >
                     All
                 </button>

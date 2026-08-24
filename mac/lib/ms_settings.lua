@@ -504,6 +504,14 @@ return function(ms)
         local function _trim(s)
             return (type(s) == "string") and s:match("^%s*(.-)%s*$") or ""
         end
+        -- Stable id every authored item carries so the Arrange list can reorder
+        -- and the UI can delete keyless items (dividers/labels have no key).
+        local _uidSeq = 0
+        local function _newUid()
+            _uidSeq = _uidSeq + 1
+            return string.format("a%d_%d_%d", os.time(), _uidSeq,
+                math.random(0, 999999))
+        end
         ms._sanitizeAuthoredDef = function(raw)
             if type(raw) ~= "table" then return nil, "definition must be a table" end
             local t = raw.type
@@ -513,6 +521,11 @@ return function(ms)
                 type = t,
                 authored = true,
             }
+            -- Carry a stable uid through when the caller supplied one (edits,
+            -- reorders, on-disk defs); addAuthoredSetting/load mint one otherwise.
+            if type(raw.uid) == "string" and raw.uid ~= "" then
+                def.uid = raw.uid
+            end
             -- "settings"/nil is default, "calibration" the built-in group, any
             -- other target a user-created section id to render inside.
             if type(raw.target) == "string"
@@ -587,7 +600,12 @@ return function(ms)
             if ok and type(data) == "table" then
                 for _, def in ipairs(data) do
                     local clean = ms._sanitizeAuthoredDef(def)
-                    if clean then table.insert(ms._authoredSettings, clean) end
+                    if clean then
+                        -- Legacy files predate uids; mint one so every item is
+                        -- addressable. Persisted on the next save.
+                        if not clean.uid then clean.uid = _newUid() end
+                        table.insert(ms._authoredSettings, clean)
+                    end
                 end
             end
         end
@@ -626,6 +644,7 @@ return function(ms)
             if def.key and ms._userSettingIndex[def.key] then
                 return false, "a setting named '" .. def.key .. "' already exists"
             end
+            if not def.uid then def.uid = _newUid() end
             ms._authoredSettings = ms._authoredSettings or {}
             table.insert(ms._authoredSettings, def)
             local ok = pcall(ms.settings.define, def)
@@ -666,6 +685,86 @@ return function(ms)
                 end
             end
 
+            ms._saveAuthoredSettings()
+            ms.saveSettings()
+            if ms.bus and ms.bus.emit then pcall(ms.bus.emit, "ui:macros:listTools") end
+            return true
+        end
+
+        -- Tear down every authored def from the live registry and re-register
+        -- them from ms._authoredSettings, so the render order (which follows
+        -- ms._userSettingDefs) matches the authored list after a reorder. Current
+        -- values are snapshotted into the pending map so keyed settings keep them.
+        ms._reregisterAuthored = function()
+            ms._pendingUserSettings = ms._pendingUserSettings or {}
+            for _, d in ipairs(ms._authoredSettings or {}) do
+                if d.key and ms._userSettingVals
+                    and ms._userSettingVals[d.key] ~= nil then
+                    ms._pendingUserSettings[d.key] = ms._userSettingVals[d.key]
+                end
+            end
+            if ms._userSettingDefs then
+                for i = #ms._userSettingDefs, 1, -1 do
+                    local d = ms._userSettingDefs[i]
+                    if type(d) == "table" and d.authored then
+                        if d.key then
+                            if ms._userSettingIndex then ms._userSettingIndex[d.key] = nil end
+                            if ms._userSettingVals  then ms._userSettingVals[d.key]  = nil end
+                        end
+                        table.remove(ms._userSettingDefs, i)
+                    end
+                end
+            end
+            ms._defineAuthoredSettings()
+        end
+
+        -- Remove an authored item by its stable uid — the only way to delete
+        -- keyless items (dividers, labels), which carry no key.
+        ms.removeAuthoredSettingByUid = function(uid)
+            if type(uid) ~= "string" or uid == "" then
+                return false, "a uid is required"
+            end
+            ms._authoredSettings = ms._authoredSettings or {}
+            local foundAt
+            for i, def in ipairs(ms._authoredSettings) do
+                if def.uid == uid then foundAt = i break end
+            end
+            if not foundAt then return false, "no authored item with that id" end
+            table.remove(ms._authoredSettings, foundAt)
+            ms._reregisterAuthored()
+            ms._saveAuthoredSettings()
+            ms.saveSettings()
+            if ms.bus and ms.bus.emit then pcall(ms.bus.emit, "ui:macros:listTools") end
+            return true
+        end
+
+        -- Reorder the authored list to match `order` (an array of uids). Uids the
+        -- caller omits keep their current relative order, appended after the ones
+        -- it named, so a partial order never drops an item.
+        ms.reorderAuthoredSettings = function(order)
+            if type(order) ~= "table" then
+                return false, "order must be a list of ids"
+            end
+            local list = ms._authoredSettings or {}
+            local byUid = {}
+            for _, d in ipairs(list) do
+                if d.uid then byUid[d.uid] = d end
+            end
+            local newList, seen = {}, {}
+            for _, uid in ipairs(order) do
+                local d = byUid[uid]
+                if d and not seen[uid] then
+                    seen[uid] = true
+                    table.insert(newList, d)
+                end
+            end
+            for _, d in ipairs(list) do
+                if not (d.uid and seen[d.uid]) then
+                    table.insert(newList, d)
+                end
+            end
+            ms._authoredSettings = newList
+            ms._reregisterAuthored()
             ms._saveAuthoredSettings()
             ms.saveSettings()
             if ms.bus and ms.bus.emit then pcall(ms.bus.emit, "ui:macros:listTools") end
@@ -726,6 +825,9 @@ return function(ms)
             end
 
             local prevDef = ms._authoredSettings[foundAt]
+            -- Keep the item's identity stable across an edit so the Arrange list
+            -- and any pending reorder still address it.
+            def.uid = prevDef.uid or def.uid or _newUid()
             ms._authoredSettings[foundAt] = def
             local ok = pcall(ms.settings.define, def)
             if not ok then

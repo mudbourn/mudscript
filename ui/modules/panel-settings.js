@@ -809,7 +809,7 @@
                             sendToHost({ action: "resetUserSetting", key: item.key }),
                     });
                 }
-                if (item.authored) {
+                if (item.authored && item.key) {
                     out.push({
                         icon: "",
                         label: "Edit tool",
@@ -832,6 +832,29 @@
                                 sendToHost({
                                     action: "removeUserSetting",
                                     key: item.key,
+                                });
+                        },
+                    });
+                } else if (item.authored && item.uid) {
+                    // Keyless authored items (divider / label): no Edit, but they
+                    // can be deleted by their stable uid.
+                    out.push({
+                        icon: "",
+                        label: "Delete " + (item.type === "divider"
+                            ? "divider" : "label"),
+                        danger: true,
+                        action: async () => {
+                            const res = await openModal(
+                                "Delete Item",
+                                "Remove this " + (item.type === "divider"
+                                    ? "divider" : "label")
+                                    + " from your pack? This cannot be undone.",
+                                "Delete",
+                            );
+                            if (res.confirmed)
+                                sendToHost({
+                                    action: "removeUserSettingByUid",
+                                    uid: item.uid,
                                 });
                         },
                     });
@@ -1999,7 +2022,7 @@
                         );
                     }
 
-                    if (keyed(t) || t === "groupLabel") {
+                    if (keyed(t) || t === "groupLabel" || t === "divider") {
                         dyn.appendChild(divider());
                         // Every known section is a valid destination: the default
                         // Settings group, user-created sections, and any section a
@@ -2102,6 +2125,216 @@
 
                 renderDynamic();
                 updatePreview();
+            }
+
+            // Arrange list — every authored item, grouped by section, each row
+            // draggable so dividers, labels and settings can be positioned. This
+            // is what makes the visual builder competitive with hand-editing:
+            // add drops an item at the end, then it is dragged into place here.
+            // Reordering is constrained to a section (a row only reorders among
+            // its own section's siblings); the whole authored order is sent to
+            // the host on drop.
+            const _dragSvg = '<svg class="icon" viewBox="0 0 24 24" fill="none" '
+                + 'xmlns="http://www.w3.org/2000/svg"><path d="M9 6h.01M9 12h.01'
+                + 'M9 18h.01M15 6h.01M15 12h.01M15 18h.01" stroke="currentColor" '
+                + 'stroke-width="2.5" stroke-linecap="round" '
+                + 'stroke-linejoin="round"/></svg>';
+
+            function arrangeRowLabel(it) {
+                if (it.type === "divider") return "— Divider —";
+                if (it.type === "groupLabel")
+                    return "“" + (it.label || "") + "” label";
+                const name = it.label || it.key || "(setting)";
+                return name + "  ·  " + it.type;
+            }
+
+            // Read the current DOM order of a section group and push it to the
+            // host as the new authored order (all groups concatenated).
+            function commitArrangeOrder(listEl) {
+                const order = [];
+                listEl.querySelectorAll(".arrange-row[data-uid]")
+                    .forEach((r) => order.push(r.getAttribute("data-uid")));
+                sendToHost({ action: "reorderUserSettings", order: order });
+            }
+
+            function buildArrange(body) {
+                const authored = (S.userSettings || []).filter((it) => it.uid);
+                if (!authored.length) {
+                    body.appendChild(groupLabel(
+                        "Nothing to arrange yet. Add a setting, divider or "
+                        + "label above, then drag it into place here."));
+                    return;
+                }
+
+                // One flat, ordered list; section changes print a heading so the
+                // user sees the grouping, but rows carry data-section so a drag
+                // never crosses a boundary.
+                const list = h("div", { cls: "arrange-list" });
+                let lastSection = " ";
+                for (const it of authored) {
+                    const sec = it.section || "settings";
+                    if (sec !== lastSection) {
+                        lastSection = sec;
+                        const title = sec === "settings"
+                            ? "Settings"
+                            : (packSectionDisplay(sec).title || sec);
+                        list.appendChild(
+                            h("div", { cls: "arrange-head" }, title));
+                    }
+                    list.appendChild(arrangeRow(it, sec, list));
+                }
+                body.appendChild(list);
+                body.appendChild(h("div", { cls: "arrange-hint" },
+                    "Drag the handle to reorder within a section. Use a "
+                    + "setting's Destination to move it to another section."));
+            }
+
+            function arrangeRow(it, sec, listEl) {
+                const rowEl = h("div", { cls: "arrange-row" });
+                rowEl.setAttribute("data-uid", it.uid);
+                rowEl.setAttribute("data-section", sec);
+                if (it.type === "divider") rowEl.classList.add("is-divider");
+                if (it.type === "groupLabel") rowEl.classList.add("is-label");
+
+                const handle = h("div", { cls: "arrange-handle" });
+                handle.innerHTML = _dragSvg;
+                handle.title = "Drag to reorder";
+                rowEl.appendChild(handle);
+
+                rowEl.appendChild(
+                    h("div", { cls: "arrange-label" }, arrangeRowLabel(it)));
+
+                if (it.key) {
+                    const edit = actionBtn("Edit", "", () => {
+                        if (window._loadSettingIntoBuilder)
+                            window._loadSettingIntoBuilder(it);
+                    });
+                    edit.classList.add("arrange-btn");
+                    rowEl.appendChild(edit);
+                }
+
+                const del = actionBtn("✕", "", async () => {
+                    const what = it.type === "divider" ? "divider"
+                        : it.type === "groupLabel" ? "label"
+                        : ("\"" + (it.label || it.key) + "\"");
+                    const res = await openModal("Delete Item",
+                        "Remove this " + what
+                        + " from your pack? This cannot be undone.", "Delete");
+                    if (!res.confirmed) return;
+                    if (it.key)
+                        sendToHost({ action: "removeUserSetting", key: it.key });
+                    else
+                        sendToHost({
+                            action: "removeUserSettingByUid", uid: it.uid });
+                });
+                del.classList.add("arrange-btn", "arrange-del");
+                rowEl.appendChild(del);
+
+                wireArrangeDrag(handle, rowEl, listEl);
+                return rowEl;
+            }
+
+            // Pointer-based reorder (HTML5 DnD drops are swallowed in this
+            // WKWebView — see the macro builder note). Mirrors that pattern but
+            // flat: a row only reorders among siblings sharing its data-section.
+            function wireArrangeDrag(handle, rowEl, listEl) {
+                handle.addEventListener("mousedown", (down) => {
+                    if (down.button !== 0) return;
+                    down.preventDefault();
+                    const sec = rowEl.getAttribute("data-section");
+                    const startY = down.clientY;
+                    let started = false, ghost = null, offY = 0;
+                    const scroller = listEl.closest(".tsec-scroll") || listEl;
+
+                    const peers = () => Array.prototype.filter.call(
+                        listEl.querySelectorAll(".arrange-row"),
+                        (r) => r.getAttribute("data-section") === sec
+                            && r !== rowEl);
+
+                    const begin = () => {
+                        started = true;
+                        rowEl.classList.add("dragging");
+                        ghost = rowEl.cloneNode(true);
+                        ghost.classList.add("arrange-ghost");
+                        ghost.style.width = rowEl.offsetWidth + "px";
+                        const r = rowEl.getBoundingClientRect();
+                        offY = startY - r.top;
+                        document.body.appendChild(ghost);
+                        moveGhost(down.clientX, startY);
+                        if (window.playSlot) playSlot("interact");
+                    };
+                    const moveGhost = (x, y) => {
+                        if (ghost) {
+                            ghost.style.left = (x - 12) + "px";
+                            ghost.style.top = (y - offY) + "px";
+                        }
+                    };
+                    const clearMarks = () => {
+                        listEl.querySelectorAll(
+                            ".arrange-row.drop-above,.arrange-row.drop-below")
+                            .forEach((r) => r.classList.remove(
+                                "drop-above", "drop-below"));
+                    };
+                    // Place rowEl relative to the nearest peer under the pointer.
+                    const place = (y) => {
+                        clearMarks();
+                        let best = null, bestPos = "below", bestDist = Infinity;
+                        peers().forEach((r) => {
+                            const rc = r.getBoundingClientRect();
+                            const mid = rc.top + rc.height / 2;
+                            const d = Math.abs(y - mid);
+                            if (d < bestDist) {
+                                bestDist = d; best = r;
+                                bestPos = y < mid ? "above" : "below";
+                            }
+                        });
+                        if (!best) return;
+                        best.classList.add(
+                            bestPos === "above" ? "drop-above" : "drop-below");
+                        if (bestPos === "above")
+                            best.parentNode.insertBefore(rowEl, best);
+                        else
+                            best.parentNode.insertBefore(rowEl, best.nextSibling);
+                    };
+                    const autoscroll = (y) => {
+                        if (!scroller) return;
+                        const r = scroller.getBoundingClientRect(), M = 28;
+                        if (y < r.top + M) scroller.scrollTop -= 10;
+                        else if (y > r.bottom - M) scroller.scrollTop += 10;
+                    };
+                    const onMove = (e) => {
+                        if (!started) {
+                            if (Math.abs(e.clientY - startY) < 4) return;
+                            begin();
+                        }
+                        e.preventDefault();
+                        moveGhost(e.clientX, e.clientY);
+                        autoscroll(e.clientY);
+                        place(e.clientY);
+                    };
+                    const cleanup = () => {
+                        document.removeEventListener("mousemove", onMove, true);
+                        document.removeEventListener("mouseup", onUp, true);
+                        document.removeEventListener("keydown", onKey, true);
+                        if (ghost) ghost.remove();
+                        ghost = null;
+                        rowEl.classList.remove("dragging");
+                        clearMarks();
+                    };
+                    const onUp = (e) => {
+                        if (started) {
+                            e.preventDefault(); e.stopPropagation();
+                            commitArrangeOrder(listEl);
+                        }
+                        cleanup();
+                    };
+                    const onKey = (e) => {
+                        if (e.key === "Escape") cleanup();
+                    };
+                    document.addEventListener("mousemove", onMove, true);
+                    document.addEventListener("mouseup", onUp, true);
+                    document.addEventListener("keydown", onKey, true);
+                });
             }
 
             // Load an existing authored setting into the Setting Builder (edit
@@ -2248,6 +2481,24 @@
                         section("builder", "Setting Builder", buildSettingBuilder,
                             "Compose a new setting and preview it live"),
                     );
+                    // The Arrange list rebuilds on every refresh (see below), so
+                    // its body is emptied and refilled — the section shell here is
+                    // created once, alongside the builder.
+                    bscroll.appendChild(
+                        section("arrange", "Arrange", buildArrange,
+                            "Drag to position dividers, labels and settings"),
+                    );
+                }
+                // Keep the Arrange list in step with the current authored items
+                // (a new add, delete or reorder changes them) without disturbing
+                // the builder's in-progress draft above it.
+                if (bscroll) {
+                    const asec = bscroll.querySelector(
+                        '[data-section="arrange"] .section-body');
+                    if (asec) {
+                        asec.innerHTML = "";
+                        buildArrange(asec);
+                    }
                 }
 
                 renderToolFunctionsTab();
@@ -2255,13 +2506,15 @@
             }
             window.renderToolsPanel = renderToolsPanel;
 
-            // Header origin filter: cycles All -> User -> Pack -> Plugin. Each
-            // tool carries an `origin` ("user" = builder, "pack" = ms_macros.lua,
-            // "plugin" = a loaded plugin); the non-"all" states show only that
-            // origin. Read by the Tuning-tab builders and the Function tab list.
+            // Header origin filter: cycles All -> Visual -> Hand -> Plugin. Each
+            // tool carries an `origin`: "user" = the visual builder (ms_authored
+            // .json), "pack" = the handwritten ms_macros.lua, "plugin" = a loaded
+            // plugin. The non-"all" states show only that origin. Read by the
+            // Tuning-tab builders and the Function tab list. Origin keys stay
+            // "user"/"pack" in the data model; only their labels changed.
             const TOOL_FILTER_ORDER = ["all", "user", "pack", "plugin"];
             const TOOL_FILTER_LABEL = {
-                all: "All", user: "User", pack: "Pack", plugin: "Plugin",
+                all: "All", user: "Visual", pack: "Hand", plugin: "Plugin",
             };
             window._toolsFilter = window._toolsFilter || "all";
             function toolOriginMatches(origin) {
@@ -2277,14 +2530,29 @@
                 btn.textContent = TOOL_FILTER_LABEL[window._toolsFilter] || "All";
                 btn.classList.toggle("active", window._toolsFilter !== "all");
             }
-            function cycleToolsFilter() {
-                const i = TOOL_FILTER_ORDER.indexOf(window._toolsFilter);
-                window._toolsFilter =
-                    TOOL_FILTER_ORDER[(i + 1) % TOOL_FILTER_ORDER.length];
+            function setToolsFilter(key) {
+                if (TOOL_FILTER_ORDER.indexOf(key) === -1) return;
+                window._toolsFilter = key;
                 syncToolsFilterBtn();
                 renderToolsPanel();
             }
+            function cycleToolsFilter() {
+                const i = TOOL_FILTER_ORDER.indexOf(window._toolsFilter);
+                setToolsFilter(
+                    TOOL_FILTER_ORDER[(i + 1) % TOOL_FILTER_ORDER.length]);
+            }
             window.cycleToolsFilter = cycleToolsFilter;
+
+            // Right-clicking the header button opens a menu to jump straight to
+            // any origin, instead of cycling through them one left-click at a time.
+            function showToolsFilterMenu(x, y) {
+                showCtxMenu(x, y, TOOL_FILTER_ORDER.map((key) => ({
+                    icon: window._toolsFilter === key ? "✓" : "",
+                    label: TOOL_FILTER_LABEL[key] || key,
+                    action: () => setToolsFilter(key),
+                })), "Filter by origin");
+            }
+            window.showToolsFilterMenu = showToolsFilterMenu;
 
             function sendToTools(action, data) {
                 if (window.shellPost) {
@@ -2516,7 +2784,8 @@
                         cls: "row-sub",
                         style: "padding:8px 14px;color:var(--text3);font-style:italic;",
                     }, (window._toolsFilter && window._toolsFilter !== "all")
-                        ? "No " + window._toolsFilter + " function tools."
+                        ? "No " + (TOOL_FILTER_LABEL[window._toolsFilter]
+                            || window._toolsFilter) + " function tools."
                         : "No function tools yet."));
                     return;
                 }
