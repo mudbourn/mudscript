@@ -1,11 +1,11 @@
 {
-  "version": "1.3.4",
-  "sha256": "65166bb2d3660fe636a7861e9417543cce646b37300e8d8574078d5fd1a2fbe2",
+  "version": "1.3.5",
+  "sha256": "82316f616d2db581c8b920fc4e60b99d24695ca0ce32133c697730164e031910",
   "url": "https://raw.githubusercontent.com/mudbourn/mudscript/main/mac/ms_core.lua",
   "bundle": {
-    "url": "https://github.com/mudbourn/mudscript/releases/download/v1.3.4/mudscript-macos-1.3.4.zip",
-    "sha256": "e0479b36199cdbfccd63ad914a3e17a1ad090d3de8dc90831d1a444b74efd96a"
+    "url": "https://github.com/mudbourn/mudscript/releases/download/v1.3.5/mudscript-macos-1.3.5.zip",
+    "sha256": "5942eac8ba323d1b5d9d6010c36a3b10f2de890fc8086fc3ab71e66ea9723870"
   },
-  "signature": "rMRGZF/mkjpPXwuEHC5tV8mE3DuiT7IKR9GBZy/FmV75I8gBVzHiU86jaXcBJNr4KKMlBWWF5oECRE6kdMMGqOrAu/VGUfqJBR/XezqpZyU3AR7rD3AHNakPrQyrJXb7xuKp3grUKIKkymYWzZ34b+sek1xlEr/ROb3elg0D67K490nQvFt0dqeGucXf1VFa6yPAhiaSva4O3FlK0xq//2QdwlVuol/4AxFotDdLb4HTT4h1HT6zt1cfGNYxleQRclBijwiTLpGJHVsd108o4AqfuRU3VWoh81kf58v9Qxak4PpDVI+y7hsAy/lighaQ0DCfYVkjqdXx9hOf3IuFHA==",
+  "signature": "wO9qJA6TVTK8aqyGEfF/dGAb+qKw0sTQ3Xyf9vBsf18fnwHpNrC/q4qlfY7b4Ek4HNTB4zsoj0My3ooWeEg2TqXLiIIHNrvheB5QNr1fJd1hIhoXg16JWlBBvyMgUVRSYbN2vkX5B1+S+sWZVVO1q87Y8QEkC5PVxsTxOsHXwGsRy0lIXkWUMqdGXd7VLb53h63T0UuxgFfxxgIUFv9pPi82dRxpaDbXWqpNPuWxb0eCYniId69inJy3KdPXpVmrA23tZGFqWVsH/Y1DQow6dl/ddKgQd7gvjh1LHK63YQcMoiPu9DQVVio/Q4S6lCTFCyo7vmpgQP18EarfnNwp2Q==",
   "fileManifest": "data/.ms_file_manifest.json"
 }
