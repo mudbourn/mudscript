@@ -3,17 +3,6 @@
   "generated": "2026-08-24T11:43:54Z",
   "entries": [
     {
-      "id": "plugin-roblox",
-      "type": "plugin",
-      "name": "Roblox",
-      "version": "0.1.6",
-      "author": "mudbourn",
-      "sha256": "2d896b8c884fce5ce7e5ef565721b13015af2e22a873c9b9cebe24032706bde4",
-      "url": "https://github.com/mudbourn/mudscript/releases/download/packages/Roblox.mspkg",
-      "size": 7907,
-      "trust": "trusted"
-    },
-    {
       "id": "profile-combat-warriors-macros-profile",
       "type": "profile",
       "name": "Combat Warriors Macros profile",
@@ -34,6 +23,17 @@
           "present": true
         }
       },
+      "trust": "trusted"
+    },
+    {
+      "id": "plugin-roblox",
+      "type": "plugin",
+      "name": "Roblox",
+      "version": "0.1.6",
+      "author": "mudbourn",
+      "sha256": "e45862eb02674853e931de7524025d8336ac9c87d0e435a4b193ea6cf1fe00e1",
+      "url": "https://github.com/mudbourn/mudscript/releases/download/packages/Roblox.mspkg",
+      "size": 7907,
       "trust": "trusted"
     }
   ],
