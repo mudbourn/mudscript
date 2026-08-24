@@ -559,6 +559,13 @@
         .section:first-child .section-head { padding-top: 14px; }
         .section-title { font-weight: 700; font-size: 12px; color: var(--text); text-transform: uppercase; letter-spacing: 1.4px; flex-shrink: 0; }
         .section-desc { font-size: 11px; color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+        /* Inline-editable header for user-created sections: the title/icon are
+           text fields the user clicks into, plus a remove control. */
+        .section-head-edit { align-items: center; }
+        .section-head-edit .section-icon-input { width: 34px; flex: 0 0 auto; text-align: center; padding-left: 4px; padding-right: 4px; }
+        .section-head-edit .section-title-input { flex: 1 1 auto; min-width: 0; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text); }
+        .section-del-btn { flex: 0 0 auto; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border: none; background: none; color: var(--text3); font-size: 14px; line-height: 1; border-radius: var(--radius); cursor: pointer; transition: background 0.12s, color 0.12s; }
+        .section-del-btn:hover { background: var(--dangerBg); color: var(--danger); }
         .section-body { margin: 10px 14px 6px; background: var(--surface); border: 1px solid var(--border-dim); border-radius: var(--radius); overflow: hidden; }
 
         .row { display: flex; align-items: center; gap: 14px; padding: 11px 14px; border-bottom: 1px solid var(--border-faint); transition: background 0.12s; min-height: 44px; }
@@ -2074,11 +2081,13 @@
     // panel being visible, so the WebKit menu leaked through everywhere else:
     // the tab strip, the title bar, gutters, and panels with no handler at all.
     // This does not stopPropagation, so panel handlers still run and still
-    // build their menus. Text fields are exempt so right-click copy/paste
-    // keeps working there.
+    // build their menus. The native menu is suppressed everywhere by default,
+    // INCLUDING text fields — a raw input still shows the OS-drawn menu that
+    // ignores the theme. A field that genuinely wants native right-click
+    // copy/paste opts back in with the `allow-native-menu` class.
     document.addEventListener("contextmenu", function(e) {
         var t = e.target;
-        if (t && t.closest && t.closest("input, textarea, [contenteditable=''], [contenteditable='true']")) return;
+        if (t && t.closest && t.closest(".allow-native-menu")) return;
         e.preventDefault();
     });
 

@@ -10,10 +10,12 @@
  *      the user's --font-mono.
  *
  *   2. Native macOS controls. A native <select>, confirm()/alert()/prompt(),
- *      or an OS-chrome input (type=date/time/color/file) is drawn by macOS in
- *      its own style and ignores the theme — and a native modal can sit behind
- *      the always-on-top shell and softlock. Use createSelect() and the shell's
- *      own modal instead.
+ *      an OS-chrome input (type=date/time/color/file), or a contextmenu
+ *      suppressor that exempts text fields (re-opening the OS-drawn native
+ *      menu) is drawn by macOS in its own style and ignores the theme — and a
+ *      native modal can sit behind the always-on-top shell and softlock. Use
+ *      createSelect(), the shell's own modal, and the `allow-native-menu`
+ *      opt-in class instead.
  *
  * Scope:
  *   - color/font literal rules apply to ui/modules/*.js (the consumers that
@@ -74,6 +76,14 @@ const NATIVE_SELECT_CODE = /(document\.)?createElement\(\s*["']select["']\s*\)/i
 const NATIVE_SELECT_MARKUP = /<select[\s>]/i;
 const NATIVE_DIALOG = /(^|[^.\w])(window\.)?(confirm|alert|prompt)\s*\(/;
 const NATIVE_INPUT = /type\s*=\s*["'](date|time|datetime-local|month|week|color|file)["']/i;
+
+// A contextmenu suppressor that early-returns for editable elements re-opens
+// the OS-drawn native menu on those fields — the menu ignores the theme (and a
+// blanket `input, textarea` exemption hits EVERY field). The shell suppresses
+// the native menu by default; a field that truly wants native copy/paste opts
+// in with the `allow-native-menu` class, so the suppressor exempts only that.
+const CONTEXTMENU_HANDLER = /addEventListener\(\s*["']contextmenu["']|\boncontextmenu\s*=/;
+const EDITABLE_EXEMPT = /\.closest\(\s*["'][^)]*\b(input|textarea|contenteditable)\b/;
 
 // A line whose meaningful content is a comment (JS // /* */, HTML <!-- -->).
 function isComment(line) {
@@ -195,6 +205,24 @@ for (const file of files) {
         if (!isColorEditor && NATIVE_INPUT.test(line)) {
             report(file, i + 1, "native-input", line,
                 "This input renders OS chrome. Build a themed control, or add `ui-lint-allow` if the OS control is intended.");
+        }
+
+        // Rule 2b — a contextmenu handler that exempts editable elements. Scoped
+        // to contextmenu registrations (the exempt line usually sits 1-3 lines
+        // below), so keydown handlers that legitimately skip typing in a field
+        // are not touched. The sanctioned exemption targets `.allow-native-menu`.
+        if (!comment && CONTEXTMENU_HANDLER.test(line)) {
+            for (let j = i + 1; j <= i + 4 && j < lines.length; j++) {
+                const look = lines[j];
+                if (CONTEXTMENU_HANDLER.test(look)) break; // next handler; stop
+                if (!EDITABLE_EXEMPT.test(look)) continue;
+                const okd = /ui-lint-allow/.test(look)
+                    || /ui-lint-allow/.test(lines[j - 1] || "");
+                if (okd) break;
+                report(file, j + 1, "native-menu-exempt", look,
+                    "A contextmenu suppressor must not exempt input/textarea/contenteditable — that leaks the OS native menu. Exempt only `.allow-native-menu` (the opt-in for fields that need native copy/paste).");
+                break;
+            }
         }
     }
 }

@@ -974,6 +974,7 @@ return function(ms)
                 ms._userSettingDefs  = {}
                 ms._userSettingIndex = {}
                 ms._userSettingVals  = {}
+                ms._userMenuDefs     = {}
 
                 ms._defineOrigin = "pack"
                 local ok, runErr = xpcall(chunk, debug.traceback)
@@ -2125,6 +2126,8 @@ return function(ms)
                     if ms.ui._actions.reloadMacros then pcall(ms.ui._actions.reloadMacros) end
                     if ms._loadAuthoredSettings then pcall(ms._loadAuthoredSettings) end
                     if ms._defineAuthoredSettings then pcall(ms._defineAuthoredSettings) end
+                    if ms._loadAuthoredMenus then pcall(ms._loadAuthoredMenus) end
+                    if ms._defineAuthoredMenus then pcall(ms._defineAuthoredMenus) end
                 elseif data.kind == "theme" then
                     if ms.loadTheme then pcall(ms.loadTheme) end
                     pcall(function() ms.alert:recolor() end)
@@ -2551,6 +2554,42 @@ return function(ms)
                 else
                     ms.playSlot("alert")
                     ms.alert("Couldn't update setting: " .. (err or "invalid"), 4)
+                end
+            end,
+
+            -- User-created Tuning-tab sections (see ms.addAuthoredMenu). //
+            addUserMenu = function(data)
+                local ok, err = ms.addAuthoredMenu(data or {})
+                if ok then
+                    ms.playSlot("update")
+                    ms.ui.refresh()
+                    ms.alert("Section added.", 2)
+                else
+                    ms.playSlot("alert")
+                    ms.alert("Couldn't add section: " .. (err or "invalid"), 4)
+                end
+            end,
+
+            updateUserMenu = function(data)
+                local ok, err = ms.updateAuthoredMenu(data and data.id, data or {})
+                if ok then
+                    ms.playSlot("update")
+                    ms.ui.refresh()
+                else
+                    ms.playSlot("alert")
+                    ms.alert("Couldn't rename section: " .. (err or "invalid"), 4)
+                end
+            end,
+
+            removeUserMenu = function(data)
+                local ok, err = ms.removeAuthoredMenu(data and data.id)
+                if ok then
+                    ms.playSlot("reset")
+                    ms.ui.refresh()
+                    ms.alert("Section removed.", 2)
+                else
+                    ms.playSlot("alert")
+                    ms.alert("Couldn't remove section: " .. (err or "invalid"), 4)
                 end
             end,
 

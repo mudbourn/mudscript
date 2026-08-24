@@ -967,9 +967,18 @@
                 );
             }
 
+            // Settings that render inside a user-created section (their
+            // `section` matches a menu id) are shown there, not in the generic
+            // Settings group.
+            function inUserMenu(item) {
+                return !!(item && item.section
+                    && window._userMenuIds && window._userMenuIds[item.section]);
+            }
+
             // buildSettings, the pack's own user-defined settings //
             function buildSettings(body) {
-                const items = filterByOrigin(S.userSettings || []);
+                const items = filterByOrigin(S.userSettings || [])
+                    .filter((it) => !inUserMenu(it));
                 if (items.length > 0) {
                     for (const item of items) {
                         renderUserItem(body, item);
@@ -1048,6 +1057,96 @@
                 for (const item of menu.items || []) {
                     renderUserItem(body, item);
                 }
+                // Authored settings placed into this section (user-created
+                // sections carry no items of their own; they aggregate settings
+                // whose `section` equals the menu id).
+                const owned = filterByOrigin(S.userSettings || [])
+                    .filter((it) => it.section === menu.id);
+                for (const item of owned) renderUserItem(body, item);
+
+                if (menu.origin === "user"
+                    && !(menu.items && menu.items.length) && !owned.length) {
+                    body.appendChild(groupLabel("Empty section."));
+                    const r = h("div", { cls: "row" });
+                    const lbl = h("div", { cls: "row-label" });
+                    lbl.appendChild(h("small", {},
+                        "Add a setting to it with the Setting builder — pick "
+                        + "this section as the destination."));
+                    r.appendChild(lbl);
+                    body.appendChild(r);
+                }
+            }
+
+            // A user-created section, rendered with an inline-editable title and
+            // icon and a remove control. Committing a field posts updateUserMenu;
+            // the body reuses buildUserSection.
+            function userMenuSection(menu) {
+                const wrap = h("div", { cls: "section" });
+                wrap.setAttribute("data-section", "user_" + menu.id);
+
+                const head = h("div", { cls: "section-head section-head-edit" });
+
+                const iconInp = h("input", {
+                    type: "text",
+                    cls: "input-sm section-icon-input",
+                    value: menu.icon || "",
+                    placeholder: "icon",
+                    title: "Section icon (optional emoji)",
+                });
+                const titleInp = h("input", {
+                    type: "text",
+                    cls: "input-sm section-title-input",
+                    value: menu.title || "",
+                    placeholder: "Section name",
+                });
+                // Keep global keybindings from swallowing typed characters.
+                [iconInp, titleInp].forEach((el) =>
+                    el.addEventListener("keydown", (e) => {
+                        e.stopPropagation();
+                        if (e.key === "Enter") el.blur();
+                    }));
+                const commit = () => {
+                    const t = titleInp.value.trim();
+                    const ic = iconInp.value.trim();
+                    if (t === (menu.title || "") && ic === (menu.icon || "")) return;
+                    if (!t) { titleInp.value = menu.title || ""; return; }
+                    sendToHost({
+                        action: "updateUserMenu",
+                        id: menu.id,
+                        title: t,
+                        icon: ic,
+                    });
+                };
+                iconInp.addEventListener("change", commit);
+                titleInp.addEventListener("change", commit);
+
+                const del = h("button", {
+                    cls: "btn-icon section-del-btn",
+                    title: "Remove section",
+                    onmouseenter: () => playSlot("hover"),
+                    onclick: async () => {
+                        playSlot("interact");
+                        const res = await openModal(
+                            "Remove Section",
+                            `Remove "${menu.title}"?\n\nSettings inside it move back to `
+                            + `the Settings group; nothing is deleted.`,
+                            "Remove",
+                        );
+                        if (res.confirmed)
+                            sendToHost({ action: "removeUserMenu", id: menu.id });
+                    },
+                }, "✕");
+
+                head.appendChild(iconInp);
+                head.appendChild(titleInp);
+                head.appendChild(del);
+
+                const body = h("div", { cls: "section-body" });
+                buildUserSection(body, menu);
+
+                wrap.appendChild(head);
+                wrap.appendChild(body);
+                return wrap;
             }
 
             function buildProfiles(root) {
@@ -1645,8 +1744,7 @@
                     dr.key    = item.key || "";
                     dr.label  = item.label || "";
                     dr.hint   = item.hint || "";
-                    dr.target = item.section === "calibration"
-                        ? "calibration" : "settings";
+                    dr.target = item.section || "settings";
                     if (item.type === "toggle") {
                         dr.default = (item.default === true) || (item.value === true);
                     } else if (item.type === "slider") {
@@ -1889,18 +1987,21 @@
 
                     if (keyed(t) || t === "groupLabel") {
                         dyn.appendChild(divider());
+                        const destOpts = [
+                            { label: "Settings", value: "settings" },
+                            { label: "Calibration", value: "calibration" },
+                        ];
+                        // Offer every user-created section as a destination too.
+                        for (const m of S.userMenus || []) {
+                            if (m.origin === "user")
+                                destOpts.push({ label: m.title, value: m.id });
+                        }
                         dyn.appendChild(
                             row(
                                 "Destination",
                                 "Which Tools section it lands in",
                                 seg(
-                                    [
-                                        { label: "Settings", value: "settings" },
-                                        {
-                                            label: "Calibration",
-                                            value: "calibration",
-                                        },
-                                    ],
+                                    destOpts,
                                     draft.target,
                                     (v) => {
                                         draft.target = v;
@@ -2010,25 +2111,39 @@
                 const scrollTop = scroll.scrollTop;
                 scroll.innerHTML = "";
 
+                // Ids of every section shown as its own menu, so settings that
+                // belong to one are rendered there and not duplicated in the
+                // generic Settings group below.
+                const menuIds = {};
+                for (const menu of S.userMenus || []) menuIds[menu.id] = true;
+                window._userMenuIds = menuIds;
+
                 for (const menu of S.userMenus || []) {
                     // A whole menu carries one origin — skip it under a filter it
                     // doesn't match.
                     if (active && !toolOriginMatches(menu.origin)) continue;
-                    const title = menu.icon
-                        ? menu.icon + " " + menu.title
-                        : menu.title;
-                    scroll.appendChild(
-                        section("user_" + menu.id, title, (body) =>
-                            buildUserSection(body, menu),
-                        ),
-                    );
+                    if (menu.origin === "user") {
+                        // User-created sections get an inline-editable header so
+                        // the title/icon can be changed by clicking the fields.
+                        scroll.appendChild(userMenuSection(menu));
+                    } else {
+                        const title = menu.icon
+                            ? menu.icon + " " + menu.title
+                            : menu.title;
+                        scroll.appendChild(
+                            section("user_" + menu.id, title, (body) =>
+                                buildUserSection(body, menu),
+                            ),
+                        );
+                    }
                 }
 
                 // The three user-defined tool kinds sit at the bottom of the
                 // window: Settings (adjustable values), Functions (callable), and
                 // Variables (shared helper vars). Under an origin filter, a kind
                 // with nothing left to show is dropped rather than left empty.
-                if (!active || filterByOrigin(S.userSettings).length) {
+                if (!active
+                    || filterByOrigin(S.userSettings).some((it) => !inUserMenu(it))) {
                     scroll.appendChild(
                         section("settings", "Settings", buildSettings,
                             "Defined by your macro pack"),
@@ -2053,6 +2168,37 @@
                         section("calibration", "Calibration", (body) => {
                             for (const item of calib) renderUserItem(body, item);
                         }, "Tune the pack to your setup"),
+                    );
+                }
+
+                // At the very bottom: create your own section. Pack authors do
+                // this from ms_macros.lua with ms.menu.define(); this is the UI
+                // equivalent. Only shown when not filtering to a non-user origin.
+                if (!active || window._toolsFilter === "user") {
+                    scroll.appendChild(
+                        section("new-section", "New Section", (body) => {
+                            const inp = h("input", {
+                                type: "text",
+                                cls: "input-sm",
+                                placeholder: "Section name",
+                            });
+                            inp.addEventListener("keydown", (e) => {
+                                e.stopPropagation();
+                                if (e.key === "Enter") add();
+                            });
+                            const add = () => {
+                                const t = inp.value.trim();
+                                sendToHost({
+                                    action: "addUserMenu",
+                                    title: t || "New Section",
+                                });
+                                inp.value = "";
+                            };
+                            body.appendChild(
+                                row("Name", "Title for the new section", inp));
+                            body.appendChild(btnRow(
+                                actionBtn("Add Section", "accent", add)));
+                        }, "Add your own section to this panel"),
                     );
                 }
 

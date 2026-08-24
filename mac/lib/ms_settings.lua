@@ -29,6 +29,7 @@ return function(ms)
         local jsonPath        = os.getenv("HOME") .. "/.hammerspoon/data/ms_settings.json"
         local defaultPath     = os.getenv("HOME") .. "/.hammerspoon/data/ms_settings_default.json"
         local authoredPath    = os.getenv("HOME") .. "/.hammerspoon/data/ms_authored.json"
+        local authoredMenusPath = os.getenv("HOME") .. "/.hammerspoon/data/ms_authored_menus.json"
         local archivePath     = os.getenv("HOME") .. "/.hammerspoon/backups/"
         local macrosPath      = os.getenv("HOME") .. "/.hammerspoon/ms_macros.lua"
         local profilesPath    = os.getenv("HOME") .. "/.hammerspoon/profiles/"
@@ -48,6 +49,7 @@ return function(ms)
                 { live = visualJsonPath, name = "ms_macros_visual.json" },
                 { live = visualLuaPath,  name = "ms_macros_visual.lua" },
                 { live = authoredPath,   name = "ms_authored.json" },
+                { live = authoredMenusPath, name = "ms_authored_menus.json" },
                 { live = helperVarsPath, name = "ms_helpervars.json" },
             }
         end
@@ -511,7 +513,12 @@ return function(ms)
                 type = t,
                 authored = true,
             }
-            if raw.target == "calibration" then def.section = "calibration" end
+            -- "settings"/nil is default, "calibration" the built-in group, any
+            -- other target a user-created section id to render inside.
+            if type(raw.target) == "string"
+                and raw.target ~= "" and raw.target ~= "settings" then
+                def.section = raw.target
+            end
 
             if t == "divider" then return def end
             if t == "groupLabel" then
@@ -742,6 +749,154 @@ return function(ms)
             return true
         end
 
+        -- Authored menus (user-created Tuning-tab sections) --
+        -- Empty titled sections created from the UI, mirroring ms.menu.define.
+        -- Authored settings whose section equals the menu id render inside.
+
+        -- Turn a display title into a stable, collision-free menu id.
+        local function _menuIdFromTitle(title, taken)
+            local base = (title or ""):lower():gsub("[^%w]+", "_"):gsub("^_+", ""):gsub("_+$", "")
+            if base == "" then base = "section" end
+            base = "user_" .. base
+            local id, n = base, 1
+            while taken[id] do n = n + 1 id = base .. "_" .. n end
+            return id
+        end
+
+        ms._loadAuthoredMenus = function()
+            ms._authoredMenus = {}
+            local f = io.open(authoredMenusPath, "r")
+            if not f then return end
+            local content = f:read("*all")
+            f:close()
+            local ok, data = pcall(hs.json.decode, content)
+            if ok and type(data) == "table" then
+                for _, m in ipairs(data) do
+                    if type(m) == "table"
+                        and type(m.id) == "string" and #m.id > 0
+                        and type(m.title) == "string" then
+                        table.insert(ms._authoredMenus, {
+                            id    = m.id,
+                            title = m.title,
+                            icon  = type(m.icon) == "string" and m.icon or nil,
+                        })
+                    end
+                end
+            end
+        end
+
+        ms._saveAuthoredMenus = function()
+            local f = io.open(authoredMenusPath, "w")
+            if f then
+                f:write(hs.json.encode(ms._authoredMenus or {}, true))
+                f:close()
+            end
+        end
+
+        -- Register each stored menu as an empty user section.
+        ms._defineAuthoredMenus = function()
+            for _, m in ipairs(ms._authoredMenus or {}) do
+                local dup = false
+                for _, d in ipairs(ms._userMenuDefs or {}) do
+                    if d.id == m.id then dup = true break end
+                end
+                if not dup then
+                    pcall(ms.menu.define, {
+                        id    = m.id,
+                        title = m.title,
+                        icon  = m.icon,
+                        items = {},
+                    })
+                end
+            end
+        end
+
+        ms.addAuthoredMenu = function(raw)
+            local title = _trim(raw and raw.title or "")
+            if title == "" then title = "New Section" end
+            ms._authoredMenus = ms._authoredMenus or {}
+            local taken = {}
+            for _, m in ipairs(ms._authoredMenus) do taken[m.id] = true end
+            for _, d in ipairs(ms._userMenuDefs or {}) do taken[d.id] = true end
+            local id = _menuIdFromTitle(title, taken)
+            local entry = {
+                id    = id,
+                title = title,
+                icon  = _trim(raw and raw.icon or "") ~= "" and _trim(raw.icon) or nil,
+            }
+            table.insert(ms._authoredMenus, entry)
+            pcall(ms.menu.define, {
+                id = id, title = title, icon = entry.icon, items = {},
+            })
+            ms._saveAuthoredMenus()
+            if ms.bus and ms.bus.emit then pcall(ms.bus.emit, "ui:macros:listTools") end
+            return true, id
+        end
+
+        ms.updateAuthoredMenu = function(id, raw)
+            if type(id) ~= "string" or id == "" then
+                return false, "a section id is required"
+            end
+            ms._authoredMenus = ms._authoredMenus or {}
+            local found
+            for _, m in ipairs(ms._authoredMenus) do
+                if m.id == id then found = m break end
+            end
+            if not found then return false, "not a user-created section" end
+            if raw.title ~= nil then
+                local title = _trim(raw.title)
+                found.title = title ~= "" and title or found.title
+            end
+            if raw.icon ~= nil then
+                local icon = _trim(raw.icon)
+                found.icon = icon ~= "" and icon or nil
+            end
+            -- Reflect the rename onto the live menu def.
+            for _, d in ipairs(ms._userMenuDefs or {}) do
+                if d.id == id then
+                    d.title = found.title
+                    d.icon  = found.icon
+                end
+            end
+            ms._saveAuthoredMenus()
+            if ms.bus and ms.bus.emit then pcall(ms.bus.emit, "ui:macros:listTools") end
+            return true
+        end
+
+        ms.removeAuthoredMenu = function(id)
+            if type(id) ~= "string" or id == "" then
+                return false, "a section id is required"
+            end
+            ms._authoredMenus = ms._authoredMenus or {}
+            local foundAt
+            for i, m in ipairs(ms._authoredMenus) do
+                if m.id == id then foundAt = i break end
+            end
+            if not foundAt then return false, "not a user-created section" end
+            table.remove(ms._authoredMenus, foundAt)
+
+            -- Drop the live menu def.
+            for i = #(ms._userMenuDefs or {}), 1, -1 do
+                if ms._userMenuDefs[i].id == id then
+                    table.remove(ms._userMenuDefs, i)
+                end
+            end
+
+            -- Settings that lived here fall back to the default Settings group.
+            for _, def in ipairs(ms._authoredSettings or {}) do
+                if def.section == id then def.section = nil end
+            end
+            for _, def in ipairs(ms._userSettingDefs or {}) do
+                if type(def) == "table" and def.section == id then
+                    def.section = nil
+                end
+            end
+            ms._saveAuthoredMenus()
+            ms._saveAuthoredSettings()
+            if ms.bus and ms.bus.emit then pcall(ms.bus.emit, "ui:macros:listTools") end
+            return true
+        end
+
         ms.loadSettings = function()
             ms.dev.log({
                 type = "system",
@@ -897,6 +1052,7 @@ return function(ms)
             ms._userSettingDefs  = {}
             ms._userSettingIndex = {}
             ms._userSettingVals  = {}
+            ms._userMenuDefs     = {}
             ms._pendingUserSettings = {}
 
             local macrosPath = os.getenv("HOME") .. "/.hammerspoon/ms_macros.lua"
@@ -930,6 +1086,8 @@ return function(ms)
             ms.loadSettings()
             ms._loadAuthoredSettings()
             ms._defineAuthoredSettings()
+            ms._loadAuthoredMenus()
+            ms._defineAuthoredMenus()
             ms.loadTheme()
             if not ms.registry._defs["__panicButton"] then ms.bind._registerSystemBinds() end
             ms.bind.rebind()
@@ -1449,6 +1607,8 @@ return function(ms)
                     -- reloadMacros just restored and never re-load plugins).
                     if ms._loadAuthoredSettings then pcall(ms._loadAuthoredSettings) end
                     if ms._defineAuthoredSettings then pcall(ms._defineAuthoredSettings) end
+                    if ms._loadAuthoredMenus then pcall(ms._loadAuthoredMenus) end
+                    if ms._defineAuthoredMenus then pcall(ms._defineAuthoredMenus) end
                 end
             end
 

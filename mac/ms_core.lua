@@ -307,9 +307,14 @@
                     ms.loadSettings    = function() end
                     ms._loadAuthoredSettings   = function() end
                     ms._defineAuthoredSettings = function() end
+                    ms._loadAuthoredMenus      = function() end
+                    ms._defineAuthoredMenus    = function() end
                     ms.addAuthoredSetting      = function() return false, "settings unavailable" end
                     ms.removeAuthoredSetting   = function() return false, "settings unavailable" end
                     ms.updateAuthoredSetting   = function() return false, "settings unavailable" end
+                    ms.addAuthoredMenu         = function() return false, "settings unavailable" end
+                    ms.updateAuthoredMenu      = function() return false, "settings unavailable" end
+                    ms.removeAuthoredMenu      = function() return false, "settings unavailable" end
                     ms.saveDefault     = function() end
                     ms.resetToDefault  = function() return false end
                     ms.reloadSettings  = function() end
@@ -6454,6 +6459,8 @@
         ms.loadSettings()
         ms._loadAuthoredSettings()
         ms._defineAuthoredSettings()
+        ms._loadAuthoredMenus()
+        ms._defineAuthoredMenus()
         if ms._customThemeDisabled then
             for sid, def in pairs(ms.soundSlotDefaults()) do
                 ms.soundAssign[sid] = def

@@ -848,7 +848,7 @@
 // so right-click copy/paste keeps working.
 document.addEventListener("contextmenu", function (e) {
     var t = e.target;
-    if (t && t.closest && t.closest("input, textarea, [contenteditable=''], [contenteditable='true']")) return;
+    if (t && t.closest && t.closest(".allow-native-menu")) return;
     e.preventDefault();
 });
 </script>
