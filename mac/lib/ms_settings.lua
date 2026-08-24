@@ -3910,9 +3910,19 @@ return function(ms)
             end
             if not topDir:match("/$") then topDir = topDir .. "/" end
 
+            -- Wholesale-replaceable install artifacts. These MUST mirror what a
+            -- fresh install.sh lays down: install copies the entire bundle, so an
+            -- update that omits any of these leaves a stale copy against the new
+            -- ms_core.lua. `lib` was missing here — an update shipped the new core
+            -- against the OLD lib/ (e.g. ms_core calling _loadAuthoredMenus() that
+            -- only the new ms_settings.lua defines), crashing on reload. `templates`
+            -- had the same latent gap. User data (ms_macros.lua, profiles) stays in
+            -- templateList so it is never clobbered.
             local replaceList = {
                 "ms_core.lua",
                 "init.lua",
+                "lib",
+                "templates",
                 "ui",
                 "bin",
                 "Spoons",
