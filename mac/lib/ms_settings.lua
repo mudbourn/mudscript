@@ -527,10 +527,17 @@ return function(ms)
                 def.uid = raw.uid
             end
             -- "settings"/nil is default, "calibration" the built-in group, any
-            -- other target a user-created section id to render inside.
-            if type(raw.target) == "string"
-                and raw.target ~= "" and raw.target ~= "settings" then
-                def.section = raw.target
+            -- other value a user-created section id to render inside. The rest of
+            -- the system (disk, UI push, tools list, grouping) names this field
+            -- `section`; `target` is a legacy alias kept so older callers/payloads
+            -- still resolve. Reading only `target` here silently dropped the
+            -- placement on every load and edit, since sanitize is the shared choke
+            -- point for both save and load.
+            local placement = raw.section
+            if placement == nil or placement == "" then placement = raw.target end
+            if type(placement) == "string"
+                and placement ~= "" and placement ~= "settings" then
+                def.section = placement
             end
 
             if t == "divider" then return def end

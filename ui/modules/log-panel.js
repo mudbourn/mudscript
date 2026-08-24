@@ -310,7 +310,14 @@ function createLogPanel(config) {
         el.classList.add("open");
         el.style.maxHeight = "";
         const MARGIN = 6;
-        const vw = window.innerWidth, vh = window.innerHeight;
+        // The menu is position:fixed inside the zoomed root, so its left/top and
+        // offsetWidth/scrollHeight are in zoomed CSS px, while the incoming x/y
+        // (clientX/Y) and innerWidth/Height come back in physical px. Fold the
+        // pointer and viewport into the same zoomed space or the menu lands
+        // off-cursor once the UI is scaled.
+        const zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+        x /= zoom; y /= zoom;
+        const vw = window.innerWidth / zoom, vh = window.innerHeight / zoom;
         const mw = el.offsetWidth || 140;
         const naturalH = el.scrollHeight;
         const left = Math.max(MARGIN, Math.min(x, vw - mw - MARGIN));
