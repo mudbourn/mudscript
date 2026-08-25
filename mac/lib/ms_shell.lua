@@ -424,7 +424,7 @@
                 }, {}, _shellChannel)
                 pcall(function()
                     local M = hs.webview.windowMasks or {}
-                    _shellView:windowStyle((M.borderless or 0) | (M.nonactivating or 128))
+                    _shellView:windowStyle((M.borderless or 0) + (M.nonactivating or 128))
                 end)
                 pcall(function() _shellView:transparent(true) end)
                 pcall(function() _shellView:allowResizing(true) end)
@@ -1224,7 +1224,7 @@
                 end
                 pcall(function()
                     local M = hs.webview.windowMasks or {}
-                    popView:windowStyle((M.borderless or 0) | (M.nonactivating or 128))
+                    popView:windowStyle((M.borderless or 0) + (M.nonactivating or 128))
                 end)
                 pcall(function() popView:transparent(true) end)
                 pcall(function() popView:level(hs.canvas.windowLevels.popUpMenu or 101) end)
