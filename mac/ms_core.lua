@@ -637,6 +637,13 @@
                         a = "a_Alert",
                     },
                     {
+                        id = "error",
+                        label = "Error",
+                        group = "event",
+                        d = "d_Error",
+                        a = "a_Error",
+                    },
+                    {
                         id = "enabled",
                         label = "Macros Enabled",
                         group = "event",
@@ -6664,17 +6671,10 @@
                             .. " >/dev/null 2>&1")
                         print("[instance-guard] evicted duplicate Hammerspoon pid "
                             .. tostring(theirPid))
-                        pcall(function()
-                            -- Prefer the active theme's error sound (a_Error) if
-                            -- the discovery map has one, else the built-in default
-                            -- (d_Error). ms.sounds only holds a_* entries when the
-                            -- active pack is scanned (custom theme enabled), so
-                            -- this honors a custom error chime and falls back
-                            -- cleanly when there isn't one.
-                            local snd = (ms.sounds and ms.sounds["a_Error"])
-                                and "a_Error" or "d_Error"
-                            ms.sound(snd)
-                        end)
+                        -- "error" is a real event slot, so playSlot resolves it
+                        -- like any other system sound: user assignment > active
+                        -- pack (a_Error) > built-in default (d_Error).
+                        pcall(function() ms.playSlot("error") end)
                         pcall(function()
                             ms.alert("Hammerspoon is already running. "
                                 .. "Closed the duplicate instance.", 6, true)

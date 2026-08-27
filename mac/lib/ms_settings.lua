@@ -5593,6 +5593,10 @@ return function(ms)
                         label = "Alert / Notice",
                     },
                     {
+                        id = "error",
+                        label = "Error",
+                    },
+                    {
                         id = "enabled",
                         label = "Macros Enabled",
                     },
