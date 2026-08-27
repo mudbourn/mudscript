@@ -8,6 +8,41 @@
 
         ms.compiler = {}
 
+        -- Broken-macro quarantine --
+            -- A macro whose emitted body fails to compile is not dropped from
+            -- the generated file (which would take the WHOLE chunk down on load,
+            -- unregistering every visual macro at once and blanking their
+            -- binds). Instead rebuild emits a call to this helper, which
+            -- registers the macro normally — so it keeps its list slot and key
+            -- bind — with a body that surfaces the compile error when run. The
+            -- failure stays isolated to the one broken macro and is visible
+            -- instead of silent.
+            ms._brokenMacro = function(spec)
+                spec = type(spec) == "table" and spec or {}
+                local id = spec.id
+                if type(id) ~= "string" then return end
+                local label  = spec.name or id
+                local errMsg = spec.err or "unknown compile error"
+                local fn = ms.fn(function()
+                    ms.alert("Macro '" .. label .. "' has a build error and "
+                        .. "can't run. Open the builder to fix it.", 4)
+                    error("[ms.compiler] macro '" .. id
+                        .. "' failed to compile: " .. errMsg, 0)
+                end, label)
+                local opts = { group = spec.group or "visual", label = label }
+                if spec.cooldown then opts.cooldown = spec.cooldown end
+                local b = spec.bind
+                if type(b) == "table" and (b.type or b.key) then
+                    opts.default = {
+                        type = b.type or "key",
+                        mods = b.mods or {},
+                        key  = b.key,
+                    }
+                end
+                ms.bind.define(id, fn, opts)
+            end
+        -- END Broken-macro quarantine --
+
         -- Helpers --
             local function toolRef(val)
                 if type(val) ~= "table" then return nil end
@@ -619,6 +654,51 @@
                 return string.format("%q", v)
             end
 
+            -- Does this emitted source parse as valid Lua? compile() can happily
+            -- return syntactically broken text (a raw `code` step or a hand-typed
+            -- condition passes straight through), and the whole generated file is
+            -- loaded as ONE chunk — so a single bad macro would fail the load and
+            -- unregister every visual macro. Parse each macro on its own first so
+            -- the damage can be contained. Returns nil on success, else the error.
+            local function syntaxError(src)
+                if type(src) ~= "string" then return "compiler returned non-string" end
+                -- Mirror the load() path used elsewhere here: LuaJIT reports
+                -- _VERSION "Lua 5.1" and keeps loadstring, so prefer it and only
+                -- fall back to 5.2+ load(). Parsing alone — undefined globals in
+                -- the source don't matter since we never execute the chunk.
+                local chunk, err
+                if loadstring then
+                    chunk, err = loadstring(src, "ms_macro_check")
+                else
+                    chunk, err = load(src, "@ms_macro_check", "t")
+                end
+                if chunk then return nil end
+                return tostring(err)
+            end
+
+            -- Source for a quarantined macro: registers it via ms._brokenMacro so
+            -- it keeps its list slot and bind but reports the compile error when
+            -- run. All interpolated values go through luaStr, so an error string
+            -- full of quotes/newlines can't itself produce broken source.
+            local function brokenMacroSource(macroDef, errMsg)
+                local b = macroDef.bind
+                local bindLit = "nil"
+                if type(b) == "table" and (b.type or b.key) then
+                    local mods = {}
+                    for _, m in ipairs(b.mods or {}) do mods[#mods + 1] = luaStr(m) end
+                    bindLit = "{ type = " .. luaStr(b.type or "key")
+                        .. ", key = " .. (b.key and luaStr(b.key) or "nil")
+                        .. ", mods = { " .. table.concat(mods, ", ") .. " } }"
+                end
+                return "ms._brokenMacro({\n"
+                    .. "    id    = " .. luaStr(macroDef.id) .. ",\n"
+                    .. "    name  = " .. luaStr(macroDef.name or macroDef.id) .. ",\n"
+                    .. "    group = " .. luaStr(macroDef.group or "visual") .. ",\n"
+                    .. "    err   = " .. luaStr(errMsg) .. ",\n"
+                    .. "    bind  = " .. bindLit .. ",\n"
+                    .. "})"
+            end
+
             ms.compiler._writeFile = function(sources, meta)
                 meta = type(meta) == "table" and meta or {}
                 local lines = {}
@@ -684,6 +764,11 @@
                     error("ms.compiler.rebuild: invalid JSON in " .. jsonPath .. ": " .. tostring(data))
                 end
 
+                -- Compile errors from this pass, keyed by macro id. saveMacro
+                -- reads this right after rebuild() to tell the builder a save
+                -- produced a broken macro instead of silently succeeding.
+                ms.compiler._errors = {}
+
                 local macros = data.macros or {}
                 local sources = {}
                 local count = 0
@@ -691,10 +776,20 @@
                 for id, macroDef in pairs(macros) do
                     macroDef.id = id
                     local srcOk, src = pcall(ms.compiler.compile, macroDef)
+                    -- Two failure modes: the emitter itself throws (srcOk false),
+                    -- or it returns text that does not parse (syntaxError). Either
+                    -- way, quarantine the macro so its bad Lua can't sink the
+                    -- whole file's load.
+                    local errMsg
                     if not srcOk then
-                        print("ms.compiler: compile error for '" .. id .. "': " .. tostring(src))
-                        src = "-- [COMPILE ERROR for " .. id .. "]\n"
-                        .. "-- " .. tostring(src) .. "\n"
+                        errMsg = tostring(src)
+                    else
+                        errMsg = syntaxError(src)
+                    end
+                    if errMsg then
+                        print("ms.compiler: compile error for '" .. id .. "': " .. errMsg)
+                        ms.compiler._errors[id] = errMsg
+                        src = brokenMacroSource(macroDef, errMsg)
                     end
                     sources[#sources + 1] = {
                         id     = id,
@@ -711,9 +806,20 @@
                 for id, fnDef in pairs(functions) do
                     fnDef.id = id
                     local okF, srcF = pcall(ms.compiler.compileFunction, fnDef)
+                    local fnErr
                     if not okF then
-                        print("ms.compiler: function compile error for '" .. id .. "': " .. tostring(srcF))
+                        fnErr = tostring(srcF)
+                    else
+                        fnErr = syntaxError(srcF)
+                    end
+                    if fnErr then
+                        print("ms.compiler: function compile error for '" .. id .. "': " .. fnErr)
+                        ms.compiler._errors["fn:" .. id] = fnErr
+                        -- A comment is valid Lua, so it keeps the file loadable.
+                        -- Any macro that calls this tool hits a nil at runtime
+                        -- (isolated) instead of failing the whole load.
                         srcF = "-- [FUNCTION COMPILE ERROR for " .. id .. "]\n"
+                            .. "-- " .. fnErr:gsub("\n", "\n-- ") .. "\n"
                     end
                     fnSources[#fnSources + 1] = { id = "fn:" .. id, source = srcF }
                     fnCount = fnCount + 1

@@ -5389,10 +5389,34 @@
                         end
                         local ok, err = pcall(ms.compiler.write, body.id, body.def)
                         if ok then
-                            print("ms.compiler.saveMacro: '" .. tostring(body.id) .. "' saved and registered")
+                            -- write() preserves the JSON store even when a macro
+                            -- fails to compile — rebuild quarantines the broken
+                            -- one rather than dropping it. Surface that compile
+                            -- error to the builder so the save isn't silently
+                            -- "successful" while the macro can't actually run.
+                            local compileErr = ms.compiler._errors
+                                and ms.compiler._errors[body.id]
                             _registerAndNotify()
+                            if compileErr then
+                                print("ms.compiler.saveMacro: '" .. tostring(body.id)
+                                    .. "' saved but failed to compile: " .. tostring(compileErr))
+                                local payload = hs.json.encode({
+                                    id  = body.id,
+                                    err = tostring(compileErr),
+                                })
+                                _macroShellEval("if(window.shellReceive)shellReceive('macros','saveError',"
+                                    .. payload .. ")")
+                            else
+                                print("ms.compiler.saveMacro: '" .. tostring(body.id) .. "' saved and registered")
+                            end
                         else
                             print("ms.compiler.saveMacro error: " .. tostring(err))
+                            local payload = hs.json.encode({
+                                id  = body.id,
+                                err = tostring(err),
+                            })
+                            _macroShellEval("if(window.shellReceive)shellReceive('macros','saveError',"
+                                .. payload .. ")")
                         end
                     end)
 

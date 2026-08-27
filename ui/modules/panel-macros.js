@@ -4191,7 +4191,10 @@
         if (window.shellPost) {
             shellPost("macros", "saveMacro", { id: _currentMacroId, def: def });
         }
-        _macroDirty = false;
+        // Do NOT optimistically mark clean here. The host acks with either
+        // "macroSaved" (clears dirty) or "saveError" (keeps it dirty and shows
+        // the compile error). Clearing now would strand the builder looking
+        // "saved" while the macro actually failed to compile.
         updateSaveBtnState();
     }
 
@@ -4641,6 +4644,21 @@
             refreshMacroList();
             // A saved macro may have gained or changed its bind.
             refreshBindList();
+            return;
+        }
+        if (action === "saveError") {
+            // The JSON store was written, but the macro failed to compile and
+            // was quarantined host-side. Keep the editor dirty and selected so
+            // the user can fix and re-save, and surface the compile error the
+            // same way Test does — it's no longer the only signal.
+            _macroDirty = true;
+            updateSaveBtnState();
+            // Binds/list still refresh: the macro survives (quarantined) so it
+            // stays listed and keeps its bind instead of vanishing.
+            refreshMacroList();
+            refreshBindList();
+            showTestToast("\u2717 Save failed to compile: "
+                + ((body && body.err) || "Unknown error"), "error");
             return;
         }
         if (action === "bindList" && Array.isArray(body)) {
