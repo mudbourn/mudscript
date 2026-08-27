@@ -6607,6 +6607,103 @@
                 end)
             end
 
+            -- Single-instance guard --
+                -- Hammerspoon is meant to run as ONE process. The watchdog /
+                -- relaunch machinery (and a stray manual launch) can spin up a
+                -- second instance that fights the first over the shared
+                -- ~/.hammerspoon state. Two instances are two OS processes, so an
+                -- in-process flag can't see across them -- announce over
+                -- NSDistributedNotificationCenter instead. Every instance
+                -- announces {pid, bootTime} on boot; whichever instance is OLDER
+                -- evicts the newcomer with SIGKILL (so the duplicate never runs
+                -- teardown against the shared files -- see the exit-curtain /
+                -- init.lua-perms hazards), plays the error chime and tells the
+                -- user. The newcomer does nothing itself; the incumbent evicts
+                -- it. Runs synchronously here, before the deferred boot chain
+                -- below, so a duplicate is killed long before it arms hotkeys.
+                pcall(function()
+                    if not hs.distributednotifications then return end
+                    local NOTE   = "info.mudbourn.mudscript.instanceAnnounce"
+                    local myPid   = (hs.processInfo and hs.processInfo.processID) or 0
+                    local myBoot  = hs.timer.secondsSinceEpoch()
+                    ms._instancePid  = myPid
+                    ms._instanceBoot = myBoot
+                    ms._instanceEvicted = ms._instanceEvicted or {}
+
+                    if _G.__ms_instanceWatcher then
+                        pcall(function() _G.__ms_instanceWatcher:stop() end)
+                    end
+
+                    local watcher = hs.distributednotifications.new(function(_, object, userInfo)
+                        -- Prefer the `object` string (always delivered across
+                        -- processes); fall back to userInfo, whose cross-process
+                        -- delivery is less reliable. Payload is "pid:bootTime".
+                        local theirPid, theirBoot
+                        if type(object) == "string" then
+                            local p, b = object:match("^(%d+):([%d%.]+)$")
+                            theirPid  = tonumber(p)
+                            theirBoot = tonumber(b)
+                        end
+                        if not theirPid and type(userInfo) == "table" then
+                            theirPid  = tonumber(userInfo.pid)
+                            theirBoot = tonumber(userInfo.boot)
+                        end
+                        if not theirPid or theirPid == myPid then return end
+                        -- Only the strictly-older instance evicts; a boot-time
+                        -- tie (near-simultaneous launch) breaks on the lower pid.
+                        local iAmOlder
+                        if theirBoot and theirBoot ~= myBoot then
+                            iAmOlder = myBoot < theirBoot
+                        else
+                            iAmOlder = myPid < theirPid
+                        end
+                        if not iAmOlder then return end
+                        if ms._instanceEvicted[theirPid] then return end
+                        ms._instanceEvicted[theirPid] = true
+                        os.execute("kill -9 " .. tostring(math.floor(theirPid))
+                            .. " >/dev/null 2>&1")
+                        print("[instance-guard] evicted duplicate Hammerspoon pid "
+                            .. tostring(theirPid))
+                        pcall(function()
+                            -- Prefer the active theme's error sound (a_Error) if
+                            -- the discovery map has one, else the built-in default
+                            -- (d_Error). ms.sounds only holds a_* entries when the
+                            -- active pack is scanned (custom theme enabled), so
+                            -- this honors a custom error chime and falls back
+                            -- cleanly when there isn't one.
+                            local snd = (ms.sounds and ms.sounds["a_Error"])
+                                and "a_Error" or "d_Error"
+                            ms.sound(snd)
+                        end)
+                        pcall(function()
+                            ms.alert("Hammerspoon is already running. "
+                                .. "Closed the duplicate instance.", 6, true)
+                        end)
+                    end, NOTE)
+                    watcher:start()
+                    _G.__ms_instanceWatcher = watcher
+                    ms._instanceWatcher = watcher
+
+                    -- Announce ourselves so any incumbent can evict us. Repost a
+                    -- couple of times in case the incumbent's listener was not up
+                    -- at the exact instant of the first post -- comparison is on
+                    -- boot times, so a repost can never make the newcomer win.
+                    local myBootStr = string.format("%.4f", myBoot)
+                    local payload   = tostring(myPid) .. ":" .. myBootStr
+                    local function announce()
+                        pcall(function()
+                            hs.distributednotifications.post(NOTE, payload, {
+                                pid  = tostring(myPid),
+                                boot = myBootStr,
+                            })
+                        end)
+                    end
+                    announce()
+                    hs.timer.doAfter(0.4, announce)
+                    hs.timer.doAfter(1.2, announce)
+                end)
+            -- END Single-instance guard --
+
             _G._timers = {}
             _G._timers.animGate = hs.timer.doAfter(2.9, function()
             ms.loading.update(20, "Initializing\u{2026}")
