@@ -45,6 +45,11 @@ return function(ms)
 
     local _jsonDir, _readDir
     local _catPaths, _readablePaths
+    -- Forward-declared at file scope: defined inside :start() but also called from
+    -- :showConsole()/:hideConsole()/etc. As a start()-local it was a nil global at
+    -- those sites (a latent bug on every platform), which husked the shell when
+    -- console open ran ms.shell.eval('showPanel(console)') then threw before loading.
+    local _loadDevHistory
 
     local _typeToCategory = {
         key       = "input",
@@ -481,7 +486,10 @@ return function(ms)
             return "__msConsoleEval()"
         end
 
-        local function _loadDevHistory(panel, categories, shellPanelId, skipEvents)
+        -- Assigns the file-scope upvalue (declared above), not a start()-local, so
+        -- sibling methods (:showConsole etc.) can call it. All upvalues it closes over
+        -- (_catPaths/_readablePaths/_HIST_MAX/_pushToPanel) are themselves file-level.
+        function _loadDevHistory(panel, categories, shellPanelId, skipEvents)
             local entries = {}
             -- Insertion order per entry, so the merge below is a *stable* sort:
             -- entries sharing a timestamp keep their real arrival order instead
