@@ -5,6 +5,7 @@
         local _shellReady    = false
         local _shellEvalQ    = {}
         local _shellFadeTimer = nil
+        local _shellReadyWait = nil
 
         ms.shell = {}
 
@@ -146,6 +147,20 @@
                         if b.stack and b.stack ~= "" then
                             print("  stack: " .. tostring(b.stack))
                         end
+                        return
+                    end
+
+                    -- DIAGNOSTIC: bridge self-test. Driven from the Lua side via a
+                    -- direct window.chrome.webview.postMessage (see the probe eval after
+                    -- :html), bypassing the app's window.webkit API. If this branch
+                    -- prints, page->Lua transport WORKS and the payload tells us whether
+                    -- our webkit-shim installed; if it never prints, the COM receive path
+                    -- is broken despite correct vtable offsets.
+                    if panel == "_shell" and action == "selfTest" then
+                        local b = body or {}
+                        print(string.format(
+                            "[shell] BRIDGE SELF-TEST RECEIVED: hasChrome=%s webkitType=%s hasMsgHandlers=%s",
+                            tostring(b.hasChrome), tostring(b.webkitType), tostring(b.hasMsgHandlers)))
                         return
                     end
 
@@ -473,6 +488,30 @@
                     _shellView:evaluateJavaScript("applyTheme(" .. themeJson .. ")")
                 end)
 
+                -- DIAGNOSTIC: bridge self-test probe. evaluateJavaScript (Lua->page) is
+                -- known to work; this pushes a message back OUT through WebView2's native
+                -- window.chrome.webview.postMessage, bypassing the app's window.webkit
+                -- API entirely, and reports whether our webkit-shim installed. Handled in
+                -- the channel callback above (action "selfTest"). Runs late enough that
+                -- the page (and any AddScriptToExecuteOnDocumentCreated) has initialized.
+                hs.timer.doAfter(0.6, function()
+                    if not _shellView then return end
+                    pcall(function() _shellView:evaluateJavaScript([[
+                        (function(){
+                          try{
+                            var cw = window.chrome && window.chrome.webview;
+                            var payload = {
+                              hasChrome: !!cw,
+                              webkitType: typeof window.webkit,
+                              hasMsgHandlers: !!(window.webkit && window.webkit.messageHandlers)
+                            };
+                            if(cw){ cw.postMessage(JSON.stringify(
+                              {panel:'_shell', action:'selfTest', body:payload})); }
+                          }catch(e){}
+                        })();
+                    ]]) end)
+                end)
+
                 if ms.bus then
                     ms.bus.on("panel:poppedIn", function(data)
                         if data and data.id then
@@ -563,20 +602,48 @@
                 ms._shellState.visible = true
                 if ms.ui then ms.ui._open = true end
                 if ms.bus then ms.bus.emit("macroLab:toggled", { visible = true }) end
-                if not _shellReady then return end
+
                 local view = _shellView
-                local step, steps = 0, 30
-                local fadeMs = (ms._theme and ms._theme.fadeMs) or 250
-                _shellFadeTimer = hs.timer.doEvery(fadeMs / 1000 / steps, function()
-                    step = step + 1
-                    pcall(function() view:alpha(step / steps) end)
-                    if step >= steps then
-                        if _shellFadeTimer then
-                            _shellFadeTimer:stop()
-                            _shellFadeTimer = nil
+                local function _fadeIn()
+                    local step, steps = 0, 30
+                    local fadeMs = (ms._theme and ms._theme.fadeMs) or 250
+                    _shellFadeTimer = hs.timer.doEvery(fadeMs / 1000 / steps, function()
+                        step = step + 1
+                        pcall(function() view:alpha(step / steps) end)
+                        if step >= steps then
+                            if _shellFadeTimer then
+                                _shellFadeTimer:stop()
+                                _shellFadeTimer = nil
+                            end
                         end
-                    end
-                end)
+                    end)
+                end
+
+                -- The window is shown at alpha 0 above; it only becomes visible when we
+                -- fade it in. Originally that was gated on `_shellReady` (the page's JS
+                -- "ready" post). If the page->Lua bridge never delivers that message
+                -- (e.g. a broken WKWebView-vs-WebView2 transport), the shell would stay
+                -- invisible FOREVER despite being open. So: fade in now if ready, else
+                -- poll briefly and fall back to fading in anyway after a timeout -- and
+                -- log it, so a missing handshake is diagnosable instead of silent.
+                if _shellReady then
+                    _fadeIn()
+                else
+                    if _shellReadyWait then _shellReadyWait:stop() end
+                    local waited = 0
+                    _shellReadyWait = hs.timer.doEvery(0.1, function()
+                        waited = waited + 0.1
+                        if _shellReady then
+                            if _shellReadyWait then _shellReadyWait:stop(); _shellReadyWait = nil end
+                            _fadeIn()
+                        elseif waited >= 1.5 then
+                            if _shellReadyWait then _shellReadyWait:stop(); _shellReadyWait = nil end
+                            print("[shell] ready handshake timed out (1.5s) -- forcing "
+                                .. "visible; page->Lua bridge may be down")
+                            _fadeIn()
+                        end
+                    end)
+                end
             end
         -- END --
 
@@ -618,11 +685,20 @@
         -- toggle --
             ms.shell.toggle = function()
                 local isOpen = ms._shellState and ms._shellState.visible
+                -- DIAGNOSTIC: live timer count + toggle wall-time. If the count climbs
+                -- every toggle, a repeating timer is leaking onto the single pump (which
+                -- would make every toggle progressively laggier). Flat count => the lag
+                -- is on the WebView2 / pump-wake side, not a timer leak.
+                local _tc = (hs.timer._activeCount and hs.timer._activeCount()) or -1
+                local _t0 = hs.timer.secondsSinceEpoch()
                 if _shellView and isOpen then
                     ms.shell.hide()
                 else
                     ms.shell.show()
                 end
+                local _dt = (hs.timer.secondsSinceEpoch() - _t0) * 1000
+                print(string.format("[shell] toggle %s: liveTimers=%d, took %.1fms",
+                    isOpen and "hide" or "show", _tc, _dt))
             end
         -- END --
 

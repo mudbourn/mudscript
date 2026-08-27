@@ -6475,6 +6475,36 @@
         ms._startupSoundDone = false
 
         -- Loading Screen Announce & Boot Completion --
+            -- The app version label shown on the loading screen. Extracted from the
+            -- old t3 beat so the loading choreography can own the profile/creator/
+            -- version reveal on a SINGLE clock (anchored to the brand-dock chain),
+            -- instead of a second init-anchored timer that raced it -- on mudspoon the
+            -- two clocks drift and the profile appeared before the brand finished
+            -- docking. Reads MANIFEST.json; on the testing channel derives the -pre.N
+            -- label from the patch bump + build number.
+            ms._bootVersionLabel = function()
+                local p = os.getenv("HOME") .. "/.hammerspoon/MANIFEST.json"
+                local f = io.open(p, "r")
+                if not f then return nil end
+                local ok, m = pcall(hs.json.decode, f:read("*all"))
+                f:close()
+                local base = (ok and m and m.version) or nil
+                if not base then return nil end
+                if ms._updateChannel == "testing" then
+                    local maj, min, pat = base:match("^(%d+)%.(%d+)%.(%d+)$")
+                    if maj and min and pat then
+                        local nextVer = maj .. "." .. min .. "." .. tostring(tonumber(pat) + 1)
+                        local buildPath = os.getenv("HOME") .. "/.hammerspoon/data/.ms_build_num"
+                        local bf = io.open(buildPath, "r")
+                        local buildNum = 0
+                        if bf then buildNum = tonumber(bf:read("*all")) or 0
+                        bf:close() end
+                        return nextVer .. "-pre." .. tostring(buildNum)
+                    end
+                end
+                return base
+            end
+
             ms.loading.create()
 
             _announceLoad = function()
@@ -6588,43 +6618,16 @@
                     local themeJson = hs.json.encode(ms._theme or {})
                     pcall(function() ms.loading.eval("applyTheme(" .. themeJson .. ")") end)
                 end
+                -- The themeLoaded chime overlaps the boot sound on mudspoon, where a
+                -- single MCI wave device is shared; the device-busy (rc=320) retry now
+                -- lives in the sound layer (mudspoon hs/sound.lua), so this can fire
+                -- unconditionally -- the play self-heals once d_Boot frees the device.
                 pcall(function() ms.playSlot("themeLoaded") end)
-                if ms.loading.isVisible() then
-                    if ms.macroMeta and ms.macroMeta.name then
-                        pcall(function() ms.loading.eval("setProfileName('" .. ms.macroMeta.name:gsub("'", "\\'") .. "')") end)
-                    end
-                    if ms.macroMeta and ms.macroMeta.author and ms.macroMeta.author ~= "" then
-                        pcall(function() ms.loading.eval("setCreator('" .. ms.macroMeta.author:gsub("'", "\\'") .. "')") end)
-                    end
-                    local _ver = (function()
-                        local p = os.getenv("HOME") .. "/.hammerspoon/MANIFEST.json"
-                        local f = io.open(p, "r")
-                        if not f then return nil end
-                        local ok, m = pcall(hs.json.decode, f:read("*all"))
-                        f:close()
-                        local base = (ok and m and m.version) or nil
-                        if not base then return nil end
-                        if ms._updateChannel == "testing" then
-                            local maj, min, pat = base:match("^(%d+)%.(%d+)%.(%d+)$")
-                            if maj and min and pat then
-                                local nextVer = maj .. "." .. min .. "." .. tostring(tonumber(pat) + 1)
-                                local buildPath = os.getenv("HOME") .. "/.hammerspoon/data/.ms_build_num"
-                                local bf = io.open(buildPath, "r")
-                                local buildNum = 0
-                                if bf then buildNum = tonumber(bf:read("*all")) or 0
-                                bf:close() end
-                                return nextVer .. "-pre." .. tostring(buildNum)
-                            end
-                        end
-                        return base
-                    end)()
-                    if _ver then
-                        pcall(function() ms.loading.eval("setVersion('" .. _ver:gsub("'", "\\'") .. "')") end)
-                    end
-                    pcall(function() ms.loading.eval("showProfile()") end)
-                    pcall(function() ms.loading.eval("showCreator()") end)
-                    pcall(function() ms.loading.eval("showVersion()") end)
-                end
+                -- Profile / creator / version reveal moved OUT of this init-anchored
+                -- beat into the loading choreography chain (ms_loading _startBoot-
+                -- Choreography), which is anchored to the same clock as the brand dock.
+                -- Driving them here raced the brand-shift transition on mudspoon, so the
+                -- profile text appeared before the logo finished docking.
             end)
             _G._timers[5] = hs.timer.doAfter(t4, function()
                 print("[startup] t=" .. t4 .. ": integrity seed")

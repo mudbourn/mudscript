@@ -166,6 +166,21 @@ return function(ms)
 
                 _G._loadTimers[3] = hs.timer.doAfter(1.7, function() js("shiftBrand()") end)
 
+                -- Reveal profile / creator / version AFTER the brand-dock transition
+                -- (shiftBrand at 1.7s + its 0.6s CSS transform = ~2.3s). This used to
+                -- live in ms_core's init-anchored t3 beat, a SEPARATE clock from this
+                -- chain; on mudspoon the two drifted and the profile showed before the
+                -- logo docked. Same chain now = one clock. Data (setProfileName/
+                -- setCreator) was already pushed at chain start above; here we push the
+                -- version data and trigger the reveals together.
+                _G._loadTimers.reveal = hs.timer.doAfter(2.4, function()
+                    local ver = ms._bootVersionLabel and ms._bootVersionLabel()
+                    if ver then js("setVersion('" .. ver:gsub("'", "\\'") .. "')") end
+                    js("showProfile()")
+                    js("showCreator()")
+                    js("showVersion()")
+                end)
+
                 _G._loadTimers[4] = hs.timer.doAfter(2.5, function()
                     js("showDivider()")
                     js("showContent()")
