@@ -3,11 +3,49 @@
         local _shellView     = nil
         local _shellChannel  = nil
         local _shellReady    = false
+        local _shellHydrated = false
         local _shellEvalQ    = {}
         local _shellFadeTimer = nil
         local _shellReadyWait = nil
 
         ms.shell = {}
+
+        -- Bring the shell out of its "js husk" state: flush any JS queued while the
+        -- bridge was still coming up, then push the host-owned content (settings and
+        -- the theme/sound/macro shelves) into the panels. Idempotent -- guarded by
+        -- _shellHydrated so it runs exactly once per shell instance no matter how many
+        -- signals fire it.
+        --
+        -- Why more than one caller: the page's own `ready` post (ms_shell.html
+        -- DOMContentLoaded) is a single fire-and-forget that races the WebView2 bring-up
+        -- AND waits on the whole inlined UI bundle parsing first, so it can be dropped or
+        -- land after the show() timeout -- and when it's lost, hydration never ran and the
+        -- shell sat as a bare frame. The `selfTest` diagnostic, by contrast, round-trips
+        -- reliably every session, so it (and the show() timeout fallback) also drive this.
+        local function _hydrateShell()
+            if _shellHydrated then return end
+            _shellHydrated = true
+            _shellReady = true
+            for _, js in ipairs(_shellEvalQ) do
+                pcall(function() if _shellView then _shellView:evaluateJavaScript(js) end end)
+            end
+            _shellEvalQ = {}
+            hs.timer.doAfter(0.1, function()
+                if ms.ui and ms.ui.refresh then pcall(ms.ui.refresh) end
+                -- Proactively push every installed-library kind now that the bus is
+                -- definitely wired. The manager panels each fire a one-shot request()
+                -- during HTML load, which can beat the host's "ui:library:*" subscription
+                -- and be dropped -- leaving Installed Macro Packs (and the theme/sound
+                -- shelves) empty until a reload. This re-push does not depend on that
+                -- early request landing.
+                if ms.ui and ms.ui._actions and ms.ui._actions.libraryList then
+                    for _, k in ipairs({ "theme", "sound", "macro" }) do
+                        pcall(ms.ui._actions.libraryList, { kind = k })
+                    end
+                end
+            end)
+        end
+        ms.shell._hydrate = _hydrateShell
 
         -- Base (100%-zoom) minimum window sizes. The live floor is these
         -- scaled by ms._uiZoom, so a zoomed-in UI needs a bigger window and a
@@ -161,31 +199,15 @@
                         print(string.format(
                             "[shell] BRIDGE SELF-TEST RECEIVED: hasChrome=%s webkitType=%s hasMsgHandlers=%s",
                             tostring(b.hasChrome), tostring(b.webkitType), tostring(b.hasMsgHandlers)))
+                        -- The self-test proves the page->Lua bridge is live. If the page's
+                        -- own `ready` post was lost in the bring-up race, this is our
+                        -- reliable second signal to hydrate the panels.
+                        _hydrateShell()
                         return
                     end
 
                     if panel == "_shell" and action == "ready" then
-                        _shellReady = true
-                        for _, js in ipairs(_shellEvalQ) do
-                            pcall(function() _shellView:evaluateJavaScript(js) end)
-                        end
-                        _shellEvalQ = {}
-                        hs.timer.doAfter(0.1, function()
-                            if ms.ui and ms.ui.refresh then pcall(ms.ui.refresh) end
-                            -- Proactively push every installed-library kind now
-                            -- that the bus is definitely wired. The manager
-                            -- panels each fire a one-shot request() during HTML
-                            -- load, which can beat the host's "ui:library:*"
-                            -- subscription and be dropped — leaving Installed
-                            -- Macro Packs (and the theme/sound shelves) empty
-                            -- until a reload. This re-push does not depend on
-                            -- that early request landing.
-                            if ms.ui and ms.ui._actions and ms.ui._actions.libraryList then
-                                for _, k in ipairs({ "theme", "sound", "macro" }) do
-                                    pcall(ms.ui._actions.libraryList, { kind = k })
-                                end
-                            end
-                        end)
+                        _hydrateShell()
                         if ms._shellState and ms._shellState.visible and _shellView then
                             local view = _shellView
                             local step, steps = 0, 30
@@ -639,7 +661,12 @@
                         elseif waited >= 1.5 then
                             if _shellReadyWait then _shellReadyWait:stop(); _shellReadyWait = nil end
                             print("[shell] ready handshake timed out (1.5s) -- forcing "
-                                .. "visible; page->Lua bridge may be down")
+                                .. "visible and hydrating anyway; page->Lua bridge may be slow")
+                            -- Last-resort: neither `ready` nor `selfTest` reached us in
+                            -- time, but the bridge may simply be slow. Hydrate now so the
+                            -- shell isn't left a bare frame; idempotent if a signal lands
+                            -- moments later.
+                            _hydrateShell()
                             _fadeIn()
                         end
                     end)
@@ -723,6 +750,7 @@
                 end
                 _shellChannel  = nil
                 _shellReady    = false
+                _shellHydrated = false
                 _shellEvalQ    = {}
             end
         -- END --
