@@ -52,10 +52,15 @@ that clears after `cooldown` ms (default 1000). So "am I already running?" is
 built in, keyed off the macro's `cooldown`, and **self-heals** (a dead run can't
 wedge it — unlike a disk-persistent `ms.vars` flag would).
 
-Open items for the picking-up session (discuss with user first):
-1. The guard is **per group**, and all visual macros share `visual - main` /
-   `visual - optional` — so one macro's cooldown blocks its siblings. Per-macro
-   isolation would be a small change (key `ms.running` by id, or by group+id).
-2. The builder has **no UI to set cooldown** — `panel-macros.js` only carries an
-   existing `_currentMacroDef.cooldown` through a save. Adding a cooldown field is
-   the clean way to let the user tune the guard for a longer-running macro.
+The guard is already **per-macro**: `ms.running` is keyed on `ms.bind.group(id)`,
+which for a plain key bind resolves to `"G_" .. id` (visual macros never set
+`shared`). So different macros (Super Jump vs Super Throw) don't block each other
+— each only guards its own re-entry. The display group (`visual - main`) does NOT
+feed the guard. (Earlier drafts of this handoff wrongly said "per group / blocks
+siblings" — corrected.) Only chorded/layered binds share a group.
+
+Open item for the picking-up session:
+- The builder has **no UI to set cooldown** — `panel-macros.js` only carries an
+  existing `_currentMacroDef.cooldown` through a save. Adding a cooldown field is
+  the clean way to let the user tune the per-macro guard for a longer-running
+  macro (default is 1000ms).
