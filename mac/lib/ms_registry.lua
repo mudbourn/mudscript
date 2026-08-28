@@ -88,23 +88,18 @@ YQIDAQAB
     -- END Helpers --
 
     -- Signature --
-        local _binCache = {}
-        local function resolveBin(name, candidates)
-            if _binCache[name] ~= nil then return _binCache[name] or nil end
-            for _, p in ipairs(candidates) do
-                local f = io.open(p, "r")
-                if f then
-                    f:close()
-                    _binCache[name] = p
-                    return p
-                end
-            end
-            local out = hs.execute("command -v " .. name .. " 2>/dev/null", true)
-            out = out and out:gsub("%s+$", "") or ""
-            _binCache[name] = (out ~= "") and out or false
-            return _binCache[name] or nil
-        end
-
+        -- Rebuild the exact bytes the registry signer hashed and verify the RSA
+        -- signature with openssl. The signer runs `jq -c -S '{formatVersion,
+        -- generated, entries}'` (see bin/registry_sign.sh); that canonical form
+        -- -- compact, recursively key-sorted, raw UTF-8, integers with no
+        -- fractional part, plus jq's trailing newline -- is exactly what
+        -- hs.json.encode(payload) .. "\n" already produces byte-for-byte
+        -- (proven against the live signature). Canonicalizing in-process drops
+        -- the hard dependency on `jq`, which is absent on Windows -- its absence
+        -- made every verify fail and served an EMPTY registry (no browse, no
+        -- installs). openssl (on PATH here and on macOS) does the base64 decode
+        -- and the verify, so no platform-specific base64 flags (-D vs -d, the
+        -- macOS-only -i/-o) are needed either.
         local function verifySignature(doc)
             if type(doc) ~= "table" then return false end
             if type(doc.signature) ~= "string" or doc.signature == "" then
@@ -116,35 +111,27 @@ YQIDAQAB
                 generated     = doc.generated,
                 entries       = doc.entries,
             }
-            local okEncode, unsorted = pcall(hs.json.encode, payload)
-            if not okEncode or not unsorted then return false end
-
-            local jq = resolveBin("jq", {
-                "/usr/bin/jq",
-                "/opt/homebrew/bin/jq",
-                "/usr/local/bin/jq",
-            })
-            if not jq then
-                return false, "jq is required to verify the registry. Install it with:  brew install jq"
+            local okEncode, canon = pcall(hs.json.encode, payload, false)
+            if not okEncode or type(canon) ~= "string" or canon == "" then
+                return false
             end
-
-            local sortSrc = tmpPath("sort")
-            if not writeFile(sortSrc, unsorted) then return false end
-            local sortedOut = hs.execute(sq(jq) .. " -c -S '.' " .. sq(sortSrc) .. " 2>/dev/null")
-            os.remove(sortSrc)
-
-            local minified = sortedOut
-            if not minified or minified == "" or minified == "\n" then return false end
+            local minified = canon .. "\n"   -- jq's CLI trailing newline is part of the signed bytes
 
             local keyPath = tmpPath("pub")
+            local sigB64  = tmpPath("sig") .. ".b64"
             local sigPath = tmpPath("sig")
             local msgPath = tmpPath("msg")
 
             writeFile(keyPath, PUBLIC_KEY)
-            writeFile(sigPath .. ".b64", doc.signature)
-            hs.execute("base64 -D -i " .. sq(sigPath .. ".b64") .. " -o " .. sq(sigPath))
-            os.remove(sigPath .. ".b64")
+            writeFile(sigB64, doc.signature)
             writeFile(msgPath, minified)
+
+            -- Decode the base64 signature with openssl (identical on every
+            -- platform) rather than base64(1), whose decode flag differs by OS.
+            -- -A reads the blob as a single line.
+            hs.execute("openssl base64 -d -A -in " .. sq(sigB64) ..
+                " -out " .. sq(sigPath) .. " 2>/dev/null")
+            os.remove(sigB64)
 
             local out, ok = hs.execute(
                 "openssl dgst -sha256 -verify " .. sq(keyPath) ..
