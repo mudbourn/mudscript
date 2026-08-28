@@ -112,6 +112,10 @@
 
           function close() {
               root.classList.remove("open");
+              // Return the menu from the body portal to the control, and drop
+              // every inline style so the base .macro-select-menu rule hides it.
+              if (menu.parentNode !== root) root.appendChild(menu);
+              menu.style.display = "";
               menu.style.position = "";
               menu.style.left = "";
               menu.style.top = "";
@@ -124,21 +128,34 @@
               const r   = root.getBoundingClientRect();
               const vh  = doc.documentElement.clientHeight;
               const gap = 3;
+
+              // Anchor the menu with position:fixed, but a transformed ancestor
+              // (the sliding fn-picker overlay sets transform: translateX(...))
+              // becomes the containing block for fixed descendants — so fixed
+              // coords resolve against that box, not the viewport, and the menu
+              // lands off-screen. Measure the containing-block origin by parking
+              // the menu at 0,0 first, then cancel it from every coordinate. Use
+              // top for both anchors (no bottom, whose reference edge would also
+              // be shifted) so the correction stays a simple subtraction.
+              menu.style.position  = "fixed";
+              menu.style.bottom    = "auto";
+              menu.style.maxHeight = "none";
+              menu.style.left      = "0px";
+              menu.style.top       = "0px";
+              const origin = menu.getBoundingClientRect();
+              const ox = origin.left, oy = origin.top;
+
               const below = vh - r.bottom - gap;
               const above = r.top - gap;
               const flip  = below < Math.min(260, menu.scrollHeight) && above > below;
+              const maxH  = Math.max(80, Math.min(260, flip ? above : below));
+              const menuH = Math.min(menu.scrollHeight, maxH);
+              const topVp = flip ? (r.top - gap - menuH) : (r.bottom + gap);
 
-              menu.style.position = "fixed";
-              menu.style.left     = r.left + "px";
-              menu.style.minWidth = r.width + "px";
-              menu.style.maxHeight = Math.max(80, Math.min(260, flip ? above : below)) + "px";
-              if (flip) {
-                  menu.style.top    = "auto";
-                  menu.style.bottom = (vh - r.top + gap) + "px";
-              } else {
-                  menu.style.bottom = "auto";
-                  menu.style.top    = (r.bottom + gap) + "px";
-              }
+              menu.style.left      = (r.left - ox) + "px";
+              menu.style.top       = (topVp - oy) + "px";
+              menu.style.minWidth  = r.width + "px";
+              menu.style.maxHeight = maxH + "px";
           }
 
           function renderEntries() {
@@ -210,6 +227,12 @@
               if (root.classList.contains("open")) { close(); return; }
               play("interact");
               root.classList.add("open");
+              // Portal the menu to <body> so it escapes the fn-picker overlay's
+              // overflow:hidden (and any other clipping ancestor). It's a fixed,
+              // viewport-anchored layer, so body is the safe parent; place()
+              // still positions it against the control. close() restores it.
+              (doc.body || doc.documentElement).appendChild(menu);
+              menu.style.display = "block";
               if (searchInput) {
                   _filter = "";
                   searchInput.value = "";

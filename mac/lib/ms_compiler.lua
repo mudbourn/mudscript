@@ -308,9 +308,15 @@
 
             emitters["var_set"] = function(step, lvl)
                 local p = step.params or {}
-                local name  = ident(p.name, "v")
                 local value = serialize(p.value)
-                return indent(lvl) .. "local " .. name .. " = " .. value
+                -- A valid identifier is hoisted (see tempVarDecl), so assign to
+                -- it — declaring `local` here would shadow the hoisted var and
+                -- strand its value in this block. Fall back to a local only for
+                -- names that couldn't be hoisted.
+                if type(p.name) == "string" and p.name:match("^[%a_][%w_]*$") then
+                    return indent(lvl) .. p.name .. " = " .. value
+                end
+                return indent(lvl) .. "local " .. ident(p.name, "v") .. " = " .. value
             end
 
             -- Call a function tool (an authored, reusable ms.fn) by name. The
@@ -393,6 +399,47 @@
 
             local function thenSteps(step) return step["then"] or step.then_steps end
             local function elseSteps(step) return step["else"] or step.else_steps end
+
+            -- Local ("temp") variables are declared per-step by var_set, which
+            -- would scope them to the block they sit in — so a var_add in a
+            -- sibling/outer block, or a read before the first set, would hit a
+            -- global nil and blow up (nil arithmetic). Collect every temp-var
+            -- name up front (recursing into if/for/while/repeat bodies) so the
+            -- compiler can hoist a single function-scoped declaration; var_set
+            -- then assigns instead of re-declaring. Only valid Lua identifiers
+            -- are hoisted; anything else falls back to a local at its use site.
+            local VAR_ACTIONS = {
+                var_set = true, var_add = true, var_sub = true, var_mul = true,
+            }
+            local function collectTempVars(steps, seen, order)
+                if type(steps) ~= "table" then return end
+                for _, step in ipairs(steps) do
+                    if VAR_ACTIONS[step.action] then
+                        local nm = step.params and step.params.name
+                        if type(nm) == "string" and nm:match("^[%a_][%w_]*$")
+                            and not seen[nm] then
+                            seen[nm] = true
+                            order[#order + 1] = nm
+                        end
+                    end
+                    collectTempVars(thenSteps(step), seen, order)
+                    collectTempVars(elseSteps(step), seen, order)
+                    collectTempVars(step.body, seen, order)
+                end
+            end
+
+            -- The hoisted declaration line, or nil when the macro uses no temp
+            -- vars. Every var starts at 0 so a var_add before any var_set still
+            -- does arithmetic instead of erroring; a var_set overwrites it.
+            local function tempVarDecl(steps)
+                local seen, order = {}, {}
+                collectTempVars(steps, seen, order)
+                if #order == 0 then return nil end
+                local zeros = {}
+                for i = 1, #order do zeros[i] = "0" end
+                return indent(1) .. "local " .. table.concat(order, ", ")
+                    .. " = " .. table.concat(zeros, ", ")
+            end
 
             emitters["if"] = function(step, lvl)
                 local cond = stepCond(step)
@@ -573,6 +620,8 @@
 
                 lines[#lines + 1] = "local " .. fnName .. " = ms.fn(function()"
                 lines[#lines + 1] = indent(1) .. "local t = 100"
+                local tvDecl = tempVarDecl(steps)
+                if tvDecl then lines[#lines + 1] = tvDecl end
                 _actionDelay = 0   -- never leak a delay between macros
                 for _, step in ipairs(steps) do
                     lines[#lines + 1] = emitStep(step, 1)
@@ -633,6 +682,8 @@
 
                 lines[#lines + 1] = "local " .. fnName .. " = ms.fn(function()"
                 lines[#lines + 1] = indent(1) .. "local t = 100"
+                local tvDecl = tempVarDecl(steps)
+                if tvDecl then lines[#lines + 1] = tvDecl end
                 _actionDelay = 0
                 for _, step in ipairs(steps) do
                     lines[#lines + 1] = emitStep(step, 1)
