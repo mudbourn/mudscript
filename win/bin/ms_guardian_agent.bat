@@ -68,7 +68,7 @@ powershell -NoProfile -Command ^
     "$notify = New-Object System.Windows.Forms.NotifyIcon;" ^
     "$notify.Icon = [System.Drawing.SystemIcons]::Warning;" ^
     "$notify.BalloonTipTitle = 'mudscript Guardian';" ^
-    "$notify.BalloonTipText = 'Tamper Detected — ms_core.ahk hash mismatch.';" ^
+    "$notify.BalloonTipText = 'Tamper Detected. ms_core.ahk hash mismatch.';" ^
     "$notify.BalloonTipIcon = 'Warning';" ^
     "$notify.Visible = $true;" ^
     "$notify.ShowBalloonTip(10000);" ^

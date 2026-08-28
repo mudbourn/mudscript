@@ -56,7 +56,7 @@ if echo "$RAW" | grep -qE '^[[:space:]]*[0-9a-fA-F]{64}[[:space:]]*$'; then
 
     log "MISMATCH — expected ${trusted:0:16}… got ${current:0:16}… — killing Hammerspoon."
     killall Hammerspoon 2>/dev/null
-    osascript -e 'display notification "ms_core.lua integrity error — Hammerspoon has been stopped.\nVerify the file before restarting." with title "mudscript Guardian" subtitle "Integrity Error" sound name "Basso"' 2>/dev/null
+    osascript -e 'display notification "ms_core.lua integrity error. Hammerspoon has been stopped.\nVerify the file before restarting." with title "mudscript Guardian" subtitle "Integrity Error" sound name "Basso"' 2>/dev/null
     exit 1
 fi
 
@@ -124,6 +124,6 @@ log "MISMATCH — $FILE: expected ${EXPECTED:0:16}… got ${GOT:0:16}… — kil
 killall Hammerspoon 2>/dev/null
 
 # Notify the user.
-osascript -e "display notification \"$FILE integrity error — Hammerspoon has been stopped.\nVerify the file before restarting.\" with title \"mudscript Guardian\" subtitle \"Integrity Error\" sound name \"Basso\"" 2>/dev/null
+osascript -e "display notification \"$FILE integrity error. Hammerspoon has been stopped.\nVerify the file before restarting.\" with title \"mudscript Guardian\" subtitle \"Integrity Error\" sound name \"Basso\"" 2>/dev/null
 
 exit 1
