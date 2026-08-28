@@ -1507,6 +1507,14 @@ return function(ms)
             }
         end
 
+        -- Public, macro-callable alias for activating an installed pack by slug.
+        -- Top-level so a handwritten macro can call it exactly as the visual
+        -- builder emits it (ms.switchPack), and so the builder module can be
+        -- labelled by a real function name. kind defaults to a macro pack.
+        ms.switchPack = function(slug, kind)
+            return ms.package.libraryActivate(kind or "macro", slug)
+        end
+
         ms.package.libraryRemove = function(kind, slug)
             if not LIBRARY_KINDS[kind] then return false, "Not a library kind." end
             slug = librarySlug(slug)

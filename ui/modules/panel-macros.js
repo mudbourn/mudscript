@@ -635,9 +635,9 @@
                 ]
             },
             {
-                id: "switch_pack",
-                name: "switch_pack",
-                sig: 'ms.package.libraryActivate(kind, slug)',
+                id: "ms.switchPack",
+                name: "ms.switchPack",
+                sig: "ms.switchPack(slug, kind)",
                 desc: "Activate an installed library pack. Kind picks which slice (macro / theme / sound) is swapped in.",
                 category: "flow",
                 params: [
@@ -2084,7 +2084,7 @@
         "ms.input":"inputs","ms.variable":"variable","ms.watch":"watcher",
         "ms.sound":"sound","ms.gamepad":"controller","ms.gamepadStart":"controller","ms.gamepadBind":"controller",
         "ms.setMacros":"power","ms.enable":"power","ms.disable":"power",
-        "ms.switchProfile":"settings","switch_pack":"macros",
+        "ms.switchProfile":"settings","ms.switchPack":"macros",
         "ms.screenshot":"camera","ms.clipChanged":"clipboard",
         "ms.randWait":"timer","ms.jitter":"timer","ms.waitPixel":"pixelscan","ms.waitNotPixel":"pixelscan",
         "ms.ocr":"ocr","ms.readNumber":"ocr","ms.findText":"ocr","ms.waitText":"ocr",
@@ -2129,7 +2129,7 @@
             return (params.button || "Left") + " drag · " + pts + " pts";
         }
         if (action === "ms.switchProfile") return "profile: " + (params.name || "?");
-        if (action === "switch_pack") return (params.kind || "macro") + " pack: " + (params.slug || "?");
+        if (action === "ms.switchPack") return (params.kind || "macro") + " pack: " + (params.slug || "?");
         if (action === "var_set") return (params.name||"v") + " = " + (params.value!==undefined?params.value:"");
         if (action === "var_add" || action === "var_sub" || action === "var_mul") {
             var op = action==="var_add"?"+":action==="var_sub"?"-":"*";

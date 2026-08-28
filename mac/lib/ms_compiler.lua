@@ -356,15 +356,16 @@
 
             -- Activate an installed library pack (macro / theme / sound slice)
             -- by slug. kind is constrained to the known slices; slug is a
-            -- quoted literal.
-            emitters["switch_pack"] = function(step, lvl)
+            -- quoted literal. Emits the public ms.switchPack(slug, kind) so the
+            -- generated line is identical to what a handwritten macro would call.
+            emitters["ms.switchPack"] = function(step, lvl)
                 local p = step.params or {}
                 local kind = tostring(p.kind or "macro")
                 if kind ~= "macro" and kind ~= "theme" and kind ~= "sound" then
                     kind = "macro"
                 end
-                return indent(lvl) .. 'ms.package.libraryActivate("' .. kind
-                    .. '", ' .. serialize(p.slug or "") .. ")"
+                return indent(lvl) .. "ms.switchPack(" .. serialize(p.slug or "")
+                    .. ', "' .. kind .. '")'
             end
 
             emitters["var_add"] = function(step, lvl)
