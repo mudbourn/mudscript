@@ -35,6 +35,7 @@ import { dirname, join, relative } from "node:path";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const UI = join(ROOT, "ui");
+const MAC = join(ROOT, "mac");
 
 // ── File discovery ──────────────────────────────────────────────────────────
 function walk(dir, out = []) {
@@ -48,6 +49,13 @@ function walk(dir, out = []) {
 }
 
 const files = walk(UI).filter((f) => /\.(js|html)$/.test(f));
+
+// The shared config (mac/) is the ONLY tree that runs on both hosts — LuaJIT on
+// Windows, Lua 5.4 on Hammerspoon — so it is the only place the number-model
+// split can bite (see the numfmt rule below). The hs/ shims are LuaJIT-only and
+// cannot diverge, so they are deliberately out of scope here.
+let luaFiles = [];
+try { luaFiles = walk(MAC).filter((f) => /\.lua$/.test(f)); } catch { /* mac/ absent */ }
 
 // Files exempt from the color/native-input rules because their whole job is to
 // edit colors: a theme editor legitimately holds hex strings and an OS color
@@ -223,6 +231,53 @@ for (const file of files) {
                     "A contextmenu suppressor must not exempt input/textarea/contenteditable — that leaks the OS native menu. Exempt only `.allow-native-menu` (the opt-in for fields that need native copy/paste).");
                 break;
             }
+        }
+    }
+}
+
+// ── Rule 3 — numeric-format divergence tripwire (mac/*.lua) ──────────────────
+// The config runs on two number models: LuaJIT (all doubles) on Windows and Lua
+// 5.4 (distinct int/float subtypes) on Hammerspoon. Under 5.4, `/` and `^` ALWAYS
+// yield a float, so 1920/2 stringifies as "960.0" there but "960" on LuaJIT —
+// silent, non-fatal text divergence in any label / filename / settings key. (`+`
+// `-` `*` on integers stay integers on 5.4, so they are NOT flagged; `//` is
+// floor-div and safe.) The safe idiom is string.format("%d", math.floor(n)).
+//
+// This is a TRIPWIRE, not a sweep: it fires ONLY when a bare `/` or `^` sits
+// DIRECTLY inside tostring(...) or DIRECTLY adjacent to `..` — the one pattern
+// that is unambiguously wrong. It cannot see a float laundered through a local
+// (that is what smoke.lua's VALUE SKEW bucket is for). A line already using
+// math.floor/ceil/tointeger or a %d format is treated as handled. Matches zero
+// lines in the current config; annotate a deliberate float with `ui-lint-allow`.
+const HANDLED = /math\.(floor|ceil|tointeger)|string\.format|%d/;
+// bare division `/` (not `//`) or power `^`, between two value operands
+const ARITH = "[\\w.)%\\]]\\s*[\\/^]\\s*[\\w.(]";
+const TOSTRING_ARITH = new RegExp("tostring\\([^)]*" + ARITH + "[^)]*\\)");
+const CONCAT_ARITH = new RegExp(
+    // ..  <operand> / <operand>          OR        <operand> / <operand>  ..
+    "\\.\\.[^;]*?" + ARITH + "|" + ARITH + "[^;]*?\\.\\.");
+
+function stripLua(line) {
+    // drop line comments and string bodies so a `/` in a path/URL or a comment
+    // is never mistaken for arithmetic; collapse `//` so floor-div can't match.
+    return line
+        .replace(/--.*$/, "")
+        .replace(/"(?:[^"\\]|\\.)*"/g, '""')
+        .replace(/'(?:[^'\\]|\\.)*'/g, "''")
+        .replace(/\/\//g, "¦");
+}
+
+for (const file of luaFiles) {
+    const lines = readFileSync(file, "utf8").split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+        const raw = lines[i];
+        if (/ui-lint-allow/.test(raw) || (i > 0 && /ui-lint-allow/.test(lines[i - 1]))) continue;
+        const s = stripLua(raw);
+        if (!s.includes("tostring(") && !s.includes("..")) continue;
+        if (HANDLED.test(s)) continue;
+        if (TOSTRING_ARITH.test(s) || CONCAT_ARITH.test(s)) {
+            report(file, i + 1, "numfmt-float", raw,
+                "A `/` or `^` result reaching a string renders as \"960.0\" on Lua 5.4 but \"960\" on LuaJIT. Wrap with string.format(\"%d\", math.floor(n)) — or `ui-lint-allow` if a float is intended.");
         }
     }
 }
