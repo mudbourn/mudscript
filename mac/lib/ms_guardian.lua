@@ -837,11 +837,14 @@ YQIDAQAB
                         _fadeStarted = true
                         local _fadeSteps = 8
                         local _fadeStep  = 0
-                        hs.timer.doEvery(0.019, function(t)
+                        local _fadeTimer
+                        _fadeTimer = hs.timer.doEvery(0.019, function()
                             _fadeStep = _fadeStep + 1
                             local _a = math.min(_fadeStep / _fadeSteps, 1.0)
                             pcall(function() _guardianView:alpha(_a) end)
-                            if _a >= 1.0 then t:stop() end
+                            -- doEvery's callback receives no timer arg (Hammerspoon
+                            -- parity), so stop via the captured handle, not a param.
+                            if _a >= 1.0 and _fadeTimer then _fadeTimer:stop() end
                         end)
                     end
                 end)
