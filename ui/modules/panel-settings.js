@@ -2176,7 +2176,7 @@
                 // user sees the grouping, but rows carry data-section so a drag
                 // never crosses a boundary.
                 const list = h("div", { cls: "arrange-list" });
-                let lastSection = " ";
+                let lastSection = "";
                 for (const it of authored) {
                     const sec = it.section || "settings";
                     if (sec !== lastSection) {
