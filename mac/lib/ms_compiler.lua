@@ -346,6 +346,27 @@
                     .. serialize(p.value) .. ")"
             end
 
+            -- Switch to another profile by name. The name is an arbitrary
+            -- folder string (may contain spaces), so it's a quoted literal via
+            -- serialize, not an identifier.
+            emitters["ms.switchProfile"] = function(step, lvl)
+                local p = step.params or {}
+                return indent(lvl) .. "ms.switchProfile(" .. serialize(p.name or "") .. ")"
+            end
+
+            -- Activate an installed library pack (macro / theme / sound slice)
+            -- by slug. kind is constrained to the known slices; slug is a
+            -- quoted literal.
+            emitters["switch_pack"] = function(step, lvl)
+                local p = step.params or {}
+                local kind = tostring(p.kind or "macro")
+                if kind ~= "macro" and kind ~= "theme" and kind ~= "sound" then
+                    kind = "macro"
+                end
+                return indent(lvl) .. 'ms.package.libraryActivate("' .. kind
+                    .. '", ' .. serialize(p.slug or "") .. ")"
+            end
+
             emitters["var_add"] = function(step, lvl)
                 local p = step.params or {}
                 local name   = ident(p.name, "v")

@@ -741,9 +741,16 @@
                 for (let i = 0; i < reg.length; i++) {
                     if (reg[i].id !== action && reg[i].name !== action) continue;
                     const defs = {};
+                    const self = this;
                     (reg[i].params || []).forEach(function(p) {
                         if (p.type === "enum") {
                             defs[p.name] = { type: "select", options: p.options || [] };
+                        } else if (p.type === "choice") {
+                            // Live-sourced (profiles / packs): resolve current
+                            // options from the shell clients and render as a
+                            // select. Best-effort — if the data hasn't landed a
+                            // request is kicked so reopening is populated.
+                            defs[p.name] = { type: "select", options: self._choiceOptions(p, tool) };
                         } else {
                             defs[p.name] = { type: p.type };
                         }
@@ -771,6 +778,35 @@
                 defs[key] = { type: this._inferType(key, value) };
             }
             return defs;
+        }
+
+        // Options for a "choice" param, resolved from the shell clients. Mirrors
+        // panel-macros' choiceOptions. The stored value is preserved as its own
+        // row if it's no longer installed, so editing never silently drops it.
+        _choiceOptions(p, tool) {
+            const opts = [];
+            const seen = {};
+            function add(v, l) {
+                if (v == null || seen[v]) return;
+                seen[v] = true;
+                opts.push({ value: String(v), label: l });
+            }
+            if (p.source === "profiles" && window.msProfilesClient) {
+                (window.msProfilesClient.get() || []).forEach(function(e) {
+                    add(e.name, e.active ? e.name + " (active)" : e.name);
+                });
+                if (window.msProfilesClient.request) window.msProfilesClient.request();
+            } else if (p.source === "pack" && window.msLibraryClient) {
+                const kind = (p.dependsOn && tool.params && tool.params[p.dependsOn])
+                    || p.kind || "macro";
+                (window.msLibraryClient.get(kind) || []).forEach(function(pk) {
+                    add(pk.slug, pk.active ? pk.name + " (active)" : pk.name);
+                });
+                if (window.msLibraryClient.request) window.msLibraryClient.request(kind);
+            }
+            const cur = tool.params && tool.params[p.name];
+            if (cur && !seen[cur]) add(cur, cur + " (not installed)");
+            return opts;
         }
 
         _inferType(key, value) {

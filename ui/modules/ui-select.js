@@ -147,7 +147,10 @@
 
               const below = vh - r.bottom - gap;
               const above = r.top - gap;
-              const flip  = below < Math.min(260, menu.scrollHeight) && above > below;
+              // Prefer opening downward. Only flip up when the space below is
+              // genuinely cramped (can't show a usable, scrollable slice) and
+              // there's more room above — otherwise let the menu scroll in place.
+              const flip  = below < 140 && above > below;
               const maxH  = Math.max(80, Math.min(260, flip ? above : below));
               const menuH = Math.min(menu.scrollHeight, maxH);
               const topVp = flip ? (r.top - gap - menuH) : (r.bottom + gap);
@@ -250,7 +253,15 @@
               if (e.key === "Escape") close();
               e.stopPropagation();
           });
-          doc.addEventListener("click", close);
+          // Close on any outside press. Capture phase so it still fires even
+          // when a handler in between (the builder canvas) stops propagation on
+          // the bubbling click. Presses on the control or its (now portaled)
+          // menu are handled by their own listeners.
+          doc.addEventListener("pointerdown", function(e) {
+              if (!root.classList.contains("open")) return;
+              if (root.contains(e.target) || menu.contains(e.target)) return;
+              close();
+          }, true);
 
           root.setOptions(opts.options || []);
           if (opts.value !== undefined && opts.value !== null) root.value = opts.value;

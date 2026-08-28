@@ -622,6 +622,11 @@
         .toggle input:focus-visible + .toggle-track { box-shadow: 0 0 0 2px var(--accent-hi); }
         .toggle-thumb { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
         .toggle input:checked ~ .toggle-thumb { left: 18px; }
+        /* In the macro param editor the toggle's parent is a plain block, so the
+           inline <label> ignores the .toggle width/height and collapses, letting
+           its absolutely-positioned track spill onto the next param. Blockify it
+           and add a little breathing room. */
+        .fn-param-toggle { display: inline-block; vertical-align: middle; margin: 3px 0; }
 
         .seg { display: flex; border-radius: var(--radius-s); background: var(--surface2); padding: 2px; gap: 2px; flex-shrink: 0; }
         .seg-btn { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; color: var(--text2); transition: background 0.15s, color 0.15s; }
@@ -2051,6 +2056,13 @@
         // race self-heals for every shelf (theme, sound, macro) at this one seam.
         var answered = {};
         var retryTimers = {};
+        // Last entries seen per kind, and extra listeners beyond the single
+        // on() owner. on() stays one-per-kind (the panel that owns that shelf),
+        // but the macro builder also needs pack lists to fill its switch-pack
+        // dropdown — subscribe() adds a listener without displacing the owner,
+        // and get() reads the cache synchronously.
+        var cache = {};
+        var subs = {};
         function post(action, body) {
             if (window.shellPost) window.shellPost('library', action,
                 Object.assign({ action: action }, body || {}));
@@ -2072,6 +2084,16 @@
         window.msLibraryClient = {
             on:       function(kind, fn) { kinds[kind] = fn; },
             request:  function(kind) { requestUntilAnswered(kind); },
+            // Read the cached list for a kind (may be empty until a push lands).
+            get:      function(kind) { return cache[kind] ? cache[kind].slice() : []; },
+            // Add a listener without taking over on()'s single owner slot. Fires
+            // immediately with the cache if present, and kicks a request so a
+            // first-time subscriber gets populated.
+            subscribe: function(kind, fn) {
+                (subs[kind] = subs[kind] || []).push(fn);
+                if (cache[kind]) { try { fn(cache[kind].slice()); } catch (e) {} }
+                requestUntilAnswered(kind);
+            },
             activate: function(kind, slug, name) {
                 post('libraryActivate', { kind: kind, slug: slug, name: name });
             },
@@ -2089,8 +2111,59 @@
                 clearInterval(retryTimers[kind]);
                 retryTimers[kind] = null;
             }
+            var entries = (payload && payload.entries) || [];
+            cache[kind] = entries;
             var fn = kinds[kind];
-            if (fn) fn((payload && payload.entries) || []);
+            if (fn) fn(entries.slice());
+            var list = subs[kind];
+            if (list) for (var i = 0; i < list.length; i++) {
+                try { list[i](entries.slice()); } catch (e) {}
+            }
+        });
+    })();
+
+    // Profiles client. Mirrors the library client but for the profile shelf,
+    // which the host otherwise only ships inside the big settings payload — the
+    // macro builder needs the list on its own to fill the switch-profile
+    // dropdown. Pushed on the 'profileList' channel (distinct from the
+    // 'profiles' rail panel) as { entries: [{ name, active }] }.
+    (function() {
+        var subs = [];
+        var cache = null;
+        var answered = false, retry = null, attempts = 0;
+        function post() {
+            if (window.shellPost) {
+                window.shellPost('macros', 'profilesList', { action: 'profilesList' });
+            }
+        }
+        function requestUntilAnswered() {
+            post();
+            if (answered || retry) return;
+            attempts = 0;
+            retry = setInterval(function() {
+                if (answered || attempts >= 10) {
+                    clearInterval(retry); retry = null; return;
+                }
+                attempts++;
+                post();
+            }, 500);
+        }
+        window.msProfilesClient = {
+            request: requestUntilAnswered,
+            get: function() { return cache ? cache.slice() : []; },
+            subscribe: function(fn) {
+                subs.push(fn);
+                if (cache) { try { fn(cache.slice()); } catch (e) {} }
+                requestUntilAnswered();
+            },
+        };
+        window.registerPanel('profileList', function(action, payload) {
+            answered = true;
+            if (retry) { clearInterval(retry); retry = null; }
+            cache = (payload && payload.entries) || [];
+            for (var i = 0; i < subs.length; i++) {
+                try { subs[i](cache.slice()); } catch (e) {}
+            }
         });
     })();
 

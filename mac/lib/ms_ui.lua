@@ -2096,6 +2096,27 @@ return function(ms)
                 end
             end,
 
+            -- List profiles for the macro builder's switch-profile dropdown.
+            -- The host otherwise only ships profiles inside the full settings
+            -- payload; this is the standalone channel the builder requests.
+            -- Pushed on 'profileList' as { entries = { { name, active } } }.
+            profilesList = function()
+                if not (ms.getProfiles and ms.shell) then return end
+                local ok, names = pcall(ms.getProfiles)
+                if not ok or type(names) ~= "table" then names = {} end
+                local active = (ms.alignedProfile and ms.alignedProfile())
+                    or (ms.macroMeta and ms.macroMeta.name and ms.sanitizeName
+                        and ms.sanitizeName(ms.macroMeta.name)) or ""
+                local entries = {}
+                for _, n in ipairs(names) do
+                    entries[#entries + 1] = { name = n, active = (n == active) }
+                end
+                local ok2, json = pcall(hs.json.encode, { entries = entries })
+                if ok2 and json then
+                    ms.shell.eval("shellReceive('profileList', 'list', " .. json .. ")")
+                end
+            end,
+
             libraryActivate = function(data)
                 if not (data and data.kind and data.slug and ms.package
                         and ms.package.libraryActivate) then return end

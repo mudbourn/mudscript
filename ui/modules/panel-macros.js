@@ -192,7 +192,7 @@
                     { name: "operation", type: "enum", options: MOUSE_OPS,  label: "Operation", required: true },
                     { name: "button",    type: "enum", options: MOUSE_BTNS, label: "Button",    required: true },
                     { name: "reference", type: "enum", options: MOUSE_REFS, label: "Reference", required: true },
-                    { name: "unscaled",  type: "boolean", label: "Unscaled (raw pixels, bypass REF scaling)", required: false },
+                    { name: "unscaled",  type: "boolean", label: "Unscaled (bypass scaling)", required: false },
                     { name: "x1",        type: "number",  label: "X1",                          required: true },
                     { name: "y1",        type: "number",  label: "Y1",                          required: true },
                     { name: "x2",        type: "number",  label: "X2",                          required: false },
@@ -624,6 +624,27 @@
                 category: "flow",
                 params: []
             },
+            {
+                id: "ms.switchProfile",
+                name: "ms.switchProfile",
+                sig: "ms.switchProfile(name)",
+                desc: "Switch to another profile by name. Hotswaps its macros, settings, theme, and sounds live.",
+                category: "flow",
+                params: [
+                    { name: "name", type: "choice", source: "profiles", label: "Profile", required: true }
+                ]
+            },
+            {
+                id: "switch_pack",
+                name: "switch_pack",
+                sig: 'ms.package.libraryActivate(kind, slug)',
+                desc: "Activate an installed library pack. Kind picks which slice (macro / theme / sound) is swapped in.",
+                category: "flow",
+                params: [
+                    { name: "kind", type: "enum", options: ["macro", "theme", "sound"], label: "Kind", required: true },
+                    { name: "slug", type: "choice", source: "pack", dependsOn: "kind", kind: "macro", label: "Pack", required: true }
+                ]
+            },
 
             /* -- logic -- */
             {
@@ -771,6 +792,54 @@
         var _tools       = [];   // current tools (authored settings + pack settings)
         var _fnList      = [];   // callable function tools (authored / pack / plugin)
         var _view        = "module"; // "module" | "tool"
+
+        // Live lists for "choice" params (switch-profile / switch-pack). Filled
+        // by the shell clients and kept fresh; _choiceSelects tracks the
+        // currently mounted selects so a late push (or a kind change) can refill
+        // their options in place. Subscribed once, below the DOM build.
+        var _profilesData = [];                        // [{ name, active }]
+        var _packData     = { macro: [], theme: [], sound: [] }; // [{ name, slug, active }]
+        var _choiceSelects = [];  // [{ sel, param }] for the open detail
+
+        // Subscribe once to the shell clients; a push refreshes local data and
+        // refills any mounted choice selects in place. subscribe() fires with
+        // the cache immediately when present, so opening the panel after the
+        // data has landed is populated at once.
+        if (window.msProfilesClient) {
+            window.msProfilesClient.subscribe(function(entries) {
+                _profilesData = entries || [];
+                refillChoiceSelects();
+            });
+        }
+        if (window.msLibraryClient && window.msLibraryClient.subscribe) {
+            ["macro", "theme", "sound"].forEach(function(kind) {
+                window.msLibraryClient.subscribe(kind, function(entries) {
+                    _packData[kind] = entries || [];
+                    refillChoiceSelects();
+                });
+            });
+        }
+
+        // Kick a fresh request for whatever a just-opened module needs, so its
+        // dropdowns reflect the current profiles/packs even if they changed
+        // since the last push.
+        function requestChoiceData(fn) {
+            var wantProfiles = false, wantKinds = {};
+            for (var i = 0; i < fn.params.length; i++) {
+                var p = fn.params[i];
+                if (p.type !== "choice") continue;
+                if (p.source === "profiles") wantProfiles = true;
+                else if (p.source === "pack") {
+                    // Request every kind the param could switch to, not just the
+                    // current one, so changing the kind enum is instant.
+                    ["macro", "theme", "sound"].forEach(function(k) { wantKinds[k] = true; });
+                }
+            }
+            if (wantProfiles && window.msProfilesClient) window.msProfilesClient.request();
+            if (window.msLibraryClient) {
+                Object.keys(wantKinds).forEach(function(k) { window.msLibraryClient.request(k); });
+            }
+        }
 
         /* -- Build DOM -- */
         var slot = document.getElementById("slot-macros");
@@ -1478,6 +1547,16 @@
                     html += '<div class="fn-enum-select-mount" data-enummount="' + esc(p.name) + '"></div>';
                     break;
 
+                case "choice":
+                    // A live-sourced dropdown (profiles / packs). Options are
+                    // fetched from the shell clients when mounted and refreshed
+                    // as pushes land; see mountChoiceSelects.
+                    html += '<div class="fn-choice-select-mount" data-choicemount="' + esc(p.name)
+                        + '" data-choicesrc="' + esc(p.source || "")
+                        + '" data-choicekind="' + esc(p.kind || "")
+                        + '" data-choicedep="' + esc(p.dependsOn || "") + '"></div>';
+                    break;
+
                 case "boolean":
                     // Shared .toggle markup (hidden checkbox behind track/thumb),
                     // same styling as the settings/macro toggles.
@@ -1646,6 +1725,13 @@
             // Enum selects, a fixed constant set per param.
             mountEnumSelects(fn);
 
+            // Choice selects (profiles / packs), sourced from the live shell
+            // lists. Reset the tracker first so it only holds this detail's
+            // selects. A request is kicked so the lists are fresh on open.
+            _choiceSelects = [];
+            mountChoiceSelects(fn);
+            requestChoiceData(fn);
+
             // Tool selects, pick which tool a bound parameter reads from.
             // Mounted as themed createSelect nodes (each wires its own onChange).
             mountToolSelects(fn);
@@ -1671,11 +1757,97 @@
                         onChange: function(v) {
                             if (window.playSlot) playSlot("interact");
                             _paramValues[name] = v;
+                            // A choice param may key its options off this enum
+                            // (switch-pack's slug depends on kind); refresh them.
+                            refillChoiceSelects();
                             updatePreview(fn);
                         },
                     });
                     mount.appendChild(sel);
                 })(mounts[m]);
+            }
+        }
+
+        // Options for a "choice" param, built from the live shell lists. An
+        // "active" entry is tagged so the user can see the current selection;
+        // the stored value that isn't in the list any more (a removed pack /
+        // renamed profile) is preserved as its own row so editing never drops it.
+        function choiceOptions(p) {
+            var opts = [];
+            var seen = {};
+            function add(value, label) {
+                if (value == null || seen[value]) return;
+                seen[value] = true;
+                opts.push({ value: String(value), label: label });
+            }
+            if (p.source === "profiles") {
+                for (var i = 0; i < _profilesData.length; i++) {
+                    var e = _profilesData[i];
+                    add(e.name, e.active ? e.name + " (active)" : e.name);
+                }
+            } else if (p.source === "pack") {
+                var kind = (p.dependsOn && _paramValues[p.dependsOn]) || p.kind || "macro";
+                var list = _packData[kind] || [];
+                for (var j = 0; j < list.length; j++) {
+                    var pk = list[j];
+                    add(pk.slug, pk.active ? pk.name + " (active)" : pk.name);
+                }
+            }
+            var cur = _paramValues[p.name];
+            if (cur && !seen[cur]) add(cur, cur + " (not installed)");
+            if (!opts.length) add("", "None available");
+            return opts;
+        }
+
+        // Replace each choice mount point with a live-sourced createSelect. The
+        // select is tracked in _choiceSelects so refillChoiceSelects can update
+        // its options in place when a push lands or a dependency changes.
+        function mountChoiceSelects(fn) {
+            if (typeof window.createSelect !== "function") return;
+            var byName = {};
+            for (var i = 0; i < fn.params.length; i++) byName[fn.params[i].name] = fn.params[i];
+            var mounts = detailPane.querySelectorAll(".fn-choice-select-mount");
+            for (var m = 0; m < mounts.length; m++) {
+                (function(mount) {
+                    var name = mount.getAttribute("data-choicemount");
+                    var p = byName[name];
+                    if (!p) return;
+                    var opts = choiceOptions(p);
+                    // Seed a valid value: keep the stored one if present, else
+                    // adopt the first real option so a required choice is valid.
+                    if (!_paramValues[name] && opts.length && opts[0].value) {
+                        _paramValues[name] = opts[0].value;
+                    }
+                    var sel = window.createSelect({
+                        options: opts,
+                        value: _paramValues[name] || "",
+                        className: "fn-choice-select",
+                        searchable: opts.length > 8,
+                        onChange: function(v) {
+                            if (window.playSlot) playSlot("interact");
+                            _paramValues[name] = v;
+                            updatePreview(fn);
+                        },
+                    });
+                    mount.appendChild(sel);
+                    _choiceSelects.push({ sel: sel, param: p, fn: fn });
+                })(mounts[m]);
+            }
+        }
+
+        // Refresh the options of every mounted choice select from current data,
+        // preserving each select's value where it still exists.
+        function refillChoiceSelects() {
+            for (var i = 0; i < _choiceSelects.length; i++) {
+                var c = _choiceSelects[i];
+                if (!c.sel.isConnected) continue;
+                var opts = choiceOptions(c.param);
+                var keep = c.sel.value;
+                c.sel.setOptions(opts);
+                var has = false;
+                for (var j = 0; j < opts.length; j++) if (opts[j].value === keep) { has = true; break; }
+                if (has) c.sel.value = keep;
+                _paramValues[c.param.name] = c.sel.value;
             }
         }
 
@@ -1912,6 +2084,7 @@
         "ms.input":"inputs","ms.variable":"variable","ms.watch":"watcher",
         "ms.sound":"sound","ms.gamepad":"controller","ms.gamepadStart":"controller","ms.gamepadBind":"controller",
         "ms.setMacros":"power","ms.enable":"power","ms.disable":"power",
+        "ms.switchProfile":"settings","switch_pack":"macros",
         "ms.screenshot":"camera","ms.clipChanged":"clipboard",
         "ms.randWait":"timer","ms.jitter":"timer","ms.waitPixel":"pixelscan","ms.waitNotPixel":"pixelscan",
         "ms.ocr":"ocr","ms.readNumber":"ocr","ms.findText":"ocr","ms.waitText":"ocr",
@@ -1955,6 +2128,8 @@
                 ? params.points.split(";").filter(function(s){ return s.trim(); }).length : 0;
             return (params.button || "Left") + " drag · " + pts + " pts";
         }
+        if (action === "ms.switchProfile") return "profile: " + (params.name || "?");
+        if (action === "switch_pack") return (params.kind || "macro") + " pack: " + (params.slug || "?");
         if (action === "var_set") return (params.name||"v") + " = " + (params.value!==undefined?params.value:"");
         if (action === "var_add" || action === "var_sub" || action === "var_mul") {
             var op = action==="var_add"?"+":action==="var_sub"?"-":"*";
