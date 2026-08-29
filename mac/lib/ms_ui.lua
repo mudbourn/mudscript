@@ -599,9 +599,20 @@ return function(ms)
 
         local function _rebuildUICache()
             local ok, json = pcall(hs.json.encode, _buildUIState())
-            if ok then
+            if ok and type(json) == "string" then
                 _uiStateJSON  = "receiveState(" .. json .. ");"
                 _uiStateDirty = false
+            else
+                -- The Settings, Tools, Appearance AND Profiles panels ALL hydrate from
+                -- this one payload (receiveState -> render/renderToolsPanel/
+                -- renderProfilesPanel/renderThemePanel), so a silent encode failure blanks
+                -- every one of them at once while Macros (its own _buildMacroList encode)
+                -- survives -- exactly the "everything but macros is blank" report. The old
+                -- code swallowed the failure and then pushed receiveState(null), which
+                -- actively wiped the panels' state. Surface it loudly instead; the guard in
+                -- refresh() below stops the destructive null push.
+                print("[MsUI] _buildUIState JSON encode FAILED (Settings/Tools/Appearance/"
+                    .. "Profiles will not hydrate): " .. tostring(json))
             end
         end
 
@@ -609,12 +620,14 @@ return function(ms)
 
         ms.ui.refresh = function()
             if _uiStateDirty or not _uiStateJSON then _rebuildUICache() end
-            if _uiStateJSON then
-                if ms.shell and ms.shell.isReady and ms.shell.isReady() then
-                    pcall(function()
-                        ms.shell.eval("shellReceive('settings', 'state', " .. (_uiStateJSON:match("^receiveState%((.*)%);$") or "null") .. ")")
-                    end)
-                end
+            local stateArg = _uiStateJSON and _uiStateJSON:match("^receiveState%((.*)%);$")
+            -- Never push receiveState(null): that blanks the panels rather than leaving
+            -- their last good state. Only push a real payload.
+            if stateArg and stateArg ~= "null"
+                and ms.shell and ms.shell.isReady and ms.shell.isReady() then
+                pcall(function()
+                    ms.shell.eval("shellReceive('settings', 'state', " .. stateArg .. ")")
+                end)
             end
             pcall(function() ms.ui.pushBindList() end)
         end
