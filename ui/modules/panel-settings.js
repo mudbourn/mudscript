@@ -786,7 +786,7 @@
                             "Controller / Gamepad Input",
                             "Let macros be triggered by controller buttons. "
                                 + "Pair your controller over Bluetooth, then use "
-                                + "a macro's Bind button and press a button.",
+                                + "a macro's Bind button and press a button",
                             toggle(gpOn, (e) =>
                                 sendToHost({
                                     action: "setGamepadEnabled",
@@ -851,8 +851,7 @@
                             body.appendChild(
                                 row(
                                     "Bound macros",
-                                    "None yet — open a macro and use its Bind "
-                                        + "button, then press a controller button.",
+                                    "None",
                                     null,
                                     "row-sub",
                                 ),
