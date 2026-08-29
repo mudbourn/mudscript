@@ -69,11 +69,19 @@ return function(ms)
                 type="scroll",
                 direction=dir,
             } end
-            local gp = str:match("^gamepad:(%w+)$")
-            if gp then return {
-                type="gamepad",
-                button=gp,
-            } end
+            -- gamepad:<btn> for a single button, or gamepad:<b1>+<b2>+... for a
+            -- chord. Single binds keep the legacy {button=} shape; chords use
+            -- {buttons={}} so older single-button configs round-trip unchanged.
+            local gp = str:match("^gamepad:([%w+]+)$")
+            if gp then
+                local list = {}
+                for b in gp:gmatch("[^+]+") do list[#list + 1] = b end
+                if #list == 1 then
+                    return { type = "gamepad", button = list[1] }
+                elseif #list > 1 then
+                    return { type = "gamepad", buttons = list }
+                end
+            end
             local mods = {}
             local parts = {}
             for part in str:gmatch("[^+]+") do
@@ -1122,6 +1130,7 @@ return function(ms)
             ms.loadSettings()
             ms.bind.rebind()
             ms.socdApply()
+            if ms.gamepadSync then ms.gamepadSync() end
             if not ms._quickReloading then
                 ms.playSlot("update")
                 ms.alert("Settings reloaded.", 5, true)
@@ -5045,7 +5054,7 @@ return function(ms)
                     local d = c.direction or "?"
                     return "( Scroll " .. d:sub(1,1):upper() .. d:sub(2) .. " )"
                 end
-                if c.type == "gamepad" then return "( Pad " .. (c.button or "?"):upper() .. " )" end
+                if c.type == "gamepad" then return "( Pad " .. ms.gpLabel(c) .. " )" end
                 local parts = {}
                 for _, m in ipairs(c.mods or {}) do table.insert(parts, m) end
                 table.insert(parts, c.key)

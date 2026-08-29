@@ -863,7 +863,7 @@
                                     h(
                                         "span",
                                         { cls: "gp-bind-pill" },
-                                        "Pad " + String(b.button).toUpperCase(),
+                                        "Pad " + (b.pad || "?"),
                                     ),
                                     actionBtn("Rebind", "", () =>
                                         sendToHost({
