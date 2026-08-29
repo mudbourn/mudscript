@@ -100,11 +100,30 @@ YQIDAQAB
         -- installs). openssl (on PATH here and on macOS) does the base64 decode
         -- and the verify, so no platform-specific base64 flags (-D vs -d, the
         -- macOS-only -i/-o) are needed either.
+        -- openssl drives signature verification; the Windows POSIX-shell path cannot
+        -- reach it (the same gap that makes the Guardian inert -- shasum/openssl are not
+        -- on that shell's PATH). Probe once so we can (a) skip a pointless verify that
+        -- would just fail, and (b) let loadLocal trust the shipped bundled index when the
+        -- tool is missing rather than reject it and leave the whole library empty.
+        local _opensslChecked, _opensslOK = false, false
+        local function opensslAvailable()
+            if not _opensslChecked then
+                _opensslChecked = true
+                local out, ok = hs.execute("openssl version 2>/dev/null")
+                _opensslOK = (ok and type(out) == "string"
+                    and out:find("OpenSSL") ~= nil) or false
+            end
+            return _opensslOK
+        end
+
         local function verifySignature(doc)
             if type(doc) ~= "table" then return false end
             if type(doc.signature) ~= "string" or doc.signature == "" then
                 return false
             end
+            -- Cannot verify without openssl; report unverified (loadLocal decides whether
+            -- a given source is trusted enough to adopt anyway).
+            if not opensslAvailable() then return false end
 
             local payload = {
                 formatVersion = doc.formatVersion,
@@ -230,8 +249,26 @@ YQIDAQAB
             local cached = decode(readFile(CACHE_PATH))
             if cached and adopt(cached, "cache", true) then return true end
 
+            -- The bundled index ships INSIDE the deployed app tree, so it inherits the
+            -- same trust as the Lua code that reads it; its signature is a defence-in-
+            -- depth check against on-disk tampering. That check needs openssl, which the
+            -- Windows shell path cannot reach -- and requiring it there rejected the
+            -- shipped index and left Browse showing "no packages". So require the
+            -- signature only when we can actually verify it; otherwise trust the local
+            -- shipped file. Network indexes (adopt below in refresh) stay strict, since
+            -- those are untrusted regardless of tooling.
             local bundled = decode(readFile(BUNDLED_PATH))
-            if bundled and adopt(bundled, "bundled", true) then return true end
+            if bundled then
+                local ok, why = adopt(bundled, "bundled", opensslAvailable())
+                if ok then return true end
+                -- Surfaced so a still-empty library after this fix names its cause
+                -- (e.g. a signature that verifies-and-fails while openssl IS present,
+                -- which would point at a canonical-JSON byte mismatch, not tooling).
+                print("[ms.registry] bundled index rejected (openssl="
+                    .. tostring(opensslAvailable()) .. "): " .. tostring(why))
+            elseif not bundled then
+                print("[ms.registry] bundled index unreadable at " .. tostring(BUNDLED_PATH))
+            end
 
             return false
         end
