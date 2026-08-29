@@ -1622,32 +1622,68 @@
             ms._gamepadTask = nil
             ms._gamepadCallbacks = {}
             ms._gamepadConnected = false
+            -- List of currently-attached controllers, {type=, player=}, mirrored
+            -- to the shell so the Settings panel can show what's detected live.
+            ms._gamepadControllers = {}
+
+            -- Push the current controller roster to the Settings panel. Called on
+            -- connect/disconnect, which are rare, so a full refresh is cheap here.
+            local function _gamepadStatusChanged()
+                ms._gamepadConnected = (#ms._gamepadControllers > 0)
+                if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
+                if ms.ui and ms.ui.refresh then pcall(ms.ui.refresh) end
+            end
+
+            local function _gamepadAddController(ev)
+                for _, c in ipairs(ms._gamepadControllers) do
+                    if c.type == ev.c and c.player == ev.p then return end
+                end
+                ms._gamepadControllers[#ms._gamepadControllers + 1] = { type = ev.c, player = ev.p }
+            end
+
+            local function _gamepadRemoveController(ev)
+                for i, c in ipairs(ms._gamepadControllers) do
+                    if c.type == ev.c and c.player == ev.p then
+                        table.remove(ms._gamepadControllers, i)
+                        return
+                    end
+                end
+            end
 
             ms.gamepadStart = function()
                 if ms._gamepadTask then return end
                 local bin = os.getenv("HOME") .. "/.local/bin/ms_gc_read"
                 ms._gamepadCallbacks = {}
+                ms._gamepadControllers = {}
                 ms._gamepadTask = hs.task.new(bin, function() end, function(task, stdOut, stdErr)
                     if not stdOut or stdOut == "" then return true end
-                    local ok, ev = pcall(function() return hs.json.decode(stdOut) end)
-                    if not ok or not ev or not ev.e then return true end
-                    if ev.e == "connect" then
-                        ms._gamepadConnected = true
-                        if ms.dev and ms.dev._watcherPanel then
-                            ms.devtools:watcherStep("gamepad connected: " .. (ev.c or "?"))
-                        end
-                    elseif ev.e == "disconnect" then
-                        ms._gamepadConnected = false
-                    elseif ev.e == "press" then
-                        local rebindCb = ms._gamepadCallbacks._rebind
-                        if rebindCb then
-                            rebindCb(ev.b)
-                        else
-                            local cb = ms._gamepadCallbacks[ev.b]
-                            if cb then
-                                local co = coroutine.create(cb)
-                                local ok2, err = coroutine.resume(co)
-                                if not ok2 then print("ms.gamepad callback error: " .. tostring(err)) end
+                    -- The task hands us stdout in chunks that may batch several
+                    -- newline-delimited JSON events (or none); decode line by line
+                    -- so a multi-event chunk is not dropped as invalid JSON.
+                    for line in stdOut:gmatch("[^\r\n]+") do
+                        local ok, ev = pcall(function() return hs.json.decode(line) end)
+                        if ok and ev and ev.e then
+                            if ev.e == "connect" then
+                                _gamepadAddController(ev)
+                                if ms.dev and ms.dev._watcherPanel then
+                                    ms.devtools:watcherStep("gamepad connected: " .. (ev.c or "?"))
+                                end
+                                _gamepadStatusChanged()
+                            elseif ev.e == "disconnect" then
+                                _gamepadRemoveController(ev)
+                                _gamepadStatusChanged()
+                            elseif ev.e == "press" then
+                                local rebindCb = ms._gamepadCallbacks._rebind
+                                if rebindCb then
+                                    rebindCb(ev.b)
+                                else
+                                    local cb = ms._gamepadCallbacks[ev.b]
+                                    if cb then
+                                        local co = coroutine.create(cb)
+                                        local ok2, err = coroutine.resume(co)
+                                        if not ok2 then print("ms.gamepad callback error: " .. tostring(err)) end
+                                    end
+                                end
                             end
                         end
                     end
@@ -1662,6 +1698,7 @@
                     ms._gamepadTask = nil
                     ms._gamepadCallbacks = {}
                     ms._gamepadConnected = false
+                    ms._gamepadControllers = {}
                 end
             end
 
