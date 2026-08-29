@@ -637,6 +637,7 @@
                 const hidden = S.hiddenFeatures || {};
                 const hasTrackpad = !hidden.trackpad;
                 const hasSocd = !hidden.socd;
+                const hasGamepad = !hidden.gamepad;
 
                 // Display zoom — scales the whole UI (shell + popouts) for
                 // large or small displays. Also driven by Cmd +/- / Cmd 0.
@@ -775,7 +776,124 @@
                     }
                 }
 
-                if (hasTrackpad || hasSocd) body.appendChild(divider());
+                // Controller / Gamepad — enable toggle, live detection status,
+                // and the macros currently bound to controller buttons.
+                if (hasGamepad) {
+                    if (hasTrackpad || hasSocd) body.appendChild(divider());
+                    const gpOn = S.gamepadEnabled === true;
+                    body.appendChild(
+                        row(
+                            "Controller / Gamepad Input",
+                            "Let macros be triggered by controller buttons. "
+                                + "Pair your controller over Bluetooth, then use "
+                                + "a macro's Bind button and press a button.",
+                            toggle(gpOn, (e) =>
+                                sendToHost({
+                                    action: "setGamepadEnabled",
+                                    value: e.target.checked,
+                                }),
+                            ),
+                            "",
+                            [
+                                {
+                                    icon: "",
+                                    label: "Reset to default",
+                                    action: () =>
+                                        sendToHost({
+                                            action: "resetSetting",
+                                            key: "gamepadEnabled",
+                                        }),
+                                },
+                            ],
+                        ),
+                    );
+
+                    if (gpOn) {
+                        // Live detection status.
+                        const TYPE_NAMES = {
+                            ds4: "PlayStation",
+                            xbox: "Xbox",
+                            switch: "Nintendo Switch Pro",
+                            generic: "Controller",
+                        };
+                        const ctrls = S.gamepadControllers || [];
+                        let statusText;
+                        if (ctrls.length === 0) {
+                            statusText =
+                                "No controller detected — pair one over "
+                                + "Bluetooth, then it will appear here.";
+                        } else {
+                            statusText =
+                                "Detected: "
+                                + ctrls
+                                    .map(
+                                        (c) =>
+                                            TYPE_NAMES[c.type] || "Controller",
+                                    )
+                                    .join(", ");
+                        }
+                        const statusRow = row(
+                            "Status",
+                            statusText,
+                            null,
+                            "row-sub",
+                        );
+                        statusRow
+                            .querySelector(".row-label")
+                            .classList.add(
+                                ctrls.length ? "gp-status-ok" : "gp-status-none",
+                            );
+                        body.appendChild(statusRow);
+
+                        // Macros currently bound to a controller button.
+                        const binds = S.gamepadBinds || [];
+                        if (binds.length === 0) {
+                            body.appendChild(
+                                row(
+                                    "Bound macros",
+                                    "None yet — open a macro and use its Bind "
+                                        + "button, then press a controller button.",
+                                    null,
+                                    "row-sub",
+                                ),
+                            );
+                        } else {
+                            binds.forEach((b) => {
+                                const controls = btnRow(
+                                    h(
+                                        "span",
+                                        { cls: "gp-bind-pill" },
+                                        "Pad " + String(b.button).toUpperCase(),
+                                    ),
+                                    actionBtn("Rebind", "", () =>
+                                        sendToHost({
+                                            action: "startRebind",
+                                            id: b.id,
+                                            systemBind: b.systemBind === true,
+                                        }),
+                                    ),
+                                    actionBtn("Unbind", "danger", () =>
+                                        sendToHost({
+                                            action: "resetBind",
+                                            id: b.id,
+                                            systemBind: b.systemBind === true,
+                                        }),
+                                    ),
+                                );
+                                body.appendChild(
+                                    row(
+                                        b.label,
+                                        null,
+                                        controls,
+                                        "row-sub gp-bind-row",
+                                    ),
+                                );
+                            });
+                        }
+                    }
+                }
+
+                if (hasTrackpad || hasSocd || hasGamepad) body.appendChild(divider());
                 const octane = S.octaneMode === true;
                 body.appendChild(
                     row(

@@ -195,6 +195,45 @@ return function(ms)
         end
         ms.ui._buildMacroList = _buildMacroList
 
+        -- Every macro/system bind whose effective binding is a controller button,
+        -- for the Settings panel's Controller section. Each entry carries enough
+        -- to re-capture (startRebind) or clear (resetBind) it from the shell.
+        local function _buildGamepadBinds()
+            local out = {}
+            for _, id in ipairs(ms.registry._defList or {}) do
+                local def = ms.registry._defs[id]
+                if def and not def.system
+                    and not (ms._suppressedMacros and ms._suppressedMacros[id]) then
+                    local eff = ms.effectiveBind(id)
+                    if eff and eff.type == "gamepad" then
+                        out[#out + 1] = {
+                            id     = id,
+                            label  = def.label or id,
+                            button = eff.button or "?",
+                            bind   = _bindDisplay(eff),
+                        }
+                    end
+                end
+            end
+            for _, id in ipairs({ "enable", "disable", "toggle", "octane" }) do
+                local def = ms.systemBinds._defs[id]
+                if def then
+                    local eff = ms.systemBinds.effective(id)
+                    if eff and eff.type == "gamepad" then
+                        out[#out + 1] = {
+                            id         = id,
+                            label      = def.label or id,
+                            button     = eff.button or "?",
+                            bind       = _bindDisplay(eff),
+                            systemBind = true,
+                        }
+                    end
+                end
+            end
+            return out
+        end
+        ms.ui._buildGamepadBinds = _buildGamepadBinds
+
         local function _buildUIState()
             local macros = _buildMacroList()
 
@@ -447,6 +486,10 @@ return function(ms)
                 trackpadMode            = ms.trackpadMode or false,
                 socdEnabled             = ms.socdEnabled or false,
                 socdMode                = ms.socdMode or "lastWins",
+                gamepadEnabled          = ms.gamepadEnabled or false,
+                gamepadConnected        = ms._gamepadConnected or false,
+                gamepadControllers      = ms._gamepadControllers or {},
+                gamepadBinds            = _buildGamepadBinds(),
 
                 soundEnabled            = ms.soundEnabled,
                 soundVolume             = ms.soundVolume or 100,
@@ -1284,6 +1327,20 @@ return function(ms)
                 ms.socdEnabled = (data.value == true)
                 ms.saveSettings()
                 ms.socdApply()
+                ms.ui.refresh()
+            end,
+
+            setGamepadEnabled = function(data)
+                ms.gamepadEnabled = (data.value == true)
+                -- Turning it on starts the reader so the panel can report which
+                -- controllers are detected; turning it off tears it down.
+                if ms.gamepadEnabled then
+                    if ms.gamepadStart then ms.gamepadStart() end
+                else
+                    if ms.gamepadStop then ms.gamepadStop() end
+                end
+                ms.saveSettings()
+                ms.bind.rebind()
                 ms.ui.refresh()
             end,
 
@@ -2489,6 +2546,11 @@ return function(ms)
                 elseif key == "socdMode" then
                     ms.socdMode = def.socdMode or "lastWins"
                     ms.saveSettings()
+                elseif key == "gamepadEnabled" then
+                    ms.gamepadEnabled = (def.gamepadEnabled == true)
+                    if not ms.gamepadEnabled and ms.gamepadStop then ms.gamepadStop() end
+                    ms.saveSettings()
+                    ms.bind.rebind()
                 elseif key == "soundEnabled" then
                     ms.soundEnabled = true
                     ms.saveSettings()

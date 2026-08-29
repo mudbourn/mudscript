@@ -942,6 +942,12 @@
         .bind-act { width: 22px; height: 22px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; line-height: 1; color: var(--text2); background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-s); cursor: pointer; transition: color 0.15s, border-color 0.15s; }
         .bind-act .icon { width: 13px; height: 13px; }
         .bind-act:hover { color: var(--accent); border-color: var(--accent); }
+        /* Controller section in the Settings panel. */
+        .gp-status-ok small { color: var(--accent); }
+        .gp-status-none small { color: var(--text3); }
+        .gp-bind-pill { padding: 2px 8px; border-radius: var(--radius); font-family: inherit; font-size: 12px; color: var(--text); background: var(--surface2); border: 1px solid var(--border); white-space: nowrap; }
+        .gp-bind-row .btn-row { padding: 0; gap: 6px; flex-wrap: nowrap; align-items: center; }
+        .gp-bind-row .btn-row .btn-action { flex: 0 0 auto; min-width: 0; padding: 5px 10px; font-size: 11px; }
         /* The ⋯ options button: same 22px chip as .bind-act, just a larger glyph.
            The ⋯ character already sits on the vertical centre, so let the flex
            centering place it — no padding nudge (which skewed it upward). */

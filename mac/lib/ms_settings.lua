@@ -5921,10 +5921,15 @@ return function(ms)
                         title = (ms.gamepadEnabled and "\xe2\x9c\x93" or "\xe2\x9c\x97") .. " Controller / Gamepad Input",
                         fn = function()
                         ms.gamepadEnabled = not ms.gamepadEnabled
-                        if not ms.gamepadEnabled then ms.gamepadStop() end
+                        if ms.gamepadEnabled then
+                            if ms.gamepadStart then ms.gamepadStart() end
+                        else
+                            if ms.gamepadStop then ms.gamepadStop() end
+                        end
                         ms.saveSettings()
                         ms.bind.rebind()
                         ms.playSlot("update")
+                        if ms.ui and ms.ui.refresh then pcall(ms.ui.refresh) end
                         ms.alert("Controller Input: " .. (ms.gamepadEnabled and "ON" or "OFF"), 2, true)
                     end },
                     { title = "-" },
