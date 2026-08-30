@@ -4248,8 +4248,14 @@
                     return "Scroll " .. d:sub(1,1):upper() .. d:sub(2)
                 end
                 if c.type == "gamepad" then return "Pad " .. ms.gpLabel(c) end
+                -- c.mods may be the "any" string sentinel (system binds), not a list
+                -- -- iterate only a real table, render "any" as an "Any" token.
                 local parts = {}
-                for _, m in ipairs(c.mods or {}) do table.insert(parts, m:sub(1, 1):upper() .. m:sub(2)) end
+                if type(c.mods) == "table" then
+                    for _, m in ipairs(c.mods) do table.insert(parts, m:sub(1, 1):upper() .. m:sub(2)) end
+                elseif c.mods == "any" then
+                    table.insert(parts, "Any")
+                end
                 table.insert(parts, (c.key or ""):upper())
                 return table.concat(parts, "+")
             end

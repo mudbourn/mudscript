@@ -43,12 +43,27 @@ return function(ms)
             _uiFadeTimer   = nil,
         }
 
+        -- A bind's `mods` is normally a list of modifier names, but the system
+        -- binds (enable/disable/toggle) use the STRING sentinel "any" -- match with
+        -- any modifiers held (see modsMatch in ms_core). Feeding that string to
+        -- ipairs threw ("table expected, got string") and aborted the whole panel
+        -- payload build, blanking every panel. Normalise here: a table iterates as
+        -- before, "any" renders an "Any" token, anything else yields no mod tokens.
+        local function _modParts(mods)
+            local out = {}
+            if type(mods) == "table" then
+                for _, m in ipairs(mods) do
+                    out[#out + 1] = m:sub(1, 1):upper() .. m:sub(2)
+                end
+            elseif mods == "any" then
+                out[#out + 1] = "Any"
+            end
+            return out
+        end
+
         local function _bindDisplay(c)
             if not c then return nil end
-            local parts = {}
-            for _, m in ipairs(c.mods or {}) do
-                table.insert(parts, m:sub(1, 1):upper() .. m:sub(2))
-            end
+            local parts = _modParts(c.mods)
             -- A modifier-only bind is just its modifiers, no trailing key.
             if c.type == "mods" then
                 if #parts == 0 then return "unset" end
@@ -75,10 +90,7 @@ return function(ms)
 
         local function _bindTokens(c)
             if not c then return {} end
-            local out = {}
-            for _, m in ipairs(c.mods or {}) do
-                out[#out + 1] = m:sub(1, 1):upper() .. m:sub(2)
-            end
+            local out = _modParts(c.mods)
             if c.type == "mods" then
                 return out -- modifiers only, no trigger token
             elseif c.type == "mouse" then
