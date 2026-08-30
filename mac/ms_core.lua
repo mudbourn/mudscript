@@ -3365,10 +3365,15 @@
                 if ms._octaneMode and ms._octaneMuteSounds then return false end
                 if not ms._startupSoundDone and slotId ~= "load" and slotId ~= "themeLoaded" and slotId ~= "updateAvailable" and slotId ~= "settingsOpen" and slotId ~= "settingsClose" then return false end
                 ms._slotHandles = ms._slotHandles or {}
-                if ms._slotHandles[slotId] then
-                    pcall(function() ms._slotHandles[slotId]:stop() end)
-                    ms._slotHandles[slotId] = nil
-                end
+                -- Do NOT stop the slot's previous play before starting the new one.
+                -- The Windows backend gives every sound its own short-lived child
+                -- process that the OS mixes, so letting a prior play finish while the
+                -- next begins is exactly the smooth overlap macOS has. Stopping it
+                -- instead (TerminateProcess) cut the previous sound mid-play AND paid
+                -- the helper's ~20-40ms respawn gap -- audible as choppy cutting when
+                -- hovering quickly through menu items (each "hover" killed the last).
+                -- We still overwrite the tracked handle below so _slotStartedAt /
+                -- duration timing follows the most recent play.
                 local path
                 for _, id in ipairs(ms.soundSlotChain(slotId)) do
                     path = _resolveSlot(id)
