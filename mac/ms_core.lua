@@ -1686,7 +1686,13 @@
 
             ms.gamepadStart = function()
                 if ms._gamepadTask then return end
-                local bin = os.getenv("HOME") .. "/.local/bin/ms_gc_read"
+                -- The reader is a native binary per platform: ms_gc_read (Swift,
+                -- GameController) on macOS, ms_gc_read.exe (SDL2) on Windows. Both
+                -- emit the identical JSON-line protocol. On Windows the host
+                -- (mudspoon) shims os.getenv("HOME") to the tree that contains
+                -- .hammerspoon, so the same $HOME/.local/bin anchor resolves there.
+                local _isWin = package.config:sub(1, 1) == "\\"
+                local bin = os.getenv("HOME") .. "/.local/bin/ms_gc_read" .. (_isWin and ".exe" or "")
                 ms._gamepadCallbacks = {}
                 ms._gamepadControllers = {}
                 ms._gamepadHeld = {}
