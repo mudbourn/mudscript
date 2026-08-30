@@ -61,7 +61,7 @@ return function(ms)
                 local d = c.direction or "?"
                 trigger = "Scroll " .. d:sub(1,1):upper() .. d:sub(2)
             elseif c.type == "gamepad" then
-                trigger = "Pad " .. (c.button or "?"):upper()
+                trigger = "Pad " .. ms.gpLabel(c)
             elseif c.type == "combo" then
                 local ks = {}
                 for _, k in ipairs(c.keys or {}) do ks[#ks+1] = (k or ""):upper() end
@@ -87,7 +87,7 @@ return function(ms)
                 local d = c.direction or "?"
                 out[#out + 1] = "Scroll " .. d:sub(1,1):upper() .. d:sub(2)
             elseif c.type == "gamepad" then
-                out[#out + 1] = "Pad " .. (c.button or "?"):upper()
+                out[#out + 1] = "Pad " .. ms.gpLabel(c)
             elseif c.type == "combo" then
                 for _, k in ipairs(c.keys or {}) do out[#out + 1] = (k or ""):upper() end
             else
@@ -209,7 +209,7 @@ return function(ms)
                         out[#out + 1] = {
                             id     = id,
                             label  = def.label or id,
-                            button = eff.button or "?",
+                            pad    = ms.gpLabel(eff),
                             bind   = _bindDisplay(eff),
                         }
                     end
@@ -223,7 +223,7 @@ return function(ms)
                         out[#out + 1] = {
                             id         = id,
                             label      = def.label or id,
-                            button     = eff.button or "?",
+                            pad        = ms.gpLabel(eff),
                             bind       = _bindDisplay(eff),
                             systemBind = true,
                         }
@@ -684,7 +684,8 @@ return function(ms)
             local INSTRUCTIONS =
                 "Press a key, or hold a combo. Modifiers on their own\n"
                 .. "(Option, Option+Shift), mouse buttons, scroll, and\n"
-                .. "controller buttons work too.\n"
+                .. "controller buttons work too — hold several pad\n"
+                .. "buttons at once for a controller combo.\n"
                 .. "Release to set  ·  Escape to cancel."
 
             local function captureMsg()
@@ -925,12 +926,35 @@ return function(ms)
 
                 if opts.gamepad and ms.gamepadEnabled then
                     if not ms._gamepadTask then ms.gamepadStart() end
-                    ms._gamepadCallbacks._rebind = function(btn)
+                    -- Chord capture: collect every button pressed during the
+                    -- gesture, previewing as it grows, and finalize once they are
+                    -- all released. One button yields a single bind; two or more
+                    -- yield a combo. `started` (a keyboard/mouse capture has begun)
+                    -- keeps controller and keyboard input from mixing.
+                    local gpHeldCount = 0
+                    local gpOrder, gpSeen = {}, {}
+                    ms._gamepadCallbacks._rebind = function(btn, phase)
                         if settled or started then return end
-                        toConfirm({
-                            type = "gamepad",
-                            button = btn,
-                        })
+                        if phase == "press" then
+                            gpHeldCount = gpHeldCount + 1
+                            if not gpSeen[btn] then
+                                gpSeen[btn] = true
+                                gpOrder[#gpOrder + 1] = btn
+                            end
+                            local disp = (#gpOrder > 1)
+                                and { type = "gamepad", buttons = gpOrder }
+                                or  { type = "gamepad", button  = gpOrder[1] }
+                            ms.ui.modalUpdate({ keys = _bindTokens(disp) })
+                        elseif phase == "release" then
+                            gpHeldCount = gpHeldCount - 1
+                            if gpHeldCount <= 0 and #gpOrder > 0 then
+                                if #gpOrder > 1 then
+                                    toConfirm({ type = "gamepad", buttons = gpOrder })
+                                else
+                                    toConfirm({ type = "gamepad", button = gpOrder[1] })
+                                end
+                            end
+                        end
                     end
                 end
 
@@ -1104,6 +1128,7 @@ return function(ms)
                 if not ms.registry._defs["__panicButton"] then ms.bind._registerSystemBinds() end
                 ms.bind.rebind()
                 ms.socdApply()
+                if ms.gamepadSync then ms.gamepadSync() end
                 if not ms._quickReloading then
                     ms.playSlot("update")
                     ms.alert("Macros reloaded.", 4, true)
@@ -1128,6 +1153,7 @@ return function(ms)
                 ms.loadSettings()
                 ms.bind.rebind()
                 ms.socdApply()
+                if ms.gamepadSync then ms.gamepadSync() end
                 ms.playSlot("update")
                 ms.alert("Settings reloaded.", 4, true)
                 ms.ui.refresh()

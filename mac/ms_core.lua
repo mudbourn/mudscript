@@ -1625,6 +1625,40 @@
             -- List of currently-attached controllers, {type=, player=}, mirrored
             -- to the shell so the Settings panel can show what's detected live.
             ms._gamepadControllers = {}
+            -- Currently-held buttons ({name=true}) and registered chord bindings,
+            -- each { set={name=true}, list={names}, n=count, fn=fn }.
+            ms._gamepadHeld = {}
+            ms._gamepadBinds = {}
+
+            -- Normalize a gamepad bind config to a plain list of button names.
+            -- Accepts the combo shape {buttons={...}} or the legacy single
+            -- {button="x"}; anything else yields an empty list.
+            ms.gpButtons = function(c)
+                if type(c) ~= "table" then return {} end
+                if type(c.buttons) == "table" and #c.buttons > 0 then
+                    local l = {}
+                    for _, b in ipairs(c.buttons) do l[#l + 1] = b end
+                    return l
+                end
+                if c.button then return { c.button } end
+                return {}
+            end
+
+            -- Human label, e.g. "L1 + X". Pass sep to change the joiner.
+            ms.gpLabel = function(c, sep)
+                local l = ms.gpButtons(c)
+                if #l == 0 then return "?" end
+                local up = {}
+                for _, b in ipairs(l) do up[#up + 1] = tostring(b):upper() end
+                return table.concat(up, sep or " + ")
+            end
+
+            -- Canonical sorted token for serialization / conflict keys, e.g. "l1+x".
+            ms.gpToken = function(c)
+                local l = ms.gpButtons(c)
+                table.sort(l)
+                return table.concat(l, "+")
+            end
 
             -- Push the current controller roster to the Settings panel. Called on
             -- connect/disconnect, which are rare, so a full refresh is cheap here.
@@ -1652,9 +1686,16 @@
 
             ms.gamepadStart = function()
                 if ms._gamepadTask then return end
-                local bin = os.getenv("HOME") .. "/.local/bin/ms_gc_read"
+                -- The reader is a native binary per platform: ms_gc_read (Swift,
+                -- GameController) on macOS, ms_gc_read.exe (SDL2) on Windows. Both
+                -- emit the identical JSON-line protocol. On Windows the host
+                -- (mudspoon) shims os.getenv("HOME") to the tree that contains
+                -- .hammerspoon, so the same $HOME/.local/bin anchor resolves there.
+                local _isWin = package.config:sub(1, 1) == "\\"
+                local bin = os.getenv("HOME") .. "/.local/bin/ms_gc_read" .. (_isWin and ".exe" or "")
                 ms._gamepadCallbacks = {}
                 ms._gamepadControllers = {}
+                ms._gamepadHeld = {}
                 ms._gamepadTask = hs.task.new(bin, function() end, function(task, stdOut, stdErr)
                     if not stdOut or stdOut == "" then return true end
                     -- The task hands us stdout in chunks that may batch several
@@ -1673,16 +1714,39 @@
                                 _gamepadRemoveController(ev)
                                 _gamepadStatusChanged()
                             elseif ev.e == "press" then
+                                ms._gamepadHeld[ev.b] = true
                                 local rebindCb = ms._gamepadCallbacks._rebind
                                 if rebindCb then
-                                    rebindCb(ev.b)
+                                    rebindCb(ev.b, "press", ms._gamepadHeld)
                                 else
-                                    local cb = ms._gamepadCallbacks[ev.b]
-                                    if cb then
-                                        local co = coroutine.create(cb)
+                                    -- Fire the most specific chord whose buttons
+                                    -- are all currently held and that includes the
+                                    -- button just pressed. Requiring membership of
+                                    -- the just-pressed button means a chord fires
+                                    -- when its final button lands (hold L1, then X),
+                                    -- and picking the largest matching set lets
+                                    -- L1+X win over a bare X bound to the same key.
+                                    local best, bestN = nil, -1
+                                    for _, bnd in ipairs(ms._gamepadBinds) do
+                                        if bnd.set[ev.b] then
+                                            local all = true
+                                            for k in pairs(bnd.set) do
+                                                if not ms._gamepadHeld[k] then all = false break end
+                                            end
+                                            if all and bnd.n > bestN then best, bestN = bnd, bnd.n end
+                                        end
+                                    end
+                                    if best then
+                                        local co = coroutine.create(best.fn)
                                         local ok2, err = coroutine.resume(co)
                                         if not ok2 then print("ms.gamepad callback error: " .. tostring(err)) end
                                     end
+                                end
+                            elseif ev.e == "release" then
+                                ms._gamepadHeld[ev.b] = nil
+                                local rebindCb = ms._gamepadCallbacks._rebind
+                                if rebindCb then
+                                    rebindCb(ev.b, "release", ms._gamepadHeld)
                                 end
                             end
                         end
@@ -1699,18 +1763,44 @@
                     ms._gamepadCallbacks = {}
                     ms._gamepadConnected = false
                     ms._gamepadControllers = {}
+                    ms._gamepadHeld = {}
+                    ms._gamepadBinds = {}
                 end
             end
 
-            ms.gamepadBind = function(button, fn)
+            -- Reconcile the reader daemon with the persisted enable flag. Called
+            -- at boot/reload so a controller enabled in a previous session is
+            -- detected without waiting for a fresh toggle.
+            ms.gamepadSync = function()
+                if ms.gamepadEnabled then
+                    if not ms._gamepadTask then ms.gamepadStart() end
+                else
+                    if ms._gamepadTask then ms.gamepadStop() end
+                end
+            end
+
+            -- Register a controller binding. `spec` is a single button name or a
+            -- list of names (a chord). Returns a handle with :delete().
+            ms.gamepadBind = function(spec, fn)
                 if not ms.gamepadEnabled then
                     return { delete = function() end }
                 end
                 if not ms._gamepadTask then ms.gamepadStart() end
-                ms._gamepadCallbacks[button] = fn
+                local list = type(spec) == "table" and spec or { spec }
+                local set, n = {}, 0
+                for _, b in ipairs(list) do
+                    if not set[b] then set[b] = true
+                    n = n + 1 end
+                end
+                if n == 0 then return { delete = function() end } end
+                local entry = { set = set, list = list, n = n, fn = fn }
+                ms._gamepadBinds[#ms._gamepadBinds + 1] = entry
                 return {
                     delete = function()
-                        ms._gamepadCallbacks[button] = nil
+                        for i, e in ipairs(ms._gamepadBinds) do
+                            if e == entry then table.remove(ms._gamepadBinds, i)
+                            break end
+                        end
                     end,
                 }
             end
@@ -4157,7 +4247,7 @@
                     local d = c.direction or "?"
                     return "Scroll " .. d:sub(1,1):upper() .. d:sub(2)
                 end
-                if c.type == "gamepad" then return "Pad " .. (c.button or "?"):upper() end
+                if c.type == "gamepad" then return "Pad " .. ms.gpLabel(c) end
                 local parts = {}
                 for _, m in ipairs(c.mods or {}) do table.insert(parts, m:sub(1, 1):upper() .. m:sub(2)) end
                 table.insert(parts, (c.key or ""):upper())
@@ -4195,7 +4285,7 @@
                             if not ok then print("ms.systemBind error: " .. tostring(err)) end
                         end)
                     elseif c.type == "gamepad" then
-                        ms.systemBinds._handles[id] = ms.gamepadBind(c.button, function()
+                        ms.systemBinds._handles[id] = ms.gamepadBind(ms.gpButtons(c), function()
                             if not ms._targetActive and not ms._isSafeZone() then return end
                             local co = coroutine.create(action)
                             local ok, err = coroutine.resume(co)
@@ -4936,7 +5026,7 @@
                     local modStr = #mods > 0 and (":" .. table.concat(mods, ",")) or ""
                     if c.type == "mouse"   then return "mouse:"   .. tostring(c.button) .. modStr end
                     if c.type == "scroll"  then return "scroll:"  .. (c.direction or "up") .. modStr end
-                    if c.type == "gamepad" then return "gamepad:" .. (c.button or "?")  .. modStr end
+                    if c.type == "gamepad" then return "gamepad:" .. ms.gpToken(c) .. modStr end
                     if c.type == "combo"   then
                         local ks = {}
                         for _, k in ipairs(c.keys or {}) do ks[#ks+1] = k end
@@ -4950,7 +5040,7 @@
                 local function triggerKey(c)
                     if c.type == "mouse"   then return "mouse:"   .. tostring(c.button) end
                     if c.type == "scroll"  then return "scroll:"  .. (c.direction or "up") end
-                    if c.type == "gamepad" then return "gamepad:" .. (c.button or "?") end
+                    if c.type == "gamepad" then return "gamepad:" .. ms.gpToken(c) end
                     return nil
                 end
 
@@ -5030,7 +5120,7 @@
                             local _trig = (function()
                                 if c.type == "mouse" then return "M" .. c.button end
                                 if c.type == "scroll" then return "S:" .. (c.direction or "?") end
-                                if c.type == "gamepad" then return "G:" .. (c.button or "?") end
+                                if c.type == "gamepad" then return "G:" .. ms.gpLabel(c, "+") end
                                 if c.type == "combo" then
                                     local _p = {}
                                     for _, m in ipairs(c.mods or {}) do _p[#_p+1] = m end
@@ -5070,6 +5160,7 @@
                             grp = {
                                 ctype = c.type,
                                 button = c.button,
+                                buttons = c.type == "gamepad" and ms.gpButtons(c) or nil,
                                 direction = c.direction,
                                 claimants = {},
                             }
@@ -5107,7 +5198,7 @@
                     elseif grp.ctype == "scroll" then
                         ms.bindHandles["_disp:" .. tkey] = ms.scrollBind(grp.direction, dispatch)
                     elseif grp.ctype == "gamepad" then
-                        ms.bindHandles["_disp:" .. tkey] = ms.gamepadBind(grp.button, dispatch)
+                        ms.bindHandles["_disp:" .. tkey] = ms.gamepadBind(grp.buttons or grp.button, dispatch)
                     end
                 end
 
@@ -5176,7 +5267,7 @@
                             if not ok then print("ms.systemBind error: " .. tostring(err)) end
                         end)
                     elseif c.type == "gamepad" then
-                        ms._systemBindHandles[id] = ms.gamepadBind(c.button, function()
+                        ms._systemBindHandles[id] = ms.gamepadBind(ms.gpButtons(c), function()
                             if not ms._targetActive and not ms._isSafeZone() then return end
                             local co = coroutine.create(fn)
                             local ok, err = coroutine.resume(co)
@@ -5195,7 +5286,7 @@
                     if not cfg then return nil end
                     if cfg.type == "mouse" then return "mouse:" .. tostring(cfg.button) end
                     if cfg.type == "scroll" then return "scroll:" .. (cfg.direction or "up") end
-                    if cfg.type == "gamepad" then return "gamepad:" .. (cfg.button or "?") end
+                    if cfg.type == "gamepad" then return "gamepad:" .. ms.gpToken(cfg) end
                     local mods = {}
                     for _, m in ipairs(cfg.mods or {}) do table.insert(mods, m) end
                     table.sort(mods)
@@ -6544,6 +6635,7 @@
         ms.bind._registerSystemBinds()
         ms.bind.rebind()
         ms.socdApply()
+        if ms.gamepadSync then ms.gamepadSync() end
         BindValidity = 0
         ms._startupSoundDone = false
 

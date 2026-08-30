@@ -1197,6 +1197,7 @@
                                 type      = pb.type,
                                 key       = pb.key,
                                 button    = pb.button,
+                                buttons   = pb.buttons,
                                 direction = pb.direction,
                                 keys      = pb.keys,
                                 mods      = mods,
