@@ -1,17 +1,28 @@
 {
   "formatVersion": 1,
-  "generated": "2026-08-13T02:52:18Z",
+  "generated": "2026-08-24T16:17:34Z",
   "entries": [
+    {
+      "id": "plugin-roblox",
+      "type": "plugin",
+      "name": "Roblox",
+      "version": "0.1.6",
+      "author": "mudbourn",
+      "sha256": "e45862eb02674853e931de7524025d8336ac9c87d0e435a4b193ea6cf1fe00e1",
+      "url": "https://github.com/mudbourn/mudscript/releases/download/packages/Roblox.mspkg",
+      "size": 7907,
+      "trust": "trusted"
+    },
     {
       "id": "profile-combat-warriors-macros-profile",
       "type": "profile",
       "name": "Combat Warriors Macros profile",
-      "version": "1.0.0",
+      "version": "1.0.5",
       "author": "mudbourn",
       "website": "https://mudbourn.info",
-      "sha256": "9dacfaf15af1329726b7afb7c9745dce720551e53648f5bb8659233c4bb5723e",
+      "sha256": "88c2c8e7511580391f999764516f5d6e3001464634b8b6ba149c59ac14a04e5d",
       "url": "https://github.com/mudbourn/mudscript/releases/download/packages/Combat.Warriors.Macros-profile.mspkg",
-      "size": 3688748,
+      "size": 3689640,
       "components": {
         "theme": {
           "includesSounds": false
@@ -24,20 +35,7 @@
         }
       },
       "trust": "trusted"
-    },
-    {
-      "id": "plugin-roblox",
-      "type": "plugin",
-      "name": "Roblox",
-      "version": "0.1.0",
-      "author": "mudbourn",
-      "description": "Declares Roblox as the macro target and exposes Roblox's live saved settings (sensitivity, framerate cap, graphics quality) to macros, plus an anti-timeout keep-alive.",
-      "website": "https://mudbourn.info",
-      "sha256": "2297baacfc876b51a728559a6771b055d56334f5245b159ad4d4e16dca4357d0",
-      "url": "https://github.com/mudbourn/mudscript/releases/download/packages/Roblox.mspkg",
-      "size": 6355,
-      "trust": "trusted"
     }
   ],
-  "signature": "ZcBn4IAsbucbczr78HaBQG61mImGnXTBOphak48izKLSVMm3TwUW56ma6ZTk8IepS1lngYxvkHnVFCCe521v5EKcpc8D2zsW7dZJu8WypYv2iNZid+itDaia9+CqPvRx+bd+LT8AAEUpsgl4UVdA9cECLLoyWY1ZcUfDwgPaf52oRgTA4ZhIPY72fjH91HX/qH/o1trRoO73IcdbFnakbD+5xpyHJfUBdU1HZuf5/FhpI74EKqUS5T6SezURr6LpSowfKokAW/OPXVuPVO4BdUE6NwtLtt5LJWtWleL02S2U+vsZk4qiebghYH9U3PHUR4LCM+4+imVaXZV4XWJmqQ=="
+  "signature": "rLhB+M70Ui+YO77+1+5ZSgs1/RRc+XKz3YRt54YotK1XEEi1uRx/IoHa5Ns9Kvhzg/7Hbf3qPyZl4vrPksi2hLKW69pksYJwTmcj22E+UXdtw+fR8gOoAUBUvk7aYhFrbpfyN2JAMlJbB59iWoM5gyRkPMQihpJwwqet6hFzAS8bOFfxCJFdxHHiqO58nL6+BWY6YrBQUfCs3fDDJLCySnZsDPT0HQGbtfmL9qqLpRwdbOE7juoc2AmC4z3eEi13BhtNdB27Q5GAspeDq+l8QeRBSf2K9yOvX2oeTebuRkrohQVuYNoElW2RlVQUO0BLk6U9uovbPMywly29fUTG/g=="
 }
