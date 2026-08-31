@@ -52,9 +52,27 @@ YQIDAQAB
             return body
         end
 
-        local function writeFile(path, body)
+        -- _dataDir is created once, lazily, by the only writer that targets it
+        -- (persist -> CACHE_PATH). writeFile itself must NOT shell out: it is also
+        -- used for the verify temp files under TMPDIR (which always exists), and on
+        -- Windows every hs.execute is a ~140ms cmd->sh spawn -- 3 of those per verify
+        -- purely to mkdir a dir that already exists was a large chunk of the Browse
+        -- stall. Mac's popen made it free, so this was Windows-only.
+        local _dataDirEnsured = false
+        local function ensureDataDir()
+            if _dataDirEnsured then return end
             hs.execute("mkdir -p " .. sq(_dataDir))
-            local f = io.open(path, "w")
+            _dataDirEnsured = true
+        end
+
+        local function writeFile(path, body)
+            -- Binary mode: on Windows LuaJIT's text-mode "w" rewrites every \n to
+            -- \r\n. The signature message is `canon .. "\n"`, so a text-mode write
+            -- makes openssl hash `canon\r\n` while the signer (jq) hashed `canon\n`
+            -- -- every verify then fails and the whole library shows empty. mac's
+            -- "w" never translates, which is why this was Windows-only. "wb" keeps
+            -- bare \n on both platforms (same reason hs/execute.lua writes "wb").
+            local f = io.open(path, "wb")
             if not f then return false end
             f:write(body)
             f:close()
@@ -344,7 +362,7 @@ YQIDAQAB
         local function persist(doc)
             doc._fetchedAt = os.time()
             local ok, body = pcall(hs.json.encode, doc)
-            if ok and body then writeFile(CACHE_PATH, body) end
+            if ok and body then ensureDataDir(); writeFile(CACHE_PATH, body) end
         end
     -- END Load --
 

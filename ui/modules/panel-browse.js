@@ -252,7 +252,16 @@
            and the overflow never engages. */
         #browse-root { display:flex; flex-direction:column; gap:0;
             height:100%; min-height:0; }
-        #browse-results-box { flex:1 1 auto; min-height:0; overflow-y:auto; }
+        /* Give the scroll its own thin bar. Unstyled, each webview engine falls
+           back to its OWN default: WKWebView (mac) draws a thin overlay bar, but
+           WebView2/Chromium (Windows) draws the fat classic bar -- same CSS, two
+           engines. scrollbar-width covers WKWebView + Chromium>=121; the
+           ::-webkit-scrollbar rules cover every WebView2 build. Matches #scroll. */
+        #browse-results-box { flex:1 1 auto; min-height:0; overflow-y:auto;
+            scrollbar-width:thin; scrollbar-color:var(--surface2) transparent; }
+        #browse-results-box::-webkit-scrollbar { width:4px; }
+        #browse-results-box::-webkit-scrollbar-track { background:transparent; }
+        #browse-results-box::-webkit-scrollbar-thumb { background:var(--surface2); border-radius:2px; }
         .browse-toolbar { display:flex; gap:8px; align-items:center;
             padding:10px 14px; flex:0 0 auto;
             background:var(--bg); border-bottom:1px solid var(--border-dim); }
