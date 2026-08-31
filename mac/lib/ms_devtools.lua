@@ -1346,7 +1346,7 @@ return function(ms)
         if not panel then return nil, uc end
 
         pcall(function() panel:windowStyle(0) end)
-        pcall(function() panel:level(hs.canvas.windowLevels.floating) end)
+        pcall(function() panel:level((hs.canvas.windowLevels.popUpMenu or 101) + 1) end)
         pcall(function() panel:behavior(hs.canvas.windowBehaviors.canJoinAllSpaces) end)
         pcall(function() panel:allowTextEntry(true) end)
         pcall(function() panel:shadow(true) end)
