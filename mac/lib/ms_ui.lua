@@ -1,4 +1,3 @@
--- MsUI --
 return function(ms)
 -- MsUI --
     local MsUI = {}
