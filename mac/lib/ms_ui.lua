@@ -1237,8 +1237,9 @@ return function(ms)
                 pcall(function() ms.alert:recolor() end)
                 pcall(function() ms.dev:recolor() end)
                 pcall(function() ms.shell.recolorPopouts() end)
-                local snd = ms.sounds[data.value and 'a_Update' or 'd_Update']
-                if snd then ms.sound(snd) end
+                if ms.playSlot then
+                    pcall(ms.playSlot, data.value and "toggleOn" or "toggleOff")
+                end
                 ms.ui.refresh()
                 hs.timer.doAfter(0.2, function() ms.ui.refresh() end)
             end,

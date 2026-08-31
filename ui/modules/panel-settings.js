@@ -362,7 +362,7 @@
                 return el;
             }
 
-            function toggle(checked, onchange) {
+            function toggle(checked, onchange, silent) {
                 const label = h(
                     "label",
                     { cls: "toggle", onmouseenter: () => playSlot("hover") },
@@ -371,7 +371,7 @@
                         onchange: (e) => {
                             const on = e.target.checked;
                             try { if (onchange) onchange(e); }
-                            finally { playSlot(on ? "toggleOn" : "toggleOff"); }
+                            finally { if (!silent) playSlot(on ? "toggleOn" : "toggleOff"); }
                         },
                     }),
                     h("div", { cls: "toggle-track" }),
