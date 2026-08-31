@@ -8,10 +8,6 @@ return function(ms)
 
     local function sq(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
 
-    -- Shared with ms_settings.lua, which owns getProfiles(). The profile
-    -- handlers below (deleteProfile/clearProfiles/export) build paths under
-    -- here; without this local it resolved to a nil global and every handler
-    -- errored out under pcall, so deletes silently no-op'd until a reload.
     local profilesPath = os.getenv("HOME") .. "/.hammerspoon/profiles/"
 -- END MsUI --
 
@@ -43,12 +39,6 @@ return function(ms)
             _uiFadeTimer   = nil,
         }
 
-        -- A bind's `mods` is normally a list of modifier names, but the system
-        -- binds (enable/disable/toggle) use the STRING sentinel "any" -- match with
-        -- any modifiers held (see modsMatch in ms_core). Feeding that string to
-        -- ipairs threw ("table expected, got string") and aborted the whole panel
-        -- payload build, blanking every panel. Normalise here: a table iterates as
-        -- before, "any" renders an "Any" token, anything else yields no mod tokens.
         local function _modParts(mods)
             local out = {}
             if type(mods) == "table" then
@@ -64,7 +54,6 @@ return function(ms)
         local function _bindDisplay(c)
             if not c then return nil end
             local parts = _modParts(c.mods)
-            -- A modifier-only bind is just its modifiers, no trailing key.
             if c.type == "mods" then
                 if #parts == 0 then return "unset" end
                 return table.concat(parts, "+")
@@ -92,7 +81,7 @@ return function(ms)
             if not c then return {} end
             local out = _modParts(c.mods)
             if c.type == "mods" then
-                return out -- modifiers only, no trigger token
+                return out
             elseif c.type == "mouse" then
                 out[#out + 1] = "Mouse " .. tostring(c.button)
             elseif c.type == "scroll" then
@@ -108,10 +97,6 @@ return function(ms)
             return out
         end
 
-        -- The macro this one currently follows, honoring a live bindConfig
-        -- tether over the compiled default. nil = standalone / top-level. This
-        -- is what makes a UI-created link nest and severing (overriding to a
-        -- real key) un-nest, without special-casing either direction.
         local function _effectiveParent(id)
             local def = ms.registry._defs and ms.registry._defs[id]
             if not def then return nil end
@@ -155,8 +140,6 @@ return function(ms)
                 local directParent = _effectiveParent(id)
                 if def and not def.system and not (ms._suppressedMacros and ms._suppressedMacros[id])
                     and directParent then
-                    -- Nest under the nearest top-level ancestor, but report the
-                    -- DIRECT parent so the Link control shows what it follows.
                     local parent = directParent
                     local seen = { [id] = true }
                     while parent and not byId[parent] and not seen[parent] do
@@ -207,9 +190,6 @@ return function(ms)
         end
         ms.ui._buildMacroList = _buildMacroList
 
-        -- Every macro/system bind whose effective binding is a controller button,
-        -- for the Settings panel's Controller section. Each entry carries enough
-        -- to re-capture (startRebind) or clear (resetBind) it from the shell.
         local function _buildGamepadBinds()
             local out = {}
             for _, id in ipairs(ms.registry._defList or {}) do
@@ -366,16 +346,11 @@ return function(ms)
                 return it
             end
 
-            -- All user settings ride in one list; each carries its `section`
-            -- and the panel groups by that field. calibration is not special.
             local userSettings = {}
             for _, def in ipairs(ms._userSettingDefs) do
                 table.insert(userSettings, _serItem(def))
             end
 
-            -- Metadata for sections the user created in the UI (title/icon), so
-            -- an empty one still renders and can be renamed. Pack sections need
-            -- no entry.
             local userSections = {}
             for _, m in ipairs(ms._authoredMenus or {}) do
                 table.insert(userSections, {
@@ -386,10 +361,6 @@ return function(ms)
                     origin = "user",
                 })
             end
-            -- The other two user-defined tool kinds, for the Tuning tab's
-            -- Functions and Variables sections. Functions are the builder-authored
-            -- ones only (ms.compiler.listFunctions) — NOT the whole ms.fn registry,
-            -- which is full of built-in/pack tools. Variables come from ms.vars.
             local userFunctions = {}
             if ms.compiler and ms.compiler.listFunctions then
                 local okF, flist = pcall(ms.compiler.listFunctions)
@@ -398,7 +369,6 @@ return function(ms)
                         userFunctions[#userFunctions + 1] = {
                             id     = f.id,
                             label  = f.name or f.id,
-                            -- Compiler-listed functions are all builder-authored.
                             origin = "user",
                         }
                     end
@@ -512,10 +482,6 @@ return function(ms)
                 soundEntries            = soundEntries,
                 bundleSoundsWithTheme   = ms.bundleSoundsWithTheme ~= false,
                 soundPresets            = soundPresets,
-                -- Active only when macro+theme+sound packs all align to one
-                -- profile; a mixed set reads as no active profile (see
-                -- ms.alignedProfile). Falls back to the macro-meta name only if
-                -- the alignment helper is unavailable.
                 currentProfile          = (ms.alignedProfile and ms.alignedProfile())
                     or (meta.name and ms.sanitizeName(meta.name)) or "",
                 profiles                = ms.getProfiles(),
@@ -615,14 +581,6 @@ return function(ms)
                 _uiStateJSON  = "receiveState(" .. json .. ");"
                 _uiStateDirty = false
             else
-                -- The Settings, Tools, Appearance AND Profiles panels ALL hydrate from
-                -- this one payload (receiveState -> render/renderToolsPanel/
-                -- renderProfilesPanel/renderThemePanel), so a silent encode failure blanks
-                -- every one of them at once while Macros (its own _buildMacroList encode)
-                -- survives -- exactly the "everything but macros is blank" report. The old
-                -- code swallowed the failure and then pushed receiveState(null), which
-                -- actively wiped the panels' state. Surface it loudly instead; the guard in
-                -- refresh() below stops the destructive null push.
                 print("[MsUI] _buildUIState JSON encode FAILED (Settings/Tools/Appearance/"
                     .. "Profiles will not hydrate): " .. tostring(json))
             end
@@ -633,8 +591,6 @@ return function(ms)
         ms.ui.refresh = function()
             if _uiStateDirty or not _uiStateJSON then _rebuildUICache() end
             local stateArg = _uiStateJSON and _uiStateJSON:match("^receiveState%((.*)%);$")
-            -- Never push receiveState(null): that blanks the panels rather than leaving
-            -- their last good state. Only push a real payload.
             if stateArg and stateArg ~= "null"
                 and ms.shell and ms.shell.isReady and ms.shell.isReady() then
                 pcall(function()
@@ -851,11 +807,6 @@ return function(ms)
                 }, function(event)
                     local t = event:getType()
 
-                    -- Modifier-only capture: hold modifiers with no other key,
-                    -- release to set. We accumulate the largest set seen (so
-                    -- Option then +Shift lands on Option+Shift) and finalize when
-                    -- every modifier is released. A real key at any point routes
-                    -- to the key path below instead.
                     if t == hs.eventtap.event.types.flagsChanged then
                         if settled then return true end
                         if heldCount > 0 or #comboKeys > 0 then return true end
@@ -867,7 +818,7 @@ return function(ms)
                         if f.shift then comboMods.shift = true; any = true end
                         if any then
                             modOnly = true
-                            started = true -- suppress mouse/scroll while composing
+                            started = true
                             ms.ui.modalUpdate({ keys = _bindTokens({ type = "mods", mods = modList() }) })
                         elseif modOnly then
                             local mods = modList()
@@ -938,11 +889,6 @@ return function(ms)
 
                 if opts.gamepad and ms.gamepadEnabled then
                     if not ms._gamepadTask then ms.gamepadStart() end
-                    -- Chord capture: collect every button pressed during the
-                    -- gesture, previewing as it grows, and finalize once they are
-                    -- all released. One button yields a single bind; two or more
-                    -- yield a combo. `started` (a keyboard/mouse capture has begun)
-                    -- keeps controller and keyboard input from mixing.
                     local gpHeldCount = 0
                     local gpOrder, gpSeen = {}, {}
                     ms._gamepadCallbacks._rebind = function(btn, phase)
@@ -1015,1941 +961,1861 @@ return function(ms)
         end
 
         ms.ui._actions = {
-            ready = function() ms.ui.refresh() end,
+            -- Shell Lifecycle --
+                ready = function() ms.ui.refresh() end,
 
-            setMacros = function(data)
-                ms.setMacros(tonumber(data.value) == 1 and 1 or 0)
-                ms.ui.refresh()
-            end,
-
-            playSlot = function(data) if data.slot then ms.playSlot(data.slot) end end,
-
-            previewSound = function(data)
-                if data and type(data.name) == "string" and data.name ~= "" then
-                    ms.sound(data.name)
-                end
-            end,
-
-            alert = function(data)
-                if data.msg then
-                    ms.alert(tostring(data.msg), tonumber(data.duration) or 3, data.noSound == true)
-                end
-            end,
-
-            close = function() ms.ui.hide() end,
-
-            reloadMacros = function()
-                local macrosPath = os.getenv("HOME") .. "/.hammerspoon/ms_macros.lua"
-                local af = io.open(macrosPath, "r")
-                if not af then
-                    ms.alert("Reload failed:\nCannot open ms_macros.lua.", 6)
-                    return false
-                end
-                local rawSrc = af:read("*all")
-                af:close()
-                local auditErrs = ms.auditMacros(rawSrc)
-                if #auditErrs > 0 then
-                    ms.alert("Reload blocked, audit failed.", 6)
-                    return false
-                end
-                local chunk, loadErr = load(
-                    rawSrc,
-                    "@ms_macros.lua",
-                    "bt",
-                    ms._macroSandbox
-                )
-                if not chunk then
-                    ms.alert("Reload failed:\n" .. tostring(loadErr), 6)
-                    return false
-                end
-
-                if ms.plugins and ms.plugins.loaded then
-                    for dir in pairs(ms.plugins.loaded) do
-                        pcall(ms.plugins.unload, dir, { quiet = true })
-                    end
-                end
-                ms.bind.teardown()
-                ms.registry._defs    = {}
-                ms.registry._defList = {}
-                ms.bind._wires    = {}
-                ms.bind._autoCount = 0
-                ms.macroMeta       = nil
-                ms._userSettingDefs  = {}
-                ms._userSettingIndex = {}
-                ms._userSettingVals  = {}
-
-                ms._defineOrigin = "pack"
-                local ok, runErr = xpcall(chunk, debug.traceback)
-                ms._defineOrigin = nil
-                if not ok then
-                    local tb = tostring(runErr)
-                    print("=== ms_macros.lua reload error ===\n" .. tb)
-                    if ms.dev and ms.dev.log then
-                        ms.dev.log({
-                            type = "error",
-                            event = "reload_error",
-                            msg = tb,
-                        })
-                    end
-                    ms.alert("Reload failed, see console", 6)
-                    pcall(function()
-                        ms.bind._registerSystemBinds()
-                        ms.bind.rebindSystem()
-                    end)
-                    return false
-                end
-                -- An empty registry is valid: a macro pack may ship only
-                -- credits, visual macros, or nothing at all. Swapping to such a
-                -- pack must not be treated as a reload failure. System binds are
-                -- (re)registered below regardless of how many user binds exist.
-                ms._macroMetaFromHand = ms.macroMeta ~= nil
-                if ms.compiler and ms.compiler.paths
-                    and hs.fs.attributes(ms.compiler.paths.json) then
-                    local rebOk, rebErr = pcall(ms.compiler.rebuild)
-                    if not rebOk then
-                        print("ms.compiler.rebuild (reload): " .. tostring(rebErr))
-                    end
-                    local ldOk, ldErr = pcall(ms.compiler.load)
-                    if not ldOk then
-                        print("ms.compiler.load (reload): " .. tostring(ldErr))
-                    end
-                end
-                for _, id in ipairs(ms.registry._defList) do
-                    local def = ms.registry._defs[id]
-                    if def and not (def.default and def.default.type) and ms.binds[id] == nil then
-                        ms.binds[id] = def.enabled
-                    end
-                end
-                ms._systemActions = {}
-                if ms._userSettingIndex["showTamperWarning"] then
-                    ms._systemActions["showTamperWarning"] = function()
-                        ms.showGuardian()
-                    end
-                    ms._systemActions["showIntegrityError"] = function()
-                        ms.showGuardian()
-                    end
-                end
-                -- Reload plugins BEFORE settings + rebind, matching boot order
-                -- (ms_core loadAll -> loadSettings -> bind.rebind). Loading them
-                -- afterwards left plugin binds registered but never wired, and
-                -- their setting-defs unseen by loadSettings.
-                if ms.plugins and ms.plugins.loadAll then
-                    pcall(ms.plugins.loadAll)
-                end
-                ms.loadSettings()
-                if not ms.registry._defs["__panicButton"] then ms.bind._registerSystemBinds() end
-                ms.bind.rebind()
-                ms.socdApply()
-                if ms.gamepadSync then ms.gamepadSync() end
-                if not ms._quickReloading then
-                    ms.playSlot("update")
-                    ms.alert("Macros reloaded.", 4, true)
-                end
-                if not ms._quickReloading then
-                    hs.timer.doAfter(0.15, function()
-                        pcall(function()
-                            local app = ms._targetApp and hs.application.get(ms._targetApp)
-                            if app then
-                                app:hide()
-                                hs.timer.doAfter(0.15, function()
-                                    pcall(function() app:activate() end)
-                                end)
-                            end
-                        end)
-                    end)
-                end
-                return true
-            end,
-
-            reloadSettings = function()
-                ms.loadSettings()
-                ms.bind.rebind()
-                ms.socdApply()
-                if ms.gamepadSync then ms.gamepadSync() end
-                ms.playSlot("update")
-                ms.alert("Settings reloaded.", 4, true)
-                ms.ui.refresh()
-            end,
-
-            reloadTheme = function()
-                ms.loadTheme()
-                pcall(function() ms.alert:recolor() end)
-                pcall(function() ms.dev:recolor() end)
-                pcall(function() ms.shell.recolorPopouts() end)
-                ms.playSlot("update")
-                ms.alert("Theme reloaded.", 4, true, { priority = "low" })
-                ms.ui.hide()
-                hs.timer.doAfter(0.15, function() ms.ui.show() end)
-            end,
-
-            reloadUI = function()
-                ms.reloadUI()
-            end,
-
-            reloadAll = function() hs.reload() end,
-
-            shutdown = function() ms.shutdown() end,
-
-            quickReload = function()
-                ms.reload()
-            end,
-
-            setQROption = function(data)
-                if data.key and ms._qrOptions then
-                    ms._qrOptions[data.key] = (data.value == true)
-                    ms.saveSettings()
-                    ms.playSlot("interact")
-                end
-            end,
-
-            setCustomTheme = function(data)
-                ms._customThemeDisabled = not (data.value and true or false)
-                if ms._customThemeDisabled then
-                    for k, v in pairs(ms._themeDefaults) do ms._theme[k] = v end
-                    for sid, def in pairs(ms.soundSlotDefaults()) do
-                        ms.soundAssign[sid] = def
-                    end
-                    ms.saveSettings()
-                    ms._soundsDirty = true
-                    ms._discoverSounds()
-                else
-                    ms.loadTheme()
-                    ms._soundsDirty = true
-                    ms._discoverSounds()
-                    local savedPreset = ms._soundPreset
-                    if savedPreset and savedPreset ~= "custom" then
-                        local assigns
-                        if savedPreset == "default" then
-                            assigns = ms.soundSlotDefaults()
-                        else
-                            local num = tonumber(savedPreset)
-                            for _, p in ipairs(ms.buildSoundPresets()) do
-                                if p.num == num then assigns = p.assigns
-                                break end
-                            end
-                        end
-                        for sid, name in pairs(assigns or {}) do
-                            ms.soundAssign[sid] = name
-                        end
-                    end
-                    ms.saveSettings()
-                end
-                pcall(function() ms.alert:recolor() end)
-                pcall(function() ms.dev:recolor() end)
-                pcall(function() ms.shell.recolorPopouts() end)
-                if ms.playSlot then
-                    pcall(ms.playSlot, data.value and "toggleOn" or "toggleOff")
-                end
-                ms.ui.refresh()
-                hs.timer.doAfter(0.2, function() ms.ui.refresh() end)
-            end,
-
-            setDevArchiveLimit = function(data)
-                local n = tonumber(data.value)
-                if n and n >= 0 and n <= 50 then
-                    ms._devArchiveLimit = math.floor(n)
-                    ms.saveSettings()
-                    ms.playSlot("update")
-                end
-                ms.ui.refresh()
-            end,
-
-            setUpdateChannel = function(data)
-                local ch = data.value
-                if ch == "testing" or ch == "stable" then
-                    ms._updateChannel = ch
-                    ms.saveSettings()
-                    ms.playSlot("update")
-                end
-                ms.ui.refresh()
-            end,
-
-            setTestingSource = function(data)
-                local src = data.value
-                if src == "release" or src == "artifact" then
-                    ms._testingSource = src
-                    ms.saveSettings()
-                    ms.playSlot("update")
-                end
-                ms.ui.refresh()
-            end,
-
-            setUiZoom = function(data)
-                local cur = ms._uiZoom or 1.0
-                local target
-                if data.reset then
-                    target = 1.0
-                elseif data.delta then
-                    target = cur + (tonumber(data.delta) or 0)
-                else
-                    target = tonumber(data.value) or cur
-                end
-                if ms.shell and ms.shell.applyZoom then
-                    ms.shell.applyZoom(target)   -- clamps + sets ms._uiZoom
-                else
-                    ms._uiZoom = math.max(0.5, math.min(2.0, target))
-                end
-                ms.saveSettings()
-                ms.ui.refresh()
-            end,
-
-            setOctaneMode = function(data)
-                local enabled = data.value and true or false
-                ms._octaneMode = enabled
-                ms.saveSettings()
-                if ms.octane then
-                    if enabled then ms.octane._apply() else ms.octane._remove() end
-                end
-                ms.ui.refresh()
-            end,
-
-            setOctaneMuteSounds = function(data)
-                ms._octaneMuteSounds = data.value and true or false
-                ms.saveSettings()
-                ms.ui.refresh()
-            end,
-
-            setMacroLabEnabled = function(data)
-                local enabled = data.value and true or false
-                ms._macroLabEnabled = enabled
-                if ms._userSettingVals then ms._userSettingVals["macroLabEnabled"] = enabled end
-                ms.saveSettings()
-                ms.ui.refresh()
-            end,
-
-            setGithubToken = function(data)
-                ms._githubToken = data.value or ""
-                local tokenPath = os.getenv("HOME") .. "/.hammerspoon/data/.ms_github_token"
-                if ms._githubToken ~= "" then
-                    local f = io.open(tokenPath, "w")
-                    if f then f:write(ms._githubToken)
-                    f:close() end
-                    os.execute("chmod 600 '" .. tokenPath .. "'")
-                else
-                    os.remove(tokenPath)
-                end
-                ms.playSlot("update")
-                ms.ui.refresh()
-            end,
-
-            setMacroEnabled = function(data)
-                if not data.id then return end
-                local def = ms.registry._defs[data.id]
-                if def and def.system then return end
-                local want = (data.value == true)
-                if want and ms.effectiveBind(data.id) == nil then
-                    ms.binds[data.id] = false
-                    ms.saveSettings()
-                    ms.bind.rebind()
-                    hs.timer.doAfter(0.1, function()
-                        ms.alert((def and def.label or data.id)
-                            .. " has no bind, set one before enabling.", 2, true)
-                        ms.ui.refresh()
-                    end)
-                    return
-                end
-                ms.binds[data.id] = want
-                ms.saveSettings()
-                ms.bind.rebind()
-                ms.ui.refresh()
-            end,
-
-            -- Per-macro "ignore extra modifiers": when on, the bind matches with
-            -- its declared modifiers held but tolerates extras (subset match),
-            -- instead of requiring an exact modifier set. System binds excluded.
-            setBindIgnoreMods = function(data)
-                if not data.id then return end
-                local def = ms.registry._defs[data.id]
-                if def and def.system then return end
-                ms.bindIgnoreMods = ms.bindIgnoreMods or {}
-                ms.bindIgnoreMods[data.id] = (data.value == true) or nil
-                ms.saveSettings()
-                ms.bind.rebind()
-                ms.ui.refresh()
-            end,
-
-            setTrackpadMode = function(data)
-                ms.trackpadMode = (data.value == true)
-                ms.saveSettings()
-                ms.bind.rebind()
-                ms.ui.refresh()
-            end,
-
-            setSocdEnabled = function(data)
-                ms.socdEnabled = (data.value == true)
-                ms.saveSettings()
-                ms.socdApply()
-                ms.ui.refresh()
-            end,
-
-            setGamepadEnabled = function(data)
-                ms.gamepadEnabled = (data.value == true)
-                -- Turning it on starts the reader so the panel can report which
-                -- controllers are detected; turning it off tears it down.
-                if ms.gamepadEnabled then
-                    if ms.gamepadStart then ms.gamepadStart() end
-                else
-                    if ms.gamepadStop then ms.gamepadStop() end
-                end
-                ms.saveSettings()
-                ms.bind.rebind()
-                ms.ui.refresh()
-            end,
-
-            -- Shell toggle is phrased positively ("alerts on"); the stored flag
-            -- is the inverse. Mirrors the menubar Help toggle so both stay in sync.
-            setUpdateAlerts = function(data)
-                ms._updateAlertsDisabled = not (data.value == true)
-                ms.saveSettings()
-                ms.ui.refresh()
-            end,
-
-            setSocdMode = function(data)
-                if data.value == "lastWins" or data.value == "neutral" or data.value == "firstWins" then
-                    ms.socdMode = data.value
-                    ms.saveSettings()
-                    ms.playSlot("update")
-                end
-                ms.ui.refresh()
-            end,
-
-            saveDefault = function()
-                ms.saveDefault()
-                ms.ui.refresh()
-            end,
-
-            resetToDefault = function()
-                if ms.resetToDefault() then ms.playSlot("reset") end
-                ms.ui.refresh()
-            end,
-
-            setSoundEnabled = function(data)
-                ms.soundEnabled = (data.value == true)
-                ms.saveSettings()
-                ms.ui.refresh()
-            end,
-
-            setSoundVolume = function(data)
-                local num = tonumber(data.value)
-                if num and num >= 0 and num <= 100 then
-                    ms.soundVolume = math.floor(num)
-                    ms.saveSettings()
-                    ms.playSlot("update")
-                end
-                ms.ui.refresh()
-            end,
-
-            setSoundAssign = function(data)
-                if not data.slot then return end
-                ms.soundAssign = ms.soundAssign or {}
-                ms.soundAssign[data.slot] = _emptyToNil(data.name)
-                ms.saveSettings()
-                ms.playSlot("update")
-                ms.ui.refresh()
-            end,
-
-            setSoundPreset = function(data)
-                if not data.assigns then return end
-                ms.soundAssign = ms.soundAssign or {}
-                local loadSlots = {
-                    "themeLoaded",
-                    "load",
-                    "launch",
-                }
-                for _, sid in ipairs(loadSlots) do
-                    ms.soundAssign[sid] = nil
-                end
-                for slotId, soundName in pairs(data.assigns) do
-                    ms.soundAssign[slotId] = soundName
-                end
-                ms._soundPreset = data.preset or "default"
-                ms.saveSettings()
-                ms.playSlot("update")
-                ms.ui.refresh()
-            end,
-
-            clearSoundPreset = function(data)
-                if not data.slots then return end
-                ms.soundAssign = ms.soundAssign or {}
-                for _, slotId in ipairs(data.slots) do
-                    ms.soundAssign[slotId] = nil
-                end
-                ms._soundPreset = "custom"
-                ms.saveSettings()
-                ms.playSlot("update")
-                ms.ui.refresh()
-            end,
-
-            switchProfile = function(data) if data.name then ms.switchProfile(data.name) end end,
-
-            renameProfile = function(data)
-                if data.name and data.newName and ms.renameProfile then
-                    ms.renameProfile(data.name, data.newName)
-                end
-            end,
-
-            deleteProfile = function(data)
-                if not data.name then return end
-                local targetName = ms.sanitizeName(data.name)
-                local activeName = ms.macroMeta and ms.sanitizeName(ms.macroMeta.name or "") or ""
-                if targetName == "" or targetName == activeName then return end
-                local dir = profilesPath .. targetName
-                if not hs.fs.attributes(dir) then return end
-                os.execute("rm -rf " .. sq(dir))
-                -- Also remove the profile's same-named packs, so deleting a
-                -- profile does not leave orphaned macro/theme/sound entries in
-                -- the Installed Library. Only entries whose slug matches this
-                -- profile are touched — an off-convention pack (e.g. a shared
-                -- sound pack named for a font) survives. libraryRemove clears
-                -- the .active marker for any it removes.
-                if ms.package and ms.package.libraryRemove then
-                    for _, k in ipairs({ "macro", "theme", "sound" }) do
-                        pcall(ms.package.libraryRemove, k, targetName)
-                    end
-                end
-                ms._profilesDirty = true
-                ms.ui.markDirty()
-                ms.playSlot("reset")
-                hs.timer.doAfter(0.05, function()
-                    ms.alert("Profile \"" .. data.name .. "\" deleted.", 2, true)
+                setMacros = function(data)
+                    ms.setMacros(tonumber(data.value) == 1 and 1 or 0)
                     ms.ui.refresh()
-                    if ms.ui._actions and ms.ui._actions.libraryList then
-                        for _, k in ipairs({ "macro", "theme", "sound" }) do
-                            pcall(ms.ui._actions.libraryList, { kind = k })
-                        end
+                end,
+
+                playSlot = function(data) if data.slot then ms.playSlot(data.slot) end end,
+
+                previewSound = function(data)
+                    if data and type(data.name) == "string" and data.name ~= "" then
+                        ms.sound(data.name)
                     end
-                end)
-            end,
+                end,
 
-            clearProfiles = function()
-                local activeName = ms.macroMeta and ms.sanitizeName(ms.macroMeta.name or "") or ""
-                if activeName == "" then return end
-                if not hs.fs.attributes(profilesPath) then return end
-                local deleted = 0
-                for entry in hs.fs.dir(profilesPath) do
-                    if entry ~= "." and entry ~= ".." then
-                        local safe = ms.sanitizeName(entry)
-                        if safe ~= "" and safe ~= activeName then
-                            local dir = profilesPath .. entry
-                            local attr = hs.fs.attributes(dir)
-                            if attr and attr.mode == "directory" then
-                                os.execute("rm -rf " .. sq(dir))
-                                -- Remove this profile's same-named packs too (see
-                                -- deleteProfile). The active profile is skipped
-                                -- above, so its packs are never removed here.
-                                if ms.package and ms.package.libraryRemove then
-                                    for _, k in ipairs({ "macro", "theme", "sound" }) do
-                                        pcall(ms.package.libraryRemove, k, safe)
-                                    end
-                                end
-                                deleted = deleted + 1
-                            end
-                        end
+                alert = function(data)
+                    if data.msg then
+                        ms.alert(tostring(data.msg), tonumber(data.duration) or 3, data.noSound == true)
                     end
-                end
-                ms._profilesDirty = true
-                ms.ui.markDirty()
-                ms.playSlot("reset")
-                hs.timer.doAfter(0.05, function()
-                    ms.alert(deleted .. " profile" .. (deleted == 1 and "" or "s") .. " deleted.", 3, true)
-                    ms.ui.refresh()
-                    if ms.ui._actions and ms.ui._actions.libraryList then
-                        for _, k in ipairs({ "macro", "theme", "sound" }) do
-                            pcall(ms.ui._actions.libraryList, { kind = k })
-                        end
+                end,
+
+                close = function() ms.ui.hide() end,
+            -- END --
+
+            -- Reload & Shutdown --
+                reloadMacros = function()
+                    local macrosPath = os.getenv("HOME") .. "/.hammerspoon/ms_macros.lua"
+                    local af = io.open(macrosPath, "r")
+                    if not af then
+                        ms.alert("Reload failed:\nCannot open ms_macros.lua.", 6)
+                        return false
                     end
-                end)
-            end,
-
-            importProfile     = function() ms.importProfile() end,
-            createNewProfile  = function(data) ms.createNewProfile(data and data.seed == true) end,
-            saveCurrentProfile = function() ms.saveCurrentProfile() end,
-
-            importSounds = function()
-                ms.playSlot("alert")
-                local slibDir = SoundLib:match("^(.-)[/\\]*$") or SoundLib
-                hs.focus()
-                local result = hs.dialog.chooseFileOrFolder(
-                    "Select one or more sound files to add to your library",
-                    hs.fs.attributes(slibDir) and SoundLib or os.getenv("HOME"),
-                    true, false, true
-                )
-                local paths = {}
-                for _, v in pairs(result or {}) do
-                    if type(v) == "string" then table.insert(paths, v) end
-                end
-                if #paths == 0 then ms.ui.show()
-                return end
-                if not hs.fs.attributes(slibDir) then
-                    hs.execute("mkdir -p '" .. SoundLib .. "'")
-                end
-                hs.execute("mkdir -p " .. sq(SoundActiveDir))
-                hs.execute("mkdir -p " .. sq(SoundMacroDir))
-                if not hs.fs.attributes(slibDir) then
-                    ms.ui.show()
-                    ms.alert("Could not create sounds folder:\n" .. SoundLib, 4)
-                    return
-                end
-                local added, failed = {}, {}
-                for _, srcPath in ipairs(paths) do
-                    local filename   = srcPath:match("([^/]+)$")
-                    local importName = filename and (filename:match("^(.+)%.[^%.]+$") or filename)
-                    if not filename or not importName then
-                        table.insert(failed, srcPath)
-                    else
-                        local dst    = SoundActiveDir .. filename
-                        local copied = false
-                        if srcPath ~= dst then
-                            local f = io.open(srcPath, "rb")
-                            if f then
-                                local content = f:read("*all")
-                                f:close()
-                                local g = io.open(dst, "wb")
-                                if g then g:write(content)
-                                g:close()
-                                copied = true end
-                            end
-                            if not copied then
-                                local _, st = hs.execute("/bin/cp " .. sq(srcPath) .. " " .. sq(dst))
-                                copied = (st == true) or (hs.fs.attributes(dst) ~= nil)
-                            end
-                            if not copied then table.insert(failed, importName) end
-                        else
-                            copied = true
-                        end
-                        if copied then
-                            ms.importedSounds = ms.importedSounds or {}
-                            ms.importedSounds[importName] = filename
-                            table.insert(added, importName)
-                        end
+                    local rawSrc = af:read("*all")
+                    af:close()
+                    local auditErrs = ms.auditMacros(rawSrc)
+                    if #auditErrs > 0 then
+                        ms.alert("Reload blocked, audit failed.", 6)
+                        return false
                     end
-                end
-                if #added > 0 then
-                    ms.saveSettings()
-                    ms._soundsDirty = true
-                    ms._discoverSounds()
-                end
-                ms.ui.show()
-                hs.timer.doAfter(0.15, function()
-                    if #added > 0 then ms.playSlot("update") end
-                    if #added > 0 and #failed == 0 then
-                        local label = #added == 1
-                            and ("Sound \"" .. added[1] .. "\" added.")
-                            or  (#added .. " sounds added.")
-                        ms.alert(label, 3, true)
-                    elseif #added > 0 then
-                        ms.alert(
-                            #added .. " added, " .. #failed .. " failed.",
-                            3,
-                            true
-                        )
-                    else
-                        ms.alert("Import failed.\nGrant Hammerspoon Full Disk Access if importing from outside ~/.hammerspoon.", 5)
-                    end
-                    ms.ui.refresh()
-                end)
-            end,
-
-            importSoundForSlot = function(data)
-                if not data.slot then return end
-                local slot = data.slot
-                ms.playSlot("alert")
-                local slibDir = SoundLib:match("^(.-)[/\\]*$") or SoundLib
-                hs.focus()
-                local result = hs.dialog.chooseFileOrFolder(
-                    "Select a sound file for \"" .. (data.label or slot) .. "\"",
-                    hs.fs.attributes(slibDir) and SoundLib or os.getenv("HOME"),
-                    true, false, false,
-                    ms.soundExtensions
-                )
-                local selectedPath
-                for _, v in pairs(result or {}) do
-                    if type(v) == "string" then selectedPath = v
-                    break end
-                end
-                if not selectedPath then ms.ui.show()
-                return end
-                if not hs.fs.attributes(slibDir) then
-                    hs.execute("mkdir -p '" .. SoundLib .. "'")
-                end
-                local filename = selectedPath:match("([^/]+)$")
-                if not filename then
-                    ms.ui.show()
-                    ms.alert("Could not read filename.", 3)
-                    return
-                end
-
-                if not ms.isSoundFile(filename) then
-                    ms.ui.show()
-                    ms.alert("Not a sound file.\nSupported: "
-                        .. table.concat(ms.soundExtensions, ", ") .. ".", 4)
-                    return
-                end
-
-                local ext        = filename:match("(%.[^%.]+)$") or ""
-                local stem       = filename:match("^(.+)%.[^%.]+$") or filename
-                local importName = ms.safeSoundName(stem, "a_")
-                filename         = importName .. ext
-
-                local dst    = SoundActiveDir .. filename
-                local copied = false
-                if selectedPath ~= dst then
-                    local f = io.open(selectedPath, "rb")
-                    if f then
-                        local content = f:read("*all")
-                        f:close()
-                        local g = io.open(dst, "wb")
-                        if g then g:write(content)
-                        g:close()
-                        copied = true end
-                    end
-                    if not copied then
-                        local _, st = hs.execute("/bin/cp " .. sq(selectedPath) .. " " .. sq(dst))
-                        copied = (st == true) or (hs.fs.attributes(dst) ~= nil)
-                    end
-                else
-                    copied = true
-                end
-                ms.ui.show()
-                if not copied then
-                    hs.timer.doAfter(0.15, function()
-                        ms.alert("Import failed.\nGrant Hammerspoon Full Disk Access if needed.", 5)
-                    end)
-                    return
-                end
-                ms.importedSounds = ms.importedSounds or {}
-                ms.importedSounds[importName] = filename
-                ms.soundAssign = ms.soundAssign or {}
-                ms.soundAssign[slot] = importName
-                ms.saveSettings()
-                ms._soundsDirty = true
-                ms._discoverSounds()
-                ms.playSlot("update")
-                hs.timer.doAfter(0.15, function()
-                    ms.alert("\"" .. importName .. "\" imported and assigned.", 3, true)
-                    ms.ui.refresh()
-                end)
-            end,
-
-            removeSound = function(data)
-                local name = data and data.name
-                if type(name) ~= "string" or name == "" then return end
-
-                ms._discoverSounds()
-                local path = (ms.sounds or {})[name] or (ms.macroSounds or {})[name]
-                if not path then
-                    ms.alert("No such sound: " .. name, 3)
-                    return
-                end
-                if path:find("/sounds/defaults/") or name:sub(1, 2) == "d_" then
-                    ms.alert("Default sounds cannot be removed.", 3)
-                    return
-                end
-
-                local ok = os.remove(path)
-                if not ok then
-                    local _, st = hs.execute("/bin/rm -f " .. sq(path))
-                    ok = (st == true) or (hs.fs.attributes(path) == nil)
-                end
-                if not ok then
-                    ms.alert("Could not remove \"" .. name .. "\".", 4)
-                    return
-                end
-
-                ms.soundAssign = ms.soundAssign or {}
-                for slot, assigned in pairs(ms.soundAssign) do
-                    if assigned == name then ms.soundAssign[slot] = nil end
-                end
-                if ms.importedSounds then ms.importedSounds[name] = nil end
-
-                ms.saveSettings()
-                ms._soundsDirty = true
-                ms._discoverSounds()
-                ms.playSlot("reset")
-                hs.timer.doAfter(0.15, function()
-                    ms.alert("\"" .. name .. "\" removed.", 3, true)
-                    ms.ui.refresh()
-                end)
-            end,
-
-            setSoundKind = function(data)
-                local name = data and data.name
-                local kind = data and data.kind
-                if type(name) ~= "string" or name == "" then return end
-                if kind ~= "active" and kind ~= "macro" then return end
-
-                ms._discoverSounds()
-                local path = (ms.sounds or {})[name] or (ms.macroSounds or {})[name]
-                if not path then
-                    ms.alert("No such sound: " .. name, 3)
-                    return
-                end
-                if path:find("/sounds/defaults/") or name:sub(1, 2) == "d_" then
-                    ms.alert("Default sounds cannot be re-typed.", 3)
-                    return
-                end
-
-                local dstDir = (kind == "macro") and SoundMacroDir or SoundActiveDir
-                local prefix = (kind == "macro") and "m_" or "a_"
-                local file   = path:match("([^/]+)$") or ""
-                local stem   = file:match("^(.+)%.[^%.]+$") or file
-                local ext    = file:match("(%.[^%.]+)$") or ""
-                stem = stem:gsub("^[dam]_", "")
-
-                local newName = prefix .. stem
-                local dst     = dstDir .. newName .. ext
-
-                if dst == path then
-                    if ms.importedSounds then ms.importedSounds[name] = nil end
-                    ms.saveSettings()
-                    ms._soundsDirty = true
-                    ms._discoverSounds()
-                    ms.playSlot("update")
-                    hs.timer.doAfter(0.15, function() ms.ui.refresh() end)
-                    return
-                end
-                if hs.fs.attributes(dst) then
-                    ms.alert("A sound named \"" .. newName .. "\" already exists.", 4)
-                    return
-                end
-                if not hs.fs.attributes(dstDir) then
-                    hs.execute("mkdir -p " .. sq(dstDir))
-                end
-
-                local ok = os.rename(path, dst)
-                if not ok then
-                    local _, st = hs.execute("/bin/mv " .. sq(path) .. " " .. sq(dst))
-                    ok = (st == true) or (hs.fs.attributes(dst) ~= nil)
-                end
-                if not ok then
-                    ms.alert("Could not move \"" .. name .. "\".", 4)
-                    return
-                end
-
-                ms.soundAssign = ms.soundAssign or {}
-                for slot, assigned in pairs(ms.soundAssign) do
-                    if assigned == name then ms.soundAssign[slot] = newName end
-                end
-
-                if ms.importedSounds then ms.importedSounds[name] = nil end
-
-                ms.saveSettings()
-                ms._soundsDirty = true
-                ms._discoverSounds()
-                ms.playSlot("update")
-                hs.timer.doAfter(0.15, function()
-                    ms.alert("\"" .. newName .. "\" is now a "
-                        .. kind .. " sound.", 3, true)
-                    ms.ui.refresh()
-                end)
-            end,
-
-            setBundleSoundsWithTheme = function(data)
-                ms.bundleSoundsWithTheme = (data and data.value) == true
-                ms.saveSettings()
-                ms.playSlot("update")
-                ms.ui.refresh()
-            end,
-
-            openWindowMonitor = function() if ms.dev and ms.dev.window then ms.dev.window.toggle() end end,
-
-            openConsole = function() hs.openConsole() end,
-
-            editMacros = function()
-                local path = os.getenv("HOME") .. "/.hammerspoon/ms_macros.lua"
-
-                local function openIn(app)
-                    if app then
-                        os.execute("open -a '" .. app .. "' '" .. path .. "'")
-                    else
-                        os.execute("open -t '" .. path .. "'")
-                    end
-                end
-
-                local editor     = _savedEditor()
-                local editorName  = _editorName(editor)
-
-                ms.playSlot("alert")
-                ms.ui.modal({
-                    title   = "Edit handwritten macros",
-                    msg     = "Opens ms_macros.lua, the handwritten macro suite. "
-                        .. "Visual builder macros are stored separately and are "
-                        .. "not edited here."
-                        .. (editorName and ("\n\nEditor: " .. editorName) or ""),
-                    confirm = editorName and ("Open in " .. editorName) or "Choose editor...",
-                    cancel  = "Cancel",
-                }, function(res)
-                    if not (res and res.confirmed) then return end
-                    if editor then
-                        openIn(editor)
-                    else
-                        _pickEditor(function(app) openIn(app) end)
-                    end
-                end)
-            end,
-
-            chooseMacroEditor = function()
-                ms.playSlot("interact")
-                local current = _editorName(_savedEditor())
-                ms.ui.modal({
-                    title   = "Change macro editor",
-                    msg     = "Pick the app mudscript opens ms_macros.lua in."
-                        .. (current and ("\n\nCurrent: " .. current) or "\n\nNo editor set yet."),
-                    confirm = "Choose editor...",
-                    cancel  = "Cancel",
-                }, function(res)
-                    if not (res and res.confirmed) then return end
-                    _pickEditor(function(app)
-                        ms.playSlot("update")
-                        ms.alert("Macro editor set to " .. (_editorName(app) or "your pick") .. ".", 4, true)
-                    end)
-                end)
-            end,
-
-            editTheme = function()
-                os.execute("open '" .. os.getenv("HOME") .. "/.hammerspoon/data/ms_theme.json'")
-            end,
-
-            setThemeKey = function(data)
-                if not data.key or not ms.saveTheme then return end
-                local value = data.value
-                if type(value) ~= "string" and type(value) ~= "number" then return end
-                ms.saveTheme({ [data.key] = value })
-                ms.playSlot("update")
-                ms.ui.refresh()
-            end,
-
-            resetTheme = function()
-                if not ms.resetTheme then return end
-                ms.resetTheme()
-                ms.playSlot("reset")
-                ms.alert("Theme reset to defaults.\nYour old file was kept as ms_theme.json.bak", 4, true)
-                ms.ui.refresh()
-            end,
-
-            exportPackage = function(data)
-                local kind = data and data.type
-                if not (ms.package and ms.package.collect and kind) then return end
-
-                local collectOpts, namedProfile = nil, nil
-                if kind == "profile" and data.profileName then
-                    local safe = ms.sanitizeName(data.profileName)
-                    local pdir = profilesPath .. safe
-                    if safe == "" or not hs.fs.attributes(pdir) then
-                        ms.alert("Profile \"" .. tostring(data.profileName) .. "\" not found.", 4)
-                        return
-                    end
-                    collectOpts = { configDir = pdir .. "/" }
-                    namedProfile = safe
-                end
-
-                -- Export a specific stored library slice (from a pack's ⋯ menu)
-                -- rather than the live one. Its files sit verbatim under the
-                -- slice's files/ dir, so collect() reads them via baseDir.
-                local isSlice = false
-                if data.slug and ms.package.libraryFilesDir then
-                    local fdir = ms.package.libraryFilesDir(kind, data.slug)
-                    if not (fdir and hs.fs.attributes(fdir)) then
-                        ms.alert("Pack not found in library.", 4)
-                        return
-                    end
-                    collectOpts = { baseDir = fdir }
-                    namedProfile = ms.sanitizeName(data.name or "")
-                    isSlice = true
-                end
-
-                local files = ms.package.collect(kind, collectOpts)
-                if kind == "sound" and not isSlice then
-                    local assignPath = ms.package.exportSoundAssign()
-                    if assignPath then files["sound_assign.json"] = assignPath end
-                end
-                if next(files) == nil then
-                    ms.alert("Nothing to export as a " .. kind .. " package.", 4)
-                    return
-                end
-
-                ms.playSlot("alert")
-                hs.focus()
-                local chosen = hs.dialog.chooseFileOrFolder(
-                    "Choose where to save the " .. kind .. " package",
-                    os.getenv("HOME") .. "/Documents", false, true, false
-                )
-                local dir
-                for _, v in pairs(chosen or {}) do
-                    if type(v) == "string" then dir = v
-                    break end
-                end
-                ms.ui.show()
-                if not dir then return end
-
-                local meta = namedProfile and {} or (ms.macroMeta or {})
-                local base = namedProfile or ms.sanitizeName(meta.name or "mudscript")
-                if base == "" then base = "mudscript" end
-                local out = dir:gsub("/$", "") .. "/" .. base .. "-" .. kind .. ".mspkg"
-
-                local manifest, err = ms.package.pack({
-                    type    = kind,
-                    name    = base .. " " .. kind,
-                    version = (type(meta.version) == "string" and meta.version ~= "") and meta.version or nil,
-                    author  = meta.author,
-                    website = meta.website,
-                    files   = files,
-                    out     = out,
-                })
-                hs.timer.doAfter(0.15, function()
-                    if manifest then
-                        ms.playSlot("update")
-                        ms.alert("Exported " .. out:match("([^/]+)$") ..
-                            "\nBuilt on " .. ms.package.osLabel(manifest) .. ".", 3, true)
-                    else
-                        ms.alert("Export failed:\n" .. tostring(err), 5)
-                    end
-                end)
-            end,
-
-            importPackage = function()
-                if not (ms.package and ms.package.install) then return end
-                ms.playSlot("alert")
-                hs.focus()
-                local chosen = hs.dialog.chooseFileOrFolder(
-                    "Select a .mspkg package to import",
-                    os.getenv("HOME") .. "/Documents", true, false, false
-                )
-                local path
-                for _, v in pairs(chosen or {}) do
-                    if type(v) == "string" then path = v
-                    break end
-                end
-                ms.ui.show()
-                if not path then return end
-
-                local function finish(result, err)
-                    hs.timer.doAfter(0.15, function()
-                        if not result then
-                            ms.alert("Import failed:\n" .. tostring(err), 5)
-                            return
-                        end
-                        if ms._soundsDirty then ms._discoverSounds() end
-                        if ms.loadTheme then ms.loadTheme() end
-                        ms.playSlot("update")
-                        -- A profile import lands in the Profiles menu rather
-                        -- than going live, so its toast points there, and
-                        -- markDirty forces the pushed state to rebuild from
-                        -- getProfiles (a plain refresh would re-send the stale
-                        -- cache and the new entry would only show after a
-                        -- reload — see [[create-new-profile-makes-empty-entry]]).
-                        if result.manifest.type == "profile" then
-                            ms._profilesDirty = true
-                            ms.alert(
-                                "\"" .. (result.profile or result.manifest.name
-                                    or "Profile") .. "\" imported.\n" ..
-                                "Switch to it from Settings \xe2\x86\x92 Profiles.",
-                                5, true
-                            )
-                            if ms.ui.markDirty then ms.ui.markDirty() end
-                        else
-                            ms.alert(
-                                (result.manifest.name or "Package") .. " imported (" ..
-                                #result.installed .. " files).", 4, true
-                            )
-                        end
-                        ms.ui.refresh()
-                    end)
-                end
-
-                local result, err = ms.package.install(path)
-                local _peek = ms.package.inspect(path)
-                local _isPlugin = type(_peek) == "table" and _peek.type == "plugin"
-                if not result and not _isPlugin and tostring(err):find("validated library") then
-                    ms.ui.modal({
-                        title   = "This package is not in the validated library.",
-                        msg     = "Import " .. path:match("([^/]+)$") .. " anyway?",
-                        confirm = "Import",
-                        cancel  = "Cancel",
-                    }, function(res)
-                        if not (res and res.confirmed) then return end
-                        local r2, e2 = ms.package.install(path, { force = true })
-                        finish(r2, e2)
-                    end)
-                    return
-                end
-
-                finish(result, err)
-            end,
-
-            -- Browse --
-            browseList = function(data)
-                if not (ms.shell and ms.shell.isReady and ms.shell.isReady()) then return end
-
-                local function push()
-                    local entries = (ms.registry and ms.registry.list)
-                        and ms.registry.list({}) or {}
-                    local installedById = {}
-                    if ms.package and ms.package.listPlugins then
-                        local okP, plugins = pcall(ms.package.listPlugins)
-                        if okP and type(plugins) == "table" then
-                            for _, p in ipairs(plugins) do
-                                if p.id then installedById[p.id] = p.version or true end
-                            end
-                        end
-                    end
-                    -- Non-plugin content reports its version from the content
-                    -- ledger.
-                    if ms.package and ms.package.listContent then
-                        local okC, content = pcall(ms.package.listContent)
-                        if okC and type(content) == "table" then
-                            for id, rec in pairs(content) do
-                                if installedById[id] == nil then
-                                    installedById[id] = (type(rec) == "table"
-                                        and rec.version) or true
-                                end
-                            end
-                        end
-                    end
-                    local out = {}
-                    for _, e in ipairs(entries) do
-                        local instV = installedById[e.id]
-                        out[#out + 1] = {
-                            id          = e.id,
-                            type        = e.type,
-                            name        = e.name,
-                            version     = e.version,
-                            author      = e.author,
-                            description = e.description,
-                            website     = e.website,
-                            trust       = e.trust,
-                            components  = e.components,
-                            installed        = instV ~= nil or nil,
-                            installedVersion = (type(instV) == "string") and instV or nil,
-                            url         = e.url,
-                            sha256      = e.sha256,
-                        }
-                    end
-                    local ok, json = pcall(hs.json.encode, { entries = out })
-                    if ok and json then
-                        pcall(function()
-                            ms.shell.eval("shellReceive('browse', 'catalog', " .. json .. ")")
-                        end)
-                    end
-                end
-
-                -- Force a network refresh whenever Browse asks for the catalog:
-                -- the cached copy (already painted by push() above) can be up to
-                -- CACHE_TTL old, so a non-forced refresh would leave a freshly
-                -- published bump invisible here. push() first keeps it flicker-free.
-                push()
-                if ms.registry and ms.registry.refresh then
-                    ms.registry.refresh({ force = true }, function(ok)
-                        if ok then push() end
-                    end)
-                end
-            end,
-
-            browseInstall = function(data)
-                if not (data and data.id and ms.registry and ms.registry.download
-                        and ms.package and ms.package.install) then return end
-                local label = data.label or data.id
-
-                ms.registry.download(data.id, function(path, derr)
-                    if not path then
-                        ms.alert("Download failed:\n" .. tostring(derr), 5)
-                        return
-                    end
-                    local result, err = ms.package.install(path, {
-                        trustLookup   = ms.registry.trustLookup,
-                        component     = (data.component ~= "" and data.component) or nil,
-                        includeSounds = data.includeSounds == true,
-                        -- Registry id, recorded for Update detection.
-                        id            = data.id,
-                    })
-                    hs.timer.doAfter(0.15, function()
-                        if not result then
-                            ms.alert("Install failed:\n" .. tostring(err), 5)
-                            return
-                        end
-                        if ms._soundsDirty then ms._discoverSounds() end
-                        if ms.loadTheme then ms.loadTheme() end
-                        ms.playSlot("update")
-                        ms.alert(
-                            (result.manifest.name or label) .. " installed (" ..
-                            #result.installed .. " files).", 4, true
-                        )
-                        ms._profilesDirty = true
-                        ms.ui.markDirty()
-                        ms.ui.refresh()
-                    end)
-                end)
-            end,
-
-            -- Installed Library --
-            -- The theme/sound/macro panels each manage their own shelf of
-            -- installed, hotswappable slices. Kind comes in on `data.kind`; the
-            -- list is pushed back per-kind so a panel repaints only its section.
-            libraryList = function(data)
-                if not (ms.package and ms.package.libraryList and ms.shell) then return end
-                local kind = data and data.kind
-                if not (ms.package.isLibraryKind and ms.package.isLibraryKind(kind)) then return end
-
-                local entries = ms.package.libraryList(kind)
-                -- Encode the payload table (never the bare `kind` string):
-                -- hs.json.encode is NSJSONSerialization, which rejects a
-                -- top-level JSON fragment, so hs.json.encode(kind) throws. The
-                -- kind is a validated identifier, so pass it as a quoted literal.
-                local ok, json = pcall(hs.json.encode, {
-                    kind    = kind,
-                    entries = entries,
-                })
-                if ok and json then
-                    ms.shell.eval("shellReceive('library', '" .. kind ..
-                        "', " .. json .. ")")
-                end
-            end,
-
-            -- List profiles for the macro builder's switch-profile dropdown.
-            -- The host otherwise only ships profiles inside the full settings
-            -- payload; this is the standalone channel the builder requests.
-            -- Pushed on 'profileList' as { entries = { { name, active } } }.
-            profilesList = function()
-                if not (ms.getProfiles and ms.shell) then return end
-                local ok, names = pcall(ms.getProfiles)
-                if not ok or type(names) ~= "table" then names = {} end
-                local active = (ms.alignedProfile and ms.alignedProfile())
-                    or (ms.macroMeta and ms.macroMeta.name and ms.sanitizeName
-                        and ms.sanitizeName(ms.macroMeta.name)) or ""
-                local entries = {}
-                for _, n in ipairs(names) do
-                    entries[#entries + 1] = { name = n, active = (n == active) }
-                end
-                local ok2, json = pcall(hs.json.encode, { entries = entries })
-                if ok2 and json then
-                    ms.shell.eval("shellReceive('profileList', 'list', " .. json .. ")")
-                end
-            end,
-
-            libraryActivate = function(data)
-                if not (data and data.kind and data.slug and ms.package
-                        and ms.package.libraryActivate) then return end
-
-                local res, err = ms.package.libraryActivate(data.kind, data.slug)
-                if not res then
-                    ms.alert("Could not activate:\n" .. tostring(err), 4)
-                    return
-                end
-
-                -- A profile is a collection of component packs, so hotswapping one
-                -- component keeps the profile active — it just swaps that slot's
-                -- live pack (the per-kind .active marker libraryActivate set). The
-                -- profile's saved packs.json still points at the old pack until the
-                -- user explicitly saves, so the live setup is "diverged but still
-                -- on this profile" rather than orphaned. (Previously this cleared
-                -- the active-profile marker, which for a macro pack — the profile's
-                -- core — left the user with no active profile to save into.)
-
-                -- Hotswap the running state in place for whatever the slice
-                -- touched — the same surfaces boot/reloadMacros rebuild — so no
-                -- full Hammerspoon reload is needed. Quiet-flagged so the
-                -- sub-reloads suppress their own toasts and refocus dance; our
-                -- single "activated" toast stands in. Steps are additive, not
-                -- exclusive: a macro pack can bundle macro sounds and a theme
-                -- can bundle fonts/sounds, so the sound rescan runs for every
-                -- kind (gated on the _soundsDirty flag applyDropped set from
-                -- the files it actually dropped).
-                local wasQuick = ms._quickReloading
-                ms._quickReloading = true
-                if data.kind == "macro" then
-                    -- A macro pack carries handwritten (ms_macros.lua) and
-                    -- visual (ms_macros_visual.*) macros plus authored
-                    -- settings/vars. Copying the files is not enough: the
-                    -- sandbox still holds the old registrations, so both kinds
-                    -- must re-register and their binds be restored — otherwise
-                    -- visual macros silently never appear.
-                    if ms.ui._actions.reloadMacros then pcall(ms.ui._actions.reloadMacros) end
-                    if ms._loadAuthoredSettings then pcall(ms._loadAuthoredSettings) end
-                    if ms._defineAuthoredSettings then pcall(ms._defineAuthoredSettings) end
-                    if ms._loadAuthoredMenus then pcall(ms._loadAuthoredMenus) end
-                elseif data.kind == "theme" then
-                    if ms.loadTheme then pcall(ms.loadTheme) end
-                    pcall(function() ms.alert:recolor() end)
-                    pcall(function() ms.dev:recolor() end)
-                end
-                if ms._soundsDirty and ms._discoverSounds then pcall(ms._discoverSounds) end
-                if data.kind == "sound" then
-                    -- Re-derive the stored sound-preset marker from the live
-                    -- assignments the activated pack just dropped, so it tracks
-                    -- the new pack (a blank pack = Default) instead of the
-                    -- previous pack's saved value — which the theme-toggle path
-                    -- (ms_ui.lua ~1101) would otherwise re-apply over it. Same
-                    -- match logic the Presets UI uses: all default → "default",
-                    -- else a numbered preset, else "custom".
-                    pcall(function()
-                        local sa       = ms.soundAssign or {}
-                        local defaults = ms.soundSlotDefaults and ms.soundSlotDefaults() or {}
-                        local preset   = "custom"
-                        local isDefault = next(defaults) ~= nil
-                        for sid, d in pairs(defaults) do
-                            if (sa[sid] or "") ~= (d or "") then isDefault = false break end
-                        end
-                        if isDefault then
-                            preset = "default"
-                        elseif ms.buildSoundPresets then
-                            for _, p in ipairs(ms.buildSoundPresets()) do
-                                local match = next(p.assigns or {}) ~= nil
-                                for sid, name in pairs(p.assigns or {}) do
-                                    if (sa[sid] or "") ~= (name or "") then match = false break end
-                                end
-                                if match then preset = tostring(p.num) break end
-                            end
-                        end
-                        ms._soundPreset = preset
-                        if ms.saveSettings then ms.saveSettings() end
-                    end)
-                end
-                ms._quickReloading = wasQuick
-
-                ms.playSlot("update")
-                ms.alert((data.name or "Slice") .. " activated.", 3, true)
-                ms.ui.markDirty()
-                ms.ui.refresh()
-                -- Repaint the shelf so the newly-active badge moves without a
-                -- panel re-open; the JS activate() posts but never re-requests
-                -- the list, so the host must push the updated markers itself.
-                if ms.ui._actions.libraryList then
-                    pcall(ms.ui._actions.libraryList, { kind = data.kind })
-                end
-            end,
-
-            libraryRemove = function(data)
-                if not (data and data.kind and data.slug and ms.package
-                        and ms.package.libraryRemove) then return end
-
-                local ok, err = ms.package.libraryRemove(data.kind, data.slug)
-                if not ok then
-                    ms.alert("Could not remove:\n" .. tostring(err), 4)
-                    return
-                end
-                ms.playSlot("back")
-                ms.ui._actions.libraryList({ kind = data.kind })
-            end,
-
-            libraryCapture = function(data)
-                if not (data and data.kind and ms.package and ms.package.libraryCapture) then return end
-
-                local rec, err = ms.package.libraryCapture(data.kind, data.name)
-                if not rec then
-                    ms.alert("Could not capture:\n" .. tostring(err), 4)
-                    return
-                end
-                ms.playSlot("update")
-                ms.alert("Saved \"" .. rec.name .. "\" to the library.", 3, true)
-                ms.ui._actions.libraryList({ kind = data.kind })
-            end,
-
-            libraryRename = function(data)
-                if not (data and data.kind and data.slug and ms.package
-                        and ms.package.libraryRename) then return end
-                local rec, err = ms.package.libraryRename(data.kind, data.slug, data.name)
-                if not rec then
-                    ms.alert("Could not rename:\n" .. tostring(err), 4)
-                    return
-                end
-                ms.playSlot("update")
-                ms.ui._actions.libraryList({ kind = data.kind })
-            end,
-
-            libraryCreateEmpty = function(data)
-                if not (data and data.kind and ms.package
-                        and ms.package.libraryCreateEmpty) then return end
-                local rec, err
-                if data.seed == true and ms.package.libraryCreateSeeded then
-                    rec, err = ms.package.libraryCreateSeeded(data.kind, data.name)
-                else
-                    rec, err = ms.package.libraryCreateEmpty(data.kind, data.name)
-                end
-                if not rec then
-                    ms.alert("Could not create:\n" .. tostring(err), 4)
-                    return
-                end
-                ms.playSlot("update")
-                ms.alert("Created \"" .. rec.name .. "\".", 3, true)
-                ms.ui._actions.libraryList({ kind = data.kind })
-            end,
-
-            libraryClear = function(data)
-                if not (data and data.kind and ms.package
-                        and ms.package.libraryClear) then return end
-                local removed = ms.package.libraryClear(data.kind)
-                ms.playSlot("reset")
-                ms.alert(removed .. " " .. tostring(data.kind) .. " pack" ..
-                    (removed == 1 and "" or "s") .. " removed.", 3, true)
-                ms.ui._actions.libraryList({ kind = data.kind })
-            end,
-
-            -- Plugins --
-            setPluginEnabled = function(data)
-                if not (data and data.dir and ms.package and ms.package.setPluginEnabled) then return end
-                ms.package.setPluginEnabled(data.dir, data.value == true)
-                if ms.plugins and ms.plugins.apply then
-                    local ok, err = pcall(ms.plugins.apply)
-                    if not ok then print("[MsUI] plugin apply failed: " .. tostring(err)) end
-                end
-                ms.ui.markDirty()
-                ms.ui.refresh()
-            end,
-
-            removePlugin = function(data)
-                if not (data and data.dir and ms.package and ms.package.removePlugin) then return end
-                local dir = data.dir
-
-                ms.playSlot("alert")
-                ms.ui.modal({
-                    title   = "Remove " .. (data.label or dir) .. "?",
-                    msg     = "The plugin's files are deleted from Spoons/. This cannot be undone.",
-                    confirm = "Remove",
-                    cancel  = "Cancel",
-                }, function(res)
-                    if not (res and res.confirmed) then return end
-
-                    if ms.plugins and ms.plugins.unload then
-                        pcall(ms.plugins.unload, dir)
-                    end
-
-                    local ok, err = ms.package.removePlugin(dir)
-                    if not ok then
-                        ms.alert("Could not remove plugin:\n" .. tostring(err), 5)
-                        return
-                    end
-
-                    ms.ui.markDirty()
-                    ms.ui.refresh()
-                    ms.alert((data.label or dir) .. " removed.", 4, true)
-                end)
-            end,
-
-            openPluginsFolder = function()
-                local dir = os.getenv("HOME") .. "/.hammerspoon/Spoons"
-                hs.fs.mkdir(dir)
-                os.execute("open '" .. dir .. "'")
-            end,
-
-            openDevLogs = function()
-                local logDir = os.getenv("HOME") .. "/Documents/ms_dev_logs/"
-                hs.fs.mkdir(logDir)
-                os.execute("open " .. logDir)
-            end,
-
-            trustCurrentVersion = function()
-                ms.integrity.trustCurrent()
-                ms.ui.refresh()
-            end,
-
-            deleteTrustedHash = function()
-                ms.integrity.deleteTrustedHash()
-                ms.alert("Trusted manifest deleted.\nIntegrity protection is now OFF until you re-trust.", 5)
-                ms.ui.refresh()
-            end,
-
-            checkIntegrity = function()
-                local status, cur, trusted = ms.integrity.check()
-                if status == "trusted" then
-                    ms.alert("\xe2\x9c\x93 ms_core.lua matches trusted hash.\n" .. (cur and cur:sub(1, 16) or "?") .. "\xe2\x80\xa6", 5, true)
-                    ms.ui.refresh()
-                elseif status == "mismatch" then
-                    hs.reload()
-                else
-                    ms.alert("No trusted hash on record.\nUse \"Trust Current Version\" to seed trust.", 5)
-                    ms.ui.refresh()
-                end
-            end,
-
-            openURL = function(data) if data.url then hs.urlevent.openURL(data.url) end end,
-
-            checkForUpdate = function()
-                if ms._updateChannel == "testing" then
-                    ms.integrity.updateBeta()
-                else
-                    ms.integrity.update()
-                end
-            end,
-
-            openConsole       = function() ms.dev.console.toggle()  end,
-            openWatcher       = function() ms.dev.watcher.toggle()  end,
-            openKeys          = function() ms.dev.keys.toggle()     end,
-            openWindowMonitor = function() ms.dev.window.toggle()   end,
-
-            startRebind = function(data)
-                if not data.id then return end
-
-                if data.systemBind then
-                    local sysDef = ms.systemBinds._defs[data.id]
-                    if not sysDef then return end
-                    local label = sysDef.label
-                    _rebindModal({
-                        label    = label,
-                        current  = _bindDisplay(ms.systemBinds.effective(data.id)),
-                        gamepad  = true,
-                        onCancel = function() _restoreAfterCapture()
-                        ms.ui.refresh() end,
-                        apply    = function(parsed)
-                            ms.systemBinds._config[data.id] = parsed
-                            ms.saveSettings()
-                            ms.playSlot("update")
-                            ms.systemBinds.rebind()
-                        end,
-                    })
-                    return
-                end
-
-                local def = ms.registry._defs[data.id]
-                if not def then return end
-                local label = def.label or data.id
-                _rebindModal({
-                    label    = label,
-                    current  = _bindDisplay(ms.effectiveBind(data.id)),
-                    gamepad  = true,
-                    onCancel = function() _restoreAfterCapture()
-                    ms.ui.refresh() end,
-                    validate = function(parsed, bindStr)
-                        local conflictId = ms.bind.siblingConflict(data.id, parsed)
-                        if not conflictId then return nil end
-                        local cLabel = (ms.registry._defs[conflictId] and ms.registry._defs[conflictId].label) or conflictId
-                        return "\"" .. bindStr .. "\" is already used by \"" .. cLabel .. "\"."
-                    end,
-                    apply    = function(parsed)
-                        ms.bindConfig[data.id] = parsed
-                        if not def.system then ms.binds[data.id] = true end
-                        ms.saveSettings()
-                        ms.playSlot("update")
-                        ms.bind.rebind()
-                    end,
-                })
-            end,
-
-            -- Tether one macro's trigger to another macro (a "peer" bind:
-            -- { type = <otherId>, mods = {...} }). This is what handwritten packs
-            -- express as `default = { type = "superJump", mods = {"v"} }`; here it
-            -- is driven from the binds UI. The key trigger is inherited from the
-            -- target at dispatch time via ms.effectiveBind's chain resolution.
-            bindToMacro = function(data)
-                if not data.id or type(data.targetId) ~= "string" then return end
-                local def        = ms.registry._defs and ms.registry._defs[data.id]
-                local targetDef  = ms.registry._defs and ms.registry._defs[data.targetId]
-                if not def or not targetDef then return end
-                if data.id == data.targetId then
-                    ms.playSlot("alert")
-                    ms.alert("A macro can't be bound to itself.", 4)
-                    return
-                end
-                -- Refuse anything that would form a loop: walk the target's bind
-                -- chain and make sure it never leads back to this macro.
-                local visited = {}
-                local cur = data.targetId
-                while cur and not visited[cur] do
-                    if cur == data.id then
-                        ms.playSlot("alert")
-                        ms.alert("That would create a bind loop.", 4)
-                        return
-                    end
-                    visited[cur] = true
-                    local c = ms.bindConfig[cur]
-                        or (ms.registry._defs[cur] and ms.registry._defs[cur].default)
-                    cur = (type(c) == "table" and c.type and ms.registry._defs[c.type])
-                        and c.type or nil
-                end
-                -- Keep whatever modifiers the macro already carried (its sub
-                -- modifier, or a prior key bind's mods) so re-tethering doesn't
-                -- collapse it onto the parent's exact trigger. An explicit
-                -- data.mods overrides; otherwise inherit, else empty.
-                local existing = ms.bindConfig[data.id]
-                local mods = (type(data.mods) == "table") and data.mods
-                    or (type(existing) == "table" and type(existing.mods) == "table" and existing.mods)
-                    or {}
-                ms.bindConfig[data.id] = { type = data.targetId, mods = mods }
-                if not def.system then ms.binds[data.id] = true end
-                ms.saveSettings()
-                ms.playSlot("update")
-                ms.bind.rebind()
-                -- With no modifier the tether is the parent's exact trigger, so
-                -- prompt for one straight away — this is how a macro gets bound
-                -- to e.g. Alt (Alt + the parent's trigger) instead of colliding.
-                if #mods == 0 then
-                    hs.timer.doAfter(0.15, function()
-                        ms.ui._actions.startModRebind({ id = data.id })
-                    end)
-                    return
-                end
-                hs.timer.doAfter(0.1, function()
-                    ms.alert((def.label or data.id) .. " now follows "
-                        .. (targetDef.label or data.targetId) .. ".", 2, true)
-                    ms.ui.refresh()
-                end)
-            end,
-
-            resetSetting = function(data)
-                local key = data.key
-                local def = ms.macroDefaults or {}
-                if key == "trackpadMode" then
-                    ms.trackpadMode = (def.trackpadMode == true)
-                    ms.saveSettings()
-                    ms.bind.rebind()
-                elseif key == "socdEnabled" then
-                    ms.socdEnabled = (def.socdEnabled == true)
-                    ms.saveSettings()
-                    ms.socdApply()
-                elseif key == "socdMode" then
-                    ms.socdMode = def.socdMode or "lastWins"
-                    ms.saveSettings()
-                elseif key == "gamepadEnabled" then
-                    ms.gamepadEnabled = (def.gamepadEnabled == true)
-                    if not ms.gamepadEnabled and ms.gamepadStop then ms.gamepadStop() end
-                    ms.saveSettings()
-                    ms.bind.rebind()
-                elseif key == "soundEnabled" then
-                    ms.soundEnabled = true
-                    ms.saveSettings()
-                elseif key == "soundVolume" then
-                    ms.soundVolume = 100
-                    ms.saveSettings()
-                end
-                ms.playSlot("reset")
-                ms.ui.refresh()
-            end,
-
-            userSettingChange = function(data)
-                if not data.key then return end
-                ms.settings.set(data.key, data.value)
-                ms.playSlot("update")
-                ms.ui.refresh()
-            end,
-
-            userSettingAction = function(data)
-                if not data.key then return end
-                local def = ms._userSettingIndex[data.key]
-                if def and def.type == "action" and type(def.onAction) == "function" then
-                    pcall(def.onAction)
-                end
-                local sysAction = ms._systemActions and ms._systemActions[data.key]
-                if type(sysAction) == "function" then pcall(sysAction) end
-                ms.ui.refresh()
-            end,
-
-            resetUserSetting = function(data)
-                if not data.key then return end
-                local def = ms._userSettingIndex[data.key]
-                if not def or def.default == nil then return end
-                ms.settings.set(data.key, def.default)
-                ms.playSlot("reset")
-                ms.ui.refresh()
-            end,
-
-            -- Run a function tool from the Tuning tab's Functions section. Run it
-            -- inside a coroutine (as bound macros are) so its ms.wait calls yield
-            -- and resume properly instead of hitting the main-thread gotcha.
-            runFunction = function(data)
-                if not data or type(data.id) ~= "string" then return end
-                if ms.callFn then
-                    local co = coroutine.create(function() ms.callFn(data.id) end)
-                    local ok, err = coroutine.resume(co)
-                    if not ok then print("runFunction: " .. tostring(err)) end
-                end
-                ms.playSlot("interact")
-            end,
-
-            -- Live-set a helper var's value from the Variables section. markDirty
-            -- so the re-pushed state carries the new value (ms.vars.list reads it).
-            setHelperVarValue = function(data)
-                if not data or type(data.name) ~= "string" then return end
-                if ms.vars and ms.vars.set then ms.vars.set(data.name, data.value) end
-                ms.playSlot("update")
-                if ms.ui.markDirty then ms.ui.markDirty() end
-                ms.ui.refresh()
-            end,
-
-            addUserSetting = function(data)
-                local ok, err = ms.addAuthoredSetting(data and data.def)
-                if ok then
-                    ms.playSlot("update")
-                    ms.ui.refresh()
-                    ms.alert("Setting added to your pack.", 3)
-                else
-                    ms.playSlot("alert")
-                    ms.alert("Couldn't add setting: " .. (err or "invalid"), 4)
-                end
-            end,
-
-            removeUserSetting = function(data)
-                local ok, err = ms.removeAuthoredSetting(data and data.key)
-                if ok then
-                    ms.playSlot("reset")
-                    ms.ui.refresh()
-                    ms.alert("Tool removed from your pack.", 3)
-                else
-                    ms.playSlot("alert")
-                    ms.alert("Couldn't remove tool: " .. (err or "invalid"), 4)
-                end
-            end,
-
-            updateUserSetting = function(data)
-                local ok, err = ms.updateAuthoredSetting(
-                    data and data.key, data and data.def)
-                if ok then
-                    ms.playSlot("update")
-                    ms.ui.refresh()
-                    ms.alert("Setting updated.", 3)
-                else
-                    ms.playSlot("alert")
-                    ms.alert("Couldn't update setting: " .. (err or "invalid"), 4)
-                end
-            end,
-
-            -- Delete any authored item by uid (the only route for keyless
-            -- dividers/labels, which the Arrange list exposes).
-            removeUserSettingByUid = function(data)
-                local ok, err = ms.removeAuthoredSettingByUid(data and data.uid)
-                if ok then
-                    ms.playSlot("reset")
-                    ms.ui.refresh()
-                    ms.alert("Item removed from your pack.", 2)
-                else
-                    ms.playSlot("alert")
-                    ms.alert("Couldn't remove item: " .. (err or "invalid"), 4)
-                end
-            end,
-
-            -- New order for the authored list, from the Arrange list's drag.
-            reorderUserSettings = function(data)
-                local ok, err = ms.reorderAuthoredSettings(data and data.order)
-                if ok then
-                    ms.playSlot("interact")
-                    ms.ui.refresh()
-                else
-                    ms.playSlot("alert")
-                    ms.alert("Couldn't reorder: " .. (err or "invalid"), 4)
-                end
-            end,
-
-            -- User-created Tuning-tab sections (see ms.addAuthoredMenu). //
-            addUserMenu = function(data)
-                local ok, err = ms.addAuthoredMenu(data or {})
-                if ok then
-                    ms.playSlot("update")
-                    ms.ui.refresh()
-                    ms.alert("Section added.", 2)
-                else
-                    ms.playSlot("alert")
-                    ms.alert("Couldn't add section: " .. (err or "invalid"), 4)
-                end
-            end,
-
-            updateUserMenu = function(data)
-                local ok, err = ms.updateAuthoredMenu(data and data.id, data or {})
-                if ok then
-                    ms.playSlot("update")
-                    ms.ui.refresh()
-                else
-                    ms.playSlot("alert")
-                    ms.alert("Couldn't rename section: " .. (err or "invalid"), 4)
-                end
-            end,
-
-            removeUserMenu = function(data)
-                local ok, err = ms.removeAuthoredMenu(data and data.id)
-                if ok then
-                    ms.playSlot("reset")
-                    ms.ui.refresh()
-                    ms.alert("Section removed.", 2)
-                else
-                    ms.playSlot("alert")
-                    ms.alert("Couldn't remove section: " .. (err or "invalid"), 4)
-                end
-            end,
-
-            modalResult = function(data)
-                if ms.ui._modalCallback then
-                    local cb = ms.ui._modalCallback
-                    ms.ui._modalCallback = nil
-                    pcall(cb, {
-                        confirmed = data.confirmed == true,
-                        value     = type(data.value) == "string" and data.value or "",
-                    })
-                end
-            end,
-
-            resetBind = function(data)
-                if not data.id then return end
-
-                if data.systemBind then
-                    ms.systemBinds._config[data.id] = nil
-                    ms.saveSettings()
-                    ms.systemBinds.rebind()
-                    ms.playSlot("reset")
-                    local def = ms.systemBinds._defs[data.id]
-                    hs.timer.doAfter(0.1, function()
-                        ms.alert((def and def.label or data.id) .. " reset to default.", 2, true)
-                        ms.ui.refresh()
-                    end)
-                    return
-                end
-
-                local def = ms.registry._defs[data.id]
-                if not def then return end
-                ms.bindConfig[data.id] = nil
-                local restored = ms.effectiveBind(data.id) ~= nil
-                if not restored then ms.binds[data.id] = false end
-                ms.saveSettings()
-                ms.bind.rebind()
-                ms.playSlot("reset")
-                hs.timer.doAfter(0.1, function()
-                    ms.alert((def.label or data.id) .. (restored
-                        and " reset to default."
-                        or " has no default bind, disabled."), 2, true)
-                    ms.ui.refresh()
-                end)
-            end,
-
-            setModifier = function(data)
-            end,
-
-            clearModifier = function(data)
-                if not data.id then return end
-                local def = ms.registry._defs and ms.registry._defs[data.id]
-                if not def or not def.default then return end
-                ms.bindConfig[data.id] = nil
-                ms.saveSettings()
-                ms.bind.rebind()
-                ms.playSlot("reset")
-                hs.timer.doAfter(0.1, function()
-                    ms.alert((def.label or data.id) .. " reset to default.", 2, true)
-                    ms.ui.refresh()
-                end)
-            end,
-
-            startModRebind = function(data)
-                if not data.id then return end
-                local def = ms.registry._defs[data.id]
-                if not def then return end
-                local curCfg  = ms.bindConfig[data.id] or def.default
-                if not curCfg then return end
-                local label = def.label or data.id
-                local curMods = curCfg and curCfg.mods or {}
-                local cur     = curMods[1]
-                -- Preserve the current trigger type (a tether to another macro
-                -- set via the binds UI, or the handwritten default) so setting a
-                -- modifier only changes the modifier, never re-parents the bind.
-                local curType = curCfg.type or (def.default and def.default.type)
-
-                ms.alert("Modifier for \"" .. label .. "\""
-                    .. "\nCurrent: " .. (cur or "unset")
-                    .. "\nPress a key, Backspace to clear, Escape to cancel.", 15, false, { id = "_rebind" })
-
-                ms._inputOpen = true
-                ms.ui._open   = false
-
-                local capture, cancelTimer
-                local prevFlags = {}
-
-                local function finish(newKey, cancelled)
-                    ms._inputOpen = false
-                    if not cancelled then
-                        if newKey then
-                            ms.bindConfig[data.id] = {
-                                type = curType,
-                                mods = { newKey },
-                            }
-                        else
-                            ms.bindConfig[data.id] = {
-                                type = curType,
-                                mods = {},
-                            }
-                        end
-                        ms.saveSettings()
-                        ms.bind.rebind()
-                        ms.playSlot(newKey and "update" or "reset")
-                    end
-                    ms.ui.ensureVisible()
-                    hs.timer.doAfter(0.1, function()
-                        if not cancelled then
-                            if newKey then
-                                ms.alert("Modifier set to: " .. newKey, 3, true, { id = "_rebind" })
-                            else
-                                ms.alert("Modifier cleared.", 3, true, { id = "_rebind" })
-                            end
-                        else
-                            ms.alert("Modifier rebind cancelled.", 2, false, { id = "_rebind" })
-                        end
-                        ms.ui.refresh()
-                    end)
-                end
-
-                capture = hs.eventtap.new({
-                    hs.eventtap.event.types.keyDown,
-                    hs.eventtap.event.types.flagsChanged,
-                }, function(event)
-                    local t     = event:getType()
-                    local flags = event:getFlags()
-
-                    if t == hs.eventtap.event.types.flagsChanged then
-                        local newMod = nil
-                        if flags.shift and not prevFlags.shift then newMod = "shift"
-                        elseif flags.alt   and not prevFlags.alt   then newMod = "alt"
-                        elseif flags.ctrl  and not prevFlags.ctrl  then newMod = "ctrl"
-                        elseif flags.cmd   and not prevFlags.cmd   then newMod = "cmd" end
-                        prevFlags = flags
-                        if not newMod then return false end
-                        capture:stop()
-                        capture = nil
-                        cancelTimer:stop()
-                        finish(newMod, false)
+                    local chunk, loadErr = load(
+                        rawSrc,
+                        "@ms_macros.lua",
+                        "bt",
+                        ms._macroSandbox
+                    )
+                    if not chunk then
+                        ms.alert("Reload failed:\n" .. tostring(loadErr), 6)
                         return false
                     end
 
-                    capture:stop()
-                    capture = nil
-                    cancelTimer:stop()
-                    local keyCode = event:getKeyCode()
-                    if keyCode == 53 and not (flags.cmd or flags.alt or flags.ctrl or flags.shift) then
-                        finish(nil, true)
-                    elseif keyCode == 51 then
-                        finish(nil, false)
-                    else
-                        local keyName = hs.keycodes.map[keyCode]
-                        finish(keyName or nil, keyName == nil)
+                    if ms.plugins and ms.plugins.loaded then
+                        for dir in pairs(ms.plugins.loaded) do
+                            pcall(ms.plugins.unload, dir, { quiet = true })
+                        end
+                    end
+                    ms.bind.teardown()
+                    ms.registry._defs    = {}
+                    ms.registry._defList = {}
+                    ms.bind._wires    = {}
+                    ms.bind._autoCount = 0
+                    ms.macroMeta       = nil
+                    ms._userSettingDefs  = {}
+                    ms._userSettingIndex = {}
+                    ms._userSettingVals  = {}
+
+                    ms._defineOrigin = "pack"
+                    local ok, runErr = xpcall(chunk, debug.traceback)
+                    ms._defineOrigin = nil
+                    if not ok then
+                        local tb = tostring(runErr)
+                        print("=== ms_macros.lua reload error ===\n" .. tb)
+                        if ms.dev and ms.dev.log then
+                            ms.dev.log({
+                                type = "error",
+                                event = "reload_error",
+                                msg = tb,
+                            })
+                        end
+                        ms.alert("Reload failed, see console", 6)
+                        pcall(function()
+                            ms.bind._registerSystemBinds()
+                            ms.bind.rebindSystem()
+                        end)
+                        return false
+                    end
+                    ms._macroMetaFromHand = ms.macroMeta ~= nil
+                    if ms.compiler and ms.compiler.paths
+                        and hs.fs.attributes(ms.compiler.paths.json) then
+                        local rebOk, rebErr = pcall(ms.compiler.rebuild)
+                        if not rebOk then
+                            print("ms.compiler.rebuild (reload): " .. tostring(rebErr))
+                        end
+                        local ldOk, ldErr = pcall(ms.compiler.load)
+                        if not ldOk then
+                            print("ms.compiler.load (reload): " .. tostring(ldErr))
+                        end
+                    end
+                    for _, id in ipairs(ms.registry._defList) do
+                        local def = ms.registry._defs[id]
+                        if def and not (def.default and def.default.type) and ms.binds[id] == nil then
+                            ms.binds[id] = def.enabled
+                        end
+                    end
+                    ms._systemActions = {}
+                    if ms._userSettingIndex["showTamperWarning"] then
+                        ms._systemActions["showTamperWarning"] = function()
+                            ms.showGuardian()
+                        end
+                        ms._systemActions["showIntegrityError"] = function()
+                            ms.showGuardian()
+                        end
+                    end
+                    if ms.plugins and ms.plugins.loadAll then
+                        pcall(ms.plugins.loadAll)
+                    end
+                    ms.loadSettings()
+                    if not ms.registry._defs["__panicButton"] then ms.bind._registerSystemBinds() end
+                    ms.bind.rebind()
+                    ms.socdApply()
+                    if ms.gamepadSync then ms.gamepadSync() end
+                    if not ms._quickReloading then
+                        ms.playSlot("update")
+                        ms.alert("Macros reloaded.", 4, true)
+                    end
+                    if not ms._quickReloading then
+                        hs.timer.doAfter(0.15, function()
+                            pcall(function()
+                                local app = ms._targetApp and hs.application.get(ms._targetApp)
+                                if app then
+                                    app:hide()
+                                    hs.timer.doAfter(0.15, function()
+                                        pcall(function() app:activate() end)
+                                    end)
+                                end
+                            end)
+                        end)
                     end
                     return true
-                end)
+                end,
 
-                capture:start()
-                cancelTimer = hs.timer.doAfter(15, function()
-                    if capture then
+                reloadSettings = function()
+                    ms.loadSettings()
+                    ms.bind.rebind()
+                    ms.socdApply()
+                    if ms.gamepadSync then ms.gamepadSync() end
+                    ms.playSlot("update")
+                    ms.alert("Settings reloaded.", 4, true)
+                    ms.ui.refresh()
+                end,
+
+                reloadTheme = function()
+                    ms.loadTheme()
+                    pcall(function() ms.alert:recolor() end)
+                    pcall(function() ms.dev:recolor() end)
+                    pcall(function() ms.shell.recolorPopouts() end)
+                    ms.playSlot("update")
+                    ms.alert("Theme reloaded.", 4, true, { priority = "low" })
+                    ms.ui.hide()
+                    hs.timer.doAfter(0.15, function() ms.ui.show() end)
+                end,
+
+                reloadUI = function()
+                    ms.reloadUI()
+                end,
+
+                reloadAll = function() hs.reload() end,
+
+                shutdown = function() ms.shutdown() end,
+
+                quickReload = function()
+                    ms.reload()
+                end,
+
+                setQROption = function(data)
+                    if data.key and ms._qrOptions then
+                        ms._qrOptions[data.key] = (data.value == true)
+                        ms.saveSettings()
+                        ms.playSlot("interact")
+                    end
+                end,
+            -- END --
+
+            -- Settings & Toggles --
+                setCustomTheme = function(data)
+                    ms._customThemeDisabled = not (data.value and true or false)
+                    if ms._customThemeDisabled then
+                        for k, v in pairs(ms._themeDefaults) do ms._theme[k] = v end
+                        for sid, def in pairs(ms.soundSlotDefaults()) do
+                            ms.soundAssign[sid] = def
+                        end
+                        ms.saveSettings()
+                        ms._soundsDirty = true
+                        ms._discoverSounds()
+                    else
+                        ms.loadTheme()
+                        ms._soundsDirty = true
+                        ms._discoverSounds()
+                        local savedPreset = ms._soundPreset
+                        if savedPreset and savedPreset ~= "custom" then
+                            local assigns
+                            if savedPreset == "default" then
+                                assigns = ms.soundSlotDefaults()
+                            else
+                                local num = tonumber(savedPreset)
+                                for _, p in ipairs(ms.buildSoundPresets()) do
+                                    if p.num == num then assigns = p.assigns
+                                    break end
+                                end
+                            end
+                            for sid, name in pairs(assigns or {}) do
+                                ms.soundAssign[sid] = name
+                            end
+                        end
+                        ms.saveSettings()
+                    end
+                    pcall(function() ms.alert:recolor() end)
+                    pcall(function() ms.dev:recolor() end)
+                    pcall(function() ms.shell.recolorPopouts() end)
+                    if ms.playSlot then
+                        pcall(ms.playSlot, data.value and "toggleOn" or "toggleOff")
+                    end
+                    ms.ui.refresh()
+                    hs.timer.doAfter(0.2, function() ms.ui.refresh() end)
+                end,
+
+                setDevArchiveLimit = function(data)
+                    local n = tonumber(data.value)
+                    if n and n >= 0 and n <= 50 then
+                        ms._devArchiveLimit = math.floor(n)
+                        ms.saveSettings()
+                        ms.playSlot("update")
+                    end
+                    ms.ui.refresh()
+                end,
+
+                setUpdateChannel = function(data)
+                    local ch = data.value
+                    if ch == "testing" or ch == "stable" then
+                        ms._updateChannel = ch
+                        ms.saveSettings()
+                        ms.playSlot("update")
+                    end
+                    ms.ui.refresh()
+                end,
+
+                setTestingSource = function(data)
+                    local src = data.value
+                    if src == "release" or src == "artifact" then
+                        ms._testingSource = src
+                        ms.saveSettings()
+                        ms.playSlot("update")
+                    end
+                    ms.ui.refresh()
+                end,
+
+                setUiZoom = function(data)
+                    local cur = ms._uiZoom or 1.0
+                    local target
+                    if data.reset then
+                        target = 1.0
+                    elseif data.delta then
+                        target = cur + (tonumber(data.delta) or 0)
+                    else
+                        target = tonumber(data.value) or cur
+                    end
+                    if ms.shell and ms.shell.applyZoom then
+                        ms.shell.applyZoom(target)
+                    else
+                        ms._uiZoom = math.max(0.5, math.min(2.0, target))
+                    end
+                    ms.saveSettings()
+                    ms.ui.refresh()
+                end,
+
+                setOctaneMode = function(data)
+                    local enabled = data.value and true or false
+                    ms._octaneMode = enabled
+                    ms.saveSettings()
+                    if ms.octane then
+                        if enabled then ms.octane._apply() else ms.octane._remove() end
+                    end
+                    ms.ui.refresh()
+                end,
+
+                setOctaneMuteSounds = function(data)
+                    ms._octaneMuteSounds = data.value and true or false
+                    ms.saveSettings()
+                    ms.ui.refresh()
+                end,
+
+                setMacroLabEnabled = function(data)
+                    local enabled = data.value and true or false
+                    ms._macroLabEnabled = enabled
+                    if ms._userSettingVals then ms._userSettingVals["macroLabEnabled"] = enabled end
+                    ms.saveSettings()
+                    ms.ui.refresh()
+                end,
+
+                setGithubToken = function(data)
+                    ms._githubToken = data.value or ""
+                    local tokenPath = os.getenv("HOME") .. "/.hammerspoon/data/.ms_github_token"
+                    if ms._githubToken ~= "" then
+                        local f = io.open(tokenPath, "w")
+                        if f then f:write(ms._githubToken)
+                        f:close() end
+                        os.execute("chmod 600 '" .. tokenPath .. "'")
+                    else
+                        os.remove(tokenPath)
+                    end
+                    ms.playSlot("update")
+                    ms.ui.refresh()
+                end,
+
+                setMacroEnabled = function(data)
+                    if not data.id then return end
+                    local def = ms.registry._defs[data.id]
+                    if def and def.system then return end
+                    local want = (data.value == true)
+                    if want and ms.effectiveBind(data.id) == nil then
+                        ms.binds[data.id] = false
+                        ms.saveSettings()
+                        ms.bind.rebind()
+                        hs.timer.doAfter(0.1, function()
+                            ms.alert((def and def.label or data.id)
+                                .. " has no bind, set one before enabling.", 2, true)
+                            ms.ui.refresh()
+                        end)
+                        return
+                    end
+                    ms.binds[data.id] = want
+                    ms.saveSettings()
+                    ms.bind.rebind()
+                    ms.ui.refresh()
+                end,
+
+                setBindIgnoreMods = function(data)
+                    if not data.id then return end
+                    local def = ms.registry._defs[data.id]
+                    if def and def.system then return end
+                    ms.bindIgnoreMods = ms.bindIgnoreMods or {}
+                    ms.bindIgnoreMods[data.id] = (data.value == true) or nil
+                    ms.saveSettings()
+                    ms.bind.rebind()
+                    ms.ui.refresh()
+                end,
+
+                setTrackpadMode = function(data)
+                    ms.trackpadMode = (data.value == true)
+                    ms.saveSettings()
+                    ms.bind.rebind()
+                    ms.ui.refresh()
+                end,
+
+                setSocdEnabled = function(data)
+                    ms.socdEnabled = (data.value == true)
+                    ms.saveSettings()
+                    ms.socdApply()
+                    ms.ui.refresh()
+                end,
+
+                setGamepadEnabled = function(data)
+                    ms.gamepadEnabled = (data.value == true)
+                    if ms.gamepadEnabled then
+                        if ms.gamepadStart then ms.gamepadStart() end
+                    else
+                        if ms.gamepadStop then ms.gamepadStop() end
+                    end
+                    ms.saveSettings()
+                    ms.bind.rebind()
+                    ms.ui.refresh()
+                end,
+
+                setUpdateAlerts = function(data)
+                    ms._updateAlertsDisabled = not (data.value == true)
+                    ms.saveSettings()
+                    ms.ui.refresh()
+                end,
+
+                setSocdMode = function(data)
+                    if data.value == "lastWins" or data.value == "neutral" or data.value == "firstWins" then
+                        ms.socdMode = data.value
+                        ms.saveSettings()
+                        ms.playSlot("update")
+                    end
+                    ms.ui.refresh()
+                end,
+
+                saveDefault = function()
+                    ms.saveDefault()
+                    ms.ui.refresh()
+                end,
+
+                resetToDefault = function()
+                    if ms.resetToDefault() then ms.playSlot("reset") end
+                    ms.ui.refresh()
+                end,
+            -- END --
+
+            -- Sound Output --
+                setSoundEnabled = function(data)
+                    ms.soundEnabled = (data.value == true)
+                    ms.saveSettings()
+                    ms.ui.refresh()
+                end,
+
+                setSoundVolume = function(data)
+                    local num = tonumber(data.value)
+                    if num and num >= 0 and num <= 100 then
+                        ms.soundVolume = math.floor(num)
+                        ms.saveSettings()
+                        ms.playSlot("update")
+                    end
+                    ms.ui.refresh()
+                end,
+
+                setSoundAssign = function(data)
+                    if not data.slot then return end
+                    ms.soundAssign = ms.soundAssign or {}
+                    ms.soundAssign[data.slot] = _emptyToNil(data.name)
+                    ms.saveSettings()
+                    ms.playSlot("update")
+                    ms.ui.refresh()
+                end,
+
+                setSoundPreset = function(data)
+                    if not data.assigns then return end
+                    ms.soundAssign = ms.soundAssign or {}
+                    local loadSlots = {
+                        "themeLoaded",
+                        "load",
+                        "launch",
+                    }
+                    for _, sid in ipairs(loadSlots) do
+                        ms.soundAssign[sid] = nil
+                    end
+                    for slotId, soundName in pairs(data.assigns) do
+                        ms.soundAssign[slotId] = soundName
+                    end
+                    ms._soundPreset = data.preset or "default"
+                    ms.saveSettings()
+                    ms.playSlot("update")
+                    ms.ui.refresh()
+                end,
+
+                clearSoundPreset = function(data)
+                    if not data.slots then return end
+                    ms.soundAssign = ms.soundAssign or {}
+                    for _, slotId in ipairs(data.slots) do
+                        ms.soundAssign[slotId] = nil
+                    end
+                    ms._soundPreset = "custom"
+                    ms.saveSettings()
+                    ms.playSlot("update")
+                    ms.ui.refresh()
+                end,
+            -- END --
+
+            -- Profiles --
+                switchProfile = function(data) if data.name then ms.switchProfile(data.name) end end,
+
+                renameProfile = function(data)
+                    if data.name and data.newName and ms.renameProfile then
+                        ms.renameProfile(data.name, data.newName)
+                    end
+                end,
+
+                deleteProfile = function(data)
+                    if not data.name then return end
+                    local targetName = ms.sanitizeName(data.name)
+                    local activeName = ms.macroMeta and ms.sanitizeName(ms.macroMeta.name or "") or ""
+                    if targetName == "" or targetName == activeName then return end
+                    local dir = profilesPath .. targetName
+                    if not hs.fs.attributes(dir) then return end
+                    os.execute("rm -rf " .. sq(dir))
+                    if ms.package and ms.package.libraryRemove then
+                        for _, k in ipairs({ "macro", "theme", "sound" }) do
+                            pcall(ms.package.libraryRemove, k, targetName)
+                        end
+                    end
+                    ms._profilesDirty = true
+                    ms.ui.markDirty()
+                    ms.playSlot("reset")
+                    hs.timer.doAfter(0.05, function()
+                        ms.alert("Profile \"" .. data.name .. "\" deleted.", 2, true)
+                        ms.ui.refresh()
+                        if ms.ui._actions and ms.ui._actions.libraryList then
+                            for _, k in ipairs({ "macro", "theme", "sound" }) do
+                                pcall(ms.ui._actions.libraryList, { kind = k })
+                            end
+                        end
+                    end)
+                end,
+
+                clearProfiles = function()
+                    local activeName = ms.macroMeta and ms.sanitizeName(ms.macroMeta.name or "") or ""
+                    if activeName == "" then return end
+                    if not hs.fs.attributes(profilesPath) then return end
+                    local deleted = 0
+                    for entry in hs.fs.dir(profilesPath) do
+                        if entry ~= "." and entry ~= ".." then
+                            local safe = ms.sanitizeName(entry)
+                            if safe ~= "" and safe ~= activeName then
+                                local dir = profilesPath .. entry
+                                local attr = hs.fs.attributes(dir)
+                                if attr and attr.mode == "directory" then
+                                    os.execute("rm -rf " .. sq(dir))
+                                    if ms.package and ms.package.libraryRemove then
+                                        for _, k in ipairs({ "macro", "theme", "sound" }) do
+                                            pcall(ms.package.libraryRemove, k, safe)
+                                        end
+                                    end
+                                    deleted = deleted + 1
+                                end
+                            end
+                        end
+                    end
+                    ms._profilesDirty = true
+                    ms.ui.markDirty()
+                    ms.playSlot("reset")
+                    hs.timer.doAfter(0.05, function()
+                        ms.alert(deleted .. " profile" .. (deleted == 1 and "" or "s") .. " deleted.", 3, true)
+                        ms.ui.refresh()
+                        if ms.ui._actions and ms.ui._actions.libraryList then
+                            for _, k in ipairs({ "macro", "theme", "sound" }) do
+                                pcall(ms.ui._actions.libraryList, { kind = k })
+                            end
+                        end
+                    end)
+                end,
+
+                importProfile     = function() ms.importProfile() end,
+                createNewProfile  = function(data) ms.createNewProfile(data and data.seed == true) end,
+                saveCurrentProfile = function() ms.saveCurrentProfile() end,
+            -- END --
+
+            -- Sound Files --
+                importSounds = function()
+                    ms.playSlot("alert")
+                    local slibDir = SoundLib:match("^(.-)[/\\]*$") or SoundLib
+                    hs.focus()
+                    local result = hs.dialog.chooseFileOrFolder(
+                        "Select one or more sound files to add to your library",
+                        hs.fs.attributes(slibDir) and SoundLib or os.getenv("HOME"),
+                        true, false, true
+                    )
+                    local paths = {}
+                    for _, v in pairs(result or {}) do
+                        if type(v) == "string" then table.insert(paths, v) end
+                    end
+                    if #paths == 0 then ms.ui.show()
+                    return end
+                    if not hs.fs.attributes(slibDir) then
+                        hs.execute("mkdir -p '" .. SoundLib .. "'")
+                    end
+                    hs.execute("mkdir -p " .. sq(SoundActiveDir))
+                    hs.execute("mkdir -p " .. sq(SoundMacroDir))
+                    if not hs.fs.attributes(slibDir) then
+                        ms.ui.show()
+                        ms.alert("Could not create sounds folder:\n" .. SoundLib, 4)
+                        return
+                    end
+                    local added, failed = {}, {}
+                    for _, srcPath in ipairs(paths) do
+                        local filename   = srcPath:match("([^/]+)$")
+                        local importName = filename and (filename:match("^(.+)%.[^%.]+$") or filename)
+                        if not filename or not importName then
+                            table.insert(failed, srcPath)
+                        else
+                            local dst    = SoundActiveDir .. filename
+                            local copied = false
+                            if srcPath ~= dst then
+                                local f = io.open(srcPath, "rb")
+                                if f then
+                                    local content = f:read("*all")
+                                    f:close()
+                                    local g = io.open(dst, "wb")
+                                    if g then g:write(content)
+                                    g:close()
+                                    copied = true end
+                                end
+                                if not copied then
+                                    local _, st = hs.execute("/bin/cp " .. sq(srcPath) .. " " .. sq(dst))
+                                    copied = (st == true) or (hs.fs.attributes(dst) ~= nil)
+                                end
+                                if not copied then table.insert(failed, importName) end
+                            else
+                                copied = true
+                            end
+                            if copied then
+                                ms.importedSounds = ms.importedSounds or {}
+                                ms.importedSounds[importName] = filename
+                                table.insert(added, importName)
+                            end
+                        end
+                    end
+                    if #added > 0 then
+                        ms.saveSettings()
+                        ms._soundsDirty = true
+                        ms._discoverSounds()
+                    end
+                    ms.ui.show()
+                    hs.timer.doAfter(0.15, function()
+                        if #added > 0 then ms.playSlot("update") end
+                        if #added > 0 and #failed == 0 then
+                            local label = #added == 1
+                                and ("Sound \"" .. added[1] .. "\" added.")
+                                or  (#added .. " sounds added.")
+                            ms.alert(label, 3, true)
+                        elseif #added > 0 then
+                            ms.alert(
+                                #added .. " added, " .. #failed .. " failed.",
+                                3,
+                                true
+                            )
+                        else
+                            ms.alert("Import failed.\nGrant Hammerspoon Full Disk Access if importing from outside ~/.hammerspoon.", 5)
+                        end
+                        ms.ui.refresh()
+                    end)
+                end,
+
+                importSoundForSlot = function(data)
+                    if not data.slot then return end
+                    local slot = data.slot
+                    ms.playSlot("alert")
+                    local slibDir = SoundLib:match("^(.-)[/\\]*$") or SoundLib
+                    hs.focus()
+                    local result = hs.dialog.chooseFileOrFolder(
+                        "Select a sound file for \"" .. (data.label or slot) .. "\"",
+                        hs.fs.attributes(slibDir) and SoundLib or os.getenv("HOME"),
+                        true, false, false,
+                        ms.soundExtensions
+                    )
+                    local selectedPath
+                    for _, v in pairs(result or {}) do
+                        if type(v) == "string" then selectedPath = v
+                        break end
+                    end
+                    if not selectedPath then ms.ui.show()
+                    return end
+                    if not hs.fs.attributes(slibDir) then
+                        hs.execute("mkdir -p '" .. SoundLib .. "'")
+                    end
+                    local filename = selectedPath:match("([^/]+)$")
+                    if not filename then
+                        ms.ui.show()
+                        ms.alert("Could not read filename.", 3)
+                        return
+                    end
+
+                    if not ms.isSoundFile(filename) then
+                        ms.ui.show()
+                        ms.alert("Not a sound file.\nSupported: "
+                            .. table.concat(ms.soundExtensions, ", ") .. ".", 4)
+                        return
+                    end
+
+                    local ext        = filename:match("(%.[^%.]+)$") or ""
+                    local stem       = filename:match("^(.+)%.[^%.]+$") or filename
+                    local importName = ms.safeSoundName(stem, "a_")
+                    filename         = importName .. ext
+
+                    local dst    = SoundActiveDir .. filename
+                    local copied = false
+                    if selectedPath ~= dst then
+                        local f = io.open(selectedPath, "rb")
+                        if f then
+                            local content = f:read("*all")
+                            f:close()
+                            local g = io.open(dst, "wb")
+                            if g then g:write(content)
+                            g:close()
+                            copied = true end
+                        end
+                        if not copied then
+                            local _, st = hs.execute("/bin/cp " .. sq(selectedPath) .. " " .. sq(dst))
+                            copied = (st == true) or (hs.fs.attributes(dst) ~= nil)
+                        end
+                    else
+                        copied = true
+                    end
+                    ms.ui.show()
+                    if not copied then
+                        hs.timer.doAfter(0.15, function()
+                            ms.alert("Import failed.\nGrant Hammerspoon Full Disk Access if needed.", 5)
+                        end)
+                        return
+                    end
+                    ms.importedSounds = ms.importedSounds or {}
+                    ms.importedSounds[importName] = filename
+                    ms.soundAssign = ms.soundAssign or {}
+                    ms.soundAssign[slot] = importName
+                    ms.saveSettings()
+                    ms._soundsDirty = true
+                    ms._discoverSounds()
+                    ms.playSlot("update")
+                    hs.timer.doAfter(0.15, function()
+                        ms.alert("\"" .. importName .. "\" imported and assigned.", 3, true)
+                        ms.ui.refresh()
+                    end)
+                end,
+
+                removeSound = function(data)
+                    local name = data and data.name
+                    if type(name) ~= "string" or name == "" then return end
+
+                    ms._discoverSounds()
+                    local path = (ms.sounds or {})[name] or (ms.macroSounds or {})[name]
+                    if not path then
+                        ms.alert("No such sound: " .. name, 3)
+                        return
+                    end
+                    if path:find("/sounds/defaults/") or name:sub(1, 2) == "d_" then
+                        ms.alert("Default sounds cannot be removed.", 3)
+                        return
+                    end
+
+                    local ok = os.remove(path)
+                    if not ok then
+                        local _, st = hs.execute("/bin/rm -f " .. sq(path))
+                        ok = (st == true) or (hs.fs.attributes(path) == nil)
+                    end
+                    if not ok then
+                        ms.alert("Could not remove \"" .. name .. "\".", 4)
+                        return
+                    end
+
+                    ms.soundAssign = ms.soundAssign or {}
+                    for slot, assigned in pairs(ms.soundAssign) do
+                        if assigned == name then ms.soundAssign[slot] = nil end
+                    end
+                    if ms.importedSounds then ms.importedSounds[name] = nil end
+
+                    ms.saveSettings()
+                    ms._soundsDirty = true
+                    ms._discoverSounds()
+                    ms.playSlot("reset")
+                    hs.timer.doAfter(0.15, function()
+                        ms.alert("\"" .. name .. "\" removed.", 3, true)
+                        ms.ui.refresh()
+                    end)
+                end,
+
+                setSoundKind = function(data)
+                    local name = data and data.name
+                    local kind = data and data.kind
+                    if type(name) ~= "string" or name == "" then return end
+                    if kind ~= "active" and kind ~= "macro" then return end
+
+                    ms._discoverSounds()
+                    local path = (ms.sounds or {})[name] or (ms.macroSounds or {})[name]
+                    if not path then
+                        ms.alert("No such sound: " .. name, 3)
+                        return
+                    end
+                    if path:find("/sounds/defaults/") or name:sub(1, 2) == "d_" then
+                        ms.alert("Default sounds cannot be re-typed.", 3)
+                        return
+                    end
+
+                    local dstDir = (kind == "macro") and SoundMacroDir or SoundActiveDir
+                    local prefix = (kind == "macro") and "m_" or "a_"
+                    local file   = path:match("([^/]+)$") or ""
+                    local stem   = file:match("^(.+)%.[^%.]+$") or file
+                    local ext    = file:match("(%.[^%.]+)$") or ""
+                    stem = stem:gsub("^[dam]_", "")
+
+                    local newName = prefix .. stem
+                    local dst     = dstDir .. newName .. ext
+
+                    if dst == path then
+                        if ms.importedSounds then ms.importedSounds[name] = nil end
+                        ms.saveSettings()
+                        ms._soundsDirty = true
+                        ms._discoverSounds()
+                        ms.playSlot("update")
+                        hs.timer.doAfter(0.15, function() ms.ui.refresh() end)
+                        return
+                    end
+                    if hs.fs.attributes(dst) then
+                        ms.alert("A sound named \"" .. newName .. "\" already exists.", 4)
+                        return
+                    end
+                    if not hs.fs.attributes(dstDir) then
+                        hs.execute("mkdir -p " .. sq(dstDir))
+                    end
+
+                    local ok = os.rename(path, dst)
+                    if not ok then
+                        local _, st = hs.execute("/bin/mv " .. sq(path) .. " " .. sq(dst))
+                        ok = (st == true) or (hs.fs.attributes(dst) ~= nil)
+                    end
+                    if not ok then
+                        ms.alert("Could not move \"" .. name .. "\".", 4)
+                        return
+                    end
+
+                    ms.soundAssign = ms.soundAssign or {}
+                    for slot, assigned in pairs(ms.soundAssign) do
+                        if assigned == name then ms.soundAssign[slot] = newName end
+                    end
+
+                    if ms.importedSounds then ms.importedSounds[name] = nil end
+
+                    ms.saveSettings()
+                    ms._soundsDirty = true
+                    ms._discoverSounds()
+                    ms.playSlot("update")
+                    hs.timer.doAfter(0.15, function()
+                        ms.alert("\"" .. newName .. "\" is now a "
+                            .. kind .. " sound.", 3, true)
+                        ms.ui.refresh()
+                    end)
+                end,
+
+                setBundleSoundsWithTheme = function(data)
+                    ms.bundleSoundsWithTheme = (data and data.value) == true
+                    ms.saveSettings()
+                    ms.playSlot("update")
+                    ms.ui.refresh()
+                end,
+            -- END --
+
+            -- Editors & Windows --
+                openWindowMonitor = function() if ms.dev and ms.dev.window then ms.dev.window.toggle() end end,
+
+                openConsole = function() hs.openConsole() end,
+
+                editMacros = function()
+                    local path = os.getenv("HOME") .. "/.hammerspoon/ms_macros.lua"
+
+                    local function openIn(app)
+                        if app then
+                            os.execute("open -a '" .. app .. "' '" .. path .. "'")
+                        else
+                            os.execute("open -t '" .. path .. "'")
+                        end
+                    end
+
+                    local editor     = _savedEditor()
+                    local editorName  = _editorName(editor)
+
+                    ms.playSlot("alert")
+                    ms.ui.modal({
+                        title   = "Edit handwritten macros",
+                        msg     = "Opens ms_macros.lua, the handwritten macro suite. "
+                            .. "Visual builder macros are stored separately and are "
+                            .. "not edited here."
+                            .. (editorName and ("\n\nEditor: " .. editorName) or ""),
+                        confirm = editorName and ("Open in " .. editorName) or "Choose editor...",
+                        cancel  = "Cancel",
+                    }, function(res)
+                        if not (res and res.confirmed) then return end
+                        if editor then
+                            openIn(editor)
+                        else
+                            _pickEditor(function(app) openIn(app) end)
+                        end
+                    end)
+                end,
+
+                chooseMacroEditor = function()
+                    ms.playSlot("interact")
+                    local current = _editorName(_savedEditor())
+                    ms.ui.modal({
+                        title   = "Change macro editor",
+                        msg     = "Pick the app mudscript opens ms_macros.lua in."
+                            .. (current and ("\n\nCurrent: " .. current) or "\n\nNo editor set yet."),
+                        confirm = "Choose editor...",
+                        cancel  = "Cancel",
+                    }, function(res)
+                        if not (res and res.confirmed) then return end
+                        _pickEditor(function(app)
+                            ms.playSlot("update")
+                            ms.alert("Macro editor set to " .. (_editorName(app) or "your pick") .. ".", 4, true)
+                        end)
+                    end)
+                end,
+
+                editTheme = function()
+                    os.execute("open '" .. os.getenv("HOME") .. "/.hammerspoon/data/ms_theme.json'")
+                end,
+
+                setThemeKey = function(data)
+                    if not data.key or not ms.saveTheme then return end
+                    local value = data.value
+                    if type(value) ~= "string" and type(value) ~= "number" then return end
+                    ms.saveTheme({ [data.key] = value })
+                    ms.playSlot("update")
+                    ms.ui.refresh()
+                end,
+
+                resetTheme = function()
+                    if not ms.resetTheme then return end
+                    ms.resetTheme()
+                    ms.playSlot("reset")
+                    ms.alert("Theme reset to defaults.\nYour old file was kept as ms_theme.json.bak", 4, true)
+                    ms.ui.refresh()
+                end,
+            -- END --
+
+            -- Packages --
+                exportPackage = function(data)
+                    local kind = data and data.type
+                    if not (ms.package and ms.package.collect and kind) then return end
+
+                    local collectOpts, namedProfile = nil, nil
+                    if kind == "profile" and data.profileName then
+                        local safe = ms.sanitizeName(data.profileName)
+                        local pdir = profilesPath .. safe
+                        if safe == "" or not hs.fs.attributes(pdir) then
+                            ms.alert("Profile \"" .. tostring(data.profileName) .. "\" not found.", 4)
+                            return
+                        end
+                        collectOpts = { configDir = pdir .. "/" }
+                        namedProfile = safe
+                    end
+
+                    local isSlice = false
+                    if data.slug and ms.package.libraryFilesDir then
+                        local fdir = ms.package.libraryFilesDir(kind, data.slug)
+                        if not (fdir and hs.fs.attributes(fdir)) then
+                            ms.alert("Pack not found in library.", 4)
+                            return
+                        end
+                        collectOpts = { baseDir = fdir }
+                        namedProfile = ms.sanitizeName(data.name or "")
+                        isSlice = true
+                    end
+
+                    local files = ms.package.collect(kind, collectOpts)
+                    if kind == "sound" and not isSlice then
+                        local assignPath = ms.package.exportSoundAssign()
+                        if assignPath then files["sound_assign.json"] = assignPath end
+                    end
+                    if next(files) == nil then
+                        ms.alert("Nothing to export as a " .. kind .. " package.", 4)
+                        return
+                    end
+
+                    ms.playSlot("alert")
+                    hs.focus()
+                    local chosen = hs.dialog.chooseFileOrFolder(
+                        "Choose where to save the " .. kind .. " package",
+                        os.getenv("HOME") .. "/Documents", false, true, false
+                    )
+                    local dir
+                    for _, v in pairs(chosen or {}) do
+                        if type(v) == "string" then dir = v
+                        break end
+                    end
+                    ms.ui.show()
+                    if not dir then return end
+
+                    local meta = namedProfile and {} or (ms.macroMeta or {})
+                    local base = namedProfile or ms.sanitizeName(meta.name or "mudscript")
+                    if base == "" then base = "mudscript" end
+                    local out = dir:gsub("/$", "") .. "/" .. base .. "-" .. kind .. ".mspkg"
+
+                    local manifest, err = ms.package.pack({
+                        type    = kind,
+                        name    = base .. " " .. kind,
+                        version = (type(meta.version) == "string" and meta.version ~= "") and meta.version or nil,
+                        author  = meta.author,
+                        website = meta.website,
+                        files   = files,
+                        out     = out,
+                    })
+                    hs.timer.doAfter(0.15, function()
+                        if manifest then
+                            ms.playSlot("update")
+                            ms.alert("Exported " .. out:match("([^/]+)$") ..
+                                "\nBuilt on " .. ms.package.osLabel(manifest) .. ".", 3, true)
+                        else
+                            ms.alert("Export failed:\n" .. tostring(err), 5)
+                        end
+                    end)
+                end,
+
+                importPackage = function()
+                    if not (ms.package and ms.package.install) then return end
+                    ms.playSlot("alert")
+                    hs.focus()
+                    local chosen = hs.dialog.chooseFileOrFolder(
+                        "Select a .mspkg package to import",
+                        os.getenv("HOME") .. "/Documents", true, false, false
+                    )
+                    local path
+                    for _, v in pairs(chosen or {}) do
+                        if type(v) == "string" then path = v
+                        break end
+                    end
+                    ms.ui.show()
+                    if not path then return end
+
+                    local function finish(result, err)
+                        hs.timer.doAfter(0.15, function()
+                            if not result then
+                                ms.alert("Import failed:\n" .. tostring(err), 5)
+                                return
+                            end
+                            if ms._soundsDirty then ms._discoverSounds() end
+                            if ms.loadTheme then ms.loadTheme() end
+                            ms.playSlot("update")
+                            if result.manifest.type == "profile" then
+                                ms._profilesDirty = true
+                                ms.alert(
+                                    "\"" .. (result.profile or result.manifest.name
+                                        or "Profile") .. "\" imported.\n" ..
+                                    "Switch to it from Settings \xe2\x86\x92 Profiles.",
+                                    5, true
+                                )
+                                if ms.ui.markDirty then ms.ui.markDirty() end
+                            else
+                                ms.alert(
+                                    (result.manifest.name or "Package") .. " imported (" ..
+                                    #result.installed .. " files).", 4, true
+                                )
+                            end
+                            ms.ui.refresh()
+                        end)
+                    end
+
+                    local result, err = ms.package.install(path)
+                    local _peek = ms.package.inspect(path)
+                    local _isPlugin = type(_peek) == "table" and _peek.type == "plugin"
+                    if not result and not _isPlugin and tostring(err):find("validated library") then
+                        ms.ui.modal({
+                            title   = "This package is not in the validated library.",
+                            msg     = "Import " .. path:match("([^/]+)$") .. " anyway?",
+                            confirm = "Import",
+                            cancel  = "Cancel",
+                        }, function(res)
+                            if not (res and res.confirmed) then return end
+                            local r2, e2 = ms.package.install(path, { force = true })
+                            finish(r2, e2)
+                        end)
+                        return
+                    end
+
+                    finish(result, err)
+                end,
+            -- END --
+
+            -- Browse --
+                browseList = function(data)
+                    if not (ms.shell and ms.shell.isReady and ms.shell.isReady()) then return end
+
+                    local function push()
+                        local entries = (ms.registry and ms.registry.list)
+                            and ms.registry.list({}) or {}
+                        local installedById = {}
+                        if ms.package and ms.package.listPlugins then
+                            local okP, plugins = pcall(ms.package.listPlugins)
+                            if okP and type(plugins) == "table" then
+                                for _, p in ipairs(plugins) do
+                                    if p.id then installedById[p.id] = p.version or true end
+                                end
+                            end
+                        end
+                        if ms.package and ms.package.listContent then
+                            local okC, content = pcall(ms.package.listContent)
+                            if okC and type(content) == "table" then
+                                for id, rec in pairs(content) do
+                                    if installedById[id] == nil then
+                                        installedById[id] = (type(rec) == "table"
+                                            and rec.version) or true
+                                    end
+                                end
+                            end
+                        end
+                        local out = {}
+                        for _, e in ipairs(entries) do
+                            local instV = installedById[e.id]
+                            out[#out + 1] = {
+                                id          = e.id,
+                                type        = e.type,
+                                name        = e.name,
+                                version     = e.version,
+                                author      = e.author,
+                                description = e.description,
+                                website     = e.website,
+                                trust       = e.trust,
+                                components  = e.components,
+                                installed        = instV ~= nil or nil,
+                                installedVersion = (type(instV) == "string") and instV or nil,
+                                url         = e.url,
+                                sha256      = e.sha256,
+                            }
+                        end
+                        local ok, json = pcall(hs.json.encode, { entries = out })
+                        if ok and json then
+                            pcall(function()
+                                ms.shell.eval("shellReceive('browse', 'catalog', " .. json .. ")")
+                            end)
+                        end
+                    end
+
+                    push()
+                    if ms.registry and ms.registry.refresh then
+                        ms.registry.refresh({ force = true }, function(ok)
+                            if ok then push() end
+                        end)
+                    end
+                end,
+
+                browseInstall = function(data)
+                    if not (data and data.id and ms.registry and ms.registry.download
+                            and ms.package and ms.package.install) then return end
+                    local label = data.label or data.id
+
+                    ms.registry.download(data.id, function(path, derr)
+                        if not path then
+                            ms.alert("Download failed:\n" .. tostring(derr), 5)
+                            return
+                        end
+                        local result, err = ms.package.install(path, {
+                            trustLookup   = ms.registry.trustLookup,
+                            component     = (data.component ~= "" and data.component) or nil,
+                            includeSounds = data.includeSounds == true,
+                            id            = data.id,
+                        })
+                        hs.timer.doAfter(0.15, function()
+                            if not result then
+                                ms.alert("Install failed:\n" .. tostring(err), 5)
+                                return
+                            end
+                            if ms._soundsDirty then ms._discoverSounds() end
+                            if ms.loadTheme then ms.loadTheme() end
+                            ms.playSlot("update")
+                            ms.alert(
+                                (result.manifest.name or label) .. " installed (" ..
+                                #result.installed .. " files).", 4, true
+                            )
+                            ms._profilesDirty = true
+                            ms.ui.markDirty()
+                            ms.ui.refresh()
+                        end)
+                    end)
+                end,
+            -- END --
+
+            -- Installed Library --
+                libraryList = function(data)
+                    if not (ms.package and ms.package.libraryList and ms.shell) then return end
+                    local kind = data and data.kind
+                    if not (ms.package.isLibraryKind and ms.package.isLibraryKind(kind)) then return end
+
+                    local entries = ms.package.libraryList(kind)
+                    local ok, json = pcall(hs.json.encode, {
+                        kind    = kind,
+                        entries = entries,
+                    })
+                    if ok and json then
+                        ms.shell.eval("shellReceive('library', '" .. kind ..
+                            "', " .. json .. ")")
+                    end
+                end,
+
+                profilesList = function()
+                    if not (ms.getProfiles and ms.shell) then return end
+                    local ok, names = pcall(ms.getProfiles)
+                    if not ok or type(names) ~= "table" then names = {} end
+                    local active = (ms.alignedProfile and ms.alignedProfile())
+                        or (ms.macroMeta and ms.macroMeta.name and ms.sanitizeName
+                            and ms.sanitizeName(ms.macroMeta.name)) or ""
+                    local entries = {}
+                    for _, n in ipairs(names) do
+                        entries[#entries + 1] = { name = n, active = (n == active) }
+                    end
+                    local ok2, json = pcall(hs.json.encode, { entries = entries })
+                    if ok2 and json then
+                        ms.shell.eval("shellReceive('profileList', 'list', " .. json .. ")")
+                    end
+                end,
+
+                libraryActivate = function(data)
+                    if not (data and data.kind and data.slug and ms.package
+                            and ms.package.libraryActivate) then return end
+
+                    local res, err = ms.package.libraryActivate(data.kind, data.slug)
+                    if not res then
+                        ms.alert("Could not activate:\n" .. tostring(err), 4)
+                        return
+                    end
+
+                    local wasQuick = ms._quickReloading
+                    ms._quickReloading = true
+                    if data.kind == "macro" then
+                        if ms.ui._actions.reloadMacros then pcall(ms.ui._actions.reloadMacros) end
+                        if ms._loadAuthoredSettings then pcall(ms._loadAuthoredSettings) end
+                        if ms._defineAuthoredSettings then pcall(ms._defineAuthoredSettings) end
+                        if ms._loadAuthoredMenus then pcall(ms._loadAuthoredMenus) end
+                    elseif data.kind == "theme" then
+                        if ms.loadTheme then pcall(ms.loadTheme) end
+                        pcall(function() ms.alert:recolor() end)
+                        pcall(function() ms.dev:recolor() end)
+                    end
+                    if ms._soundsDirty and ms._discoverSounds then pcall(ms._discoverSounds) end
+                    if data.kind == "sound" then
+                        pcall(function()
+                            local sa       = ms.soundAssign or {}
+                            local defaults = ms.soundSlotDefaults and ms.soundSlotDefaults() or {}
+                            local preset   = "custom"
+                            local isDefault = next(defaults) ~= nil
+                            for sid, d in pairs(defaults) do
+                                if (sa[sid] or "") ~= (d or "") then isDefault = false break end
+                            end
+                            if isDefault then
+                                preset = "default"
+                            elseif ms.buildSoundPresets then
+                                for _, p in ipairs(ms.buildSoundPresets()) do
+                                    local match = next(p.assigns or {}) ~= nil
+                                    for sid, name in pairs(p.assigns or {}) do
+                                        if (sa[sid] or "") ~= (name or "") then match = false break end
+                                    end
+                                    if match then preset = tostring(p.num) break end
+                                end
+                            end
+                            ms._soundPreset = preset
+                            if ms.saveSettings then ms.saveSettings() end
+                        end)
+                    end
+                    ms._quickReloading = wasQuick
+
+                    ms.playSlot("update")
+                    ms.alert((data.name or "Slice") .. " activated.", 3, true)
+                    ms.ui.markDirty()
+                    ms.ui.refresh()
+                    if ms.ui._actions.libraryList then
+                        pcall(ms.ui._actions.libraryList, { kind = data.kind })
+                    end
+                end,
+
+                libraryRemove = function(data)
+                    if not (data and data.kind and data.slug and ms.package
+                            and ms.package.libraryRemove) then return end
+
+                    local ok, err = ms.package.libraryRemove(data.kind, data.slug)
+                    if not ok then
+                        ms.alert("Could not remove:\n" .. tostring(err), 4)
+                        return
+                    end
+                    ms.playSlot("back")
+                    ms.ui._actions.libraryList({ kind = data.kind })
+                end,
+
+                libraryCapture = function(data)
+                    if not (data and data.kind and ms.package and ms.package.libraryCapture) then return end
+
+                    local rec, err = ms.package.libraryCapture(data.kind, data.name)
+                    if not rec then
+                        ms.alert("Could not capture:\n" .. tostring(err), 4)
+                        return
+                    end
+                    ms.playSlot("update")
+                    ms.alert("Saved \"" .. rec.name .. "\" to the library.", 3, true)
+                    ms.ui._actions.libraryList({ kind = data.kind })
+                end,
+
+                libraryRename = function(data)
+                    if not (data and data.kind and data.slug and ms.package
+                            and ms.package.libraryRename) then return end
+                    local rec, err = ms.package.libraryRename(data.kind, data.slug, data.name)
+                    if not rec then
+                        ms.alert("Could not rename:\n" .. tostring(err), 4)
+                        return
+                    end
+                    ms.playSlot("update")
+                    ms.ui._actions.libraryList({ kind = data.kind })
+                end,
+
+                libraryCreateEmpty = function(data)
+                    if not (data and data.kind and ms.package
+                            and ms.package.libraryCreateEmpty) then return end
+                    local rec, err
+                    if data.seed == true and ms.package.libraryCreateSeeded then
+                        rec, err = ms.package.libraryCreateSeeded(data.kind, data.name)
+                    else
+                        rec, err = ms.package.libraryCreateEmpty(data.kind, data.name)
+                    end
+                    if not rec then
+                        ms.alert("Could not create:\n" .. tostring(err), 4)
+                        return
+                    end
+                    ms.playSlot("update")
+                    ms.alert("Created \"" .. rec.name .. "\".", 3, true)
+                    ms.ui._actions.libraryList({ kind = data.kind })
+                end,
+
+                libraryClear = function(data)
+                    if not (data and data.kind and ms.package
+                            and ms.package.libraryClear) then return end
+                    local removed = ms.package.libraryClear(data.kind)
+                    ms.playSlot("reset")
+                    ms.alert(removed .. " " .. tostring(data.kind) .. " pack" ..
+                        (removed == 1 and "" or "s") .. " removed.", 3, true)
+                    ms.ui._actions.libraryList({ kind = data.kind })
+                end,
+            -- END --
+
+            -- Plugins --
+                setPluginEnabled = function(data)
+                    if not (data and data.dir and ms.package and ms.package.setPluginEnabled) then return end
+                    ms.package.setPluginEnabled(data.dir, data.value == true)
+                    if ms.plugins and ms.plugins.apply then
+                        local ok, err = pcall(ms.plugins.apply)
+                        if not ok then print("[MsUI] plugin apply failed: " .. tostring(err)) end
+                    end
+                    ms.ui.markDirty()
+                    ms.ui.refresh()
+                end,
+
+                removePlugin = function(data)
+                    if not (data and data.dir and ms.package and ms.package.removePlugin) then return end
+                    local dir = data.dir
+
+                    ms.playSlot("alert")
+                    ms.ui.modal({
+                        title   = "Remove " .. (data.label or dir) .. "?",
+                        msg     = "The plugin's files are deleted from Spoons/. This cannot be undone.",
+                        confirm = "Remove",
+                        cancel  = "Cancel",
+                    }, function(res)
+                        if not (res and res.confirmed) then return end
+
+                        if ms.plugins and ms.plugins.unload then
+                            pcall(ms.plugins.unload, dir)
+                        end
+
+                        local ok, err = ms.package.removePlugin(dir)
+                        if not ok then
+                            ms.alert("Could not remove plugin:\n" .. tostring(err), 5)
+                            return
+                        end
+
+                        ms.ui.markDirty()
+                        ms.ui.refresh()
+                        ms.alert((data.label or dir) .. " removed.", 4, true)
+                    end)
+                end,
+
+                openPluginsFolder = function()
+                    local dir = os.getenv("HOME") .. "/.hammerspoon/Spoons"
+                    hs.fs.mkdir(dir)
+                    os.execute("open '" .. dir .. "'")
+                end,
+            -- END --
+
+            -- Integrity & Updates --
+                openDevLogs = function()
+                    local logDir = os.getenv("HOME") .. "/Documents/ms_dev_logs/"
+                    hs.fs.mkdir(logDir)
+                    os.execute("open " .. logDir)
+                end,
+
+                trustCurrentVersion = function()
+                    ms.integrity.trustCurrent()
+                    ms.ui.refresh()
+                end,
+
+                deleteTrustedHash = function()
+                    ms.integrity.deleteTrustedHash()
+                    ms.alert("Trusted manifest deleted.\nIntegrity protection is now OFF until you re-trust.", 5)
+                    ms.ui.refresh()
+                end,
+
+                checkIntegrity = function()
+                    local status, cur, trusted = ms.integrity.check()
+                    if status == "trusted" then
+                        ms.alert("\xe2\x9c\x93 ms_core.lua matches trusted hash.\n" .. (cur and cur:sub(1, 16) or "?") .. "\xe2\x80\xa6", 5, true)
+                        ms.ui.refresh()
+                    elseif status == "mismatch" then
+                        hs.reload()
+                    else
+                        ms.alert("No trusted hash on record.\nUse \"Trust Current Version\" to seed trust.", 5)
+                        ms.ui.refresh()
+                    end
+                end,
+
+                openURL = function(data) if data.url then hs.urlevent.openURL(data.url) end end,
+
+                checkForUpdate = function()
+                    if ms._updateChannel == "testing" then
+                        ms.integrity.updateBeta()
+                    else
+                        ms.integrity.update()
+                    end
+                end,
+            -- END --
+
+            -- Dev Panels --
+                openConsole       = function() ms.dev.console.toggle()  end,
+                openWatcher       = function() ms.dev.watcher.toggle()  end,
+                openKeys          = function() ms.dev.keys.toggle()     end,
+                openWindowMonitor = function() ms.dev.window.toggle()   end,
+            -- END --
+
+            -- Binds --
+                startRebind = function(data)
+                    if not data.id then return end
+
+                    if data.systemBind then
+                        local sysDef = ms.systemBinds._defs[data.id]
+                        if not sysDef then return end
+                        local label = sysDef.label
+                        _rebindModal({
+                            label    = label,
+                            current  = _bindDisplay(ms.systemBinds.effective(data.id)),
+                            gamepad  = true,
+                            onCancel = function() _restoreAfterCapture()
+                            ms.ui.refresh() end,
+                            apply    = function(parsed)
+                                ms.systemBinds._config[data.id] = parsed
+                                ms.saveSettings()
+                                ms.playSlot("update")
+                                ms.systemBinds.rebind()
+                            end,
+                        })
+                        return
+                    end
+
+                    local def = ms.registry._defs[data.id]
+                    if not def then return end
+                    local label = def.label or data.id
+                    _rebindModal({
+                        label    = label,
+                        current  = _bindDisplay(ms.effectiveBind(data.id)),
+                        gamepad  = true,
+                        onCancel = function() _restoreAfterCapture()
+                        ms.ui.refresh() end,
+                        validate = function(parsed, bindStr)
+                            local conflictId = ms.bind.siblingConflict(data.id, parsed)
+                            if not conflictId then return nil end
+                            local cLabel = (ms.registry._defs[conflictId] and ms.registry._defs[conflictId].label) or conflictId
+                            return "\"" .. bindStr .. "\" is already used by \"" .. cLabel .. "\"."
+                        end,
+                        apply    = function(parsed)
+                            ms.bindConfig[data.id] = parsed
+                            if not def.system then ms.binds[data.id] = true end
+                            ms.saveSettings()
+                            ms.playSlot("update")
+                            ms.bind.rebind()
+                        end,
+                    })
+                end,
+
+                bindToMacro = function(data)
+                    if not data.id or type(data.targetId) ~= "string" then return end
+                    local def        = ms.registry._defs and ms.registry._defs[data.id]
+                    local targetDef  = ms.registry._defs and ms.registry._defs[data.targetId]
+                    if not def or not targetDef then return end
+                    if data.id == data.targetId then
+                        ms.playSlot("alert")
+                        ms.alert("A macro can't be bound to itself.", 4)
+                        return
+                    end
+                    local visited = {}
+                    local cur = data.targetId
+                    while cur and not visited[cur] do
+                        if cur == data.id then
+                            ms.playSlot("alert")
+                            ms.alert("That would create a bind loop.", 4)
+                            return
+                        end
+                        visited[cur] = true
+                        local c = ms.bindConfig[cur]
+                            or (ms.registry._defs[cur] and ms.registry._defs[cur].default)
+                        cur = (type(c) == "table" and c.type and ms.registry._defs[c.type])
+                            and c.type or nil
+                    end
+                    local existing = ms.bindConfig[data.id]
+                    local mods = (type(data.mods) == "table") and data.mods
+                        or (type(existing) == "table" and type(existing.mods) == "table" and existing.mods)
+                        or {}
+                    ms.bindConfig[data.id] = { type = data.targetId, mods = mods }
+                    if not def.system then ms.binds[data.id] = true end
+                    ms.saveSettings()
+                    ms.playSlot("update")
+                    ms.bind.rebind()
+                    if #mods == 0 then
+                        hs.timer.doAfter(0.15, function()
+                            ms.ui._actions.startModRebind({ id = data.id })
+                        end)
+                        return
+                    end
+                    hs.timer.doAfter(0.1, function()
+                        ms.alert((def.label or data.id) .. " now follows "
+                            .. (targetDef.label or data.targetId) .. ".", 2, true)
+                        ms.ui.refresh()
+                    end)
+                end,
+            -- END --
+
+            -- Authored Settings --
+                resetSetting = function(data)
+                    local key = data.key
+                    local def = ms.macroDefaults or {}
+                    if key == "trackpadMode" then
+                        ms.trackpadMode = (def.trackpadMode == true)
+                        ms.saveSettings()
+                        ms.bind.rebind()
+                    elseif key == "socdEnabled" then
+                        ms.socdEnabled = (def.socdEnabled == true)
+                        ms.saveSettings()
+                        ms.socdApply()
+                    elseif key == "socdMode" then
+                        ms.socdMode = def.socdMode or "lastWins"
+                        ms.saveSettings()
+                    elseif key == "gamepadEnabled" then
+                        ms.gamepadEnabled = (def.gamepadEnabled == true)
+                        if not ms.gamepadEnabled and ms.gamepadStop then ms.gamepadStop() end
+                        ms.saveSettings()
+                        ms.bind.rebind()
+                    elseif key == "soundEnabled" then
+                        ms.soundEnabled = true
+                        ms.saveSettings()
+                    elseif key == "soundVolume" then
+                        ms.soundVolume = 100
+                        ms.saveSettings()
+                    end
+                    ms.playSlot("reset")
+                    ms.ui.refresh()
+                end,
+
+                userSettingChange = function(data)
+                    if not data.key then return end
+                    ms.settings.set(data.key, data.value)
+                    ms.playSlot("update")
+                    ms.ui.refresh()
+                end,
+
+                userSettingAction = function(data)
+                    if not data.key then return end
+                    local def = ms._userSettingIndex[data.key]
+                    if def and def.type == "action" and type(def.onAction) == "function" then
+                        pcall(def.onAction)
+                    end
+                    local sysAction = ms._systemActions and ms._systemActions[data.key]
+                    if type(sysAction) == "function" then pcall(sysAction) end
+                    ms.ui.refresh()
+                end,
+
+                resetUserSetting = function(data)
+                    if not data.key then return end
+                    local def = ms._userSettingIndex[data.key]
+                    if not def or def.default == nil then return end
+                    ms.settings.set(data.key, def.default)
+                    ms.playSlot("reset")
+                    ms.ui.refresh()
+                end,
+
+                runFunction = function(data)
+                    if not data or type(data.id) ~= "string" then return end
+                    if ms.callFn then
+                        local co = coroutine.create(function() ms.callFn(data.id) end)
+                        local ok, err = coroutine.resume(co)
+                        if not ok then print("runFunction: " .. tostring(err)) end
+                    end
+                    ms.playSlot("interact")
+                end,
+
+                setHelperVarValue = function(data)
+                    if not data or type(data.name) ~= "string" then return end
+                    if ms.vars and ms.vars.set then ms.vars.set(data.name, data.value) end
+                    ms.playSlot("update")
+                    if ms.ui.markDirty then ms.ui.markDirty() end
+                    ms.ui.refresh()
+                end,
+
+                addUserSetting = function(data)
+                    local ok, err = ms.addAuthoredSetting(data and data.def)
+                    if ok then
+                        ms.playSlot("update")
+                        ms.ui.refresh()
+                        ms.alert("Setting added to your pack.", 3)
+                    else
+                        ms.playSlot("alert")
+                        ms.alert("Couldn't add setting: " .. (err or "invalid"), 4)
+                    end
+                end,
+
+                removeUserSetting = function(data)
+                    local ok, err = ms.removeAuthoredSetting(data and data.key)
+                    if ok then
+                        ms.playSlot("reset")
+                        ms.ui.refresh()
+                        ms.alert("Tool removed from your pack.", 3)
+                    else
+                        ms.playSlot("alert")
+                        ms.alert("Couldn't remove tool: " .. (err or "invalid"), 4)
+                    end
+                end,
+
+                updateUserSetting = function(data)
+                    local ok, err = ms.updateAuthoredSetting(
+                        data and data.key, data and data.def)
+                    if ok then
+                        ms.playSlot("update")
+                        ms.ui.refresh()
+                        ms.alert("Setting updated.", 3)
+                    else
+                        ms.playSlot("alert")
+                        ms.alert("Couldn't update setting: " .. (err or "invalid"), 4)
+                    end
+                end,
+
+                removeUserSettingByUid = function(data)
+                    local ok, err = ms.removeAuthoredSettingByUid(data and data.uid)
+                    if ok then
+                        ms.playSlot("reset")
+                        ms.ui.refresh()
+                        ms.alert("Item removed from your pack.", 2)
+                    else
+                        ms.playSlot("alert")
+                        ms.alert("Couldn't remove item: " .. (err or "invalid"), 4)
+                    end
+                end,
+
+                reorderUserSettings = function(data)
+                    local ok, err = ms.reorderAuthoredSettings(data and data.order)
+                    if ok then
+                        ms.playSlot("interact")
+                        ms.ui.refresh()
+                    else
+                        ms.playSlot("alert")
+                        ms.alert("Couldn't reorder: " .. (err or "invalid"), 4)
+                    end
+                end,
+
+                addUserMenu = function(data)
+                    local ok, err = ms.addAuthoredMenu(data or {})
+                    if ok then
+                        ms.playSlot("update")
+                        ms.ui.refresh()
+                        ms.alert("Section added.", 2)
+                    else
+                        ms.playSlot("alert")
+                        ms.alert("Couldn't add section: " .. (err or "invalid"), 4)
+                    end
+                end,
+
+                updateUserMenu = function(data)
+                    local ok, err = ms.updateAuthoredMenu(data and data.id, data or {})
+                    if ok then
+                        ms.playSlot("update")
+                        ms.ui.refresh()
+                    else
+                        ms.playSlot("alert")
+                        ms.alert("Couldn't rename section: " .. (err or "invalid"), 4)
+                    end
+                end,
+
+                removeUserMenu = function(data)
+                    local ok, err = ms.removeAuthoredMenu(data and data.id)
+                    if ok then
+                        ms.playSlot("reset")
+                        ms.ui.refresh()
+                        ms.alert("Section removed.", 2)
+                    else
+                        ms.playSlot("alert")
+                        ms.alert("Couldn't remove section: " .. (err or "invalid"), 4)
+                    end
+                end,
+            -- END --
+
+            -- Modal & Bind Config --
+                modalResult = function(data)
+                    if ms.ui._modalCallback then
+                        local cb = ms.ui._modalCallback
+                        ms.ui._modalCallback = nil
+                        pcall(cb, {
+                            confirmed = data.confirmed == true,
+                            value     = type(data.value) == "string" and data.value or "",
+                        })
+                    end
+                end,
+
+                resetBind = function(data)
+                    if not data.id then return end
+
+                    if data.systemBind then
+                        ms.systemBinds._config[data.id] = nil
+                        ms.saveSettings()
+                        ms.systemBinds.rebind()
+                        ms.playSlot("reset")
+                        local def = ms.systemBinds._defs[data.id]
+                        hs.timer.doAfter(0.1, function()
+                            ms.alert((def and def.label or data.id) .. " reset to default.", 2, true)
+                            ms.ui.refresh()
+                        end)
+                        return
+                    end
+
+                    local def = ms.registry._defs[data.id]
+                    if not def then return end
+                    ms.bindConfig[data.id] = nil
+                    local restored = ms.effectiveBind(data.id) ~= nil
+                    if not restored then ms.binds[data.id] = false end
+                    ms.saveSettings()
+                    ms.bind.rebind()
+                    ms.playSlot("reset")
+                    hs.timer.doAfter(0.1, function()
+                        ms.alert((def.label or data.id) .. (restored
+                            and " reset to default."
+                            or " has no default bind, disabled."), 2, true)
+                        ms.ui.refresh()
+                    end)
+                end,
+
+                setModifier = function(data)
+                end,
+
+                clearModifier = function(data)
+                    if not data.id then return end
+                    local def = ms.registry._defs and ms.registry._defs[data.id]
+                    if not def or not def.default then return end
+                    ms.bindConfig[data.id] = nil
+                    ms.saveSettings()
+                    ms.bind.rebind()
+                    ms.playSlot("reset")
+                    hs.timer.doAfter(0.1, function()
+                        ms.alert((def.label or data.id) .. " reset to default.", 2, true)
+                        ms.ui.refresh()
+                    end)
+                end,
+
+                startModRebind = function(data)
+                    if not data.id then return end
+                    local def = ms.registry._defs[data.id]
+                    if not def then return end
+                    local curCfg  = ms.bindConfig[data.id] or def.default
+                    if not curCfg then return end
+                    local label = def.label or data.id
+                    local curMods = curCfg and curCfg.mods or {}
+                    local cur     = curMods[1]
+                    local curType = curCfg.type or (def.default and def.default.type)
+
+                    ms.alert("Modifier for \"" .. label .. "\""
+                        .. "\nCurrent: " .. (cur or "unset")
+                        .. "\nPress a key, Backspace to clear, Escape to cancel.", 15, false, { id = "_rebind" })
+
+                    ms._inputOpen = true
+                    ms.ui._open   = false
+
+                    local capture, cancelTimer
+                    local prevFlags = {}
+
+                    local function finish(newKey, cancelled)
+                        ms._inputOpen = false
+                        if not cancelled then
+                            if newKey then
+                                ms.bindConfig[data.id] = {
+                                    type = curType,
+                                    mods = { newKey },
+                                }
+                            else
+                                ms.bindConfig[data.id] = {
+                                    type = curType,
+                                    mods = {},
+                                }
+                            end
+                            ms.saveSettings()
+                            ms.bind.rebind()
+                            ms.playSlot(newKey and "update" or "reset")
+                        end
+                        ms.ui.ensureVisible()
+                        hs.timer.doAfter(0.1, function()
+                            if not cancelled then
+                                if newKey then
+                                    ms.alert("Modifier set to: " .. newKey, 3, true, { id = "_rebind" })
+                                else
+                                    ms.alert("Modifier cleared.", 3, true, { id = "_rebind" })
+                                end
+                            else
+                                ms.alert("Modifier rebind cancelled.", 2, false, { id = "_rebind" })
+                            end
+                            ms.ui.refresh()
+                        end)
+                    end
+
+                    capture = hs.eventtap.new({
+                        hs.eventtap.event.types.keyDown,
+                        hs.eventtap.event.types.flagsChanged,
+                    }, function(event)
+                        local t     = event:getType()
+                        local flags = event:getFlags()
+
+                        if t == hs.eventtap.event.types.flagsChanged then
+                            local newMod = nil
+                            if flags.shift and not prevFlags.shift then newMod = "shift"
+                            elseif flags.alt   and not prevFlags.alt   then newMod = "alt"
+                            elseif flags.ctrl  and not prevFlags.ctrl  then newMod = "ctrl"
+                            elseif flags.cmd   and not prevFlags.cmd   then newMod = "cmd" end
+                            prevFlags = flags
+                            if not newMod then return false end
+                            capture:stop()
+                            capture = nil
+                            cancelTimer:stop()
+                            finish(newMod, false)
+                            return false
+                        end
+
                         capture:stop()
                         capture = nil
-                        finish(nil, true)
+                        cancelTimer:stop()
+                        local keyCode = event:getKeyCode()
+                        if keyCode == 53 and not (flags.cmd or flags.alt or flags.ctrl or flags.shift) then
+                            finish(nil, true)
+                        elseif keyCode == 51 then
+                            finish(nil, false)
+                        else
+                            local keyName = hs.keycodes.map[keyCode]
+                            finish(keyName or nil, keyName == nil)
+                        end
+                        return true
+                    end)
+
+                    capture:start()
+                    cancelTimer = hs.timer.doAfter(15, function()
+                        if capture then
+                            capture:stop()
+                            capture = nil
+                            finish(nil, true)
+                        end
+                    end)
+                end,
+            -- END --
+
+            -- Sound Presets --
+                setSoundPreset = function(data)
+                    if not data.assigns or type(data.assigns) ~= "table" then return end
+                    ms.soundAssign = ms.soundAssign or {}
+                    for slotId, soundName in pairs(data.assigns) do
+                        ms.soundAssign[slotId] = soundName
                     end
-                end)
-            end,
+                    ms._soundPreset = data.preset or "default"
+                    ms.saveSettings()
+                    ms.playSlot("interact")
+                    ms.ui.refresh()
+                end,
 
-            setSoundPreset = function(data)
-                if not data.assigns or type(data.assigns) ~= "table" then return end
-                ms.soundAssign = ms.soundAssign or {}
-                for slotId, soundName in pairs(data.assigns) do
-                    ms.soundAssign[slotId] = soundName
-                end
-                ms._soundPreset = data.preset or "default"
-                ms.saveSettings()
-                ms.playSlot("interact")
-                ms.ui.refresh()
-            end,
-
-            clearSoundPreset = function(data)
-                if not data.slots or type(data.slots) ~= "table" then return end
-                ms.soundAssign = ms.soundAssign or {}
-                for _, slotId in ipairs(data.slots) do
-                    ms.soundAssign[slotId] = nil
-                end
-                ms._soundPreset = "custom"
-                ms.saveSettings()
-                ms.playSlot("interact")
-                ms.ui.refresh()
-            end,
+                clearSoundPreset = function(data)
+                    if not data.slots or type(data.slots) ~= "table" then return end
+                    ms.soundAssign = ms.soundAssign or {}
+                    for _, slotId in ipairs(data.slots) do
+                        ms.soundAssign[slotId] = nil
+                    end
+                    ms._soundPreset = "custom"
+                    ms.saveSettings()
+                    ms.playSlot("interact")
+                    ms.ui.refresh()
+                end,
+            -- END --
         }
 
         do

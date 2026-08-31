@@ -190,7 +190,6 @@
         bar.appendChild(seg(TYPES, S.type, (v) => { S.type = v; renderResults(); }));
 
         bar.appendChild(actionBtn("Refresh", "", () => {
-            playSlot("interact");
             requestCatalog({ force: true });
         }));
 

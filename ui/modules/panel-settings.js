@@ -150,10 +150,18 @@
 
             // Sound //
             const _lastSlot = {};
+            let _lastNonHoverAt = 0;
             function playSlot(slot) {
                 if (_dragging) return;
                 if (slot === "hover" && !document.hasFocus()) return;
                 const now = Date.now();
+                // A "hover" firing right after a click is the synthetic mouseenter
+                // a re-render throws when a fresh button lands under the stationary
+                // cursor (e.g. Browse's Refresh rebuilds its own toolbar). A real
+                // hover needs pointer movement, which can't happen this fast at the
+                // same spot -- so swallow hover briefly after any deliberate slot.
+                if (slot === "hover" && now - _lastNonHoverAt < 250) return;
+                if (slot !== "hover") _lastNonHoverAt = now;
                 if (now - (_lastSlot[slot] || 0) < 50) return;
                 _lastSlot[slot] = now;
                 sendToHost({ action: "playSlot", slot });
