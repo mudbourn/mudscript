@@ -120,6 +120,18 @@ fi
 # Copy MANIFEST.json so version tracking stays in sync.
 cp "$REPO/MANIFEST.json" "$HS/MANIFEST.json" 2>/dev/null || true
 
+# Bundled registry index: ship the CURRENT signed registry/index.json as the
+# offline / first-paint source the Browse client reads at data/registry_index.json.
+# It is signed and re-verified by the client against the shipped public key, so the
+# only correct bytes are the source-of-truth; a stale hand-committed copy has a body
+# that no longer matches its own signature -> verify fails -> Browse shows no
+# packages (bit the Windows port, which relies on this file when the network
+# refresh is unavailable). Sync it on every deploy.
+mkdir -p "$HS/data"
+if [ -f "$REPO/registry/index.json" ]; then
+    cp "$REPO/registry/index.json" "$HS/data/registry_index.json"
+fi
+
 # Increment build number (resets when stable version changes).
 BUILD_NUM_FILE="$HS/data/.ms_build_num"
 BUILD_BASE_FILE="$HS/data/.ms_build_base"
