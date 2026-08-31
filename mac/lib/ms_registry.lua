@@ -91,13 +91,15 @@ YQIDAQAB
         -- Rebuild the exact bytes the registry signer hashed and verify the RSA
         -- signature with openssl. The signer runs `jq -c -S '{formatVersion,
         -- generated, entries}'` (see bin/registry_sign.sh); that canonical form
-        -- -- compact, recursively key-sorted, raw UTF-8, integers with no
-        -- fractional part, plus jq's trailing newline -- is exactly what
-        -- hs.json.encode(payload) .. "\n" already produces byte-for-byte
-        -- (proven against the live signature). Canonicalizing in-process drops
-        -- the hard dependency on `jq`, which is absent on Windows -- its absence
-        -- made every verify fail and served an EMPTY registry (no browse, no
-        -- installs). openssl (on PATH here and on macOS) does the base64 decode
+        -- -- compact, recursively key-sorted, raw UTF-8, forward slashes NOT
+        -- escaped, integers with no fractional part, plus jq's trailing newline.
+        -- hs.json.encode CANNOT reproduce it: NSJSONSerialization (which backs it)
+        -- neither sorts keys nor leaves slashes unescaped (it emits `https:\/\/`),
+        -- so every byte comparison failed and served an EMPTY registry (no browse,
+        -- no installs). canonicalJSON() below rebuilds the jq -c -S bytes in pure
+        -- Lua, which also keeps the `jq` dependency out of the client (it is absent
+        -- on Windows and off Hammerspoon's PATH on macOS).
+        -- openssl (on PATH here and on macOS) does the base64 decode
         -- and the verify, so no platform-specific base64 flags (-D vs -d, the
         -- macOS-only -i/-o) are needed either.
         -- openssl drives signature verification; the Windows POSIX-shell path cannot
@@ -116,6 +118,64 @@ YQIDAQAB
             return _opensslOK
         end
 
+        -- Canonical JSON identical to `jq -c -S`, byte-for-byte: object keys sorted
+        -- by codepoint (Lua's default string compare is a byte compare, which equals
+        -- codepoint order for UTF-8), no insignificant whitespace, forward slashes
+        -- left unescaped, integers printed without a decimal point, and UTF-8 passed
+        -- through verbatim (jq -c is not --ascii-output). This is the byte sequence
+        -- the signer hashed; hs.json.encode is not a substitute (see the note above).
+        local function canonEscape(s)
+            return (s:gsub('[%z\1-\31\\"]', function(c)
+                local b = string.byte(c)
+                if     c == '"'  then return '\\"'
+                elseif c == '\\' then return '\\\\'
+                elseif b == 8    then return '\\b'
+                elseif b == 9    then return '\\t'
+                elseif b == 10   then return '\\n'
+                elseif b == 12   then return '\\f'
+                elseif b == 13   then return '\\r'
+                else                  return string.format('\\u%04x', b) end
+            end))
+        end
+
+        local function canonNumber(n)
+            if n ~= n or n == math.huge or n == -math.huge then return "null" end
+            if n == math.floor(n) and math.abs(n) < 1e15 then
+                return string.format("%.0f", n)   -- integer, no fractional part
+            end
+            return string.format("%.17g", n)
+        end
+
+        local function canonicalJSON(v)
+            local t = type(v)
+            if t == "string" then
+                return '"' .. canonEscape(v) .. '"'
+            elseif t == "number" then
+                return canonNumber(v)
+            elseif t == "boolean" then
+                return v and "true" or "false"
+            elseif t == "table" then
+                local n = #v
+                -- Positive array length => JSON array. Empty tables serialise as
+                -- an object ({}); the signed index carries no empty arrays, so the
+                -- object/array ambiguity of an empty Lua table never bites.
+                if n > 0 then
+                    local parts = {}
+                    for i = 1, n do parts[i] = canonicalJSON(v[i]) end
+                    return "[" .. table.concat(parts, ",") .. "]"
+                end
+                local keys = {}
+                for k in pairs(v) do keys[#keys + 1] = k end
+                table.sort(keys)
+                local parts = {}
+                for _, k in ipairs(keys) do
+                    parts[#parts + 1] = '"' .. canonEscape(k) .. '":' .. canonicalJSON(v[k])
+                end
+                return "{" .. table.concat(parts, ",") .. "}"
+            end
+            return "null"   -- nil / hs.json null sentinel / unsupported
+        end
+
         local function verifySignature(doc)
             if type(doc) ~= "table" then return false end
             if type(doc.signature) ~= "string" or doc.signature == "" then
@@ -130,7 +190,7 @@ YQIDAQAB
                 generated     = doc.generated,
                 entries       = doc.entries,
             }
-            local okEncode, canon = pcall(hs.json.encode, payload, false)
+            local okEncode, canon = pcall(canonicalJSON, payload)
             if not okEncode or type(canon) ~= "string" or canon == "" then
                 return false
             end

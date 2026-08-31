@@ -337,6 +337,7 @@
                 // animated title never showed (slow/heavy-load boot) and put up
                 // the plain compatibility title in its place.
                 ensureBrandFallback();
+                ensureProfileFallback();
             }
 
             // Reveal the compatibility title only if the animated #brand never
@@ -348,6 +349,18 @@
                 if (!compat) return;
                 if (brand && brand.classList.contains("visible")) return;
                 compat.classList.add("visible");
+            }
+
+            // Profile-name counterpart of ensureBrandFallback: reveal the name if
+            // it never faded in (showProfile() can no-op when it fires before the
+            // page is ready, the same slow-boot race the brand hits). Idempotent;
+            // a no-op once the name is up, or while no name text has been set yet.
+            function ensureProfileFallback() {
+                var el = document.getElementById("profile-name");
+                if (!el) return;
+                if (el.classList.contains("visible")) return;
+                if (!el.textContent) return;   // nothing to reveal yet
+                el.classList.add("visible");
             }
 
             /* -- Progress -- */
@@ -376,7 +389,16 @@
             /* -- Profile name -- */
             function setProfileName(name) {
                 var el = document.getElementById("profile-name");
-                if (el && name) el.textContent = name;
+                if (el && name) {
+                    el.textContent = name;
+                    // If the name arrived late (e.g. macros loaded slowly, so the
+                    // re-asserted pushMeta lands after the 2.4s reveal beat), don't
+                    // wait for a reveal that already fired — show it now.
+                    var content = document.getElementById("content");
+                    if (content && content.classList.contains("visible")) {
+                        el.classList.add("visible");
+                    }
+                }
             }
 
             /* -- Suppress context menu -- */

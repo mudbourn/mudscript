@@ -86,6 +86,13 @@ return function(ms)
                         if _lWebView then
                             pcall(function() _lWebView:evaluateJavaScript("showBrand()") end)
                         end
+                        -- Re-assert profile/creator TEXT too. When the choreography
+                        -- ran off the 0.5s fallback timer (page not yet ready), its
+                        -- setProfileName/setCreator calls hit an unloaded page and
+                        -- no-op'd, leaving the name permanently blank — the profile
+                        -- equivalent of the brand race above. Now that the page is
+                        -- proven ready, push the meta again (idempotent).
+                        ms.loading.pushMeta()
                     else
                         _startBootChoreography()
                     end
