@@ -111,9 +111,17 @@ YQIDAQAB
         local function opensslAvailable()
             if not _opensslChecked then
                 _opensslChecked = true
+                -- macOS ships LibreSSL as /usr/bin/openssl (what hs.execute
+                -- resolves), whose `openssl version` prints "LibreSSL x.y.z" --
+                -- NOT "OpenSSL". Matching only "OpenSSL" made the probe report
+                -- unavailable, so verifySignature bailed and every strict adopt
+                -- failed with "Index signature did not verify" -> empty library.
+                -- LibreSSL provides the same `base64`/`dgst -verify` CLI we use
+                -- (confirmed verifying the live signature), so accept both.
                 local out, ok = hs.execute("openssl version 2>/dev/null")
                 _opensslOK = (ok and type(out) == "string"
-                    and out:find("OpenSSL") ~= nil) or false
+                    and (out:find("OpenSSL") ~= nil
+                        or out:find("LibreSSL") ~= nil)) or false
             end
             return _opensslOK
         end
