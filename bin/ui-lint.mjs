@@ -282,6 +282,119 @@ for (const file of luaFiles) {
     }
 }
 
+// ── Rule 4 — scroll container without a themed scrollbar ─────────────────────
+// Windows WebView2 paints its default (boxy, white) scrollbar on any element
+// with overflow:auto/scroll/overlay that themes neither a ::-webkit-scrollbar
+// rule nor the standard scrollbar-color/scrollbar-width; macOS hides the bar
+// behind an overlay either way, so the gap is invisible there. Coverage is
+// matched on the SUBJECT compound's class/id tokens: a ::-webkit-scrollbar rule
+// whose subject tokens are a subset of the scroll container's subject tokens
+// covers it, so a `.data-scroll::-webkit-scrollbar` rule in the shell dresses a
+// module-created `.panel .data-scroll.active`. Inline JS styles
+// (el.style.overflow = …) are themed via a class and cannot be resolved
+// statically, so they are out of scope here.
+const SB_SELECTOR = /([^{}\n,]+)::-webkit-scrollbar/g;
+
+// The class/id tokens of a selector's SUBJECT (its last combinator chunk), e.g.
+// ".panel .data-scroll.active:hover" -> { ".data-scroll", ".active" }.
+// Element-only subjects (body, div) yield an empty set and never match.
+function subjectTokens(sel) {
+    const base = sel.replace(/::[\w-].*$/, "").replace(/:[\w-]+(\([^)]*\))?/g, "");
+    const chunks = base.trim().split(/[\s>+~]+/).filter(Boolean);
+    const subject = chunks[chunks.length - 1] || "";
+    return new Set(subject.match(/[.#][\w-]+/g) || []);
+}
+
+// Every scrollbar rule's SUBJECT token-set, across all files. A scroll container
+// is covered when one of these sets is a subset of its own subject tokens (so a
+// `.data-scroll::-webkit-scrollbar` rule covers `.panel .data-scroll.active`).
+const styledScroll = [];
+for (const file of files) {
+    const src = readFileSync(file, "utf8");
+    let m;
+    SB_SELECTOR.lastIndex = 0;
+    while ((m = SB_SELECTOR.exec(src)) !== null) {
+        for (const member of m[1].split(",")) {
+            const set = subjectTokens(member);
+            if (set.size > 0) styledScroll.push(set);
+        }
+    }
+}
+
+function scrollThemed(overflowSubject) {
+    if (overflowSubject.size === 0) return true;   // element-only: not our call
+    for (const styled of styledScroll) {
+        let subset = true;
+        for (const t of styled) { if (!overflowSubject.has(t)) { subset = false; break; } }
+        if (subset) return true;
+    }
+    return false;
+}
+
+const OVERFLOW_SCROLL = /overflow(-[xy])?\s*:\s*(auto|scroll|overlay)/i;
+const INLINE_STYLE = /\.style\b|cssText|setProperty\(\s*["']overflow/;
+
+// A CSS selector line that opens a rule: ends before a `{`, starts like a
+// selector, and carries none of the JS tokens that make a `{` a code block.
+function selectorOpener(line) {
+    if (!line.includes("{")) return null;
+    const head = line.slice(0, line.indexOf("{"));
+    if (/[()=`]|=>|\b(function|if|for|while|return|switch|else|const|let|var)\b/.test(head)) {
+        return null;
+    }
+    const t = head.trim();
+    if (!t || !/^[.#:[\w*]/.test(t)) return null;
+    return t;
+}
+
+for (const file of files) {
+    const lines = readFileSync(file, "utf8").split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (!OVERFLOW_SCROLL.test(line) || INLINE_STYLE.test(line)) continue;
+        if (isComment(line)) continue;
+
+        const allowed = /ui-lint-allow/.test(line)
+            || (i > 0 && /ui-lint-allow/.test(lines[i - 1]))
+            || (i > 1 && /ui-lint-allow/.test(lines[i - 2]));
+        if (allowed) continue;
+
+        // Owning selector + the line its rule opens on: on this same line
+        // (`.foo { overflow… }`) or the nearest rule opener above, stopping if we
+        // leave the block first.
+        let sel = null;
+        let openIdx = i;
+        const sameLine = line.match(/([.#:[][^{};]*)\{/);
+        if (sameLine) {
+            sel = sameLine[1].trim();
+        } else {
+            for (let k = i; k >= 0 && k > i - 40; k--) {
+                if (k < i && /^\s*\}/.test(lines[k])) break;
+                const s = selectorOpener(lines[k]);
+                if (s) { sel = s; openIdx = k; break; }
+            }
+        }
+        if (!sel) continue;
+
+        // Standard scrollbar-color / scrollbar-width in the SAME rule block themes
+        // the bar directly (Chromium/WebView2 honors both), so it is not our gap.
+        let blockText = "";
+        for (let k = openIdx; k < lines.length && k < openIdx + 60; k++) {
+            blockText += lines[k] + "\n";
+            if (lines[k].includes("}")) break;
+        }
+        if (/scrollbar-(color|width)\s*:/i.test(blockText)) continue;
+
+        // Or a ::-webkit-scrollbar rule whose subject covers this one (any member).
+        const members = sel.split(",").map((s) => s.trim()).filter(Boolean);
+        if (members.length === 0) continue;
+        if (members.some((mem) => scrollThemed(subjectTokens(mem)))) continue;
+
+        report(file, i + 1, "unthemed-scrollbar", line,
+            `Scroll container (${sel.slice(0, 40)}) has no themed scrollbar — Windows WebView2 draws its default boxy white bar. Add a ::-webkit-scrollbar/-thumb/-track rule or scrollbar-color/scrollbar-width, or ui-lint-allow if intended.`);
+    }
+}
+
 // ── Report ──────────────────────────────────────────────────────────────────
 if (findings.length === 0) {
     console.log("ui-lint: clean — no hardcoded theme values or native controls found.");
