@@ -17,12 +17,12 @@
       "id": "profile-combat-warriors-macros-profile",
       "type": "profile",
       "name": "Combat Warriors Macros profile",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "author": "mudbourn",
       "website": "https://mudbourn.info",
-      "sha256": "88c2c8e7511580391f999764516f5d6e3001464634b8b6ba149c59ac14a04e5d",
+      "sha256": "96660d81a2b5a26f2ae825581ca4f7906d1064546e93d6c94d04343559eafb87",
       "url": "https://github.com/mudbourn/mudscript/releases/download/packages/Combat.Warriors.Macros-profile.mspkg",
-      "size": 3689640,
+      "size": 3689448,
       "components": {
         "theme": {
           "includesSounds": false
