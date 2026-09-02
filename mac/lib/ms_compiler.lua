@@ -633,6 +633,13 @@
                 local steps  = macroDef.steps or {}
                 local bind   = macroDef.bind or {}
                 local cooldown = macroDef.cooldown
+                local shared = macroDef.shared
+                if type(shared) == "string" then
+                    shared = shared:gsub('[%z\1-\31"\\]', ""):gsub("^%s+", ""):gsub("%s+$", "")
+                    if shared == "" then shared = nil end
+                else
+                    shared = nil
+                end
 
                 assert(id:match("^[%a_][%w_]*$"),
                     "ms.compiler.compile: invalid macro id '" .. id .. "' (must be a valid Lua identifier)")
@@ -656,6 +663,9 @@
                 lines[#lines + 1] = indent(1) .. 'label   = "' .. name .. '",'
                 if cooldown then
                     lines[#lines + 1] = indent(1) .. "cooldown = " .. tostring(cooldown) .. ","
+                end
+                if shared then
+                    lines[#lines + 1] = indent(1) .. 'shared  = "' .. shared .. '",'
                 end
                 if bind.type or bind.key then
                     lines[#lines + 1] = indent(1) .. "default = {"
@@ -1130,6 +1140,7 @@
                     bind     = bind,
                     steps    = macroDef.steps,
                     cooldown = macroDef.cooldown,
+                    shared   = macroDef.shared,
                 }
 
                 os.execute("mkdir -p '" .. dataDir .. "'")

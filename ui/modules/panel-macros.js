@@ -3204,6 +3204,8 @@
 
     // Class field: marks the macro MAIN or OPTIONAL, driving its bind group.
     var _currentMacroClass = "main";   // "main" | "optional"
+    var _currentMacroCooldown = null;
+    var _currentMacroShared = "";
 
     var classLabel = document.createElement("span");
     classLabel.style.cssText = "font-family:inherit;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-left:8px;margin-right:4px";
@@ -3247,6 +3249,56 @@
     function classFromGroup(group) {
         return (typeof group === "string" && /optional/i.test(group)) ? "optional" : "main";
     }
+
+    var metaLabelCss = "font-family:inherit;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-left:8px;margin-right:4px";
+
+    var cooldownLabel = document.createElement("span");
+    cooldownLabel.style.cssText = metaLabelCss;
+    cooldownLabel.textContent = "Cooldown";
+    toolbar.appendChild(cooldownLabel);
+
+    var cooldownInput = document.createElement("input");
+    cooldownInput.className = "macro-name-input";
+    cooldownInput.type = "number";
+    cooldownInput.min = "0";
+    cooldownInput.step = "50";
+    cooldownInput.placeholder = "1000";
+    cooldownInput.title = "Milliseconds the macro stays locked after it fires. Re-triggers within this window are ignored. Blank uses the default of 1000.";
+    cooldownInput.style.width = "68px";
+    cooldownInput.setAttribute("spellcheck", "false");
+    cooldownInput.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
+    cooldownInput.addEventListener("focus", function() { if (window.playSlot) playSlot("interact"); });
+    cooldownInput.addEventListener("input", function() {
+        var raw = cooldownInput.value.trim();
+        _currentMacroCooldown = raw === "" ? null : Math.max(0, parseInt(raw, 10) || 0);
+        _macroDirty = true;
+        updateSaveBtnState();
+    });
+    toolbar.appendChild(cooldownInput);
+
+    var sharedLabel = document.createElement("span");
+    sharedLabel.style.cssText = metaLabelCss;
+    sharedLabel.textContent = "Group";
+    toolbar.appendChild(sharedLabel);
+
+    var sharedInput = document.createElement("input");
+    sharedInput.className = "macro-name-input";
+    sharedInput.type = "text";
+    sharedInput.placeholder = "solo";
+    sharedInput.title = "Macros sharing a group name never run at the same time. Blank keeps this macro isolated to itself.";
+    sharedInput.style.width = "96px";
+    sharedInput.setAttribute("spellcheck", "false");
+    sharedInput.setAttribute("autocomplete", "off");
+    sharedInput.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
+    sharedInput.addEventListener("focus", function() { if (window.playSlot) playSlot("interact"); });
+    sharedInput.addEventListener("input", function() {
+        var clean = sharedInput.value.replace(/[^A-Za-z0-9_ -]/g, "");
+        if (clean !== sharedInput.value) sharedInput.value = clean;
+        _currentMacroShared = clean.trim();
+        _macroDirty = true;
+        updateSaveBtnState();
+    });
+    toolbar.appendChild(sharedInput);
 
     // Right-side action cluster, margin-left:auto pins it right.
     var actions = document.createElement("div");
@@ -4287,6 +4339,10 @@
             _canvas.load([]);
             nameInput.value = "";
             setMacroClass("main");
+            _currentMacroCooldown = null;
+            cooldownInput.value = "";
+            _currentMacroShared = "";
+            sharedInput.value = "";
             _macroDirty = false;
             updateSaveBtnState();
             updateBindBtn();
@@ -4304,6 +4360,10 @@
         nameInput.value = def.name || def.id || "";
         _canvas.load(def.steps || []);
         setMacroClass(classFromGroup(def.group));
+        _currentMacroCooldown = def.cooldown != null ? def.cooldown : null;
+        cooldownInput.value = _currentMacroCooldown != null ? String(_currentMacroCooldown) : "";
+        _currentMacroShared = def.shared || "";
+        sharedInput.value = _currentMacroShared;
         _macroDirty = false;
         updateSaveBtnState();
         macroSelect.value = def.id;
@@ -4370,8 +4430,11 @@
         if (_currentMacroDef && _currentMacroDef.bind) {
             def.bind = _currentMacroDef.bind;
         }
-        if (_currentMacroDef && _currentMacroDef.cooldown) {
-            def.cooldown = _currentMacroDef.cooldown;
+        if (_currentMacroCooldown != null) {
+            def.cooldown = _currentMacroCooldown;
+        }
+        if (_currentMacroShared) {
+            def.shared = _currentMacroShared;
         }
         _currentMacroDef = def;
 
@@ -4395,6 +4458,10 @@
         _canvas.load([]);
         nameInput.value = "";
         setMacroClass("main");
+        _currentMacroCooldown = null;
+        cooldownInput.value = "";
+        _currentMacroShared = "";
+        sharedInput.value = "";
         _macroDirty = false;
         updateSaveBtnState();
         refreshMacroList();
@@ -4414,6 +4481,10 @@
         nameInput.value = "";
         nameInput.focus();
         setMacroClass("main");
+        _currentMacroCooldown = null;
+        cooldownInput.value = "";
+        _currentMacroShared = "";
+        sharedInput.value = "";
         _macroDirty = false;
         updateSaveBtnState();
         macroSelect.value = "";
