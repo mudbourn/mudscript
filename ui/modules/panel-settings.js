@@ -3284,6 +3284,11 @@
                         "--radius-s",
                         Math.max(0, t.radius - 1) + "px",
                     );
+                    // The window frame corner + its outline read --ms-window-radius, so
+                    // update it here too or the edge stays at its boot radius while the
+                    // content re-rounds. windowRadius overrides when explicitly set.
+                    var wr = (t.windowRadius !== undefined) ? t.windowRadius : t.radius;
+                    r.setProperty("--ms-window-radius", wr + "px");
                 }
                 applyFont(t.font, t.fontURL);
             }

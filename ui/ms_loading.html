@@ -302,7 +302,8 @@
                 if (t.warning) r.setProperty("--warning", t.warning);
                 if (t.text) r.setProperty("--text", t.text);
                 if (t.radius !== undefined) r.setProperty("--radius", t.radius + "px");
-                if (t.windowRadius !== undefined) r.setProperty("--ms-window-radius", t.windowRadius + "px");
+                var wr = t.windowRadius !== undefined ? t.windowRadius : t.radius;
+                if (wr !== undefined) r.setProperty("--ms-window-radius", wr + "px");
                 if (t.font) r.setProperty("--font", t.font + ', "Almendra", Arial, sans-serif');
             }
 

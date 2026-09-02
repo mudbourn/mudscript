@@ -131,6 +131,16 @@ return function(ms)
                 if _G._bootChoreographyStarted then return end
                 _G._bootChoreographyStarted = true
 
+                -- Anchor ms_core's progress/announce sequence to THIS moment (the brand
+                -- intro actually beginning), not to a fixed wall-clock from init. On
+                -- WebView2 this fires late (async controller bring-up); ms_core then
+                -- follows with its own lead so the two clocks can't drift. See the
+                -- "Boot-sequence anchor" block in ms_core. Fired before the intro work
+                -- below so the lead is measured from the same instant on both engines.
+                if type(ms._onBootAnchor) == "function" then
+                    pcall(ms._onBootAnchor)
+                end
+
                 _G._loadTimers = {}
 
                 pcall(function() ms.loadTheme() end)

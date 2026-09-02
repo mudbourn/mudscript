@@ -1890,7 +1890,7 @@ Integer, `0`–`40`. Controls `--radius` (and derives `--radius-s` as `radius - 
 
 ### `windowRadius`
 
-Integer, `0`–`40`. Controls the actual rounded corner applied to each webview panel window (via `ms.theme.applyWindowRadius`), separate from the CSS `--radius` used inside the panel content. Default: `8`.
+Integer, `0`–`40`. Optional override for the rounded corner applied to each webview panel window frame (via `ms.theme.applyWindowRadius`). When unset the window frame follows the theme `radius` (the Appearance "Corner radius" value), so the frame and the inner content round to the same value. Set this only to make the window frame differ from the content radius.
 
 ```json
 { "windowRadius": 8 }

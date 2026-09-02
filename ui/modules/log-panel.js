@@ -84,6 +84,9 @@ function applyTheme(t) {
     if (t.radius !== undefined) {
         r.setProperty("--radius", t.radius + "px");
         r.setProperty("--radius-s", Math.max(0, t.radius - 1) + "px");
+        // Popout frame corner + outline read --ms-window-radius; keep it in step.
+        var wr = (t.windowRadius !== undefined) ? t.windowRadius : t.radius;
+        r.setProperty("--ms-window-radius", wr + "px");
     }
     if (t.font) {
         if (t.fontURL) {
@@ -185,6 +188,11 @@ function createLogPanel(config) {
             // Running inside the Macro Lab shell, route through msShell channel
             const data = typeof msg === "string" ? JSON.parse(msg) : msg;
             window.shellPost(channel, data.action || "unknown", data);
+        } else if (window.chrome && window.chrome.webview) {
+            // Popout on WebView2: :url() navigation gets no webkit shim, so post to the
+            // native host channel directly. This is the single per-webview handler, which
+            // is the popout's own usercontent callback.
+            try { window.chrome.webview.postMessage(s); } catch (e) {}
         } else {
             try {
                 window.webkit.messageHandlers[channel].postMessage(s);

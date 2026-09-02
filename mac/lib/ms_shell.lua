@@ -482,8 +482,9 @@
                 if f then
                     local html = f:read("*all")
                     f:close()
-                    local r = (ms._theme and ms._theme.windowRadius)
-                        or (ms._themeDefaults and ms._themeDefaults.windowRadius) or 0
+                    local r = (ms._theme and (ms._theme.windowRadius or ms._theme.radius))
+                        or (ms._themeDefaults and (ms._themeDefaults.windowRadius or ms._themeDefaults.radius))
+                        or 0
                     local inject = string.format(
                         '<style>html{background:transparent!important;--ms-window-radius:%dpx;}</style>',
                         r
@@ -609,6 +610,7 @@
 
         -- show --
             ms.shell.show = function()
+                print("[shell] TRACE show() ENTER visible=" .. tostring(ms._shellState and ms._shellState.visible))
                 if not _shellView then ms.shell.init() end
                 if _shellFadeTimer then
                     _shellFadeTimer:stop()
@@ -676,6 +678,7 @@
 
         -- hide --
             ms.shell.hide = function()
+                print("[shell] TRACE hide() ENTER visible=" .. tostring(ms._shellState and ms._shellState.visible))
                 if _shellView then
                     if _shellFadeTimer then
                         _shellFadeTimer:stop()
@@ -780,6 +783,22 @@
                         pop.view:evaluateJavaScript(
                             "applyTheme(" .. themeJson .. ")")
                     end)
+                end
+            end
+        end
+
+        -- Re-round the shell window and every open popout to the current theme
+        -- corner radius. Called after a live theme change so the native window
+        -- frame tracks the Appearance "Corner radius" slider instead of staying
+        -- at the value baked in when the window was first opened.
+        ms.shell.applyWindowRadius = function()
+            if not (ms.theme and ms.theme.applyWindowRadius) then return end
+            if _shellView then
+                pcall(function() ms.theme.applyWindowRadius(_shellView) end)
+            end
+            for _, pop in pairs(_popouts) do
+                if pop and pop.view then
+                    pcall(function() ms.theme.applyWindowRadius(pop.view) end)
                 end
             end
         end
@@ -1022,8 +1041,9 @@
         -- bakePopOuts --
             ms.shell.bakePopOuts = function()
                 local themeCSS = _buildThemeCSS()
-                local r = (ms._theme and ms._theme.windowRadius)
-                    or (ms._themeDefaults and ms._themeDefaults.windowRadius) or 0
+                local r = (ms._theme and (ms._theme.windowRadius or ms._theme.radius))
+                    or (ms._themeDefaults and (ms._themeDefaults.windowRadius or ms._themeDefaults.radius))
+                    or 0
                 for pid, fileName in pairs(_panelFiles) do
                     local srcPath = hs.configdir .. "/ui/" .. fileName
                     local f = io.open(srcPath, "r")
@@ -1034,7 +1054,8 @@
                             '<style>html,body{background:transparent!important;overflow:hidden;}'
                             .. '#popout-root{display:flex;flex-direction:column;'
                             .. 'width:100%%;height:100%%;'
-                            .. 'background:var(--bg);border-radius:%dpx;overflow:hidden;}'
+                            .. 'background:var(--bg);border-radius:%dpx;overflow:hidden;'
+                            .. 'box-shadow:inset 0 0 0 1px var(--border,rgba(255,255,255,0.09));}'
                             .. ':root{--ms-window-radius:%dpx;}'
                             .. '.resize-zone{position:fixed;z-index:9999;background:transparent;'
                             .. 'transition:background 0.12s ease;}'

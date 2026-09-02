@@ -26,28 +26,154 @@ YQIDAQAB
 -- END Paths --
 
 -- Helpers --
-    local function _hashFile(path)
-        local out = hs.execute("shasum -a 256 '" .. path:gsub("'", "'\\''") .. "' 2>/dev/null")
+    -- Cross-platform shell plumbing. mac/ shells out for hashing and signature
+    -- verification, but those command strings assumed macOS tools -- `shasum`,
+    -- `base64 -D -i/-o`, `jq` -- that are absent or unreachable on Windows, so the
+    -- whole Guardian silently no-op'd there (every hash returned nil -> "error" ->
+    -- skipped, never blocking). These helpers make the SAME checks run on either
+    -- OS. Three portability points below: path form, hash tool, and base64/jq.
 
-        return (out and #out >= 64) and out:sub(1, 64):lower() or nil
+    -- (1) Path form. coreutils `sha256sum` ESCAPES any filename containing a
+    -- backslash: it prefixes the whole output line with '\' and doubles the inner
+    -- backslashes, which shifts the hash column and breaks parsing. On Windows HOME
+    -- is a native path (e.g. C:\srv\...\..) so every path handed to a shell tool
+    -- must be forward-slashed first. On mac paths carry no backslashes -> no-op.
+    local function _shq(p)
+        return "'" .. tostring(p):gsub("\\", "/"):gsub("'", "'\\''") .. "'"
+    end
+
+    -- (2) Hash tool. macOS ships `shasum` (perl) but not `sha256sum`; git-for-
+    -- Windows ships `sha256sum` (coreutils) while its `shasum` (core_perl) is off
+    -- the runtime sh PATH -- the "shasum: command not found" flood. Probe once for
+    -- whichever exists; both print `<64hex>  <path>` over identical bytes, so a
+    -- manifest seeded by shasum (mac) or Get-FileHash (Windows deploy) matches
+    -- either. shasum first keeps mac byte-for-byte identical to before.
+    local _hashCmd
+    local function _hashTool()
+        if _hashCmd ~= nil then return _hashCmd end
+        local out = hs.execute(
+            "command -v shasum >/dev/null 2>&1 && printf '%s' 'shasum -a 256' || "
+            .. "(command -v sha256sum >/dev/null 2>&1 && printf sha256sum || printf '')"
+        )
+        out = out and out:gsub("%s+$", "") or ""
+        _hashCmd = (out ~= "") and out or false
+        return _hashCmd
+    end
+
+    -- Drop a possible coreutils escape prefix, then take the leading 64 hex.
+    local function _parseHash(s)
+        if type(s) ~= "string" then return nil end
+        local h = s:gsub("^\\", ""):match("^(%x+)")
+        return (h and #h >= 64) and h:sub(1, 64):lower() or nil
+    end
+
+    local function _hashFile(path)
+        local tool = _hashTool()
+        if not tool then return nil end
+        local out = hs.execute(tool .. " " .. _shq(path) .. " 2>/dev/null")
+        return _parseHash(out)
     end
 
     local function _hashFilesBatch(paths)
         local out = {}
         if not paths or #paths == 0 then return out end
-        local quoted = {}
+        local tool = _hashTool()
+        if not tool then return out end
+        -- Map the forward-slashed form we pass (and that the tool echoes back) to
+        -- the ORIGINAL path, so callers keep looking up hashed[absPath] unchanged.
+        local norm2orig, quoted = {}, {}
         for i = 1, #paths do
-            quoted[i] = "'" .. paths[i]:gsub("'", "'\\''") .. "'"
+            norm2orig[tostring(paths[i]):gsub("\\", "/")] = paths[i]
+            quoted[i] = _shq(paths[i])
         end
-        local res = hs.execute("shasum -a 256 " .. table.concat(quoted, " ") .. " 2>/dev/null")
+        local res = hs.execute(tool .. " " .. table.concat(quoted, " ") .. " 2>/dev/null")
         if not res then return out end
         for line in res:gmatch("[^\n]+") do
+            line = line:gsub("^\\", "")                       -- drop escape prefix
             local hash, path = line:match("^(%x+)%s+%*?(.+)$")
             if hash and #hash >= 64 and path then
-                out[path] = hash:sub(1, 64):lower()
+                path = path:gsub("\\\\", "/"):gsub("\\", "/") -- unescape / normalise
+                out[norm2orig[path] or path] = hash:sub(1, 64):lower()
             end
         end
         return out
+    end
+
+    -- (3b) Canonical JSON identical to `jq -c -S` byte-for-byte (keys sorted by
+    -- codepoint, no insignificant whitespace, slashes unescaped, integers without
+    -- a decimal point, UTF-8 passed through). Replaces the `jq -c -S` shell-out in
+    -- the file-manifest signature check -- jq is absent on Windows and off the sh
+    -- PATH on macOS. Lifted from ms_registry.lua, which verifies live signatures
+    -- with these exact bytes.
+    local function _canonEscape(s)
+        return (s:gsub('[%z\1-\31\\"]', function(c)
+            local b = string.byte(c)
+            if     c == '"'  then return '\\"'
+            elseif c == '\\' then return '\\\\'
+            elseif b == 8    then return '\\b'
+            elseif b == 9    then return '\\t'
+            elseif b == 10   then return '\\n'
+            elseif b == 12   then return '\\f'
+            elseif b == 13   then return '\\r'
+            else                  return string.format('\\u%04x', b) end
+        end))
+    end
+    local function _canonJSON(v)
+        local t = type(v)
+        if t == "string" then return '"' .. _canonEscape(v) .. '"'
+        elseif t == "boolean" then return v and "true" or "false"
+        elseif t == "number" then
+            if v ~= v or v == math.huge or v == -math.huge then return "null" end
+            if v == math.floor(v) and math.abs(v) < 1e15 then
+                return string.format("%.0f", v)
+            end
+            return string.format("%.17g", v)
+        elseif t == "table" then
+            local n = #v
+            if n > 0 then
+                local parts = {}
+                for i = 1, n do parts[i] = _canonJSON(v[i]) end
+                return "[" .. table.concat(parts, ",") .. "]"
+            end
+            local keys = {}
+            for k in pairs(v) do keys[#keys + 1] = k end
+            table.sort(keys)
+            local parts = {}
+            for _, k in ipairs(keys) do
+                parts[#parts + 1] = '"' .. _canonEscape(k) .. '":' .. _canonJSON(v[k])
+            end
+            return "{" .. table.concat(parts, ",") .. "}"
+        end
+        return "null"
+    end
+
+    -- Ensure the data dir via the POSIX shell (os.execute would hit cmd.exe on
+    -- Windows and fail on `mkdir -p`). Cheap and idempotent; the dir normally
+    -- exists already.
+    local function _ensureDataDir()
+        hs.execute("mkdir -p " .. _shq(_dataPath))
+    end
+
+    -- Decode a base64 blob with openssl (identical flags on every platform),
+    -- replacing `base64 -D -i/-o` whose decode flags are macOS-only. Writes bare
+    -- \n via "wb": on Windows text-mode "w" would CRLF-rewrite the signed message
+    -- and every verify would fail (the same bug fixed in the registry client).
+    local function _writeBin(path, body)
+        local f = io.open(path, "wb")
+        if not f then return false end
+        f:write(body); f:close()
+        return true
+    end
+    local function _b64decode(b64Path, outPath)
+        hs.execute("openssl base64 -d -A -in " .. _shq(b64Path)
+            .. " -out " .. _shq(outPath) .. " 2>/dev/null")
+    end
+    local function _opensslVerify(keyPath, sigPath, msgPath)
+        local out, ok = hs.execute(
+            "openssl dgst -sha256 -verify " .. _shq(keyPath)
+            .. " -signature " .. _shq(sigPath)
+            .. " " .. _shq(msgPath) .. " 2>&1")
+        return ok and out and out:find("Verified OK") ~= nil
     end
 
     local function _readTrustedManifest()
@@ -197,39 +323,20 @@ YQIDAQAB
         local _sigPath = _dataPath .. "_guardian_sig.bin"
         local _msgPath = _dataPath .. "_guardian_msg.bin"
 
-        os.execute("mkdir -p '" .. _dataPath .. "'")
-
-        local _kf = io.open(_keyPath, "w")
-        if _kf then
-            _kf:write(_publicKey)
-            _kf:close()
-        end
-
-        local _sf = io.open(_sigPath .. ".b64", "w")
-        if _sf then
-            _sf:write(manifest.signature)
-            _sf:close()
-        end
-        hs.execute("base64 -D -i '" .. _sigPath .. ".b64' -o '" .. _sigPath .. "'")
+        _ensureDataDir()
+        _writeBin(_keyPath, _publicKey)
+        _writeBin(_sigPath .. ".b64", manifest.signature)
+        _b64decode(_sigPath .. ".b64", _sigPath)
         os.remove(_sigPath .. ".b64")
+        _writeBin(_msgPath, signTarget:lower())
 
-        local _mf = io.open(_msgPath, "w")
-        if _mf then
-            _mf:write(signTarget:lower())
-            _mf:close()
-        end
-
-        local _out, _ok = hs.execute(
-            "openssl dgst -sha256 -verify '" .. _keyPath ..
-            "' -signature '" .. _sigPath ..
-            "' '" .. _msgPath .. "' 2>&1"
-        )
+        local _verified = _opensslVerify(_keyPath, _sigPath, _msgPath)
 
         os.remove(_keyPath)
         os.remove(_sigPath)
         os.remove(_msgPath)
 
-        return _ok and _out and _out:find("Verified OK") ~= nil
+        return _verified
     end
 
     local function _readFileManifest()
@@ -256,58 +363,31 @@ YQIDAQAB
             generated = fm.generated,
             files     = fm.files,
         }
-        local okEncode, unsorted = pcall(hs.json.encode, signPayload)
-        if not okEncode or not unsorted then return false end
-
-        local _sortTmp = _dataPath .. "_guardian_sort_tmp.json"
-        local _stf = io.open(_sortTmp, "w")
-        if _stf then
-            _stf:write(unsorted)
-            _stf:close()
+        -- Canonicalise in pure Lua (jq -c -S equivalent) instead of shelling out
+        -- to jq, which is absent on Windows and off Hammerspoon's PATH on macOS.
+        local okEnc, minified = pcall(_canonJSON, signPayload)
+        if not okEnc or type(minified) ~= "string" or minified == "" then
+            return false
         end
-        local sortedOut = hs.execute("jq -c -S '.' '" .. _sortTmp .. "' 2>/dev/null")
-        os.remove(_sortTmp)
-        local minified = sortedOut and sortedOut ~= "" and sortedOut:sub(-1) == "\n"
-            and sortedOut:sub(1, -2) or sortedOut
-        if not minified or minified == "" then return false end
 
         local _keyPath = _dataPath .. "_guardian_pub.pem"
         local _sigPath = _dataPath .. "_guardian_sig.bin"
         local _msgPath = _dataPath .. "_guardian_msg.bin"
 
-        os.execute("mkdir -p '" .. _dataPath .. "'")
-
-        local _kf = io.open(_keyPath, "w")
-        if _kf then
-            _kf:write(_publicKey)
-            _kf:close()
-        end
-
-        local _sf = io.open(_sigPath .. ".b64", "w")
-        if _sf then
-            _sf:write(fm.signature)
-            _sf:close()
-        end
-        hs.execute("base64 -D -i '" .. _sigPath .. ".b64' -o '" .. _sigPath .. "'")
+        _ensureDataDir()
+        _writeBin(_keyPath, _publicKey)
+        _writeBin(_sigPath .. ".b64", fm.signature)
+        _b64decode(_sigPath .. ".b64", _sigPath)
         os.remove(_sigPath .. ".b64")
+        _writeBin(_msgPath, minified)
 
-        local _mf = io.open(_msgPath, "w")
-        if _mf then
-            _mf:write(minified)
-            _mf:close()
-        end
-
-        local _out, _ok = hs.execute(
-            "openssl dgst -sha256 -verify '" .. _keyPath ..
-            "' -signature '" .. _sigPath ..
-            "' '" .. _msgPath .. "' 2>&1"
-        )
+        local _verified = _opensslVerify(_keyPath, _sigPath, _msgPath)
 
         os.remove(_keyPath)
         os.remove(_sigPath)
         os.remove(_msgPath)
 
-        return _ok and _out and _out:find("Verified OK") ~= nil
+        return _verified
     end
 
     local function _checkFileManifest()
@@ -346,13 +426,19 @@ YQIDAQAB
     local _spoonsDir  = _home .. "/.hammerspoon/Spoons"
 
     local function _hashSpoonTree(absDir)
+        local tool = _hashTool()
+        if not tool then return nil end
+        -- find emits './relpath' (forward-slash, no backslash) so the per-file
+        -- hashes never trip coreutils escaping; only the cd target needs
+        -- forward-slashing (Windows HOME is a native path). Tool substituted for
+        -- the mac-only `shasum`.
         local out, ok = hs.execute(
-            "cd '" .. absDir .. "' && find . -type f ! -name '.DS_Store' " ..
+            "cd " .. _shq(absDir) .. " && find . -type f ! -name '.DS_Store' " ..
             "! -name '._*' ! -path './__MACOSX/*' " ..
-            "-exec shasum -a 256 {} + 2>/dev/null | LC_ALL=C sort -k2 | shasum -a 256"
+            "-exec " .. tool .. " {} + 2>/dev/null | LC_ALL=C sort -k2 | " .. tool
         )
         if not ok or not out then return nil end
-        return out:match("^(%x+)")
+        return _parseHash(out)
     end
 
     local function _installedSpoons()
@@ -711,7 +797,14 @@ YQIDAQAB
                 end)
 
             elseif body == "revealSpoons" then
-                hs.execute("/usr/bin/open '" .. _spoonsDir .. "'")
+                -- Reveal the folder in the OS file manager. `/usr/bin/open` is
+                -- macOS-only; on Windows use explorer via the native shell (this
+                -- one call bypasses the POSIX-sh routing with with_shell=false).
+                if package.config:sub(1, 1) == "\\" then
+                    os.execute('explorer "' .. _spoonsDir:gsub("/", "\\") .. '"')
+                else
+                    hs.execute("/usr/bin/open '" .. _spoonsDir .. "'")
+                end
 
             else
                 local ok, data = pcall(hs.json.decode, body) -- JSON move delta from the drag handler

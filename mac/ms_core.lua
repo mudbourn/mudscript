@@ -1,7 +1,25 @@
 -- Core System (PLEASE EDIT CAREFULLY) --
     -- Hammerspoon mudscript Utility Library --
         -- 0. Bootstrap & Spoons --
-            if _G.__ms_core_running then return end
+            if _G.__ms_core_running then
+                -- This rig's hs.reload() re-runs init IN-PROCESS (same Lua state; _G is
+                -- preserved), so a reload re-enters ms_core with the guard already set.
+                -- We deliberately do NOT re-init: rebuilding `ms` would orphan every
+                -- engine object the first init created -- hotkeys/taps store their own
+                -- teardown ref ON `ms` (e.g. ms._openMenuHotkey) and delete the old one
+                -- before rebinding, so a wiped `ms` can't delete them and each reload
+                -- would STACK a duplicate toggle hotkey (one keypress -> show+hide ->
+                -- shell never shows, both sounds, leaked fade timers).
+                --
+                -- But we MUST clear the exit-lifecycle flags: ms.restart sets
+                -- ms._restarting=true immediately before calling hs.reload, and on macOS
+                -- (fresh-state reload) that flag naturally vanishes. Here it survives, so
+                -- the next ms.shutdown/ms.restart hits `if ms._restarting then return end`
+                -- and no-ops -- the app can then only be killed. Reset them on every
+                -- reload so shutdown/restart keep working.
+                if ms then ms._restarting = false; ms._shuttingDown = false end
+                return
+            end
             _G.__ms_core_running = true
             ms = {}
             if _G.__ms_appWatcher then pcall(function() _G.__ms_appWatcher:stop() end) end
@@ -881,7 +899,6 @@
                     warning  = "#c4a030",
                     text     = "#d4cfb6",
                     radius       = 8,
-                    windowRadius = 8,
                     font         = "Arial",
                     fadeMs       = 250,
                     alertAnimMs   = 250,
@@ -896,13 +913,24 @@
 
                 ms.theme.applyWindowRadius = function(panel)
                     if not panel then return end
-                    local r = (ms._theme and ms._theme.windowRadius)
-                        or (ms._themeDefaults and ms._themeDefaults.windowRadius)
+                    -- The host window frame follows the theme's Corner radius (the value
+                    -- the Appearance slider edits) so the frame and the inner content
+                    -- round to the same value. An explicit windowRadius in the theme
+                    -- file still overrides it for anyone who wants the frame to differ.
+                    local r = (ms._theme and (ms._theme.windowRadius or ms._theme.radius))
+                        or (ms._themeDefaults and (ms._themeDefaults.windowRadius or ms._themeDefaults.radius))
                         or 0
                     if r > 0 then
                         pcall(function() panel:transparent(true) end)
                         pcall(function() panel:shadow(false) end)
                     end
+                    -- Windows: the host window frame is rounded by a region at the theme
+                    -- radius (hs.webview:cornerRadius). Without this the frame stays at
+                    -- DWM's fixed ~8px and ignores windowRadius. No-op on mac (method
+                    -- absent there; the transparent WKWebView is rounded by CSS below).
+                    pcall(function()
+                        if panel.cornerRadius then panel:cornerRadius(r) end
+                    end)
                     local js = string.format(
                         "document.documentElement.style.setProperty('--ms-window-radius', '%dpx');"
                         .. "document.documentElement.style.background='transparent';"
@@ -6845,7 +6873,33 @@
             -- END Single-instance guard --
 
             _G._timers = {}
-            _G._timers.animGate = hs.timer.doAfter(2.9, function()
+
+            -- Boot-sequence anchor (mudspoon/WebView2 parity) --
+            --   WAS: hs.timer.doAfter(2.9) measured from init -- a fixed wall-clock beat
+            --   that assumed the loading page was already up. That holds on WKWebView
+            --   (~synchronous :html + ready handshake) but NOT on WebView2, whose
+            --   controller comes up ASYNC: the page-ready handshake -- and so the brand-
+            --   intro choreography in ms_loading -- arrive late, while this fixed 2.9s beat
+            --   fired on its own clock and collided with the still-running intro. That
+            --   two-clock drift is the "rushed / no parity / delayed" boot on Windows.
+            --
+            --   NOW: the whole progress sequence is anchored to the choreography actually
+            --   STARTING. ms_loading fires ms._onBootAnchor the instant _startBoot-
+            --   Choreography runs (on the real ready handshake, or its own 0.5s fallback),
+            --   and we start the sequence BOOT_ANCHOR_LEAD later. Every beat below is
+            --   already relative to when _runInitSequence runs, so re-anchoring this one
+            --   outer timer re-anchors the entire sequence coherently on both engines. On
+            --   WKWebView the anchor fires almost immediately, so mac timing is unchanged;
+            --   on WebView2 the sequence now WAITS for the page instead of racing it.
+            --
+            --   BOOT_ANCHOR_LEAD is the single dial for the feel. BOOT_ANCHOR_CAP is a
+            --   safety net: if the anchor somehow never fires (a webview that never comes
+            --   up at all), the sequence still runs so boot can't strand.
+            local BOOT_ANCHOR_LEAD = 2.9
+            local BOOT_ANCHOR_CAP  = 5.0
+            local _initSeqArmed    = false
+
+            local function _runInitSequence()
             ms.loading.update(20, "Initializing\u{2026}")
             local t1 = 0.3
             local t2 = 0.5
@@ -7000,7 +7054,20 @@
                 end)
                 notice = 1
             end
-            end)
+            end
+
+            -- Arm the sequence once, on the first anchor to fire (choreography start or
+            -- the CAP backstop). Idempotent: whichever wins, later calls no-op.
+            local function _armInitSequence()
+                if _initSeqArmed then return end
+                _initSeqArmed = true
+                _G._timers.animGate = hs.timer.doAfter(BOOT_ANCHOR_LEAD, _runInitSequence)
+            end
+            ms._onBootAnchor = _armInitSequence
+            -- If the choreography already started (fast re-entry), arm immediately.
+            if _G._bootChoreographyStarted then _armInitSequence() end
+            -- Safety net: a webview that never handshakes must not strand the boot.
+            _G._timers.animGateCap = hs.timer.doAfter(BOOT_ANCHOR_CAP, _armInitSequence)
         -- END Loading Screen Announce & Boot Completion --
     -- END Startup Executions --
 -- END Core System --

@@ -13,9 +13,31 @@ return function(ms)
     -- Helpers --
         local function sq(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
 
+        -- Cross-platform sha256. macOS ships `shasum` (perl) but not `sha256sum`;
+        -- git-for-Windows ships `sha256sum` (coreutils) while its `shasum` is off
+        -- the runtime sh PATH -- so a `shasum`-only hash silently fails on Windows
+        -- and every download's hash check mismatches. Probe once for whichever tool
+        -- the sh actually has (shasum first, keeping mac byte-for-byte identical),
+        -- and strip the coreutils escape prefix a filename with special chars adds.
+        local _hashCmd = nil
+        local function hashTool()
+            if _hashCmd ~= nil then return _hashCmd end
+            local out = hs.execute(
+                "command -v shasum >/dev/null 2>&1 && printf '%s' 'shasum -a 256' || "
+                .. "(command -v sha256sum >/dev/null 2>&1 && printf sha256sum || printf '')"
+            )
+            out = out and out:gsub("%s+$", "") or ""
+            _hashCmd = (out ~= "") and out or false
+            return _hashCmd
+        end
+
         local function hashFile(path)
-            local out = hs.execute("shasum -a 256 " .. sq(path) .. " 2>/dev/null")
-            return (out and #out >= 64) and out:sub(1, 64):lower() or nil
+            local tool = hashTool()
+            if not tool then return nil end
+            local out = hs.execute(tool .. " " .. sq(path) .. " 2>/dev/null")
+            if type(out) ~= "string" then return nil end
+            local h = out:gsub("^\\", ""):match("^(%x+)")   -- drop escape prefix, take hex
+            return (h and #h >= 64) and h:sub(1, 64):lower() or nil
         end
 
         local function fileExists(path)
@@ -169,13 +191,15 @@ return function(ms)
         local _ledgerPath = _dataDir .. "/.ms_plugin_ledger.json"
 
         local function spoonTreeHash(absDir)
+            local tool = hashTool()
+            if not tool then return nil end
             local out, ok = hs.execute(
                 "cd " .. sq(absDir) .. " && find . -type f ! -name '.DS_Store' " ..
                 "! -name '._*' ! -path './__MACOSX/*' " ..
-                "-exec shasum -a 256 {} + 2>/dev/null | LC_ALL=C sort -k2 | shasum -a 256"
+                "-exec " .. tool .. " {} + 2>/dev/null | LC_ALL=C sort -k2 | " .. tool
             )
             if not ok or not out then return nil end
-            return out:match("^(%x+)")
+            return out:gsub("^\\", ""):match("^(%x+)")
         end
 
         local function readLedger()

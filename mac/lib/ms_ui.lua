@@ -1176,6 +1176,7 @@ return function(ms)
                 pcall(function() ms.alert:recolor() end)
                 pcall(function() ms.dev:recolor() end)
                 pcall(function() ms.shell.recolorPopouts() end)
+                pcall(function() ms.shell.applyWindowRadius() end)
                 ms.playSlot("update")
                 ms.alert("Theme reloaded.", 4, true, { priority = "low" })
                 ms.ui.hide()
@@ -1914,6 +1915,9 @@ return function(ms)
                 local value = data.value
                 if type(value) ~= "string" and type(value) ~= "number" then return end
                 ms.saveTheme({ [data.key] = value })
+                if data.key == "radius" or data.key == "windowRadius" then
+                    pcall(function() ms.shell.applyWindowRadius() end)
+                end
                 ms.playSlot("update")
                 ms.ui.refresh()
             end,
@@ -1921,6 +1925,7 @@ return function(ms)
             resetTheme = function()
                 if not ms.resetTheme then return end
                 ms.resetTheme()
+                pcall(function() ms.shell.applyWindowRadius() end)
                 ms.playSlot("reset")
                 ms.alert("Theme reset to defaults.\nYour old file was kept as ms_theme.json.bak", 4, true)
                 ms.ui.refresh()
