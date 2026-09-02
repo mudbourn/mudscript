@@ -512,6 +512,7 @@
             }
             ms.socdMode              = "lastWins"
             ms.socdEnabled           = false
+            ms.windowsMode           = (package.config:sub(1, 1) == "\\")
             ms.binds                 = {}
             ms._suppressedMacros     = {}
             ms.running   = {}
@@ -3177,9 +3178,7 @@
                 if ms.dev then
                     ms.devtools:macroLog("paste")
                 end
-                -- Cmd+V through the synthetic event source (userData 999), so
-                -- the app's own eventtaps ignore it like every other injected key.
-                ms.type("v", { "cmd" })
+                ms.type("v", { ms.windowsMode and "ctrl" or "cmd" })
             end
 
             -- Expand {name} tokens in a string at runtime against helper vars.
@@ -6807,7 +6806,8 @@
                     _G._loadTimers.announce0 = hs.timer.doAfter(_TOAST_LEAD, function()
                         ms._hotkeysReady = true
                         pcall(function() ms.playSlot("launch") end)
-                        ms.alert("Macros loaded. Press \xe2\x8c\xa5 and P to open settings.", _TOAST_HOLD, true, { priority = "low" })
+                        local _openHint = ms.windowsMode and "Alt and P" or "\xe2\x8c\xa5 and P"
+                        ms.alert("Macros loaded. Press " .. _openHint .. " to open settings.", _TOAST_HOLD, true, { priority = "low" })
                     end)
                     _G._loadTimers.announce3 = hs.timer.doAfter(_TOAST_LEAD + 3, function()
                         ms.alert("Hammerspoon mudscript Utility Library\nBy: mudbourn \xe2\x80\x94 https://mudbourn.info", _TOAST_HOLD, true, { priority = "low" })

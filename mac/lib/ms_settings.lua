@@ -165,6 +165,7 @@ return function(ms)
             if data.trackpadMode     ~= nil then ms.trackpadMode           = (data.trackpadMode     == true) end
             if data.gamepadEnabled   ~= nil then ms.gamepadEnabled         = (data.gamepadEnabled   == true) end
             if data.socdEnabled      ~= nil then ms.socdEnabled            = (data.socdEnabled      == true) end
+            if data.windowsMode      ~= nil then ms.windowsMode            = (data.windowsMode      == true) end
 
             if data.socdMode then
                 if data.socdMode == "lastWins" or data.socdMode == "neutral" or data.socdMode == "firstWins" then
@@ -362,6 +363,7 @@ return function(ms)
                     end
                 elseif key == "trackpadMode"     then data.trackpadMode     = (val == "true")
                 elseif key == "socdEnabled"      then data.socdEnabled      = (val == "true")
+                elseif key == "windowsMode"      then data.windowsMode      = (val == "true")
 
                 elseif key == "socdMode" then
                     if val == "lastWins" or val == "neutral" or val == "firstWins" then
@@ -404,6 +406,7 @@ return function(ms)
                 trackpadMode     = ms.trackpadMode,
                 gamepadEnabled   = ms.gamepadEnabled,
                 socdEnabled      = ms.socdEnabled,
+                windowsMode      = ms.windowsMode,
                 socdMode         = ms.socdMode or "lastWins",
 
                 trackpadHoldKeys = {
@@ -6299,11 +6302,11 @@ return function(ms)
                         title = "Reload Options",
                         menu = {
                         {
-                            title = "Quick Reload ( ⌥[ )",
+                            title = "Quick Reload ( " .. (ms.windowsMode and "Alt+[" or "⌥[") .. " )",
                             fn = function() ms.quickReload() end,
                         },
                         {
-                            title = "Full Reload ( ⌥] )",
+                            title = "Full Reload ( " .. (ms.windowsMode and "Alt+]" or "⌥]") .. " )",
                             fn = function()
                             if ms.restart then ms.restart() else hs.reload() end
                         end },

@@ -3250,56 +3250,6 @@
         return (typeof group === "string" && /optional/i.test(group)) ? "optional" : "main";
     }
 
-    var metaLabelCss = "font-family:inherit;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-left:8px;margin-right:4px";
-
-    var cooldownLabel = document.createElement("span");
-    cooldownLabel.style.cssText = metaLabelCss;
-    cooldownLabel.textContent = "Cooldown";
-    toolbar.appendChild(cooldownLabel);
-
-    var cooldownInput = document.createElement("input");
-    cooldownInput.className = "macro-name-input";
-    cooldownInput.type = "number";
-    cooldownInput.min = "0";
-    cooldownInput.step = "50";
-    cooldownInput.placeholder = "1000";
-    cooldownInput.title = "Milliseconds the macro stays locked after it fires. Re-triggers within this window are ignored. Blank uses the default of 1000.";
-    cooldownInput.style.width = "68px";
-    cooldownInput.setAttribute("spellcheck", "false");
-    cooldownInput.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
-    cooldownInput.addEventListener("focus", function() { if (window.playSlot) playSlot("interact"); });
-    cooldownInput.addEventListener("input", function() {
-        var raw = cooldownInput.value.trim();
-        _currentMacroCooldown = raw === "" ? null : Math.max(0, parseInt(raw, 10) || 0);
-        _macroDirty = true;
-        updateSaveBtnState();
-    });
-    toolbar.appendChild(cooldownInput);
-
-    var sharedLabel = document.createElement("span");
-    sharedLabel.style.cssText = metaLabelCss;
-    sharedLabel.textContent = "Group";
-    toolbar.appendChild(sharedLabel);
-
-    var sharedInput = document.createElement("input");
-    sharedInput.className = "macro-name-input";
-    sharedInput.type = "text";
-    sharedInput.placeholder = "solo";
-    sharedInput.title = "Macros sharing a group name never run at the same time. Blank keeps this macro isolated to itself.";
-    sharedInput.style.width = "96px";
-    sharedInput.setAttribute("spellcheck", "false");
-    sharedInput.setAttribute("autocomplete", "off");
-    sharedInput.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
-    sharedInput.addEventListener("focus", function() { if (window.playSlot) playSlot("interact"); });
-    sharedInput.addEventListener("input", function() {
-        var clean = sharedInput.value.replace(/[^A-Za-z0-9_ -]/g, "");
-        if (clean !== sharedInput.value) sharedInput.value = clean;
-        _currentMacroShared = clean.trim();
-        _macroDirty = true;
-        updateSaveBtnState();
-    });
-    toolbar.appendChild(sharedInput);
-
     // Right-side action cluster, margin-left:auto pins it right.
     var actions = document.createElement("div");
     actions.className = "macro-toolbar-actions";
@@ -3345,6 +3295,59 @@
     function menuLabel(name, text) {
         return (window.icon ? window.icon(name) : "") + '<span>' + text + '</span>';
     }
+
+    var flowCooldownRow = document.createElement("div");
+    flowCooldownRow.className = "macro-flow-row";
+    var cooldownLbl = document.createElement("label");
+    cooldownLbl.textContent = "Cooldown";
+    var cooldownInput = document.createElement("input");
+    cooldownInput.className = "macro-flow-input";
+    cooldownInput.type = "number";
+    cooldownInput.min = "0";
+    cooldownInput.step = "50";
+    cooldownInput.placeholder = "1000";
+    cooldownInput.title = "Milliseconds the macro stays locked after it fires. Re-triggers within this window are ignored. Blank uses the default of 1000.";
+    cooldownInput.setAttribute("spellcheck", "false");
+    cooldownInput.addEventListener("input", function() {
+        var raw = cooldownInput.value.trim();
+        _currentMacroCooldown = raw === "" ? null : Math.max(0, parseInt(raw, 10) || 0);
+        _macroDirty = true;
+        updateSaveBtnState();
+    });
+    flowCooldownRow.appendChild(cooldownLbl);
+    flowCooldownRow.appendChild(cooldownInput);
+
+    var flowGroupRow = document.createElement("div");
+    flowGroupRow.className = "macro-flow-row";
+    var sharedLbl = document.createElement("label");
+    sharedLbl.textContent = "Group";
+    var sharedInput = document.createElement("input");
+    sharedInput.className = "macro-flow-input";
+    sharedInput.type = "text";
+    sharedInput.placeholder = "solo";
+    sharedInput.title = "Macros sharing a group name never run at the same time. Blank keeps this macro isolated to itself.";
+    sharedInput.setAttribute("spellcheck", "false");
+    sharedInput.setAttribute("autocomplete", "off");
+    sharedInput.addEventListener("input", function() {
+        var clean = sharedInput.value.replace(/[^A-Za-z0-9_ -]/g, "");
+        if (clean !== sharedInput.value) sharedInput.value = clean;
+        _currentMacroShared = clean.trim();
+        _macroDirty = true;
+        updateSaveBtnState();
+    });
+    flowGroupRow.appendChild(sharedLbl);
+    flowGroupRow.appendChild(sharedInput);
+
+    [flowCooldownRow, flowGroupRow].forEach(function(row) {
+        row.addEventListener("click", function(e) { e.stopPropagation(); });
+    });
+
+    var flowDivider = document.createElement("div");
+    flowDivider.className = "macro-overflow-divider";
+
+    overflowMenu.appendChild(flowCooldownRow);
+    overflowMenu.appendChild(flowGroupRow);
+    overflowMenu.appendChild(flowDivider);
 
     // Test Run button
     var testBtn = document.createElement("button");

@@ -753,6 +753,12 @@
         .macro-name-input::placeholder { color: var(--text2); opacity: 0.55; }
         .macro-name-input:hover { border-color: var(--border-dim); }
         .macro-name-input:focus { border-color: var(--accent); background: var(--surface2); }
+        .macro-flow-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 2px 4px; }
+        .macro-flow-row label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text3); }
+        .macro-flow-input { width: 84px; flex: none; background: var(--surface); border: 1px solid var(--border-dim); border-radius: var(--radius); color: var(--text); font-size: 11px; padding: 3px 6px; outline: none; font-family: inherit; user-select: text; -webkit-user-select: text; }
+        .macro-flow-input::placeholder { color: var(--text3); }
+        .macro-flow-input:focus { border-color: var(--accent); }
+        .macro-overflow-divider { height: 1px; background: var(--border-dim); margin: 2px 0; }
 
         .macros-layout { display: flex; flex-direction: column; width: 100%; height: 100%; overflow: hidden; position: relative; }
         .panel-macros .mtabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }

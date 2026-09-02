@@ -677,6 +677,21 @@
                     body.appendChild(divider());
                 })();
 
+                body.appendChild(
+                    row(
+                        "Windows Mode",
+                        "Use Windows key conventions: Ctrl for copy and paste, "
+                            + "and Alt shown in shortcut hints instead of the Mac option symbol",
+                        toggle(S.windowsMode ?? false, (e) =>
+                            sendToHost({
+                                action: "setWindowsMode",
+                                value: e.target.checked,
+                            }),
+                        ),
+                    ),
+                );
+                body.appendChild(divider());
+
                 if (hasTrackpad) {
                     body.appendChild(
                         row(
