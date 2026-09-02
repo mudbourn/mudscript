@@ -171,6 +171,9 @@ return function(ms)
                 "disable",
                 "toggle",
                 "octane",
+                "zoomIn",
+                "zoomOut",
+                "zoomReset",
             }) do
                 local def = ms.systemBinds._defs[id]
                 if def then
@@ -206,7 +209,7 @@ return function(ms)
                     end
                 end
             end
-            for _, id in ipairs({ "enable", "disable", "toggle", "octane" }) do
+            for _, id in ipairs({ "enable", "disable", "toggle", "octane", "zoomIn", "zoomOut", "zoomReset" }) do
                 local def = ms.systemBinds._defs[id]
                 if def then
                     local eff = ms.systemBinds.effective(id)
@@ -467,6 +470,7 @@ return function(ms)
                 trackpadMode            = ms.trackpadMode or false,
                 socdEnabled             = ms.socdEnabled or false,
                 socdMode                = ms.socdMode or "lastWins",
+                windowsMode             = ms.windowsMode or false,
                 gamepadEnabled          = ms.gamepadEnabled or false,
                 gamepadConnected        = ms._gamepadConnected or false,
                 gamepadControllers      = ms._gamepadControllers or {},
@@ -1320,6 +1324,12 @@ return function(ms)
                     ms.socdEnabled = (data.value == true)
                     ms.saveSettings()
                     ms.socdApply()
+                    ms.ui.refresh()
+                end,
+
+                setWindowsMode = function(data)
+                    ms.windowsMode = (data.value == true)
+                    ms.saveSettings()
                     ms.ui.refresh()
                 end,
 
@@ -2473,6 +2483,9 @@ return function(ms)
                         ms.socdEnabled = (def.socdEnabled == true)
                         ms.saveSettings()
                         ms.socdApply()
+                    elseif key == "windowsMode" then
+                        ms.windowsMode = (def.windowsMode == true)
+                        ms.saveSettings()
                     elseif key == "socdMode" then
                         ms.socdMode = def.socdMode or "lastWins"
                         ms.saveSettings()

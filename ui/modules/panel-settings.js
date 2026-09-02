@@ -661,8 +661,8 @@
                     body.appendChild(
                         row(
                             "Display Zoom",
-                            "Scale the whole interface — shell and popouts "
-                                + "(Cmd +/−, Cmd 0 to reset)",
+                            "Scale the whole interface, shell and popouts. "
+                                + "Rebindable hotkeys live under Accessibility Hotkeys below",
                             zoomCtl,
                             "",
                             [
@@ -676,6 +676,21 @@
                     );
                     body.appendChild(divider());
                 })();
+
+                body.appendChild(
+                    row(
+                        "Windows Mode",
+                        "Use Windows key conventions: Ctrl for copy and paste, "
+                            + "and Alt shown in shortcut hints instead of the Mac option symbol",
+                        toggle(S.windowsMode ?? false, (e) =>
+                            sendToHost({
+                                action: "setWindowsMode",
+                                value: e.target.checked,
+                            }),
+                        ),
+                    ),
+                );
+                body.appendChild(divider());
 
                 if (hasTrackpad) {
                     body.appendChild(
@@ -908,6 +923,22 @@
                                 action: "setOctaneMuteSounds",
                                 value: e.target.checked,
                             });
+                        }),
+                    ),
+                );
+
+                body.appendChild(divider());
+                body.appendChild(
+                    row(
+                        "Accessibility Hotkeys",
+                        "Rebind Octane, zoom, and other system shortcuts in Macros → Binds",
+                        actionBtn("Open Binds", "", () => {
+                            if (window.showPanel) window.showPanel("macros");
+                            setTimeout(() => {
+                                if (window.macroLab && window.macroLab.focusSystemBinds) {
+                                    window.macroLab.focusSystemBinds();
+                                }
+                            }, 60);
                         }),
                     ),
                 );
