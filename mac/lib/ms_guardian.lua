@@ -528,9 +528,9 @@ YQIDAQAB
             warning  = {
                 "Plugins run as code, so an unrecognized one blocks startup "
                 .. "instead of loading unchecked.",
-                "If you added it yourself, re-import it through the plugin "
-                .. "library. Otherwise remove it from ~/.hammerspoon/Spoons/ "
-                .. "and reload.",
+                "mudscript only runs plugins installed from its verified "
+                .. "library. Remove this one from ~/.hammerspoon/Spoons/ and "
+                .. "reload.",
             },
             actions  = {
                 {
@@ -562,7 +562,7 @@ YQIDAQAB
             },
             warning  = {
                 "Expected once, on an install that predates plugin verification. "
-                .. "Re-import each plugin through the library to record it.",
+                .. "Reinstall each plugin from the library so it is recorded again.",
                 "The record is not rebuilt from disk on purpose: if it were, "
                 .. "deleting one file would make any plugin look trusted.",
             },

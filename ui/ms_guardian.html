@@ -41,6 +41,38 @@
                 background: var(--bg);
                 border-radius: var(--ms-window-radius, 3px);
                 overflow: hidden;
+                position: relative;
+            }
+
+            #guardian-watermark {
+                position: absolute;
+                inset: 0;
+                overflow: hidden;
+                pointer-events: none;
+                z-index: 0;
+            }
+            #guardian-watermark svg {
+                position: absolute;
+                top: 44%;
+                left: 50%;
+                width: 70%;
+                height: auto;
+                aspect-ratio: 1;
+                color: color-mix(in srgb, var(--bg) 84%, var(--text2) 16%);
+                opacity: 0.9;
+                transform: rotate(-30deg);
+                transform-origin: center;
+            }
+            #guardian-watermark svg,
+            #guardian-watermark svg * {
+                fill: none;
+                stroke: currentColor;
+                stroke-width: 0.4;
+            }
+            #titlebar,
+            #wrap {
+                position: relative;
+                z-index: 1;
             }
 
             /* -- Drag region -- */
@@ -84,6 +116,12 @@
                 line-height: 1;
                 flex-shrink: 0;
                 margin-top: 2px;
+                color: var(--text2);
+            }
+            #icon svg {
+                width: 28px;
+                height: 28px;
+                display: block;
             }
 
             #heading-text h1 {
@@ -238,6 +276,7 @@
         </style>
     </head>
     <body>
+        <div id="guardian-watermark" aria-hidden="true"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="17" r="1" fill="currentColor"/><path d="M12 10L12 14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.44722 18.1056L10.2111 4.57771C10.9482 3.10361 13.0518 3.10362 13.7889 4.57771L20.5528 18.1056C21.2177 19.4354 20.2507 21 18.7639 21H5.23607C3.7493 21 2.78231 19.4354 3.44722 18.1056Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
         <div id="titlebar">
             <span id="titlebar-text">mudscript :// Integrity Error</span>
             <span id="preview-badge">preview</span>
@@ -246,7 +285,7 @@
             <!-- Step 1: Mismatch warning -->
             <div id="step1" class="step active">
                 <div id="heading">
-                    <div id="icon">⚠</div>
+                    <div id="icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="17" r="1" fill="currentColor"/><path d="M12 10L12 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.44722 18.1056L10.2111 4.57771C10.9482 3.10361 13.0518 3.10362 13.7889 4.57771L20.5528 18.1056C21.2177 19.4354 20.2507 21 18.7639 21H5.23607C3.7493 21 2.78231 19.4354 3.44722 18.1056Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
                     <div id="heading-text">
                         <h1>Integrity check failed</h1>
                         <p>
@@ -290,7 +329,7 @@
             <!-- Step 2: Confirmation -->
             <div id="step2" class="step">
                 <div id="heading">
-                    <div id="icon">⚠</div>
+                    <div id="icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="17" r="1" fill="currentColor"/><path d="M12 10L12 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.44722 18.1056L10.2111 4.57771C10.9482 3.10361 13.0518 3.10362 13.7889 4.57771L20.5528 18.1056C21.2177 19.4354 20.2507 21 18.7639 21H5.23607C3.7493 21 2.78231 19.4354 3.44722 18.1056Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
                     <div id="heading-text">
                         <h1>Delete trusted hash?</h1>
                         <p>This cannot be undone from this screen.</p>

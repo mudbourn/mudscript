@@ -4792,8 +4792,7 @@ return function(ms)
                 end
             end)
             local sf = hs.screen.mainScreen():frame()
-            local w, h = 360, 300
-            if spec and spec.height then h = spec.height end
+            local w, h = 480, (spec and spec.height) or 360
             local x = sf.x + math.floor((sf.w - w) / 2)
             local y = sf.y + math.floor((sf.h - h) / 2)
             _pos   = {
@@ -4805,7 +4804,7 @@ return function(ms)
             _panel = hs.webview.new(_pos, {}, _uc)
             if not _panel then return end
             pcall(function() _panel:windowStyle(0) end)
-            pcall(function() _panel:level(hs.canvas.windowLevels.popUpMenu or 101) end)
+            pcall(function() _panel:level((hs.canvas.windowLevels.screenSaver or 1000) + 1) end)
             pcall(function() _panel:shadow(true) end)
             if ms and ms.theme and ms.theme.applyWindowRadius then ms.theme.applyWindowRadius(_panel) end
             if ms and ms.theme and ms.theme.onChanged then
@@ -4818,6 +4817,7 @@ return function(ms)
             _panel:html(f:read("*all"), _baseURL)
             f:close()
             ms.safeShow(_panel)
+            pcall(function() _panel:bringToFront(true) end)
             local _errSound = (not ms._customThemeDisabled and ms.sounds and ms.sounds["a_Error"])
                 or (ms.sounds and ms.sounds["d_Error"])
             if _errSound then pcall(function() ms.sound(_errSound) end) end
