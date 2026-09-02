@@ -568,11 +568,16 @@
                     row(
                         "Macros",
                         "Master switch for the macro engine",
+                        // Silent: setMacros -> _doNotify plays the bind-state
+                        // slot (enabled/disabled) itself. Without silent, the
+                        // toggle's own toggleOn/toggleOff would fire on top of
+                        // that, doubling the sound on every flip.
                         toggle(S.macrosEnabled ?? false, (e) =>
                             sendToHost({
                                 action: "setMacros",
                                 value: e.target.checked ? 1 : 0,
                             }),
+                            true,
                         ),
                     ),
                 );

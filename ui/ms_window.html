@@ -2,6 +2,8 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
+        <!-- Design tokens single-sourced with the shell; see ui-tokens.js. -->
+        <script src="./modules/ui-tokens.js"></script>
         <style>
             /* -- Fonts -- */
             @font-face { font-family: "Almendra"; src: url("./fonts/Almendra-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; }
@@ -10,13 +12,7 @@
             @font-face { font-family: "Almendra"; src: url("./fonts/Almendra-BoldItalic.ttf") format("truetype"); font-weight: 700; font-style: italic; }
 
             /* -- Tokens -- */
-            :root {
-                --bg: #0d0f09; --surface: #141810; --surface2: #1c2116; --hover: #2d3523;
-                --accent: #6b8c3a; --accent-hi: #8db84e; --success: #7aa63c; --danger: #c0492e;
-                --warning: #c4a030; --text: #d4cfb6; --text2: rgba(212,207,182,0.85);
-                --text3: rgba(212,207,182,0.55); --border: rgba(141,184,78,0.30);
-                --radius: 2px; --radius-s: 1px;
-            }
+            /* Tokens (:root) come from ui-tokens.js, shared with the shell. */
 
             /* -- Reset -- */
             *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
@@ -302,7 +298,8 @@
             const BADGE = { focus: "badge-focus", move: "badge-move", resize: "badge-resize",
                 minimize: "badge-state", unminimize: "badge-state", fullscreen: "badge-state" };
             const LABEL = { focus: "focused", move: "moved", resize: "resized",
-                minimize: "minimized", unminimize: "restored", fullscreen: "fullscreen" };
+                minimize: "minimized", unminimize: "restored", fullscreen: "fullscreen",
+                hide: "hidden", show: "shown" };
 
             function buildRow(entry) {
                 const row = document.createElement("div");

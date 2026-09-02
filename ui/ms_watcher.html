@@ -2,6 +2,8 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
+        <!-- Design tokens single-sourced with the shell; see ui-tokens.js. -->
+        <script src="./modules/ui-tokens.js"></script>
         <style>
             /* -- Fonts -- */
             @font-face {
@@ -30,30 +32,9 @@
             }
 
             /* -- Tokens -- */
-            :root {
-                --bg: #0d0f09;
-                --surface: #141810;
-                --surface2: #1c2116;
-                --surface3: #24291a;
-                --hover: #2d3523;
-                --accent: #6b8c3a;
-                --accent-hi: #8db84e;
-                --success: #7aa63c;
-                --danger: #c0492e;
-                --warning: #c4a030;
-                --text: #d4cfb6;
-                --text2: rgba(212, 207, 182, 0.85);
-                --text3: rgba(212, 207, 182, 0.55);
-                --border: rgba(141, 184, 78, 0.30);
-                --radius: 2px;
-                --radius-s: 1px;
-                /* panel extras */
-                --mouse: #c4a030;
-                --scroll: #7aa63c;
-                --border-dim: rgba(141, 184, 78, 0.14);
-                --border-faint: rgba(141, 184, 78, 0.07);
-                --shadow-panel: rgba(0, 0, 0, 0.4);
-            }
+            /* Tokens (:root) come from ui-tokens.js, shared with the shell.
+               --shadow-panel is watcher-local (not a shell token). */
+            :root { --shadow-panel: rgba(0, 0, 0, 0.4); }
 
             /* -- Reset -- */
             *,

@@ -515,6 +515,7 @@ return function(ms)
                 customThemeEnabled      = not (ms._customThemeDisabled or false),
                 devArchiveLimit         = ms._devArchiveLimit or 15,
                 updateChannel           = ms._updateChannel or "stable",
+                updateAlertsDisabled    = ms._updateAlertsDisabled or false,
                 testingSource           = ms._testingSource or "release",
                 uiZoom                  = ms._uiZoom or 1.0,
                 octaneMode              = ms._octaneMode or false,
