@@ -76,9 +76,9 @@ These work when your target app is focused. The target is set by an installed pl
 
 | Key | Action |
 |---|---|
-| `Alt+P` | Open settings / macro builder |
-| `Alt+[` | Quick reload |
-| `Alt+F10` | Panic, disable all macros |
+| `Alt/Opt + P` | Open settings / macro builder |
+| `Alt/Opt + [` | Quick reload |
+| `Alt/Opt + F10` | Panic, disable all macros |
 
 System hotkeys also work in Hammerspoon, Activity Monitor, and popped-out panels.
 
@@ -94,7 +94,7 @@ The macro builder lets you create macros without writing code:
 - **Test run**: execute your macro in a sandbox with live feedback
 - **Record mode**: capture your inputs and convert them to macro steps
 
-Open it with `Alt+P` → **Macros** tab.
+Find it in the **Macros** panel.
 
 ---
 
