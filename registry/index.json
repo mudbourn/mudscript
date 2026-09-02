@@ -1,6 +1,6 @@
 {
   "formatVersion": 1,
-  "generated": "2026-08-24T16:17:34Z",
+  "generated": "2026-09-02T22:07:40Z",
   "entries": [
     {
       "id": "plugin-roblox",
@@ -17,12 +17,12 @@
       "id": "profile-combat-warriors-macros-profile",
       "type": "profile",
       "name": "Combat Warriors Macros profile",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "author": "mudbourn",
       "website": "https://mudbourn.info",
-      "sha256": "88c2c8e7511580391f999764516f5d6e3001464634b8b6ba149c59ac14a04e5d",
+      "sha256": "96660d81a2b5a26f2ae825581ca4f7906d1064546e93d6c94d04343559eafb87",
       "url": "https://github.com/mudbourn/mudscript/releases/download/packages/Combat.Warriors.Macros-profile.mspkg",
-      "size": 3689640,
+      "size": 3689448,
       "components": {
         "theme": {
           "includesSounds": false
@@ -37,5 +37,5 @@
       "trust": "trusted"
     }
   ],
-  "signature": "rLhB+M70Ui+YO77+1+5ZSgs1/RRc+XKz3YRt54YotK1XEEi1uRx/IoHa5Ns9Kvhzg/7Hbf3qPyZl4vrPksi2hLKW69pksYJwTmcj22E+UXdtw+fR8gOoAUBUvk7aYhFrbpfyN2JAMlJbB59iWoM5gyRkPMQihpJwwqet6hFzAS8bOFfxCJFdxHHiqO58nL6+BWY6YrBQUfCs3fDDJLCySnZsDPT0HQGbtfmL9qqLpRwdbOE7juoc2AmC4z3eEi13BhtNdB27Q5GAspeDq+l8QeRBSf2K9yOvX2oeTebuRkrohQVuYNoElW2RlVQUO0BLk6U9uovbPMywly29fUTG/g=="
+  "signature": "a3TQth4dryFj1Olmg6CKF1iEWozcZ3k6wev4ZoBrvlY8oj9XA80GjCmktU7EGjcFuDB6i7E2P6nIJcubtNLD5wsj+DrIpw2T7bopr4ZduiMk8p067tIf8YX+R9PgEMXsgbRPLrrnKWQ9umcKognBn1mj/RjsSZdKteZQjsg+p/jJpf3aoQMH7WkRvwywwVXYMIQokxYH2KkkpbBZFQzpbgM3pAGbcwPB+BIPKafdjGHpfH/RD6xcxaDjrCpo/he+v0cHnINKHqoxSTy2ERZwPfMSB8IRpr5IxFU861/A1BMaM1xHFGWjFHZBubI9sC31HZUPtCK0CLd+XwPNsK5VYQ=="
 }
