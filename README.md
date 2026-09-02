@@ -6,7 +6,7 @@ mudscript lets you write, test, and run macros on macOS, with a visual builder, 
 
 The primary use case is game macros: automating repetitive actions, building complex input sequences, and testing them in a safe sandbox. Expanding beyond game-specific automation is planned for a much later phase of development, once real demand for it emerges.
 
-> **Windows support is in early development.** The Windows version is not ready for general use. It exists for maintainer testing only. If you're looking for a macro tool on Windows, mudscript is not there yet.
+> **Windows support is in early development.** The Windows version built using AutoHotkey has been discontinued. For all future Windows related information, check out this port of the macOS macro tool mudscript is built on made by me for running the macOS version on Windows. Do keep in mind: I am just one guy and this port is still rough, so please don't harass me with issues related to it. Instead, I would greatly appreciate any patience and proper reporting of genuine bugs users find. If you're looking for a visual macro building tool on Windows, [mudscript is finally almost there](https://github.com/mudbourn/mudspoon)!
 
 ---
 
