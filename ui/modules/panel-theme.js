@@ -103,16 +103,14 @@
         const wrap = h("div", { cls: "color-field" });
 
         const swatch = h("input", { type: "color", cls: "color-swatch" });
-        const alpha  = h("input", { type: "range", cls: "color-alpha", min: "0", max: "255", step: "1", title: "Opacity" });
         const hex    = h("input", { type: "text", cls: "color-hex", spellcheck: "false", maxlength: "9", placeholder: "auto" });
 
-        const parts  = splitAlpha(current);
-        swatch.value = parts.rgb;
-        alpha.value  = String(current ? parts.a : 255);
+        let alpha    = current ? splitAlpha(current).a : 255;
+        swatch.value = splitAlpha(current).rgb;
         hex.value    = current || "";
 
         function push(commitToo) {
-            const v = joinAlpha(swatch.value, parseInt(alpha.value, 10));
+            const v = joinAlpha(swatch.value, alpha);
             hex.value = v;
             if (commitToo) {
                 commit(key, v);
@@ -126,14 +124,11 @@
         swatch.addEventListener("input", () => push(false));
         swatch.addEventListener("change", () => push(true));
 
-        alpha.addEventListener("input", () => push(false));
-        alpha.addEventListener("change", () => push(true));
-
         hex.addEventListener("change", () => {
             const v = hex.value.trim();
             if (v === "") {
                 swatch.value = "#000000";
-                alpha.value  = "255";
+                alpha = 255;
                 commit(key, "");
                 return;
             }
@@ -141,13 +136,74 @@
             if (!l) { hex.value = current || ""; playSlot("back"); return; }
             const p = splitAlpha(v);
             swatch.value = p.rgb;
-            alpha.value  = String(p.a);
+            alpha = p.a;
             commit(key, v);
         });
 
         wrap.appendChild(swatch);
-        wrap.appendChild(alpha);
         wrap.appendChild(hex);
+        return wrap;
+    }
+
+    // Opacity field //
+    function opacityRow(key, label, hint) {
+        const { h } = ui();
+        const theme = Object.assign({}, S.theme || {}, _pending);
+        const cur   = theme[key] || "";
+        const pct   = cur ? Math.round(splitAlpha(cur).a / 255 * 100) : 100;
+
+        const wrap = h("div", { cls: "row slider-row", onmouseenter: () => playSlot("hover") });
+        const top  = h("div", { cls: "slider-top" });
+        const lbl  = h("div", { cls: "row-label" }, label);
+
+        if (hint) lbl.appendChild(h("small", {}, hint));
+
+        top.appendChild(lbl);
+
+        const num = h("input", { type: "number", min: "0", max: "100", step: "1" });
+        num.value = pct;
+
+        const val = h("div", { cls: "slider-val" });
+        val.appendChild(num);
+        top.appendChild(val);
+        wrap.appendChild(top);
+
+        const slider = h("input", { type: "range", min: "0", max: "100", step: "1" });
+        slider.value = pct;
+
+        function rgbNow() {
+            const t = Object.assign({}, S.theme || {}, _pending);
+            return splitAlpha(t[key] || "").rgb;
+        }
+
+        function apply(p, commitToo) {
+            const a = Math.round(Math.max(0, Math.min(100, p)) / 100 * 255);
+            const v = joinAlpha(rgbNow(), a);
+            if (commitToo) {
+                commit(key, v);
+            } else {
+                _pending[key] = v;
+                previewTheme();
+                touchEditing();
+            }
+        }
+
+        slider.addEventListener("input", () => {
+            num.value = slider.value;
+            apply(parseInt(slider.value, 10), false);
+        });
+
+        slider.addEventListener("change", () =>
+            apply(parseInt(slider.value, 10), true));
+
+        num.addEventListener("change", () => {
+            const p = Math.max(0, Math.min(100, parseInt(num.value, 10) || 0));
+            num.value = p;
+            slider.value = p;
+            apply(p, true);
+        });
+
+        wrap.appendChild(slider);
         return wrap;
     }
 
@@ -379,6 +435,25 @@
                 );
             }
         });
+
+        // Opacity //
+        sec(root, "opacity", "Opacity",
+            "How much of the game shows through each background layer",
+            (body) => {
+                body.appendChild(opacityRow("bg", "Panel",
+                    "The whole panel over what is behind it"));
+
+                body.appendChild(opacityRow("surface", "Surface",
+                    "Headers, rails and cards"));
+
+                body.appendChild(opacityRow("surface2", "Surface (raised)",
+                    "Raised and inset areas"));
+
+                body.appendChild(h("div", { cls: "theme-note" },
+                    "Sets the alpha on each colour above, so it also shows in the "
+                    + "hex field and ms_theme.json as #rrggbbaa. Text and accents "
+                    + "stay solid for legibility."));
+            });
 
         // Advanced / derived colour overrides //
         sec(root, "colours-adv", "Derived colours",
