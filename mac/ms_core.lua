@@ -3302,6 +3302,58 @@
 
                 pcall(ms._autoSortSounds)
 
+                -- WAV Header Repair --
+                    local function _wavU16(s, o)
+                        return s:byte(o + 1) + s:byte(o + 2) * 256
+                    end
+
+                    local function _wavU32(s, o)
+                        return s:byte(o + 1)
+                            + s:byte(o + 2) * 256
+                            + s:byte(o + 3) * 65536
+                            + s:byte(o + 4) * 16777216
+                    end
+
+                    local function _sanitizeWav(path)
+                        local f = io.open(path, "rb")
+                        if not f then return end
+                        local head = f:read(4096) or ""
+                        f:close()
+                        if head:sub(1, 4) ~= "RIFF" or head:sub(9, 12) ~= "WAVE" then return end
+                        local i = 12
+                        while i + 8 <= #head do
+                            local cid = head:sub(i + 1, i + 4)
+                            local sz  = _wavU32(head, i + 4)
+                            if cid == "fmt " and i + 8 + 16 <= #head then
+                                local base = i + 8
+                                if _wavU16(head, base) ~= 1 then return end
+                                local ch   = _wavU16(head, base + 2)
+                                local rate = _wavU32(head, base + 4)
+                                local bits = _wavU16(head, base + 14)
+                                local expBA = ch * math.floor(bits / 8)
+                                local expBR = rate * expBA
+                                if expBA <= 0 then return end
+                                if _wavU16(head, base + 12) == expBA
+                                    and _wavU32(head, base + 8) == expBR then return end
+                                local w = io.open(path, "r+b")
+                                if not w then return end
+                                w:seek("set", base + 8)
+                                w:write(string.char(
+                                    expBR % 256,
+                                    math.floor(expBR / 256) % 256,
+                                    math.floor(expBR / 65536) % 256,
+                                    math.floor(expBR / 16777216) % 256
+                                ))
+                                w:seek("set", base + 12)
+                                w:write(string.char(expBA % 256, math.floor(expBA / 256) % 256))
+                                w:close()
+                                return
+                            end
+                            i = i + 8 + sz + (sz % 2)
+                        end
+                    end
+                -- END --
+
                 local function scanDir(dir, target)
                     target = target or ms.sounds
                     if not hs.fs.attributes(dir) then return end
@@ -3309,6 +3361,9 @@
                         if file ~= "." and file ~= ".." and ms.isSoundFile(file) then
                             local name = file:match("^(.+)%.[^%.]+$")
                             if name then
+                                if file:lower():match("%.wav$") then
+                                    pcall(_sanitizeWav, dir .. file)
+                                end
                                 target[name] = dir .. file
                             end
                         end
