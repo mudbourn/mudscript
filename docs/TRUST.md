@@ -9,7 +9,7 @@ There is one real risk, and it is not about the code. If you point input automat
 ## Pros
 
 - **You can read all of it.** Every line is open source. No hidden code, no scrambled blobs, no "just trust me."
-- **The plain install keeps to itself.** `mac/install.sh` copies only the core. That is the macro engine, the interface, settings, and sounds. It does not include any game plugins or any input-injection code.
+- **The plain install keeps to itself.** `mac/install.sh` copies only the necessities. That is the macro engine, the interface, settings, and sounds. It does not include any game plugins or any input-injection code.
 - **No tracking, no calling home.** There is only one piece of code that goes out to the internet, the package library client. It only talks to a fixed list of GitHub addresses. Nothing tracks you and nothing reports back.
 - **Everything you download is checked.** The package list is signed, and mudscript checks that signature every time. Every package you download is checked by its hash before it installs. If a package does not check out, you never see it.
 - **The risky powers are opt-in and easy to remove.** Anything that could carry risk lives in a separate plugin. You install it on purpose, and you can remove it fully. The plain install needs none of them.
