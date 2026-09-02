@@ -11,7 +11,7 @@ return function(ms)
     ms.package = {}
 
     -- Helpers --
-        local function sq(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
+        local function sq(s) return "'" .. tostring(s):gsub("\\", "/"):gsub("'", "'\\''") .. "'" end
 
         -- Cross-platform sha256. macOS ships `shasum` (perl) but not `sha256sum`;
         -- git-for-Windows ships `sha256sum` (coreutils) while its `shasum` is off

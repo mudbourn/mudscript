@@ -44,6 +44,34 @@ YQIDAQAB
     -- Helpers --
         local function sq(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
 
+        local _hashCmd
+
+        local function hashTool()
+            if _hashCmd ~= nil then return _hashCmd end
+
+            local out = hs.execute(
+                "command -v shasum >/dev/null 2>&1 && printf '%s' 'shasum -a 256' || "
+                .. "(command -v sha256sum >/dev/null 2>&1 && printf sha256sum || printf '')"
+            )
+
+            out = out and out:gsub("%s+$", "") or ""
+            _hashCmd = (out ~= "") and out or false
+
+            return _hashCmd
+        end
+
+        local function hashFile(path)
+            local tool = hashTool()
+            if not tool then return nil end
+
+            local out = hs.execute(tool .. " " .. sq(path) .. " 2>/dev/null")
+            if type(out) ~= "string" then return nil end
+
+            local h = out:gsub("^\\", ""):match("^(%x+)")
+
+            return (h and #h >= 64) and h:sub(1, 64):lower() or nil
+        end
+
         local function readFile(path)
             local f = io.open(path, "r")
             if not f then return nil end
@@ -492,8 +520,12 @@ YQIDAQAB
                         .. tostring(code) .. ").")
                 end
 
-                local out = hs.execute("shasum -a 256 " .. sq(path) .. " 2>/dev/null")
-                local got = (out and #out >= 64) and out:sub(1, 64):lower() or nil
+                local got = hashFile(path)
+                if not got then
+                    os.remove(path)
+                    return done(nil, "Could not verify the download (no SHA-256 tool found).")
+                end
+
                 if got ~= entry.sha256 then
                     os.remove(path)
                     return done(nil, "Downloaded package did not match the registry hash.")

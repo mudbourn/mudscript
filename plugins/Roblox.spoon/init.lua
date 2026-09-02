@@ -6,18 +6,79 @@ local obj = {}
 obj.__index = obj
 
 obj.name    = "Roblox"
-obj.version = "0.1.2"
+obj.version = "0.2.0"
 obj.author  = "mudbourn"
 obj.license = "MIT"
 
+-- Platform --
+    local IS_WINDOWS = package.config:sub(1, 1) == "\\"
+
+    local function winPath(p) return (tostring(p):gsub("/", "\\")) end
+
+    local function shellOpen(path)
+        if IS_WINDOWS then
+            os.execute('start "" "' .. winPath(path) .. '"')
+        else
+            os.execute("open '" .. path .. "'")
+        end
+    end
+
+    local function revealDir(path)
+        if IS_WINDOWS then
+            os.execute('explorer "' .. winPath(path) .. '"')
+        else
+            os.execute("open '" .. path .. "'")
+        end
+    end
+-- END Platform --
+
 -- Paths --
-    local ROBLOX_DIR   = os.getenv("HOME") .. "/Library/Roblox"
-    local SETTINGS_XML = ROBLOX_DIR .. "/GlobalBasicSettings_13.xml"
-    local CACHE_LABEL  = "com.mudscript.cache-cleaner"
+    local CACHE_LABEL = "com.mudscript.cache-cleaner"
+
+    local ROBLOX_DIR
+    local SETTINGS_XML
+    local TARGET_APP
+
+    if IS_WINDOWS then
+        local localApp = os.getenv("LOCALAPPDATA") or (os.getenv("HOME") .. "/AppData/Local")
+        ROBLOX_DIR   = localApp .. "/Roblox"
+        SETTINGS_XML = ROBLOX_DIR .. "/GlobalBasicSettings_13.xml"
+        TARGET_APP   = "RobloxPlayerBeta"
+    else
+        ROBLOX_DIR   = os.getenv("HOME") .. "/Library/Roblox"
+        SETTINGS_XML = ROBLOX_DIR .. "/GlobalBasicSettings_13.xml"
+        TARGET_APP   = "Roblox"
+    end
+
+    local function robloxVersionDir()
+        local base = ROBLOX_DIR .. "/Versions"
+        local best, bestTime
+        local ok, iter, dobj = pcall(hs.fs.dir, base)
+        if not ok or not iter then return nil end
+
+        for entry in iter, dobj do
+            if entry:sub(1, 1) ~= "." then
+                local exe  = base .. "/" .. entry .. "/RobloxPlayerBeta.exe"
+                local attr = hs.fs.attributes(exe)
+                if attr then
+                    local mt = attr.modification or 0
+                    if not bestTime or mt > bestTime then
+                        best     = base .. "/" .. entry
+                        bestTime = mt
+                    end
+                end
+            end
+        end
+
+        if dobj then dobj:close() end
+
+        return best
+    end
 -- END Paths --
 
 local _sensWatcher = nil
 local _sensTimer   = nil
+local _cacheTimer  = nil
 
 -- Settings Reader --
     local function readSetting(key)
@@ -70,7 +131,25 @@ local _sensTimer   = nil
     local function litPattern(s) return (s:gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1")) end
     local function litRepl(s) return (s:gsub("%%", "%%%%")) end
 
-    local function syncCacheCleaner(enabled)
+    local function runWinCleaner()
+        local script = bundleDir() .. "/bin/clean_roblox_cache.cmd"
+        if not hs.fs.attributes(script) then return end
+        os.execute('start "" /min cmd /c "' .. winPath(script) .. '"')
+    end
+
+    local function syncCacheCleanerWin(enabled)
+        if _cacheTimer then
+            _cacheTimer:stop()
+            _cacheTimer = nil
+        end
+
+        if enabled then
+            runWinCleaner()
+            _cacheTimer = hs.timer.doEvery(21600, runWinCleaner)
+        end
+    end
+
+    local function syncCacheCleanerMac(enabled)
         local home      = os.getenv("HOME")
         local dir       = bundleDir()
         local scriptSrc = dir .. "/bin/clean_roblox_cache.sh"
@@ -98,12 +177,20 @@ local _sensTimer   = nil
             os.remove(plistDst)
         end
     end
+
+    local function syncCacheCleaner(enabled)
+        if IS_WINDOWS then
+            syncCacheCleanerWin(enabled)
+        else
+            syncCacheCleanerMac(enabled)
+        end
+    end
 -- END Cache Cleaner --
 
 function obj:init()
 
     -- Target App --
-        ms.setTargetApp("Roblox")
+        ms.setTargetApp(TARGET_APP)
     -- END Target App --
 
     -- Live Reader (ms.roblox) --
@@ -275,17 +362,27 @@ function obj:init()
                 end,
             })
 
-            -- Open the FastFlags file (ClientAppSettings.json), creating it
-            -- (and its parent dir) empty if it does not exist yet.
             ms.tools.define({
                 id   = "roblox.openFastFlags",
                 name = "Roblox: Open Fast Flags",
                 run  = function()
-                    local path = "/Applications/Roblox.app/Contents/MacOS/ClientSettings/ClientAppSettings.json"
-                    local dir  = path:match("^(.*)/[^/]+$")
-                    if dir and not hs.fs.attributes(dir) then
-                        os.execute("mkdir -p '" .. dir .. "'")
+                    local path
+                    if IS_WINDOWS then
+                        local vdir = robloxVersionDir()
+                        if not vdir then
+                            ms.alert("Roblox install folder not found.", 3)
+                            return
+                        end
+                        path = vdir .. "/ClientSettings/ClientAppSettings.json"
+                    else
+                        path = "/Applications/Roblox.app/Contents/MacOS/ClientSettings/ClientAppSettings.json"
                     end
+
+                    local dir = path:match("^(.*)/[^/]+$")
+                    if dir and not hs.fs.attributes(dir) then
+                        hs.execute("mkdir -p '" .. dir:gsub("\\", "/") .. "'")
+                    end
+
                     if not hs.fs.attributes(path) then
                         local f = io.open(path, "w")
                         if f then
@@ -296,16 +393,20 @@ function obj:init()
                             return
                         end
                     end
-                    os.execute("open '" .. path .. "'")
+
+                    shellOpen(path)
                 end,
             })
 
-            -- Reveal the app bundle's Contents/ folder in Finder.
             ms.tools.define({
                 id   = "roblox.openAppFolder",
-                name = "Roblox: Open Roblox.app Folder",
+                name = "Roblox: Open Roblox Folder",
                 run  = function()
-                    os.execute("open '/Applications/Roblox.app/Contents'")
+                    if IS_WINDOWS then
+                        revealDir(robloxVersionDir() or ROBLOX_DIR)
+                    else
+                        revealDir("/Applications/Roblox.app/Contents")
+                    end
                 end,
             })
         end
@@ -323,6 +424,10 @@ function obj:stop()
     if _sensTimer then
         _sensTimer:stop()
         _sensTimer = nil
+    end
+    if _cacheTimer then
+        _cacheTimer:stop()
+        _cacheTimer = nil
     end
     pcall(function() ms.antiTimeoutStop() end)
     if ms._targetApp == "Roblox" then
