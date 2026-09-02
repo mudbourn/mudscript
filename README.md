@@ -6,13 +6,13 @@ mudscript lets you write, test, and run macros on macOS, with a visual builder, 
 
 The primary use case is game macros: automating repetitive actions, building complex input sequences, and testing them in a safe sandbox. Expanding beyond game-specific automation is planned for a much later phase of development, once real demand for it emerges.
 
-> **Windows support is in early development.** The Windows version is not ready for general use. It exists for maintainer testing only. If you're looking for a macro tool on Windows, mudscript is not there yet.
+> **Windows support is in active development.** The Windows version built using AutoHotkey has been discontinued. For all future Windows related information, check out this port of the macOS macro tool mudscript is built on made by me for running the macOS version on Windows. Do keep in mind: I am just one guy and this port is still rough, so please don't harass me with issues related to it. Instead, I would greatly appreciate any patience and proper reporting of genuine bugs found. **If you're looking for a visual macro building tool on Windows, [mudscript is finally almost there](https://github.com/mudbourn/mudspoon)!**
 
 ---
 
 ## What it does
 
-- **Write macros in plain Lua** (or AHK on Windows): no proprietary scripting language to learn
+- **Write macros in plain Lua**: no proprietary scripting language to learn
 - **Visual macro builder**: drag-and-drop steps, inline editors, test-run with one click
 - **Live debugging**: console, macro monitor, input monitor, window monitor
 - **Profiles**: save, switch, export, and import macro packs
@@ -76,9 +76,9 @@ These work when your target app is focused. The target is set by an installed pl
 
 | Key | Action |
 |---|---|
-| `Alt+P` | Open settings / macro builder |
-| `Alt+[` | Quick reload |
-| `Alt+F10` | Panic, disable all macros |
+| `Alt/Opt + P` | Open settings / macro builder |
+| `Alt/Opt + [` | Quick reload |
+| `Alt/Opt + F10` | Panic, disable all macros |
 
 System hotkeys also work in Hammerspoon, Activity Monitor, and popped-out panels.
 
@@ -94,7 +94,7 @@ The macro builder lets you create macros without writing code:
 - **Test run**: execute your macro in a sandbox with live feedback
 - **Record mode**: capture your inputs and convert them to macro steps
 
-Open it with `Alt+P` → **Macros** tab.
+Find it in the **Macros** panel.
 
 ---
 
@@ -221,7 +221,7 @@ mudscript is open-source under the [MIT License](LICENSE). Contributions are wel
 
 ## Credits
 
-Built with [Hammerspoon](https://www.hammerspoon.org/) and [AutoHotkey](https://www.autohotkey.com/).
+Built with [Hammerspoon](https://www.hammerspoon.org/).
 
 Icons from [Lucide](https://lucide.dev/).
 
@@ -232,4 +232,4 @@ Sound effects sourced from [The Spriters Resource](https://www.spriters-resource
 - **Custom/macro sounds**: [Devil May Cry 3 (PS2)](https://sounds.spriters-resource.com/playstation_2/dmc3/asset/393835/)
 - **Default sound pack**: [Windows 10 Beta Sound Effects](https://sounds.spriters-resource.com/pc_computer/windows10builtinapplications/asset/565854/), [PS2 System BIOS](https://sounds.spriters-resource.com/playstation_2/systembios/asset/430102/), [PSP System BIOS](https://sounds.spriters-resource.com/psp/systembios/asset/446911/), [PS4 System BIOS](https://sounds.spriters-resource.com/playstation_4/systembios/asset/520633/), [Xbox 360 System BIOS](https://sounds.spriters-resource.com/xbox_360/systembios/asset/493534/)
 
-Font: [Almendra](https://fonts.google.com/specimen/Almendra) by Ana Sanfelippo, via [Google Fonts](https://fonts.google.com/) (OFL).
+Custom Theme Font: [Almendra](https://fonts.google.com/specimen/Almendra) by Ana Sanfelippo, via [Google Fonts](https://fonts.google.com/) (OFL).
