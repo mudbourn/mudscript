@@ -3299,7 +3299,7 @@
     var flowCooldownRow = document.createElement("div");
     flowCooldownRow.className = "macro-flow-row";
     var cooldownLbl = document.createElement("label");
-    cooldownLbl.textContent = "Cooldown";
+    cooldownLbl.textContent = "Cooldown (ms)";
     var cooldownInput = document.createElement("input");
     cooldownInput.className = "macro-flow-input";
     cooldownInput.type = "number";

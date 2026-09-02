@@ -13,7 +13,8 @@
         ::selection { background: var(--accent); color: var(--bg); }
         html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; color: var(--text); font-family: var(--font); font-size: 13px; line-height: 1.5; -webkit-font-smoothing: antialiased; min-width: 200px; min-height: 150px; }
         body { margin: 0; padding: 0; }
-        #shell-root { display: flex; flex-direction: row; width: 100%; height: 100%; background: var(--bg); border-radius: var(--ms-window-radius, 0px); overflow: hidden; box-shadow: inset 0 0 0 1px var(--border, rgba(255,255,255,0.09)); }
+        #shell-root { position: relative; display: flex; flex-direction: row; width: 100%; height: 100%; background: var(--bg); border-radius: var(--ms-window-radius, 0px); overflow: hidden; }
+        #shell-root::after { content: ""; position: absolute; inset: 0; border: 1px solid var(--border, rgba(255,255,255,0.09)); border-radius: inherit; pointer-events: none; z-index: 2147483647; }
         button { cursor: pointer; border: none; background: none; color: inherit; font: inherit; }
         input, select { font: inherit; color: inherit; background: none; border: none; outline: none; }
         input::placeholder, textarea::placeholder { color: var(--text3); opacity: 0.55; }
@@ -79,6 +80,35 @@
            clip, so it renders whole there. Padding >= the DWM radius pulls all three
            icons clear of both bottom corners; harmless (a touch more inset) on mac. */
         .rail-bottom-row { display: flex; flex-direction: row; justify-content: space-evenly; padding: 0 8px 8px; }
+
+        /* -- Rail collapse -- */
+        #rail { transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.18s ease; }
+        body.rail-collapsed #rail { width: 0; min-width: 0; opacity: 0; overflow: hidden; pointer-events: none; }
+        #rail-divider {
+            position: absolute; top: 0; bottom: 0; left: var(--rail-w);
+            width: 9px; transform: translateX(-5px); z-index: 20; cursor: pointer;
+            display: flex; align-items: stretch; justify-content: center;
+            transition: left 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.18s ease;
+        }
+        #rail-divider::before {
+            content: ""; width: 2px; border-radius: 2px; background: var(--accent);
+            opacity: 0; transition: opacity 0.18s ease, box-shadow 0.18s ease;
+        }
+        #rail-divider:hover::before { opacity: 0.9; box-shadow: 0 0 8px 1px var(--accent-glow, var(--accent)); }
+        body.rail-collapsed #rail-divider { left: 0; opacity: 0; pointer-events: none; }
+        #rail-handle {
+            position: absolute; left: 8px; top: 0; width: 26px; height: 46px;
+            border-radius: var(--radius, 6px); background: var(--surface2);
+            border: 1px solid var(--border); z-index: 21; cursor: grab; color: var(--text2);
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+            transition: opacity 0.25s ease, background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+        }
+        body.rail-collapsed #rail-handle { opacity: 1; pointer-events: auto; }
+        #rail-handle:hover { background: var(--hover); color: var(--accent-hi); box-shadow: 0 0 10px 1px var(--accent-glow, var(--accent)); }
+        #rail-handle:active { cursor: grabbing; }
+        #rail-handle.dragging { transition: background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease; cursor: grabbing; }
+        #rail-handle .icon { width: 15px; height: 15px; }
 
         /* -- Content Area -- */
         #content { flex: 1; height: 100%; overflow: hidden; position: relative; display: flex; align-items: center; justify-content: center; }
@@ -995,6 +1025,9 @@
         </div>
         <span id="rail-version" style="padding: 1px 12px 3px; font-size: 10px; color: var(--text3); opacity: 0.5; text-align: center;"></span>
     </nav>
+
+    <div id="rail-divider" title="Collapse sidebar"></div>
+    <button id="rail-handle" title="Drag to move · click to show sidebar" aria-label="Show sidebar"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/><path d="M8 5h13"/><path d="M8 12h13"/><path d="M8 19h13"/></svg></button>
 
     <!-- -- Content Area -- -->
     <main id="content">
@@ -2124,6 +2157,83 @@
     document.addEventListener('focusin', function() {
         if (_kbNav && window.playSlot) playSlot('hover');
     });
+
+    // -- Rail collapse: click the glowing divider to fold the sidebar; a
+    //    vertically draggable handle brings it back --
+    (function() {
+        var body = document.body;
+        var root = document.getElementById('shell-root');
+        var divider = document.getElementById('rail-divider');
+        var handle = document.getElementById('rail-handle');
+        if (!root || !divider || !handle) return;
+
+        var KEY_COLLAPSED = 'ms.rail.collapsed';
+        var KEY_HANDLE_Y = 'ms.rail.handleY';
+
+        function clampY(y) {
+            var h = handle.offsetHeight || 46;
+            return Math.max(8, Math.min(y, root.clientHeight - h - 8));
+        }
+        function placeHandle(y) { handle.style.top = clampY(y) + 'px'; }
+        function restoreHandleY() {
+            var v = null;
+            try { v = localStorage.getItem(KEY_HANDLE_Y); } catch (e) {}
+            if (v == null) placeHandle((root.clientHeight - (handle.offsetHeight || 46)) / 2);
+            else placeHandle(parseFloat(v));
+        }
+        function persistCollapsed(on) {
+            try { localStorage.setItem(KEY_COLLAPSED, on ? '1' : '0'); } catch (e) {}
+        }
+
+        function collapse() {
+            body.classList.add('rail-collapsed');
+            restoreHandleY();
+            persistCollapsed(true);
+            shellDispatch('_shell', 'playSlot', { slot: 'back' });
+        }
+        function expand() {
+            body.classList.remove('rail-collapsed');
+            persistCollapsed(false);
+            shellDispatch('_shell', 'playSlot', { slot: 'interact' });
+        }
+
+        divider.addEventListener('mouseenter', function() {
+            shellDispatch('_shell', 'playSlot', { slot: 'hover' });
+        });
+        divider.addEventListener('click', collapse);
+
+        var dragging = false, moved = false, startY = 0, startTop = 0;
+        handle.addEventListener('mousedown', function(e) {
+            dragging = true; moved = false;
+            startY = e.clientY;
+            startTop = parseFloat(handle.style.top) || 0;
+            handle.classList.add('dragging');
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', function(e) {
+            if (!dragging) return;
+            var dy = e.clientY - startY;
+            if (Math.abs(dy) > 3) moved = true;
+            placeHandle(startTop + dy);
+        });
+        document.addEventListener('mouseup', function() {
+            if (!dragging) return;
+            dragging = false;
+            handle.classList.remove('dragging');
+            if (moved) {
+                try { localStorage.setItem(KEY_HANDLE_Y, parseFloat(handle.style.top) || 0); } catch (e) {}
+            } else {
+                expand();
+            }
+        });
+        window.addEventListener('resize', function() {
+            if (body.classList.contains('rail-collapsed')) placeHandle(parseFloat(handle.style.top) || 0);
+        });
+
+        var wasCollapsed = false;
+        try { wasCollapsed = localStorage.getItem(KEY_COLLAPSED) === '1'; } catch (e) {}
+        if (wasCollapsed) { body.classList.add('rail-collapsed'); restoreHandleY(); }
+    })();
 
     document.addEventListener('DOMContentLoaded', function() {
         shellDispatch('_shell', 'ready', { version: '0.2.0' });
