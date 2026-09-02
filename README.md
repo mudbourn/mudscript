@@ -12,7 +12,7 @@ The primary use case is game macros: automating repetitive actions, building com
 
 ## What it does
 
-- **Write macros in plain Lua** (or AHK on Windows): no proprietary scripting language to learn
+- **Write macros in plain Lua**: no proprietary scripting language to learn
 - **Visual macro builder**: drag-and-drop steps, inline editors, test-run with one click
 - **Live debugging**: console, macro monitor, input monitor, window monitor
 - **Profiles**: save, switch, export, and import macro packs
