@@ -55,7 +55,7 @@
         #rail-drag .grip span { width: 3px; height: 3px; border-radius: 50%; background: var(--text3); }
         body.dragging #rail, body.dragging #content { pointer-events: none; }
         .rail-item {
-            display: flex; align-items: center; gap: 8px; padding: 5px 14px;
+            display: flex; align-items: center; gap: 8px; padding: 5px 10px; margin: 0 8px;
             border-radius: var(--radius); color: var(--text2); font-size: 12px;
             cursor: pointer; transition: background 0.1s, color 0.1s; position: relative;
         }
@@ -68,7 +68,7 @@
         .rail-item.active .icon { opacity: 1; }
         .rail-spacer { flex: 1; }
         .rail-item.popped-out { opacity: 0.5; }
-        .rail-item.rail-icon-only { padding: 6px; gap: 0; justify-content: center; flex: 1; }
+        .rail-item.rail-icon-only { padding: 6px; margin: 0; gap: 0; justify-content: center; flex: 1; }
         .rail-item.rail-icon-only .icon { opacity: 0.55; }
         .rail-item.rail-icon-only:hover .icon { opacity: 0.85; }
         .rail-item.rail-icon-only.active .icon { opacity: 1; }
@@ -86,10 +86,13 @@
         body.rail-collapsed #rail { width: 0; min-width: 0; opacity: 0; overflow: hidden; pointer-events: none; }
         #rail-divider {
             position: absolute; top: 0; bottom: 0; left: var(--rail-w);
-            width: 9px; transform: translateX(-5px); z-index: 20; cursor: pointer;
+            width: 18px; transform: translateX(-9px); z-index: 20; cursor: ew-resize;
             display: flex; align-items: stretch; justify-content: center;
             transition: left 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.18s ease;
         }
+        body.rail-resizing { cursor: ew-resize; }
+        body.rail-resizing #rail, body.rail-resizing #rail-divider { transition: none; }
+        body.rail-resizing #rail-divider::before { opacity: 0.9; box-shadow: 0 0 8px 1px var(--accent-glow, var(--accent)); }
         #rail-divider::before {
             content: ""; width: 2px; border-radius: 2px; background: var(--accent);
             opacity: 0; transition: opacity 0.18s ease, box-shadow 0.18s ease;
@@ -104,7 +107,8 @@
             opacity: 0; pointer-events: none; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
             transition: opacity 0.25s ease, background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
         }
-        body.rail-collapsed #rail-handle { opacity: 1; pointer-events: auto; }
+        body.rail-collapsed #rail-handle { pointer-events: none; }
+        body.rail-collapsed.rail-hot #rail-handle, #rail-handle.dragging { opacity: 1; pointer-events: auto; }
         #rail-handle:hover { background: var(--hover); color: var(--accent-hi); box-shadow: 0 0 10px 1px var(--accent-glow, var(--accent)); }
         #rail-handle:active { cursor: grabbing; }
         #rail-handle.dragging { transition: background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease; cursor: grabbing; }
@@ -995,7 +999,7 @@
     <script src="./modules/ui-select.js"></script>
     <script src="./modules/tool-editor.js"></script>
 </head>
-<body>
+<body autocapitalize="off" autocorrect="off" spellcheck="false">
 <div class="resize-zone resize-n" data-edge="n"></div>
 <div class="resize-zone resize-s" data-edge="s"></div>
 <div class="resize-zone resize-e" data-edge="e"></div>
@@ -1026,8 +1030,8 @@
         <span id="rail-version" style="padding: 1px 12px 3px; font-size: 10px; color: var(--text3); opacity: 0.5; text-align: center;"></span>
     </nav>
 
-    <div id="rail-divider" title="Collapse sidebar"></div>
-    <button id="rail-handle" title="Drag to move · click to show sidebar" aria-label="Show sidebar"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/><path d="M8 5h13"/><path d="M8 12h13"/><path d="M8 19h13"/></svg></button>
+    <div id="rail-divider" data-tip="Resize/Collapse" data-tip-follow></div>
+    <button id="rail-handle" data-tip="Drag to move · click to show sidebar" aria-label="Show sidebar"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/><path d="M8 5h13"/><path d="M8 12h13"/><path d="M8 19h13"/></svg></button>
 
     <!-- -- Content Area -- -->
     <main id="content">
@@ -1036,7 +1040,7 @@
 
         <!-- Header -->
         <div id="header">
-            <span id="panel-title">mudscript — console</span>
+            <span id="panel-title">mudscript :// console</span>
             <div class="header-btns">
                 <button
                     id="pause-btn"
@@ -1143,7 +1147,7 @@
 <div class="panel-watcher" style="display:none">
 
         <div id="header">
-            <span id="panel-title">mudscript — macro monitor</span>
+            <span id="panel-title">mudscript :// macro monitor</span>
             <div class="header-btns">
                 <button
                     id="pause-btn"
@@ -1206,7 +1210,7 @@
 <div class="panel-keys" style="display:none">
 
         <div id="header">
-            <span id="panel-title">mudscript — input monitor</span>
+            <span id="panel-title">mudscript :// input monitor</span>
             <div class="header-btns">
                 <button
                     id="pause-btn"
@@ -1326,7 +1330,7 @@
 
         <!-- Header -->
         <div id="header">
-            <span id="panel-title">mudscript — window monitor</span>
+            <span id="panel-title">mudscript :// window monitor</span>
             <div class="header-btns">
                 <button
                     id="inspectToggle"
@@ -1466,7 +1470,7 @@
         </div>
 <div class="panel-tools" style="display:none">
         <div id="header">
-            <span id="panel-title">mudscript — tools</span>
+            <span id="panel-title">mudscript :// tools</span>
             <div class="header-btns">
                 <button
                     id="toolsFilterToggle"
@@ -1507,7 +1511,7 @@
 </div>
 <div class="panel-theme" style="display:none">
         <div id="header">
-            <span id="panel-title">mudscript — appearance</span>
+            <span id="panel-title">mudscript :// appearance</span>
             <div class="header-btns">
                 <button
                     class="btn-close"
@@ -1530,7 +1534,7 @@
 </div>
 <div class="panel-browse" style="display:none">
         <div id="header">
-            <span id="panel-title">mudscript — browse</span>
+            <span id="panel-title">mudscript :// browse</span>
             <div class="header-btns">
                 <button
                     class="btn-close"
@@ -1544,7 +1548,7 @@
 </div>
 <div class="panel-plugins" style="display:none">
         <div id="header">
-            <span id="panel-title">mudscript — plugins</span>
+            <span id="panel-title">mudscript :// plugins</span>
             <div class="header-btns">
                 <button
                     class="btn-close"
@@ -1558,7 +1562,7 @@
 </div>
 <div class="panel-profiles" style="display:none">
         <div id="header">
-            <span id="panel-title">mudscript — profiles</span>
+            <span id="panel-title">mudscript :// profiles</span>
             <div class="header-btns">
                 <button
                     class="btn-close"
@@ -1644,7 +1648,7 @@
         <div id="panel">
             <!-- Header -->
             <div id="header">
-                <span id="panel-title">mudscript — settings</span>
+                <span id="panel-title">mudscript :// settings</span>
                 <div class="header-btns">
                     <button
                         id="btn-power"
@@ -1674,7 +1678,7 @@
         <div class="panel-macros" style="display:none">
         <!-- Header -->
         <div id="header">
-            <span id="panel-title">mudscript — macro lab</span>
+            <span id="panel-title">mudscript :// macro lab</span>
             <div class="header-btns">
                 <button
                     id="macrosEnabledToggle"
@@ -2139,6 +2143,11 @@
         t.blur();
     }, true);
     document.addEventListener('keydown', function(e) {
+        if ((e.metaKey || e.ctrlKey) && (e.key === 'p' || e.key === 'P')) {
+            e.preventDefault();
+        }
+    }, true);
+    document.addEventListener('keydown', function(e) {
         if (!e.metaKey || e.ctrlKey || e.altKey) return;
         var k = e.key;
         var msg = null;
@@ -2153,9 +2162,23 @@
         }
     }, true);
 
+    try { window.print = function() {}; } catch (e) {}
+
     document.addEventListener('mousedown', function() { _kbNav = false; }, true);
     document.addEventListener('focusin', function() {
         if (_kbNav && window.playSlot) playSlot('hover');
+    });
+    document.addEventListener('focusin', function(e) {
+        var t = e.target;
+        if (!t) return;
+        if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable) {
+            t.setAttribute('autocapitalize', 'off');
+            t.setAttribute('autocorrect', 'off');
+            t.setAttribute('spellcheck', 'false');
+            if (t.tagName === 'INPUT' && !t.hasAttribute('autocomplete')) {
+                t.setAttribute('autocomplete', 'off');
+            }
+        }
     });
 
     // -- Rail collapse: click the glowing divider to fold the sidebar; a
@@ -2169,6 +2192,26 @@
 
         var KEY_COLLAPSED = 'ms.rail.collapsed';
         var KEY_HANDLE_Y = 'ms.rail.handleY';
+        var KEY_WIDTH = 'ms.rail.width';
+        var HOT_ZONE = 52;
+        var RAIL_MIN = 140;
+        var RAIL_MAX = Math.round(RAIL_MIN * 2.15);
+
+        function currentRailW() {
+            var v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rail-w'));
+            return isNaN(v) ? RAIL_MIN : v;
+        }
+        function setRailW(w) {
+            w = Math.max(RAIL_MIN, Math.min(w, RAIL_MAX));
+            document.documentElement.style.setProperty('--rail-w', w + 'px');
+        }
+
+        var hot = false;
+        function setHot(on) {
+            if (on === hot) return;
+            hot = on;
+            body.classList.toggle('rail-hot', on);
+        }
 
         function clampY(y) {
             var h = handle.offsetHeight || 46;
@@ -2188,11 +2231,13 @@
         function collapse() {
             body.classList.add('rail-collapsed');
             restoreHandleY();
+            setHot(false);
             persistCollapsed(true);
             shellDispatch('_shell', 'playSlot', { slot: 'back' });
         }
         function expand() {
             body.classList.remove('rail-collapsed');
+            setHot(false);
             persistCollapsed(false);
             shellDispatch('_shell', 'playSlot', { slot: 'interact' });
         }
@@ -2200,7 +2245,31 @@
         divider.addEventListener('mouseenter', function() {
             shellDispatch('_shell', 'playSlot', { slot: 'hover' });
         });
-        divider.addEventListener('click', collapse);
+
+        var rResizing = false, rMoved = false, rStartX = 0, rStartW = 0;
+        divider.addEventListener('mousedown', function(e) {
+            rResizing = true; rMoved = false;
+            rStartX = e.clientX;
+            rStartW = currentRailW();
+            body.classList.add('rail-resizing');
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', function(e) {
+            if (!rResizing) return;
+            var dx = e.clientX - rStartX;
+            if (Math.abs(dx) > 3) rMoved = true;
+            setRailW(rStartW + dx);
+        });
+        document.addEventListener('mouseup', function() {
+            if (!rResizing) return;
+            rResizing = false;
+            body.classList.remove('rail-resizing');
+            if (rMoved) {
+                try { localStorage.setItem(KEY_WIDTH, currentRailW()); } catch (e) {}
+            } else {
+                collapse();
+            }
+        });
 
         var dragging = false, moved = false, startY = 0, startTop = 0;
         handle.addEventListener('mousedown', function(e) {
@@ -2211,17 +2280,21 @@
             e.preventDefault();
         });
         document.addEventListener('mousemove', function(e) {
-            if (!dragging) return;
-            var dy = e.clientY - startY;
-            if (Math.abs(dy) > 3) moved = true;
-            placeHandle(startTop + dy);
+            if (dragging) {
+                var dy = e.clientY - startY;
+                if (Math.abs(dy) > 3) moved = true;
+                placeHandle(startTop + dy);
+                return;
+            }
+            setHot(body.classList.contains('rail-collapsed') && e.clientX <= HOT_ZONE);
         });
-        document.addEventListener('mouseup', function() {
+        document.addEventListener('mouseup', function(e) {
             if (!dragging) return;
             dragging = false;
             handle.classList.remove('dragging');
             if (moved) {
-                try { localStorage.setItem(KEY_HANDLE_Y, parseFloat(handle.style.top) || 0); } catch (e) {}
+                try { localStorage.setItem(KEY_HANDLE_Y, parseFloat(handle.style.top) || 0); } catch (err) {}
+                setHot(e.clientX <= HOT_ZONE);
             } else {
                 expand();
             }
@@ -2229,6 +2302,10 @@
         window.addEventListener('resize', function() {
             if (body.classList.contains('rail-collapsed')) placeHandle(parseFloat(handle.style.top) || 0);
         });
+
+        var savedW = null;
+        try { savedW = localStorage.getItem(KEY_WIDTH); } catch (e) {}
+        if (savedW != null) setRailW(parseFloat(savedW));
 
         var wasCollapsed = false;
         try { wasCollapsed = localStorage.getItem(KEY_COLLAPSED) === '1'; } catch (e) {}
@@ -2278,6 +2355,7 @@
         document.body.appendChild(tip);
 
         var current = null, showTimer = null;
+        var mouseX = 0, mouseY = 0;
 
         function textFor(el) {
             if (el.hasAttribute("title")) {
@@ -2292,12 +2370,17 @@
             tip.classList.remove("show");
         }
         function place(el) {
-            var r = el.getBoundingClientRect();
             var tw = tip.offsetWidth, th = tip.offsetHeight;
-            var gap = 6, edge = 8;
-            var x = r.left + r.width / 2 - tw / 2;
-            var y = r.bottom + gap;
-            if (y + th + edge > window.innerHeight) y = r.top - th - gap;
+            var edge = 8, x, y;
+            if (el.hasAttribute("data-tip-follow")) {
+                x = mouseX - tw / 2;
+                y = mouseY - th - 12;
+            } else {
+                var r = el.getBoundingClientRect();
+                x = r.left + r.width / 2 - tw / 2;
+                y = r.bottom + 6;
+                if (y + th + edge > window.innerHeight) y = r.top - th - 6;
+            }
             x = Math.max(edge, Math.min(x, window.innerWidth - tw - edge));
             y = Math.max(edge, Math.min(y, window.innerHeight - th - edge));
             tip.style.left = Math.round(x) + "px";
@@ -2324,6 +2407,12 @@
             var el = e.target && e.target.closest
                 ? e.target.closest("[title],[data-tip]") : null;
             if (el === current) hide();
+        });
+        document.addEventListener("mousemove", function(e) {
+            mouseX = e.clientX; mouseY = e.clientY;
+            if (current && current.hasAttribute("data-tip-follow") && tip.classList.contains("show")) {
+                place(current);
+            }
         });
         document.addEventListener("mousedown", hide, true);
         window.addEventListener("scroll", hide, true);

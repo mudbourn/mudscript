@@ -1560,6 +1560,50 @@
 
                 body.appendChild(divider());
 
+                {
+                    const errorTypes = [
+                        { value: "integrity", label: "Integrity Error" },
+                        { value: "unknownPlugin", label: "Unrecognized Plugin" },
+                        { value: "noLedger", label: "Plugins Not Verified" },
+                    ];
+                    let fakeErrKind = "integrity";
+                    const mkSel =
+                        window.createSelect ||
+                        (typeof createSelect === "function" ? createSelect : null);
+                    const controls = h("div", {
+                        style: "display:flex; gap:8px; align-items:center;",
+                    });
+                    if (mkSel) {
+                        controls.appendChild(
+                            mkSel({
+                                className: "input-sm",
+                                options: errorTypes,
+                                value: fakeErrKind,
+                                onChange: (v) => {
+                                    fakeErrKind = v || "integrity";
+                                },
+                            }),
+                        );
+                    }
+                    controls.appendChild(
+                        actionBtn("Trigger", "", () =>
+                            sendToHost({
+                                action: "showFakeError",
+                                value: fakeErrKind,
+                            }),
+                        ),
+                    );
+                    body.appendChild(
+                        row(
+                            "Test Error Screen",
+                            "Preview a Guardian error screen, badged as a preview",
+                            controls,
+                        ),
+                    );
+                }
+
+                body.appendChild(divider());
+
                 body.appendChild(
                     buildSlider(
                         "Log archive limit",

@@ -24,7 +24,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd || pwd)"
 
 echo ""
 echo "╔══════════════════════════════════════════════╗"
-echo "║        mudscript — macOS Installer           ║"
+echo "║        mudscript :// macOS Installer           ║"
 echo "╚══════════════════════════════════════════════╝"
 echo ""
 

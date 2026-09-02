@@ -133,9 +133,27 @@
             .ctx-divider { height: 1px; background: var(--border); margin: 2px 0; }
         </style>
     </head>
-    <body>
+    <body autocapitalize="off" autocorrect="off" spellcheck="false">
+    <script>
+    (function() {
+        document.addEventListener('keydown', function(e) {
+            if ((e.metaKey || e.ctrlKey) && (e.key === 'p' || e.key === 'P')) e.preventDefault();
+        }, true);
+        try { window.print = function() {}; } catch (e) {}
+        document.addEventListener('focusin', function(e) {
+            var t = e.target;
+            if (!t) return;
+            if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable) {
+                t.setAttribute('autocapitalize', 'off');
+                t.setAttribute('autocorrect', 'off');
+                t.setAttribute('spellcheck', 'false');
+                if (t.tagName === 'INPUT' && !t.hasAttribute('autocomplete')) t.setAttribute('autocomplete', 'off');
+            }
+        });
+    })();
+    </script>
         <div id="header">
-            <span id="panel-title">mudscript — window spy</span>
+            <span id="panel-title">mudscript :// window spy</span>
             <div class="header-btns">
                 <button id="inspectToggle" class="btn-ghost" onmouseenter="playSlot('hover')" onclick="playSlot('interact'); toggleInspect()">Inspect</button>
                 <button id="pause-btn" class="btn-ghost" onmouseenter="playSlot('hover')" onclick="playSlot('interact'); togglePause();">Pause</button>

@@ -2357,6 +2357,53 @@ return function(ms)
                     end
                 end,
 
+                showFakeError = function(data)
+                    local which = (data and data.value) or "integrity"
+                    local spec = nil
+                    if which == "unknownPlugin" then
+                        spec = {
+                            titlebar = "mudscript :// Unrecognized Plugin",
+                            height   = 430,
+                            title    = "Unrecognized plugin",
+                            lead     = "A plugin in Spoons/ was not installed through mudscript, "
+                                    .. "or has changed since it was. Because of this, mudscript did "
+                                    .. "not load, so no macros or key bindings are active.",
+                            rows     = { { label = "Plugin", value = "Spoons/Example.spoon" } },
+                            warning  = {
+                                "Plugins run as code, so an unrecognized one blocks startup "
+                                .. "instead of loading unchecked.",
+                                "If you added it yourself, re-import it through the plugin "
+                                .. "library. Otherwise remove it from ~/.hammerspoon/Spoons/ and reload.",
+                            },
+                            actions  = {
+                                { label = "Reveal in Finder", action = "revealSpoons", style = "accent" },
+                                { label = "Keep Blocked", action = "keepBlocked" },
+                            },
+                        }
+                    elseif which == "noLedger" then
+                        spec = {
+                            titlebar = "mudscript :// Plugins Not Verified",
+                            height   = 430,
+                            title    = "No plugin record",
+                            lead     = "Plugins are installed, but mudscript has no record of "
+                                    .. "where they came from. Because of this, mudscript did not load, "
+                                    .. "so no macros or key bindings are active.",
+                            rows     = { { label = "Found", value = "Spoons/Example.spoon" } },
+                            warning  = {
+                                "Expected once, on an install that predates plugin verification. "
+                                .. "Re-import each plugin through the library to record it.",
+                                "The record is not rebuilt from disk on purpose: if it were, "
+                                .. "deleting one file would make any plugin look trusted.",
+                            },
+                            actions  = {
+                                { label = "Reveal in Finder", action = "revealSpoons", style = "accent" },
+                                { label = "Keep Blocked", action = "keepBlocked" },
+                            },
+                        }
+                    end
+                    ms.showGuardian(nil, nil, spec)
+                end,
+
                 openURL = function(data) if data.url then hs.urlevent.openURL(data.url) end end,
 
                 checkForUpdate = function()

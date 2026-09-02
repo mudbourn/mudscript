@@ -513,7 +513,7 @@ YQIDAQAB
 
     local function _unknownSpoonSpec(name)
         return {
-            titlebar = "mudscript — Unrecognized Plugin",
+            titlebar = "mudscript :// Unrecognized Plugin",
             height   = 430,
             title    = "Unrecognized plugin",
             lead     = "A plugin in Spoons/ was not installed through mudscript, "
@@ -548,7 +548,7 @@ YQIDAQAB
 
     local function _noLedgerSpec(name)
         return {
-            titlebar = "mudscript — Plugins Not Verified",
+            titlebar = "mudscript :// Plugins Not Verified",
             height   = 430,
             title    = "No plugin record",
             lead     = "Plugins are installed, but mudscript has no record of "

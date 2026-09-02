@@ -4769,7 +4769,7 @@ return function(ms)
     -- END System Integrity --
 
     -- ms.showGuardian --
-        ms.showGuardian = function(trusted, current)
+        ms.showGuardian = function(trusted, current, spec)
             trusted = trusted or ("a3f8" .. string.rep("0", 12))
             current = current or ("9c1e" .. string.rep("f", 12))
             local _home = os.getenv("HOME")
@@ -4793,6 +4793,7 @@ return function(ms)
             end)
             local sf = hs.screen.mainScreen():frame()
             local w, h = 360, 300
+            if spec and spec.height then h = spec.height end
             local x = sf.x + math.floor((sf.w - w) / 2)
             local y = sf.y + math.floor((sf.h - h) / 2)
             _pos   = {
@@ -4827,6 +4828,12 @@ return function(ms)
                     _panel:evaluateJavaScript(
                         "setHashes('" .. t .. "', '" .. c .. "')"
                     )
+                    if spec then
+                        local sj = hs.json.encode(spec)
+                        if sj then
+                            _panel:evaluateJavaScript("setFailure(" .. sj .. ")")
+                        end
+                    end
                     _panel:evaluateJavaScript("setPreviewMode()")
                     if not ms._customThemeDisabled then
                         local tj = hs.json.encode(ms._theme or {})
