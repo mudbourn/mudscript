@@ -719,7 +719,8 @@ return function(ms)
                 end
 
                 _activePanel = p
-                if p ~= "window" then
+                if p ~= "window"
+                    and not (ms.shell and ms.shell.isPoppedOut and ms.shell.isPoppedOut("window")) then
                     _winElementTab = false
                     self:_winEngineStop()
                 end
