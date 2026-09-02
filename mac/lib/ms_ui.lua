@@ -1337,7 +1337,9 @@ return function(ms)
                     ms.gamepadEnabled = (data.value == true)
                     if ms.gamepadEnabled then
                         if ms.gamepadStart then ms.gamepadStart() end
+                        if ms.shell and ms.shell.gpEnsureOpenBind then ms.shell.gpEnsureOpenBind() end
                     else
+                        if ms.shell and ms.shell.gpClearOpenBind then ms.shell.gpClearOpenBind() end
                         if ms.gamepadStop then ms.gamepadStop() end
                     end
                     ms.saveSettings()
@@ -2575,7 +2577,12 @@ return function(ms)
                         ms.saveSettings()
                     elseif key == "gamepadEnabled" then
                         ms.gamepadEnabled = (def.gamepadEnabled == true)
-                        if not ms.gamepadEnabled and ms.gamepadStop then ms.gamepadStop() end
+                        if ms.gamepadEnabled then
+                            if ms.shell and ms.shell.gpEnsureOpenBind then ms.shell.gpEnsureOpenBind() end
+                        else
+                            if ms.shell and ms.shell.gpClearOpenBind then ms.shell.gpClearOpenBind() end
+                            if ms.gamepadStop then ms.gamepadStop() end
+                        end
                         ms.saveSettings()
                         ms.bind.rebind()
                     elseif key == "soundEnabled" then

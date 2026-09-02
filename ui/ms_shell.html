@@ -63,6 +63,8 @@
         .rail-item.active { background: var(--surface2); color: var(--accent-hi); box-shadow: inset 0 0 0 1px var(--accent); }
         .rail-item:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent-hi); }
         .rail-item.active:focus-visible { box-shadow: inset 0 0 0 2px var(--accent-hi); }
+        .gp-focus { outline: 2px solid var(--accent-hi) !important; outline-offset: -2px; border-radius: var(--radius-s); }
+        .rail-item.gp-focus { outline: none !important; box-shadow: inset 0 0 0 2px var(--accent-hi); }
         .rail-item .rail-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 16px; height: 16px; }
         .rail-item .icon { opacity: 0.7; }
         .rail-item.active .icon { opacity: 1; }
@@ -532,7 +534,7 @@
             position: sticky; top: 0; z-index: 3;
             display: flex; align-items: baseline; gap: 10px;
             padding: 20px 18px 8px 18px;
-            background: var(--bg);
+            background: var(--surface);
             box-shadow: 0 1px 0 var(--border-dim);
             cursor: default;
         }
@@ -2068,6 +2070,146 @@
             window._maybeShowConsoleDanger();
         }
     };
+
+    // -- Gamepad navigation: console-style steering driven from the Lua nav layer --
+    (function() {
+        var gpFocusEl = null;
+
+        function setFocus(el) {
+            if (gpFocusEl === el) return;
+            if (gpFocusEl) gpFocusEl.classList.remove('gp-focus');
+            gpFocusEl = el || null;
+            if (gpFocusEl) {
+                gpFocusEl.classList.add('gp-focus');
+                try { gpFocusEl.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {}
+                shellDispatch('_shell', 'playSlot', { slot: 'hover' });
+            }
+        }
+
+        function visiblePanelEl() {
+            if (currentPanel === '_popped') return null;
+            return document.querySelector('.panel-' + currentPanel);
+        }
+
+        function isVisible(el) {
+            if (!el || el.disabled) return false;
+            var r = el.getBoundingClientRect();
+            if (r.width === 0 && r.height === 0) return false;
+            if (el.offsetParent === null && getComputedStyle(el).position !== 'fixed') return false;
+            return true;
+        }
+
+        var FOCUSABLE = 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"]), .row';
+
+        function focusables(scope) {
+            scope = scope || visiblePanelEl();
+            if (!scope) return [];
+            return Array.prototype.slice.call(scope.querySelectorAll(FOCUSABLE)).filter(isVisible);
+        }
+
+        function step(delta) {
+            var list = focusables();
+            if (!list.length) { setFocus(null); return; }
+            var idx = gpFocusEl ? list.indexOf(gpFocusEl) : -1;
+            if (idx === -1) { setFocus(delta > 0 ? list[0] : list[list.length - 1]); return; }
+            var next = idx + delta;
+            if (next < 0) next = 0;
+            if (next >= list.length) next = list.length - 1;
+            setFocus(list[next]);
+        }
+
+        function railItems() {
+            return Array.prototype.slice.call(document.querySelectorAll('.rail-item[data-panel]'))
+                .filter(function(b) { return isVisible(b) && !b.classList.contains('popped-out'); });
+        }
+
+        function switchPanel(delta) {
+            var items = railItems();
+            if (!items.length) return;
+            var cur = -1;
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].getAttribute('data-panel') === currentPanel) { cur = i; break; }
+            }
+            var ni = cur === -1 ? 0 : cur + delta;
+            if (ni < 0) ni = items.length - 1;
+            if (ni >= items.length) ni = 0;
+            shellDispatch('_shell', 'playSlot', { slot: 'interact' });
+            showPanel(items[ni].getAttribute('data-panel'));
+            setFocus(null);
+        }
+
+        function tabStrip() {
+            var scope = visiblePanelEl();
+            if (!scope) return [];
+            return Array.prototype.slice.call(scope.querySelectorAll('#tabs .tab, .tab')).filter(isVisible);
+        }
+
+        function switchTab(delta) {
+            var tabs = tabStrip();
+            if (!tabs.length) return;
+            var cur = -1;
+            for (var i = 0; i < tabs.length; i++) {
+                if (tabs[i].classList.contains('active')) { cur = i; break; }
+            }
+            var ni = cur === -1 ? 0 : cur + delta;
+            if (ni < 0) ni = tabs.length - 1;
+            if (ni >= tabs.length) ni = 0;
+            shellDispatch('_shell', 'playSlot', { slot: 'interact' });
+            tabs[ni].click();
+            setFocus(null);
+        }
+
+        function scrollBy(delta) {
+            var scope = visiblePanelEl();
+            if (!scope) return;
+            var el = scope.querySelector('[class$="-scroll"], #scroll, .data-scroll') || scope;
+            var guard = 0;
+            while (el && guard < 6) {
+                if (el.scrollHeight > el.clientHeight + 2) break;
+                el = el.parentElement;
+                guard++;
+            }
+            if (el) el.scrollTop += delta;
+        }
+
+        function topbarFirst() {
+            var scope = visiblePanelEl() || document;
+            return scope.querySelector('.macro-toolbar button, .macro-toolbar-btn')
+                || document.querySelector('#header .header-btns button');
+        }
+
+        window.gpNavInit = function() { setFocus(null); };
+
+        window.gpNav = function(cmd, arg) {
+            switch (cmd) {
+                case 'panelPrev': switchPanel(-1); break;
+                case 'panelNext': switchPanel(1); break;
+                case 'tabPrev': switchTab(-1); break;
+                case 'tabNext': switchTab(1); break;
+                case 'itemUp': case 'itemLeft': step(-1); break;
+                case 'itemDown': case 'itemRight': step(1); break;
+                case 'activate':
+                    if (gpFocusEl) {
+                        shellDispatch('_shell', 'playSlot', { slot: 'interact' });
+                        gpFocusEl.click();
+                    }
+                    break;
+                case 'back':
+                    if (gpFocusEl) { shellDispatch('_shell', 'playSlot', { slot: 'back' }); setFocus(null); }
+                    else { shellDispatch('_shell', 'close', {}); }
+                    break;
+                case 'toggleRail':
+                    document.body.classList.toggle('rail-collapsed');
+                    shellDispatch('_shell', 'playSlot', { slot: 'interact' });
+                    break;
+                case 'focusTopbar': setFocus(topbarFirst()); break;
+                case 'popOut':
+                    if (typeof popOutPanel === 'function') popOutPanel(currentPanel);
+                    break;
+                case 'scroll': scrollBy(arg || 0); break;
+            }
+        };
+    })();
 
     window._shellApplyTheme = function(theme) {
         if (!theme || typeof theme !== 'object') return;
