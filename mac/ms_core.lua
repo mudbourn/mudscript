@@ -3478,11 +3478,9 @@
             end
 
             ms.playSlot = function(slotId)
-                local _dbg = (slotId == "themeLoaded")
-                if _dbg then print(string.format("[SLOTDBG] themeLoaded: soundEnabled=%s quickReloading=%s octane=%s/%s startupDone=%s", tostring(ms.soundEnabled), tostring(ms._quickReloading), tostring(ms._octaneMode), tostring(ms._octaneMuteSounds), tostring(ms._startupSoundDone))) end
-                if not ms.soundEnabled then if _dbg then print("[SLOTDBG] themeLoaded BAILED: soundEnabled false") end return false end
-                if ms._quickReloading then if _dbg then print("[SLOTDBG] themeLoaded BAILED: quickReloading") end return false end
-                if ms._octaneMode and ms._octaneMuteSounds then if _dbg then print("[SLOTDBG] themeLoaded BAILED: octane mute") end return false end
+                if not ms.soundEnabled then return false end
+                if ms._quickReloading then return false end
+                if ms._octaneMode and ms._octaneMuteSounds then return false end
                 if not ms._startupSoundDone and slotId ~= "load" and slotId ~= "themeLoaded" and slotId ~= "updateAvailable" and slotId ~= "settingsOpen" and slotId ~= "settingsClose" then return false end
                 ms._slotHandles = ms._slotHandles or {}
                 -- Do NOT stop the slot's previous play before starting the new one.
@@ -3499,10 +3497,8 @@
                     path = _resolveSlot(id)
                     if path then break end
                 end
-                if _dbg then print("[SLOTDBG] themeLoaded resolved path=" .. tostring(path) .. " assign=" .. tostring(ms.soundAssign and ms.soundAssign["themeLoaded"])) end
-                if not path then if _dbg then print("[SLOTDBG] themeLoaded BAILED: no path") end return false end
+                if not path then return false end
                 local handle = ms.sound(path) or false
-                if _dbg then print("[SLOTDBG] themeLoaded ms.sound handle=" .. tostring(handle)) end
                 if handle then
                     ms._slotHandles[slotId] = handle
                     ms._slotStartedAt = ms._slotStartedAt or {}
