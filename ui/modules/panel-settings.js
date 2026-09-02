@@ -895,6 +895,32 @@
                                 );
                             });
                         }
+
+                        body.appendChild(divider());
+                        body.appendChild(
+                            row(
+                                "Shell navigation",
+                                "While the shell is open, steer it like a console UI.",
+                                null,
+                                "row-sub",
+                            ),
+                        );
+                        const GP_SHORTCUTS = [
+                            ["R3 + Home", "Open / close the shell"],
+                            ["Left stick / D-pad", "Move between items"],
+                            ["Right stick", "Scroll"],
+                            ["A", "Select the focused item"],
+                            ["B", "Back out, then close"],
+                            ["LB / RB", "Previous / next panel"],
+                            ["LT / RT", "Previous / next tab"],
+                            ["Start", "Show / hide the sidebar"],
+                            ["Select (tap)", "Jump to the top bar"],
+                            ["Select (double-tap)", "Pop out a dev tool"],
+                            ["Select (hold) + D-pad", "Scale the UI"],
+                        ];
+                        GP_SHORTCUTS.forEach((s) => {
+                            body.appendChild(row(s[0], s[1], null, "row-sub"));
+                        });
                     }
                 }
 

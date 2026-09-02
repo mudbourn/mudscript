@@ -1748,27 +1748,38 @@
                                 if rebindCb then
                                     rebindCb(ev.b, "press", ms._gamepadHeld)
                                 else
-                                    -- Fire the most specific chord whose buttons
-                                    -- are all currently held and that includes the
-                                    -- button just pressed. Requiring membership of
-                                    -- the just-pressed button means a chord fires
-                                    -- when its final button lands (hold L1, then X),
-                                    -- and picking the largest matching set lets
-                                    -- L1+X win over a bare X bound to the same key.
-                                    local best, bestN = nil, -1
-                                    for _, bnd in ipairs(ms._gamepadBinds) do
-                                        if bnd.set[ev.b] then
-                                            local all = true
-                                            for k in pairs(bnd.set) do
-                                                if not ms._gamepadHeld[k] then all = false break end
-                                            end
-                                            if all and bnd.n > bestN then best, bestN = bnd, bnd.n end
-                                        end
+                                    -- The nav layer (shell console navigation) claims
+                                    -- events by returning true, so a face button used
+                                    -- to steer the shell never also fires a macro bind.
+                                    local navCb = ms._gamepadCallbacks._nav
+                                    local consumed = false
+                                    if navCb then
+                                        local okN, res = pcall(navCb, "press", ev.b, ms._gamepadHeld)
+                                        consumed = okN and res == true
                                     end
-                                    if best then
-                                        local co = coroutine.create(best.fn)
-                                        local ok2, err = coroutine.resume(co)
-                                        if not ok2 then print("ms.gamepad callback error: " .. tostring(err)) end
+                                    if not consumed then
+                                        -- Fire the most specific chord whose buttons
+                                        -- are all currently held and that includes the
+                                        -- button just pressed. Requiring membership of
+                                        -- the just-pressed button means a chord fires
+                                        -- when its final button lands (hold L1, then X),
+                                        -- and picking the largest matching set lets
+                                        -- L1+X win over a bare X bound to the same key.
+                                        local best, bestN = nil, -1
+                                        for _, bnd in ipairs(ms._gamepadBinds) do
+                                            if bnd.set[ev.b] then
+                                                local all = true
+                                                for k in pairs(bnd.set) do
+                                                    if not ms._gamepadHeld[k] then all = false break end
+                                                end
+                                                if all and bnd.n > bestN then best, bestN = bnd, bnd.n end
+                                            end
+                                        end
+                                        if best then
+                                            local co = coroutine.create(best.fn)
+                                            local ok2, err = coroutine.resume(co)
+                                            if not ok2 then print("ms.gamepad callback error: " .. tostring(err)) end
+                                        end
                                     end
                                 end
                             elseif ev.e == "release" then
@@ -1776,7 +1787,13 @@
                                 local rebindCb = ms._gamepadCallbacks._rebind
                                 if rebindCb then
                                     rebindCb(ev.b, "release", ms._gamepadHeld)
+                                else
+                                    local navCb = ms._gamepadCallbacks._nav
+                                    if navCb then pcall(navCb, "release", ev.b, ms._gamepadHeld) end
                                 end
+                            elseif ev.e == "move" then
+                                local navCb = ms._gamepadCallbacks._nav
+                                if navCb then pcall(navCb, "move", ev.b, ev.x, ev.y) end
                             end
                         end
                     end
@@ -1803,7 +1820,9 @@
             ms.gamepadSync = function()
                 if ms.gamepadEnabled then
                     if not ms._gamepadTask then ms.gamepadStart() end
+                    if ms.shell and ms.shell.gpEnsureOpenBind then ms.shell.gpEnsureOpenBind() end
                 else
+                    if ms.shell and ms.shell.gpClearOpenBind then ms.shell.gpClearOpenBind() end
                     if ms._gamepadTask then ms.gamepadStop() end
                 end
             end

@@ -293,9 +293,17 @@
             function applyTheme(t) {
                 if (!t) return;
                 const r = document.documentElement.style;
-                if (t.bg) r.setProperty("--bg", t.bg);
-                if (t.surface) r.setProperty("--surface", t.surface);
-                if (t.surface2) r.setProperty("--surface2", t.surface2);
+                const opaque = (hx) => {
+                    if (typeof hx !== "string") return hx;
+                    const six = hx.match(/^#([0-9a-fA-F]{6})[0-9a-fA-F]{2}$/);
+                    if (six) return "#" + six[1];
+                    const three = hx.match(/^#([0-9a-fA-F]{3})[0-9a-fA-F]$/);
+                    if (three) return "#" + three[1];
+                    return hx;
+                };
+                if (t.bg) r.setProperty("--bg", opaque(t.bg));
+                if (t.surface) r.setProperty("--surface", opaque(t.surface));
+                if (t.surface2) r.setProperty("--surface2", opaque(t.surface2));
                 if (t.hover) r.setProperty("--hover", t.hover);
                 if (t.accent) r.setProperty("--accent", t.accent);
                 if (t.accentHi) r.setProperty("--accent-hi", t.accentHi);

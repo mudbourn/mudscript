@@ -5988,7 +5988,9 @@ return function(ms)
                         ms.gamepadEnabled = not ms.gamepadEnabled
                         if ms.gamepadEnabled then
                             if ms.gamepadStart then ms.gamepadStart() end
+                            if ms.shell and ms.shell.gpEnsureOpenBind then ms.shell.gpEnsureOpenBind() end
                         else
+                            if ms.shell and ms.shell.gpClearOpenBind then ms.shell.gpClearOpenBind() end
                             if ms.gamepadStop then ms.gamepadStop() end
                         end
                         ms.saveSettings()

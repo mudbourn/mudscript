@@ -732,6 +732,172 @@
             end
         -- END --
 
+        -- Gamepad Nav --
+            ms._gpNav = ms._gpNav or {}
+
+            local GP_DZ = 0.5
+
+            local function _gpEval(cmd, arg)
+                if not (ms.shell and ms.shell.eval) then return end
+                if arg ~= nil then
+                    ms.shell.eval(string.format("if(window.gpNav)gpNav('%s',%d)", cmd, arg))
+                else
+                    ms.shell.eval(string.format("if(window.gpNav)gpNav('%s')", cmd))
+                end
+            end
+
+            local function _gpZoom(delta)
+                if ms.ui and ms.ui._actions and ms.ui._actions.setUiZoom then
+                    pcall(ms.ui._actions.setUiZoom, { delta = delta })
+                end
+            end
+
+            local function _gpStopTimers()
+                local n = ms._gpNav
+                for _, k in ipairs({ "lsTimer", "rsTimer", "holdTimer", "tapTimer" }) do
+                    if n[k] then n[k]:stop() n[k] = nil end
+                end
+                n.lsDir = nil
+                n.rsActive = false
+                n.selectHeld = false
+                n.tapPending = false
+            end
+
+            local function _gpLsDir(x, y)
+                local ax, ay = math.abs(x), math.abs(y)
+                if ax < GP_DZ and ay < GP_DZ then return nil end
+                if ay >= ax then return y > 0 and "itemUp" or "itemDown" end
+                return x > 0 and "itemRight" or "itemLeft"
+            end
+
+            ms.shell._gpNavHandler = function(kind, button, a, b)
+                local n = ms._gpNav
+
+                if kind == "move" then
+                    if button == "left" then
+                        local dir = _gpLsDir(a or 0, b or 0)
+                        if dir ~= n.lsDir then
+                            n.lsDir = dir
+                            if n.lsTimer then n.lsTimer:stop() n.lsTimer = nil end
+                            if dir then
+                                _gpEval(dir)
+                                n.lsTimer = hs.timer.doEvery(0.18, function() _gpEval(dir) end)
+                            end
+                        end
+                    elseif button == "right" then
+                        n.rsY = b or 0
+                        local active = math.abs(n.rsY) >= GP_DZ
+                        if active and not n.rsActive then
+                            n.rsActive = true
+                            n.rsTimer = hs.timer.doEvery(0.05, function()
+                                _gpEval("scroll", math.floor(-(n.rsY or 0) * 42))
+                            end)
+                        elseif not active and n.rsActive then
+                            n.rsActive = false
+                            if n.rsTimer then n.rsTimer:stop() n.rsTimer = nil end
+                        end
+                    end
+                    return true
+                end
+
+                if kind == "release" then
+                    if button == "options" then
+                        if n.holdTimer then n.holdTimer:stop() n.holdTimer = nil end
+                        if n.selectHeld then
+                            n.selectHeld = false
+                        elseif n.tapPending then
+                            n.tapPending = false
+                            if n.tapTimer then n.tapTimer:stop() n.tapTimer = nil end
+                            _gpEval("popOut")
+                        else
+                            n.tapPending = true
+                            n.tapTimer = hs.timer.doAfter(0.28, function()
+                                n.tapPending = false
+                                n.tapTimer = nil
+                                _gpEval("focusTopbar")
+                            end)
+                        end
+                    end
+                    return true
+                end
+
+                if button == "options" then
+                    n.holdTimer = hs.timer.doAfter(0.35, function()
+                        n.selectHeld = true
+                        n.holdTimer = nil
+                    end)
+                    return true
+                elseif button == "a" then
+                    _gpEval("activate")
+                    return true
+                elseif button == "b" then
+                    _gpEval("back")
+                    return true
+                elseif button == "l1" then
+                    _gpEval("panelPrev")
+                    return true
+                elseif button == "r1" then
+                    _gpEval("panelNext")
+                    return true
+                elseif button == "l2" then
+                    _gpEval("tabPrev")
+                    return true
+                elseif button == "r2" then
+                    _gpEval("tabNext")
+                    return true
+                elseif button == "menu" then
+                    _gpEval("toggleRail")
+                    return true
+                elseif button == "up" or button == "down" or button == "left" or button == "right" then
+                    if n.selectHeld then
+                        if button == "up" or button == "right" then _gpZoom(0.1) else _gpZoom(-0.1) end
+                    else
+                        local map = { up = "itemUp", down = "itemDown", left = "itemLeft", right = "itemRight" }
+                        _gpEval(map[button])
+                    end
+                    return true
+                end
+
+                return false
+            end
+
+            ms.shell.gpEnsureOpenBind = function()
+                if not ms.gamepadEnabled then return end
+                if ms._gpOpenBind or not ms.gamepadBind then return end
+                ms._gpOpenBind = ms.gamepadBind({ "r3", "home" }, function()
+                    if ms.shell and ms.shell.toggle then ms.shell.toggle() end
+                end)
+            end
+
+            ms.shell.gpClearOpenBind = function()
+                if ms._gpOpenBind and ms._gpOpenBind.delete then pcall(ms._gpOpenBind.delete) end
+                ms._gpOpenBind = nil
+            end
+
+            local function _gpAttach()
+                _gpStopTimers()
+                ms._gamepadCallbacks = ms._gamepadCallbacks or {}
+                ms._gamepadCallbacks._nav = ms.shell._gpNavHandler
+                if ms.shell.eval then ms.shell.eval("if(window.gpNavInit)gpNavInit()") end
+            end
+
+            local function _gpDetach()
+                _gpStopTimers()
+                if ms._gamepadCallbacks then ms._gamepadCallbacks._nav = nil end
+            end
+
+            if not ms._gpNavBusHooked then
+                ms._gpNavBusHooked = true
+                ms.bus.on("macroLab:toggled", function(_, body)
+                    if body and body.visible and ms.gamepadEnabled then
+                        _gpAttach()
+                    else
+                        _gpDetach()
+                    end
+                end)
+            end
+        -- END --
+
         -- destroy --
             ms.shell.destroy = function()
                 if _shellFadeTimer then
