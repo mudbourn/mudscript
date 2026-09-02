@@ -2110,9 +2110,8 @@ return function(ms)
                 "danger","warning","text",
             }
             for _, k in ipairs(colorKeys) do
-                if type(data[k]) == "string"
-                    and data[k]:match("^#[0-9a-fA-F]+$")
-                then
+                local hx = type(data[k]) == "string" and data[k]:match("^#(%x+)$")
+                if hx and (#hx == 3 or #hx == 6 or #hx == 8) then
                     ms._theme[k] = data[k]
                 end
             end

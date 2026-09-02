@@ -957,43 +957,52 @@
                 local function hexRgb(hex)
                     if not hex or type(hex) ~= "string" then return nil end
                     hex = hex:gsub("#", "")
-                    if #hex ~= 6 then return nil end
+                    if #hex == 3 then
+                        hex = hex:sub(1,1):rep(2) .. hex:sub(2,2):rep(2) .. hex:sub(3,3):rep(2)
+                    end
+                    if #hex ~= 6 and #hex ~= 8 then return nil end
                     local r = tonumber(hex:sub(1,2), 16)
                     local g = tonumber(hex:sub(3,4), 16)
                     local b = tonumber(hex:sub(5,6), 16)
                     if not r or not g or not b then return nil end
-                    return r, g, b
+                    local a = 1
+                    if #hex == 8 then
+                        local av = tonumber(hex:sub(7,8), 16)
+                        if av then a = av / 255 end
+                    end
+                    return r, g, b, a
                 end
-                local tr, tg, tb = hexRgb(v("text"))
+                local tr, tg, tb, ta = hexRgb(v("text"))
                 if tr then
-                    if not t.text2 then parts[#parts + 1] = ("--text2:rgba(%d,%d,%d,0.85)"):format(tr, tg, tb) end
-                    if not t.text3 then parts[#parts + 1] = ("--text3:rgba(%d,%d,%d,0.55)"):format(tr, tg, tb) end
+                    if not t.text2 then parts[#parts + 1] = ("--text2:rgba(%d,%d,%d,%g)"):format(tr, tg, tb, 0.85 * ta) end
+                    if not t.text3 then parts[#parts + 1] = ("--text3:rgba(%d,%d,%d,%g)"):format(tr, tg, tb, 0.55 * ta) end
                 end
                 if not t.accentGlow then
-                    local ar2, ag2, ab2 = hexRgb(v("accent"))
-                    if ar2 then parts[#parts + 1] = ("--accent-glow:rgba(%d,%d,%d,0.4)"):format(ar2, ag2, ab2) end
+                    local ar2, ag2, ab2, aa2 = hexRgb(v("accent"))
+                    if ar2 then parts[#parts + 1] = ("--accent-glow:rgba(%d,%d,%d,%g)"):format(ar2, ag2, ab2, 0.4 * aa2) end
                 end
                 if not t.accentGlowFaint then
-                    local ar3, ag3, ab3 = hexRgb(v("accent"))
-                    if ar3 then parts[#parts + 1] = ("--accent-glow-faint:rgba(%d,%d,%d,0.12)"):format(ar3, ag3, ab3) end
+                    local ar3, ag3, ab3, aa3 = hexRgb(v("accent"))
+                    if ar3 then parts[#parts + 1] = ("--accent-glow-faint:rgba(%d,%d,%d,%g)"):format(ar3, ag3, ab3, 0.12 * aa3) end
                 end
                 if not t.dangerGlow then
-                    local dr2, dg2, db2 = hexRgb(v("danger"))
-                    if dr2 then parts[#parts + 1] = ("--danger-glow:rgba(%d,%d,%d,0.6)"):format(dr2, dg2, db2) end
+                    local dr2, dg2, db2, da2 = hexRgb(v("danger"))
+                    if dr2 then parts[#parts + 1] = ("--danger-glow:rgba(%d,%d,%d,%g)"):format(dr2, dg2, db2, 0.6 * da2) end
                 end
                 if not t.dangerBorder then
-                    local dr3, dg3, db3 = hexRgb(v("danger"))
-                    if dr3 then parts[#parts + 1] = ("--danger-border:rgba(%d,%d,%d,0.3)"):format(dr3, dg3, db3) end
+                    local dr3, dg3, db3, da3 = hexRgb(v("danger"))
+                    if dr3 then parts[#parts + 1] = ("--danger-border:rgba(%d,%d,%d,%g)"):format(dr3, dg3, db3, 0.3 * da3) end
                 end
                 if not t.border then
-                    local ar, ag, ab = hexRgb(v("accent"))
-                    local hr, hg, hb = hexRgb(v("hover"))
+                    local ar, ag, ab, aa = hexRgb(v("accent"))
+                    local hr, hg, hb, ha = hexRgb(v("hover"))
                     if ar and hr then
                         local mr, mg, mb = math.floor((ar+hr)/2), math.floor((ag+hg)/2), math.floor((ab+hb)/2)
-                        parts[#parts + 1] = ("--border:rgba(%d,%d,%d,0.55)"):format(mr, mg, mb)
-                        parts[#parts + 1] = ("--border-dim:rgba(%d,%d,%d,0.18)"):format(mr, mg, mb)
+                        local ma = (aa + ha) / 2
+                        parts[#parts + 1] = ("--border:rgba(%d,%d,%d,%g)"):format(mr, mg, mb, 0.55 * ma)
+                        parts[#parts + 1] = ("--border-dim:rgba(%d,%d,%d,%g)"):format(mr, mg, mb, 0.18 * ma)
                         if not t.borderFaint then
-                            parts[#parts + 1] = ("--border-faint:rgba(%d,%d,%d,0.07)"):format(mr, mg, mb)
+                            parts[#parts + 1] = ("--border-faint:rgba(%d,%d,%d,%g)"):format(mr, mg, mb, 0.07 * ma)
                         end
                     end
                 end
@@ -1008,8 +1017,8 @@
                     end
                 end
                 if not t.successBg then
-                    local sur, sug, sub = hexRgb(v("success"))
-                    if sur then parts[#parts + 1] = ("--success-bg:rgba(%d,%d,%d,0.15)"):format(sur, sug, sub) end
+                    local sur, sug, sub, sua = hexRgb(v("success"))
+                    if sur then parts[#parts + 1] = ("--success-bg:rgba(%d,%d,%d,%g)"):format(sur, sug, sub, 0.15 * sua) end
                 end
                 if not t.successState then
                     parts[#parts + 1] = "--success-state:" .. v("success")
@@ -1018,8 +1027,8 @@
                     parts[#parts + 1] = "--success-text:" .. v("accentHi")
                 end
                 if not t.errorBg then
-                    local dr4, dg4, db4 = hexRgb(v("danger"))
-                    if dr4 then parts[#parts + 1] = ("--error-bg:rgba(%d,%d,%d,0.15)"):format(dr4, dg4, db4) end
+                    local dr4, dg4, db4, da4 = hexRgb(v("danger"))
+                    if dr4 then parts[#parts + 1] = ("--error-bg:rgba(%d,%d,%d,%g)"):format(dr4, dg4, db4, 0.15 * da4) end
                 end
                 if not t.errorState then
                     parts[#parts + 1] = "--error-state:" .. v("danger")

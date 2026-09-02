@@ -5,8 +5,10 @@
 function hexToRgb(hex) {
     hex = hex.replace(/^#/, "");
     if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
-    const n = parseInt(hex, 16);
-    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+    else if (hex.length === 4) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2]+hex[3]+hex[3];
+    const n = parseInt(hex.slice(0, 6), 16);
+    const a = hex.length >= 8 ? parseInt(hex.slice(6, 8), 16) / 255 : 1;
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255, a: a };
 }
 
 // Global UI zoom. WebKit's CSS `zoom` scales all content (fonts, padding,
@@ -37,11 +39,11 @@ function applyTheme(t) {
     if (t.text) r.setProperty("--text", t.text);
     if (t.text && !t.text2) {
         const c = hexToRgb(t.text);
-        if (c) r.setProperty("--text2", `rgba(${c.r},${c.g},${c.b},0.85)`);
+        if (c) r.setProperty("--text2", `rgba(${c.r},${c.g},${c.b},${0.85 * c.a})`);
     }
     if (t.text && !t.text3) {
         const c = hexToRgb(t.text);
-        if (c) r.setProperty("--text3", `rgba(${c.r},${c.g},${c.b},0.55)`);
+        if (c) r.setProperty("--text3", `rgba(${c.r},${c.g},${c.b},${0.55 * c.a})`);
     }
     if (t.accent && t.hover && !t.border) {
         const a = hexToRgb(t.accent);
@@ -50,25 +52,26 @@ function applyTheme(t) {
             const mr = Math.round(a.r * 0.5 + h.r * 0.5);
             const mg = Math.round(a.g * 0.5 + h.g * 0.5);
             const mb = Math.round(a.b * 0.5 + h.b * 0.5);
-            r.setProperty("--border", `rgba(${mr},${mg},${mb},0.55)`);
-            r.setProperty("--border-dim", `rgba(${mr},${mg},${mb},0.18)`);
+            const ma = a.a * 0.5 + h.a * 0.5;
+            r.setProperty("--border", `rgba(${mr},${mg},${mb},${0.55 * ma})`);
+            r.setProperty("--border-dim", `rgba(${mr},${mg},${mb},${0.18 * ma})`);
         }
     }
     if (t.accent && !t.accentGlow) {
         const a = hexToRgb(t.accent);
-        if (a) r.setProperty("--accent-glow", `rgba(${a.r},${a.g},${a.b},0.4)`);
+        if (a) r.setProperty("--accent-glow", `rgba(${a.r},${a.g},${a.b},${0.4 * a.a})`);
     }
     if (t.accent && !t.accentGlowFaint) {
         const a = hexToRgb(t.accent);
-        if (a) r.setProperty("--accent-glow-faint", `rgba(${a.r},${a.g},${a.b},0.12)`);
+        if (a) r.setProperty("--accent-glow-faint", `rgba(${a.r},${a.g},${a.b},${0.12 * a.a})`);
     }
     if (t.danger && !t.dangerGlow) {
         const d = hexToRgb(t.danger);
-        if (d) r.setProperty("--danger-glow", `rgba(${d.r},${d.g},${d.b},0.6)`);
+        if (d) r.setProperty("--danger-glow", `rgba(${d.r},${d.g},${d.b},${0.6 * d.a})`);
     }
     if (t.danger && !t.dangerBorder) {
         const d = hexToRgb(t.danger);
-        if (d) r.setProperty("--danger-border", `rgba(${d.r},${d.g},${d.b},0.3)`);
+        if (d) r.setProperty("--danger-border", `rgba(${d.r},${d.g},${d.b},${0.3 * d.a})`);
     }
     if (t.text2) r.setProperty("--text2", t.text2);
     if (t.text3) r.setProperty("--text3", t.text3);

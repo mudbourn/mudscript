@@ -74,12 +74,27 @@
         return Date.now() < _editingUntil || Object.keys(_commitTimers).length > 0;
     }
 
-    function isHex(s) { return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(s); }
+    function isHex(s) { return /^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(s); }
 
     function longHex(s) {
         if (!isHex(s)) return null;
         const b = s.slice(1);
-        return b.length === 3 ? "#" + b[0]+b[0]+b[1]+b[1]+b[2]+b[2] : "#" + b.toLowerCase();
+        if (b.length === 3) return "#" + b[0]+b[0]+b[1]+b[1]+b[2]+b[2];
+        if (b.length === 4) return "#" + b[0]+b[0]+b[1]+b[1]+b[2]+b[2]+b[3]+b[3];
+        return "#" + b.toLowerCase();
+    }
+
+    function splitAlpha(v) {
+        const l = longHex(v);
+        if (!l) return { rgb: "#000000", a: 255 };
+        return {
+            rgb: "#" + l.slice(1, 7),
+            a: l.length >= 9 ? parseInt(l.slice(7, 9), 16) : 255,
+        };
+    }
+
+    function joinAlpha(rgb, a) {
+        return a >= 255 ? rgb : rgb + a.toString(16).padStart(2, "0");
     }
 
     // Colour field //
@@ -88,30 +103,50 @@
         const wrap = h("div", { cls: "color-field" });
 
         const swatch = h("input", { type: "color", cls: "color-swatch" });
-        const hex    = h("input", { type: "text", cls: "color-hex", spellcheck: "false", maxlength: "7", placeholder: "auto" });
+        const alpha  = h("input", { type: "range", cls: "color-alpha", min: "0", max: "255", step: "1", title: "Opacity" });
+        const hex    = h("input", { type: "text", cls: "color-hex", spellcheck: "false", maxlength: "9", placeholder: "auto" });
 
-        const long = longHex(current) || "#000000";
-        swatch.value = long;
+        const parts  = splitAlpha(current);
+        swatch.value = parts.rgb;
+        alpha.value  = String(current ? parts.a : 255);
         hex.value    = current || "";
 
-        swatch.addEventListener("input", () => {
-            hex.value = swatch.value;
-            _pending[key] = swatch.value;
-            previewTheme();
-            touchEditing();
-        });
-        swatch.addEventListener("change", () => commit(key, swatch.value));
+        function push(commitToo) {
+            const v = joinAlpha(swatch.value, parseInt(alpha.value, 10));
+            hex.value = v;
+            if (commitToo) {
+                commit(key, v);
+            } else {
+                _pending[key] = v;
+                previewTheme();
+                touchEditing();
+            }
+        }
+
+        swatch.addEventListener("input", () => push(false));
+        swatch.addEventListener("change", () => push(true));
+
+        alpha.addEventListener("input", () => push(false));
+        alpha.addEventListener("change", () => push(true));
 
         hex.addEventListener("change", () => {
             const v = hex.value.trim();
-            if (v === "") { swatch.value = "#000000"; commit(key, ""); return; }
+            if (v === "") {
+                swatch.value = "#000000";
+                alpha.value  = "255";
+                commit(key, "");
+                return;
+            }
             const l = longHex(v);
             if (!l) { hex.value = current || ""; playSlot("back"); return; }
-            swatch.value = l;
+            const p = splitAlpha(v);
+            swatch.value = p.rgb;
+            alpha.value  = String(p.a);
             commit(key, v);
         });
 
         wrap.appendChild(swatch);
+        wrap.appendChild(alpha);
         wrap.appendChild(hex);
         return wrap;
     }
@@ -313,6 +348,11 @@
                     ),
                 ),
             );
+            body.appendChild(btnRow(
+                actionBtn("Open theme JSON in editor", "", () =>
+                    sendToHost({ action: "editThemeJson" })),
+            ));
+
             if (!customTheme) {
                 body.appendChild(h("div", { cls: "theme-note" },
                     "Turn custom theme on to edit colours."));
@@ -426,15 +466,15 @@
             body.appendChild(
                 btnRow(
                     actionBtn("Edit Theme File...", "", () =>
-                        sendToHost({ action: "editTheme" })),
+                        sendToHost({ action: "editThemeJson" })),
                     actionBtn("Reset Theme", "danger", () =>
                         sendToHost({ action: "resetTheme" })),
                 ),
             );
             body.appendChild(h("div", { cls: "theme-note" },
-                "Overrides the editor doesn't offer, text2, border, the glow "
-                + "colours, can be hand-written into ms_theme.json and win over "
-                + "the values derived here."));
+                "Every colour accepts #rgb, #rrggbb or #rrggbbaa, where the last "
+                + "pair is opacity, so anything you set here can be hand-written "
+                + "into ms_theme.json and wins over the values derived above."));
         });
 
         librarySection(root, "theme", "Installed Themes",

@@ -1852,8 +1852,45 @@ return function(ms)
                     end)
                 end,
 
-                editTheme = function()
-                    os.execute("open '" .. os.getenv("HOME") .. "/.hammerspoon/data/ms_theme.json'")
+                editThemeJson = function()
+                    local path = os.getenv("HOME") .. "/.hammerspoon/data/ms_theme.json"
+
+                    if not hs.fs.attributes(path) then
+                        local f = io.open(path, "w")
+                        if f then
+                            f:write(hs.json.encode(ms._theme or {}, true))
+                            f:close()
+                        end
+                    end
+
+                    local function openIn(app)
+                        if app then
+                            os.execute("open -a '" .. app .. "' '" .. path .. "'")
+                        else
+                            os.execute("open -t '" .. path .. "'")
+                        end
+                    end
+
+                    local editor     = _savedEditor()
+                    local editorName = _editorName(editor)
+
+                    ms.playSlot("alert")
+                    ms.ui.modal({
+                        title   = "Edit theme JSON",
+                        msg     = "Opens ms_theme.json, the raw theme file. Colours take "
+                            .. "#rgb, #rrggbb, or #rrggbbaa where the last pair is opacity. "
+                            .. "Reload the theme to apply your edits."
+                            .. (editorName and ("\n\nEditor: " .. editorName) or ""),
+                        confirm = editorName and ("Open in " .. editorName) or "Choose editor...",
+                        cancel  = "Cancel",
+                    }, function(res)
+                        if not (res and res.confirmed) then return end
+                        if editor then
+                            openIn(editor)
+                        else
+                            _pickEditor(function(app) openIn(app) end)
+                        end
+                    end)
                 end,
 
                 setThemeKey = function(data)
