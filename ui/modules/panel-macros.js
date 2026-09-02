@@ -2054,64 +2054,72 @@
 (function() {
     "use strict";
 
-    // The Tools panel's Function tab authors function tools on a second
-    // ToolCanvas instance, so the constructor (a hoisted declaration below)
-    // must be reachable outside this IIFE. ToolEditor is already global.
     if (typeof window !== "undefined") window.ToolCanvas = ToolCanvas;
 
     var _svgCache = {};
 
-    /* -- SVG loader, uses inline ICONS from shell, falls back to XHR -- */
-    function _fetchSVG(name) {
-        if (_svgCache[name]) return Promise.resolve(_svgCache[name]);
-        // Use inline ICONS from the shell's shared script block
-        if (window.ICONS && window.ICONS[name]) {
-            _svgCache[name] = '<svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">' + window.ICONS[name] + '</svg>';
-            return Promise.resolve(_svgCache[name]);
+    // SVG loader //
+      function _fetchSVG(name) {
+          if (_svgCache[name]) return Promise.resolve(_svgCache[name]);
+          if (window.ICONS && window.ICONS[name]) {
+              _svgCache[name] = '<svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">' + window.ICONS[name] + '</svg>';
+              return Promise.resolve(_svgCache[name]);
+          }
+          return Promise.resolve("");
+      }
+    // END SVG loader //
+
+    // Action to icon mapping //
+      var ACTION_ICON = {
+          "ms.type":"keyboard","ms.press":"keyboard","ms.hold":"keyboard","ms.release":"keyboard",
+          "ms.wait":"timer","ms.copy":"clipboard","ms.paste":"clipboard",
+          "ms.cam":"camera","ms.cam.rebalance":"camera","ms.cam.reset":"camera",
+          "ms.Mouse":"click","ms.click":"click","ms.scroll":"scroll","ms.move":"move","ms.select":"select",
+          "ms.search":"search","ms.record":"record","ms.stop":"stop","ms.pause":"pause",
+          "ms.play":"play","ms.save":"save","ms.load":"upload","ms.alert":"alert",
+          "ms.refresh":"refresh","ms.pixelScan":"pixelscan","ms.window":"window",
+          "ms.input":"inputs","ms.variable":"variable","ms.watch":"watcher",
+          "ms.sound":"sound","ms.gamepad":"controller","ms.gamepadStart":"controller","ms.gamepadBind":"controller",
+          "ms.setMacros":"power","ms.enable":"power","ms.disable":"power",
+          "ms.switchProfile":"settings","ms.switchPack":"macros",
+          "ms.screenshot":"camera","ms.clipChanged":"clipboard",
+          "ms.randWait":"timer","ms.jitter":"timer","ms.waitPixel":"pixelscan","ms.waitNotPixel":"pixelscan",
+          "ms.ocr":"ocr","ms.readNumber":"ocr","ms.findText":"ocr","ms.waitText":"ocr",
+          "ms.waitApp":"search","ms.waitNotApp":"search",
+          "ms.focus":"window","ms.appRunning":"window","ms.appIsFront":"window",
+          "ms.toggle":"keyboard","ms.multiPress":"keyboard",
+          "ms.saveCursor":"select","ms.restoreCursor":"select",
+          "ms.setVolume":"sound","ms.mute":"sound","ms.unmute":"sound",
+          "ms.drag":"drag",
+          "if":"branch","for":"loop","while":"repeat","repeat":"repeat","else":"branch",
+          "var_set":"variable","var_add":"variable","var_sub":"variable","var_mul":"variable",
+          "comment":"inputs","code":"macros","setting":"settings"
+      };
+
+      function iconFor(action) { return ACTION_ICON[action] || "macros"; }
+
+      function condSummary(c) {
+          if (c && typeof c === "object") {
+              if (typeof c.__toolRef === "string") return 'ms.settings.get("' + c.__toolRef + '")';
+              if (typeof c.__varRef === "string")  return 'ms.vars.get("' + c.__varRef + '")';
+              return "";
+          }
+          return c || "";
+      }
+    // END Action to icon mapping //
+
+    // Tool-ref label //
+        function toolRefLabel(key) {
+            var list = window.msMacroTools || [];
+            for (var i = 0; i < list.length; i++) {
+                var t = list[i];
+                if (t && t.key === key) {
+                    return (t.type || "tool") + " " + (t.label || t.key);
+                }
+            }
+            return key;
         }
-        return Promise.resolve("");
-    }
-
-    /* -- Action -> icon mapping -- */
-    var ACTION_ICON = {
-        "ms.type":"keyboard","ms.press":"keyboard","ms.hold":"keyboard","ms.release":"keyboard",
-        "ms.wait":"timer","ms.copy":"clipboard","ms.paste":"clipboard",
-        "ms.cam":"camera","ms.cam.rebalance":"camera","ms.cam.reset":"camera",
-        "ms.Mouse":"click","ms.click":"click","ms.scroll":"scroll","ms.move":"move","ms.select":"select",
-        "ms.search":"search","ms.record":"record","ms.stop":"stop","ms.pause":"pause",
-        "ms.play":"play","ms.save":"save","ms.load":"upload","ms.alert":"alert",
-        "ms.refresh":"refresh","ms.pixelScan":"pixelscan","ms.window":"window",
-        "ms.input":"inputs","ms.variable":"variable","ms.watch":"watcher",
-        "ms.sound":"sound","ms.gamepad":"controller","ms.gamepadStart":"controller","ms.gamepadBind":"controller",
-        "ms.setMacros":"power","ms.enable":"power","ms.disable":"power",
-        "ms.switchProfile":"settings","ms.switchPack":"macros",
-        "ms.screenshot":"camera","ms.clipChanged":"clipboard",
-        "ms.randWait":"timer","ms.jitter":"timer","ms.waitPixel":"pixelscan","ms.waitNotPixel":"pixelscan",
-        "ms.ocr":"ocr","ms.readNumber":"ocr","ms.findText":"ocr","ms.waitText":"ocr",
-        "ms.waitApp":"search","ms.waitNotApp":"search",
-        "ms.focus":"window","ms.appRunning":"window","ms.appIsFront":"window",
-        "ms.toggle":"keyboard","ms.multiPress":"keyboard",
-        "ms.saveCursor":"select","ms.restoreCursor":"select",
-        "ms.setVolume":"sound","ms.mute":"sound","ms.unmute":"sound",
-        "ms.drag":"drag",
-        "if":"branch","for":"loop","while":"repeat","repeat":"repeat","else":"branch",
-        "var_set":"variable","var_add":"variable","var_sub":"variable","var_mul":"variable",
-        "comment":"inputs","code":"macros","setting":"settings"
-    };
-
-    function iconFor(action) { return ACTION_ICON[action] || "macros"; }
-
-    // A condition may be a raw Lua string or a {__toolRef}/{__varRef} wire.
-    // Render the wired forms as their live-read expression so the block header
-    // reads "if ms.settings.get(...)" instead of "if [object Object]".
-    function condSummary(c) {
-        if (c && typeof c === "object") {
-            if (typeof c.__toolRef === "string") return 'ms.settings.get("' + c.__toolRef + '")';
-            if (typeof c.__varRef === "string")  return 'ms.vars.get("' + c.__varRef + '")';
-            return "";
-        }
-        return c || "";
-    }
+    // END //
 
     /* -- Param summary -- */
     function paramSummary(action, params) {
@@ -2138,6 +2146,10 @@
         var parts = [];
         for (var i = 0; i < Math.min(keys.length, 2); i++) {
             var k = keys[i], v = params[k];
+            if (v && typeof v === "object" && (v.__toolRef || v.__varRef)) {
+                parts.push(k + ": " + toolRefLabel(v.__toolRef || v.__varRef));
+                continue;
+            }
             if (Array.isArray(v)) { if (v.length === 0) continue; v = v.join("+"); }
             if (typeof v === "string" && v.length > 16) v = v.slice(0,14) + "...";
             parts.push(k + ": " + v);

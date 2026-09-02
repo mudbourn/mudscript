@@ -2,7 +2,8 @@
 
 if _G.__ms_appWatcher then pcall(function() _G.__ms_appWatcher:stop() end) end
 
--- Disarm the restart hard-kill backstop before any heavy boot work.
+-- Disarm the exit hard-kill backstops before any heavy boot work.
 pcall(function() os.remove(hs.configdir .. "/data/.ms_restart_pending") end)
+pcall(function() os.remove(hs.configdir .. "/data/.ms_shutdown_pending") end)
 
 require("lib.ms_guardian")()
