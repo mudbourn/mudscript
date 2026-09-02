@@ -4,44 +4,19 @@
     <meta charset="UTF-8">
     <title>Macro Lab Shell</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Almendra:ital,wght@0,400;0,700;1,400;1,700&display=swap">
-    <!-- Design tokens (:root) are single-sourced in ui-tokens.js so the shell
-         and every popped-out dev panel share the exact same palette/fonts. Runs
-         synchronously here, before the stylesheet below, so the vars exist when
-         it resolves. -->
     <script src="./modules/ui-tokens.js"></script>
     <style>
         /* -- UNIFIED DESIGN SYSTEM -- */
-        /* Layer 1: Tokens live in ui-tokens.js (injected above). */
 
         /* Layer 2: Reset -- */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
-        /* Selection is drawn by macOS in the *system* accent unless a rule
-           says otherwise, it follows System Settings, not the theme, so it
-           was the one colour in the shell the theme did not control. */
         ::selection { background: var(--accent); color: var(--bg); }
         html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; color: var(--text); font-family: var(--font); font-size: 13px; line-height: 1.5; -webkit-font-smoothing: antialiased; min-width: 200px; min-height: 150px; }
         body { margin: 0; padding: 0; }
         #shell-root { display: flex; flex-direction: row; width: 100%; height: 100%; background: var(--bg); border-radius: var(--ms-window-radius, 0px); overflow: hidden; }
         button { cursor: pointer; border: none; background: none; color: inherit; font: inherit; }
         input, select { font: inherit; color: inherit; background: none; border: none; outline: none; }
-        /* Baseline placeholder color so every text field reads dim by default.
-           Placeholders were previously themed per-class (.input, .meta-input,
-           .fn-param input, .browse-search, …); any input not added to one of
-           those lists fell back to the field's own --text color and rendered
-           bright/gold. This global rule covers new fields automatically; the
-           per-class rules still override it where they intentionally differ.
-           Color-only on purpose: -webkit-text-fill-color defaults to
-           currentColor, so it follows this color without clobbering the
-           --text2 placeholders that rely on the same mechanism. */
         input::placeholder, textarea::placeholder { color: var(--text3); opacity: 0.55; }
-        /* -- Keyboard navigation --
-           Replace the WebView's default blue focus ring with a themed accent
-           ring, and only ever show it for keyboard focus (:focus-visible) ,
-           mouse/touch focus stays quiet, matching the pointer flow where the
-           click sound and hover border carry the feedback. The ring follows
-           each element's own corner radius, so it reads as part of the UI
-           rather than a browser artifact. Text controls already announce focus
-           with an accent border, so they opt out of the ring and keep it. */
         :focus { outline: none; }
         :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: var(--radius-s); }
         input:focus-visible, textarea:focus-visible, select:focus-visible, .input-sm:focus-visible { outline: none; }
@@ -68,8 +43,6 @@
             background: var(--surface); border-right: 1px solid var(--border-dim);
             display: flex; flex-direction: column; padding: 8px 0; gap: 2px; overflow-y: auto;
         }
-        /* Dedicated window-drag strip at the top of the rail, always present
-           regardless of which panel is shown, so the window can always be grabbed. */
         #rail-drag {
             flex-shrink: 0; height: 22px; margin: -4px 0 4px; cursor: grab;
             display: flex; align-items: center; justify-content: center;
@@ -79,8 +52,6 @@
         #rail-drag .grip { display: flex; gap: 3px; opacity: 0.3; transition: opacity 0.15s; }
         #rail-drag:hover .grip { opacity: 0.55; }
         #rail-drag .grip span { width: 3px; height: 3px; border-radius: 50%; background: var(--text3); }
-        /* While dragging the window, freeze hover: the window slides under the
-           cursor and would otherwise leave a trail of half-highlighted rail items. */
         body.dragging #rail, body.dragging #content { pointer-events: none; }
         .rail-item {
             display: flex; align-items: center; gap: 8px; padding: 7px 14px;
@@ -89,12 +60,6 @@
         }
         .rail-item:hover { background: var(--hover); color: var(--text); }
         .rail-item.active { background: var(--surface2); color: var(--accent-hi); box-shadow: inset 0 0 0 1px var(--accent); }
-        /* Keyboard focus on a rail item: the global :focus-visible ring sits
-           outside the element and clips against the narrow rail edges, and it
-           shares --accent with the active item's inset ring, so the two read
-           as the same highlight at two sizes. Give the rail its own ring: inset
-           (never clipped) and in the brighter accent so it stays distinct from
-           the active state's dim-accent border. */
         .rail-item:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent-hi); }
         .rail-item.active:focus-visible { box-shadow: inset 0 0 0 2px var(--accent-hi); }
         .rail-item .rail-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 16px; height: 16px; }
@@ -258,14 +223,11 @@
             position: fixed; min-width: 140px; background: var(--surface2);
             border: 1px solid var(--border); border-radius: var(--radius-s);
             box-shadow: 0 8px 24px rgba(0,0,0,0.55); z-index: 150;
-            /* Scroll internally when taller than the space showCtxMenu() allots,
-               instead of overflowing the window and getting clipped by its border. */
             overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
             display: none;
         }
         #ctx-menu.open, #ctx-menu-settings.open { display: block; }
         .ctx-header {
-            /* Stays pinned while a long menu scrolls beneath it. */
             position: sticky; top: 0; z-index: 1; background: var(--surface2);
             padding: 5px 10px 4px; font-size: 10px; font-weight: 600;
             color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px;
@@ -321,8 +283,6 @@
         .flag-label { font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
         #flag-key-name, #flag-mouse-name { font: 12px var(--font-mono); }
         .flag-sep { color: var(--border); font-size: 16px; flex-shrink: 0; }
-
-        /* #tabs / .tab / .tab-section styles come from modules/ui-tabs.js */
 
         .state-section { padding: 8px 12px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
         .section-label { font: 700 9px var(--font-mono); letter-spacing: 0.1em; color: var(--text3); text-transform: uppercase; margin-bottom: 5px; }
@@ -384,22 +344,15 @@
         .panel-window .wtab-section { display: none; flex-direction: column; flex: 1; overflow: hidden; }
         .panel-window .wtab-section.active { display: flex; }
         /* -- Theme & Sound panel -- */
-        /* Tab strip mirrors .wtab above, same shape, panel-scoped so the two
-           can't reach into each other's buttons. */
         .panel-theme .ttabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
         .panel-theme .ttab { flex: 1; padding: 7px 12px; font-size: 12px; font-weight: 600; color: var(--text2); text-align: center; cursor: pointer; border: none; border-bottom: 2px solid transparent; background: none; transition: color 0.15s, border-color 0.15s; }
         .panel-theme .ttab:hover { color: var(--text); }
         .panel-theme .ttab.active { color: var(--accent); border-bottom-color: var(--accent); }
         .panel-theme .ttab-section { display: none; flex-direction: column; flex: 1; overflow: hidden; }
         .panel-theme .ttab-section.active { display: flex; }
-        /* Padding matches #scroll: these tabs are built from the same section
-           cards as the settings list, so they have to line up with it. */
         .panel-theme .tsec-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0 0 32px; scrollbar-width: thin; scrollbar-color: var(--surface2) transparent; }
 
         /* -- Tools panel -- */
-        /* Same section-built scroll as Theme, scoped to .panel-tools. Holds
-           the pack's user-defined settings (Settings/Calibration/menus). */
-        /* Tab strip: built settings in one tab, the Setting Builder in the other. */
         .panel-tools .otabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
         .panel-tools .otab { flex: 1; padding: 7px 12px; font-size: 12px; font-weight: 600; color: var(--text2); text-align: center; cursor: pointer; border: none; border-bottom: 2px solid transparent; background: none; transition: color 0.15s, border-color 0.15s; }
         .panel-tools .otab:hover { color: var(--text); }
@@ -410,16 +363,12 @@
         .panel-tools .tsec-scroll::-webkit-scrollbar { width: 4px; }
         .panel-tools .tsec-scroll::-webkit-scrollbar-track { background: transparent; }
         .panel-tools .tsec-scroll::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 2px; }
-        /* Setting Builder, the segmented-options editor and live preview. */
         .setting-builder-opts { display: flex; flex-direction: column; gap: 6px; padding: 4px 14px 2px; }
         .sb-opt-row { display: flex; align-items: center; gap: 6px; }
         .sb-opt-row .input-sm { flex: 1; }
         .sb-opt-row .sb-opt-rm { flex: 0 0 auto; min-width: 30px; padding: 5px 8px; }
         .setting-builder-preview { min-height: 8px; margin: 2px 0; border-top: 1px dashed var(--border-dim); border-bottom: 1px dashed var(--border-dim); background: color-mix(in srgb, var(--accent) 5%, transparent); }
 
-        /* Arrange list: draggable rows that position authored items (settings,
-           dividers, labels) within a section. Pointer-driven reorder (see
-           wireArrangeDrag) — no native HTML5 drag. */
         .arrange-list { display: flex; flex-direction: column; padding: 4px 14px 2px; }
         .arrange-head { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text3); margin: 10px 0 4px; }
         .arrange-head:first-child { margin-top: 2px; }
@@ -440,26 +389,16 @@
         .arrange-hint { padding: 8px 14px 2px; font-size: 11px; line-height: 1.45; color: var(--text3); font-style: italic; }
 
         /* -- Profiles panel -- */
-        /* Single view, no tab strip (Browse moved to its own stage). The
-           .ptab-section wrapper is kept as the flex container for the list. */
         .panel-profiles .ptab-section { display: none; flex-direction: column; flex: 1; overflow: hidden; }
         .panel-profiles .ptab-section.active { display: flex; }
         .panel-profiles .psec-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0 0 32px; scrollbar-width: thin; scrollbar-color: var(--surface2) transparent; }
 
         /* -- Plugins panel -- */
-        /* No tab strip: the panel is one list. The Browse half of this lands
-           when the registry has plugins to browse, and an empty second tab in
-           the meantime is a promise the UI cannot keep. */
         .panel-plugins .plsec-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0 20px; scrollbar-width: thin; scrollbar-color: var(--surface2) transparent; }
 
-        /* A card, not a row: a plugin carries an author, a version and a
-           status alongside its name, and squeezing that into the row-label
-           <small> makes every plugin read as a settings toggle. */
         .plugin-card { margin: 6px 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--surface); transition: border-color 0.15s; }
         .plugin-card:hover { border-color: var(--border-dim); }
         .plugin-card.off { opacity: 0.6; }
-        /* A plugin Guardian will refuse next boot is the one thing on this
-           screen that cannot wait to be noticed. */
         .plugin-card.flagged { border-color: var(--danger-border); background: var(--danger-bg); }
         .plugin-card-top { display: flex; align-items: flex-start; gap: 8px; }
         .plugin-card-id { flex: 1; min-width: 0; }
@@ -472,28 +411,21 @@
         .plugin-actions .btn-action { flex: 0 0 auto; min-width: 0; padding: 5px 10px; font-size: 11px; }
         .plugins-empty { padding: 40px 24px; text-align: center; color: var(--text3); font-size: 12px; line-height: 1.6; }
 
-        /* Colour field: swatch + hex box editing the same value. */
         .panel-theme .color-field { display: flex; align-items: center; gap: 6px; }
         .panel-theme .color-swatch { width: 26px; height: 22px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-s); background: none; cursor: pointer; -webkit-appearance: none; appearance: none; }
         .panel-theme .color-swatch::-webkit-color-swatch-wrapper { padding: 2px; }
         .panel-theme .color-swatch::-webkit-color-swatch { border: none; border-radius: 2px; }
         .panel-theme .color-hex { width: 74px; padding: 3px 6px; font: 11px var(--font-mono); color: var(--text); background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-s); }
         .panel-theme .color-hex:focus { outline: none; border-color: var(--accent); }
-        /* Sizing only, the control itself is .macro-select, styled once in
-           ui-select.js so every dropdown in the shell stays one control. */
         .panel-theme .theme-select { max-width: 150px; min-width: 0; padding: 3px 6px; font-size: 11px; border-radius: var(--radius-s); }
         .panel-theme .theme-note { padding: 10px 14px 4px; font-size: 11px; line-height: 1.5; color: var(--text3); }
         .library-list { display: flex; flex-direction: column; }
 
-        /* Preview / import beside each sound slot. */
         .panel-theme .slot-ctl { display: flex; align-items: center; gap: 6px; }
         .panel-theme .slot-btns { display: flex; gap: 3px; }
         .panel-theme .slot-btn { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; font-size: 10px; line-height: 1; color: var(--text2); background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-s); cursor: pointer; transition: color 0.15s, border-color 0.15s; }
         .panel-theme .slot-btn .icon { width: 12px; height: 12px; }
         .panel-theme .slot-btn:hover { color: var(--accent); border-color: var(--accent); }
-        /* A disabled remove is shown, not hidden: the control keeps its place
-           so the row doesn't reflow, and greying it is what says "this one is
-           a default" without needing a second label. */
         .panel-theme .slot-btn:disabled { opacity: 0.3; cursor: default; }
         .panel-theme .slot-btn:disabled:hover { color: var(--text2); border-color: var(--border); }
         .panel-theme .slot-btn.slot-btn-danger:hover:not(:disabled) { color: var(--danger, #e5534b); border-color: var(--danger, #e5534b); }
@@ -520,40 +452,27 @@
         .panel-window .edetail { color: var(--text3); font: 11px var(--font-mono); font-variant-numeric: tabular-nums; }
         .panel-window .ecount { color: var(--text3); font: 10px var(--font-mono); }
         .panel-window .data-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; min-height: 0; padding: 0 0 32px; }
-        /* The data tab is a read-out, not a list of controls: its section
-           bodies hold one kv-grid each, so the card supplies the padding a
-           .row would otherwise have brought with it. */
         .panel-window .section-body .kv-grid { padding: 11px 14px; }
         .panel-window .data-scroll::-webkit-scrollbar { width: 4px; }
         .panel-window .data-scroll::-webkit-scrollbar-track { background: transparent; }
         .panel-window .data-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
         .panel-window .section-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
         .panel-window .section-header .section-label { margin-bottom: 0; }
-        /* Flags belong to the section they describe, so they ride in its
-           sticky heading and stay on screen while the grid scrolls. */
         .panel-window .section-head .flags-row { margin-left: auto; align-self: center; justify-content: flex-end; }
 
         /* -- SETTINGS-SPECIFIC -- */
         #status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); flex-shrink: 0; transition: background 0.2s; }
         #status-dot.off { background: var(--danger); box-shadow: 0 0 4px var(--danger-glow); }
 
-        /* The power button is the one destructive control in the title bar,
-           so it reads neutral until you reach for it. */
         .btn-power { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: none; border-radius: var(--radius); background: transparent; color: var(--text3); cursor: pointer; transition: color 0.15s, background 0.15s; }
         .btn-power .icon { width: 15px; height: 15px; }
         .btn-power:hover { color: var(--danger); background: var(--danger-bg); }
-
 
         #scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0 0 32px; }
         #scroll::-webkit-scrollbar { width: 4px; }
         #scroll::-webkit-scrollbar-track { background: transparent; }
         #scroll::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 2px; }
 
-        /* -- Settings groups --
-           Groups used to be accordions because settings was one narrow panel
-           competing for space. It owns a window now, so every group is open
-           and its heading is a heading: it sticks to the top of the scroll so
-           whatever you are reading stays named. */
         .section { margin: 0; }
         .section-head {
             position: sticky; top: 0; z-index: 3;
@@ -576,19 +495,8 @@
         .row-menu-btn { flex-shrink: 0; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: none; background: none; color: var(--text3); font-size: 18px; line-height: 1; border-radius: var(--radius); cursor: pointer; transition: background 0.12s, color 0.12s; }
         .row-menu-btn:hover { background: var(--surface2); color: var(--text); }
         .row-label small { display: block; color: var(--text3); font-size: 11px; line-height: 1.45; margin-top: 3px; }
-        /* A text input used directly as a .row control (e.g. the Setting
-           Builder's Key/Label/Hint fields) must share the row with its label,
-           not swallow it. .input-sm carries width:100% for its full-width
-           contexts (tool blocks, option rows); as a flex sibling that becomes
-           flex-basis:100%, which collapses .row-label to zero width and makes
-           the label text wrap one word per line and spill under the input.
-           Reset the basis so label and input split the row. */
         .row > .input-sm { flex: 2 1 0; width: auto; min-width: 0; }
-        /* A sub-row belongs to the row above it: indented, and visually joined
-           by dropping the parent's separator. */
         .row-sub { padding-left: 30px; }
-        /* For rows whose label needs no explanation, they sit under a group
-           label that already gave it. */
         .row-compact { min-height: 34px; padding-top: 6px; padding-bottom: 6px; }
         .group-hint { padding: 0 14px 8px; font-size: 11px; line-height: 1.45; color: var(--text3); }
         .row:has(+ .row-sub) { border-bottom-color: transparent; }
@@ -599,29 +507,15 @@
         .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
         .toggle-track { position: absolute; inset: 0; border-radius: 10px; background: var(--surface2); border: 1px solid var(--border-dim); box-sizing: border-box; transition: background 0.2s, border-color 0.2s; }
         .toggle input:checked + .toggle-track { background: var(--accent); }
-        /* Keyboard focus: the real control is a 0×0 opacity:0 checkbox, and the
-           global input:focus-visible rule strips its outline, so tabbing to a
-           toggle showed nothing. Trace the visible track instead. box-shadow
-           follows the track's radius (no clipping) and only shows for keyboard
-           focus, matching every other :focus-visible ring in the shell. */
         .toggle input:focus-visible + .toggle-track { box-shadow: 0 0 0 2px var(--accent-hi); }
         .toggle-thumb { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
         .toggle input:checked ~ .toggle-thumb { left: 18px; }
-        /* In the macro param editor the toggle's parent is a plain block, so the
-           inline <label> ignores the .toggle width/height and collapses, letting
-           its absolutely-positioned track spill onto the next param. Blockify it
-           and add a little breathing room. */
         .fn-param-toggle { display: inline-block; vertical-align: middle; margin: 3px 0; }
 
         .seg { display: flex; border-radius: var(--radius-s); background: var(--surface2); padding: 2px; gap: 2px; flex-shrink: 0; }
         .seg-btn { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; color: var(--text2); transition: background 0.15s, color 0.15s; }
-        /* --bg, not #fff: the accent is a theme colour and a light theme can
-           set it light, which a hardcoded white then sits on invisibly. */
         .seg-btn.active { background: var(--accent); color: var(--bg); }
         .seg-btn:hover:not(.active):not(:disabled) { background: var(--hover); color: var(--text); }
-        /* A locked segment still has to show which choice is pinned, so the
-           whole strip dims as one and the active pill keeps its accent ,
-           dimming the buttons individually would leave the pill bright. */
         .seg.locked { opacity: 0.4; }
         .seg-btn:disabled { cursor: default; }
 
@@ -658,12 +552,8 @@
         .sound-filter-bar { display: flex; gap: 2px; padding: 4px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface2); z-index: 1; }
         .sound-filter-btn { font-size: 10px; padding: 2px 6px; border-radius: var(--radius-s); background: transparent; color: var(--text3); cursor: pointer; border: none; transition: all 0.15s; }
         .sound-filter-btn:hover { color: var(--text2); background: var(--hover); }
-        /* Overrides .seg-btn.active on purpose: a solid accent pill is too
-           heavy for a filter bar living inside an open dropdown. */
         .sound-filter-btn.active { color: var(--accent); background: var(--surface3); }
 
-        /* Inside a group card the divider only separates sub-groups, so it
-           stays dimmer than the card's own border. */
         .divider { height: 1px; background: var(--border-dim); margin: 6px 0; }
         .group-label { padding: 10px 14px 4px; font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.09em; }
 
@@ -676,9 +566,6 @@
         #modal-overlay.open #modal { transform: scale(1); }
         #modal-title { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
         #modal-msg { font-size: 12px; color: var(--text2); line-height: 1.5; white-space: pre-line; }
-        /* Detected-key spotlight for the rebind prompt. Hidden until the flow
-           sends a keys[] payload (see updateLuaModal); a lit accent ring makes
-           the keys being pressed easy to find without being loud. */
         #modal-keys { display: none; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; margin: 16px 0 4px; }
         .modal-key { min-width: 20px; padding: 7px 11px; border-radius: var(--radius); background: var(--surface3); border: 1px solid var(--accent); border-bottom-width: 2px; box-shadow: 0 0 0 3px var(--accent-glow-faint), 0 2px 5px rgba(0,0,0,0.35); color: var(--accent-hi); font: 600 13px/1 var(--font-mono); text-align: center; }
         .modal-key.placeholder { background: var(--surface2); border-color: var(--border); border-bottom-width: 1px; color: var(--text3); box-shadow: none; letter-spacing: 3px; padding-left: 14px; }
@@ -708,16 +595,12 @@
         .fn-picker-search input { width: 100%; background: var(--surface2); border: 1px solid var(--border-dim); border-radius: var(--radius); color: var(--text); font-size: 11px; padding: 5px 8px; outline: none; font-family: inherit; user-select: text; -webkit-user-select: text; }
         .fn-picker-search input::placeholder { color: var(--text3); }
         .fn-picker-search input:focus { border-color: var(--accent); }
-        /* No top padding: the category headers are position:sticky top:0, so a
-           top padding band would sit above them inside the scroll area and let
-           scrolled-up module rows show through the gap. */
         .fn-picker-entries { flex: 1; overflow-y: auto; padding: 0 0 4px; }
         .fn-entry { display: flex; align-items: center; gap: 6px; padding: 5px 12px; cursor: pointer; font-size: 11px; color: var(--text2); transition: background 0.1s, color 0.1s; border-left: 2px solid transparent; }
         .fn-entry:hover { background: var(--hover); color: var(--text); }
         .fn-entry.active { background: var(--surface2); color: var(--accent-hi); border-left-color: var(--accent); }
         .fn-entry-sig { font-family: var(--font-mono); font-size: 11px; }
         .fn-entry-label { color: var(--text3); font-size: 10px; margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px; }
-        /* Collapsible category headers in the module picker. */
         .fn-cat-head { display: flex; align-items: center; gap: 6px; padding: 6px 10px; cursor: pointer; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text3); user-select: none; position: sticky; top: 0; background: var(--surface); z-index: 1; }
         .fn-cat-head:hover { color: var(--text2); }
         .fn-cat-chev { display: flex; align-items: center; transition: transform 0.15s; }
@@ -732,13 +615,8 @@
         .fn-detail-body { flex: 1; overflow-y: auto; padding: 12px 16px; }
         .fn-params { display: flex; flex-direction: column; gap: 12px; }
         .fn-param-group { display: flex; flex-direction: column; gap: 4px; }
-        /* flex-wrap so a long label pushes the Value/Tool switch onto a second
-           line instead of clipping it off the panel's right edge. */
         .fn-param-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
         .fn-param-type { font-size: 9px; font-weight: 400; color: var(--accent); background: var(--accent-glow-faint); padding: 1px 5px; border-radius: var(--radius-s); text-transform: none; letter-spacing: 0; }
-        /* Also matches the tool-creator fields (New Tool form), whose wrappers
-           carry only .fn-param-group, not .fn-param, without this they rendered
-           as unstyled native inputs, the visible "tool elements don't theme". */
         .fn-param input[type="text"], .fn-param input[type="number"],
         .fn-param-group input[type="text"], .fn-param-group input[type="number"] { width: 100%; background: var(--surface2); border: 1px solid var(--border-dim); border-radius: var(--radius); color: var(--text); font-size: 12px; padding: 5px 8px; outline: none; font-family: var(--font-mono); user-select: text; -webkit-user-select: text; }
         .fn-param input:focus, .fn-param-group input:focus { border-color: var(--accent); }
@@ -776,7 +654,6 @@
         .fn-tool-tag { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; padding: 1px 5px; border-radius: var(--radius-s); margin-left: auto; }
         .fn-tool-tag-builder { color: var(--accent-hi); background: var(--accent-glow-faint); }
         .fn-tool-tag-pack { color: var(--text3); background: var(--surface2); }
-        /* Non-interactive hint row shown when no tools exist yet. */
         .fn-tool-hint { cursor: default; opacity: 0.7; }
         .fn-tool-hint .fn-entry-sig { color: var(--text3); font-style: italic; font-size: 10px; }
         .fn-tool-hint:hover { background: none; }
@@ -790,15 +667,10 @@
         .fn-bind-opt { background: var(--surface2); border: none; color: var(--text3); font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; padding: 2px 6px; cursor: pointer; transition: all 0.1s; }
         .fn-bind-opt:hover { color: var(--text); }
         .fn-bind-opt.on { background: var(--accent-glow-faint); color: var(--accent-hi); }
-        /* The Class control reuses the bind switch look but lives inline in the
-           macro toolbar, so it must not claim the row's leftover space the way
-           the param-panel switch does. */
         .macro-class-seg { margin-left: 0; align-self: center; flex-shrink: 0; }
-        /* Bound-parameter tool read-out. */
         .fn-tool-info { font-size: 10px; color: var(--text3); line-height: 1.5; margin-top: 6px; }
         .fn-tool-info:empty { display: none; }
         .fn-tool-info b { color: var(--accent-hi); font-weight: 600; }
-        /* Inline value editor for a bound tool (toggle / seg / slider). */
         .fn-tool-value { margin-top: 6px; }
         .fn-tool-value:empty { display: none; }
         .fn-tool-seg { display: inline-flex; gap: 0; border: 1px solid var(--border-dim); border-radius: var(--radius-s); overflow: hidden; }
@@ -811,7 +683,6 @@
         .fn-param-tool select.fn-tool-select { width: 100%; background: var(--surface2); border: 1px solid var(--border-dim); border-radius: var(--radius); color: var(--text); font-size: 12px; padding: 5px 8px; outline: none; font-family: var(--font-mono); cursor: pointer; }
         .fn-param-tool select.fn-tool-select:focus { border-color: var(--accent); }
         .fn-param.bound .fn-param-type { color: var(--accent-hi); }
-        /* Enum dropdown (createSelect) fills the field width like the inputs. */
         .fn-enum-select-mount .fn-enum-select { width: 100%; }
 
         /* -- Segmented-option editor in the tool creator -- */
@@ -835,29 +706,20 @@
         .macro-select-item { padding: 5px 10px; font-size: 11px; color: var(--text2); white-space: nowrap; cursor: pointer; transition: background 0.12s, color 0.12s; }
         .macro-select-item:hover { background: var(--hover); color: var(--text); }
         .macro-select-item.active { color: var(--accent); }
-        /* Placeholder row when no macros exist yet, not a real choice. */
         .macro-select-empty { color: var(--text3); cursor: default; font-style: italic; }
         .macro-select-empty:hover { background: transparent; color: var(--text3); }
         .macro-select-menu::-webkit-scrollbar { width: 4px; }
         .macro-select-menu::-webkit-scrollbar-track { background: transparent; }
         .macro-select-menu::-webkit-scrollbar-thumb { background: var(--border-dim); border-radius: 2px; }
-        /* Overflow "⋯" menu, holds the secondary toolbar actions so they never
-           clip at the shell's smallest width. Mirrors .macro-select-menu. */
         .macro-overflow { position: relative; display: flex; }
         .macro-overflow-btn { font-size: 14px; line-height: 1; padding: 4px 9px; }
         .macro-overflow-menu { display: none; position: absolute; top: calc(100% + 3px); right: 0; min-width: 150px; flex-direction: column; gap: 4px; padding: 5px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); z-index: 100; box-shadow: 0 4px 16px rgba(0,0,0,0.5); }
         .macro-overflow.open .macro-overflow-menu { display: flex; }
-        /* Buttons keep their .macro-toolbar-btn identity but lay out full-width,
-           left-aligned, as menu rows. */
         .macro-overflow-menu .macro-toolbar-btn { justify-content: flex-start; width: 100%; gap: 7px; }
-        /* Record + its settings "⋯" share one menu row: Record grows, the
-           settings button stays a fixed square on the right. */
         .macro-record-row { display: flex; width: 100%; gap: 4px; }
         .macro-record-row .macro-toolbar-btn { width: auto; }
         .macro-record-row > .macro-toolbar-btn:first-child { flex: 1; }
         .macro-record-settings-btn { flex: 0 0 auto; justify-content: center; padding: 4px 9px; font-size: 14px; line-height: 1; }
-        /* Menu items are icon + label as one row: the icon is a fixed size and
-           the label sits next to it, so every entry reads the same way. */
         .macro-overflow-menu .macro-toolbar-btn .icon { width: 13px; height: 13px; opacity: 0.85; }
         .macro-overflow-menu .macro-toolbar-btn:hover .icon { opacity: 1; }
         .macro-toolbar-btn { display: flex; align-items: center; justify-content: center; background: var(--surface2); border: 1px solid var(--border-dim); border-radius: var(--radius); color: var(--text2); font-size: 10px; font-weight: 700; padding: 4px 10px; cursor: pointer; transition: background 0.1s, border-color 0.1s, color 0.1s; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.4px; }
@@ -879,7 +741,6 @@
         .macro-test-toast.error-toast { border-color: var(--error-state); color: var(--error-text); white-space: normal; max-width: 500px; }
         .macro-test-toast.success-toast { border-color: var(--success-state); color: var(--success-text); }
         .macro-toolbar-spacer { flex: 1; }
-        /* Right-side action cluster: pinned right, stays grouped, wraps as a unit. */
         .macro-toolbar-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-shrink: 0; }
         .macro-name-input { background: transparent; border: 1px solid transparent; border-radius: var(--radius); color: var(--text); font-size: 12px; font-weight: 700; padding: 3px 6px; outline: none; flex: 1 1 120px; min-width: 90px; max-width: 200px; font-family: inherit; user-select: text; -webkit-user-select: text; }
         .macro-name-input::placeholder { color: var(--text2); opacity: 0.55; }
@@ -887,9 +748,6 @@
         .macro-name-input:focus { border-color: var(--accent); background: var(--surface2); }
 
         .macros-layout { display: flex; flex-direction: column; width: 100%; height: 100%; overflow: hidden; position: relative; }
-        /* -- Macros panel tab strip (Builder | Binds) --
-           Same shape as .wtab/.ttab above, panel-scoped so the strips stay
-           independent. */
         .panel-macros .mtabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
         .panel-macros .mtab { flex: 1; padding: 7px 12px; font-size: 12px; font-weight: 600; color: var(--text2); text-align: center; cursor: pointer; border: none; border-bottom: 2px solid transparent; background: none; transition: color 0.15s, border-color 0.15s; }
         .panel-macros .mtab:hover { color: var(--text); }
@@ -899,7 +757,6 @@
         /* -- Binds list -- */
         .binds-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0 0 32px; scrollbar-width: thin; scrollbar-color: var(--surface2) transparent; }
         .binds-empty { padding: 20px 14px; font-size: 12px; color: var(--text3); text-align: center; }
-        /* Pack Info (ms.macroMeta) editor form, inside a standard section card. */
         .meta-form { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
         .meta-field { display: flex; align-items: center; gap: 10px; }
         .meta-field-label { flex: 0 0 64px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text3); }
@@ -908,9 +765,6 @@
         .meta-input:focus { border-color: var(--accent); }
         .meta-input-locked { opacity: 0.6; cursor: default; }
         .meta-input-locked:focus { border-color: var(--border-dim); }
-        /* Bind rows live inside the shared .section-body card, so they follow
-           the settings row metrics rather than the tighter list metrics they
-           had when the tab was one flat scroll. */
         .bind-row { display: flex; align-items: center; gap: 14px; padding: 9px 14px; min-height: 40px; border-bottom: 1px solid var(--border-faint); transition: background 0.12s; }
         .bind-row:last-child { border-bottom: none; }
         .bind-row:hover { background: var(--surface2); }
@@ -921,32 +775,23 @@
         .bind-acts { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
         .bind-pill { padding: 2px 8px; border-radius: var(--radius); font-family: inherit; font-size: 12px; color: var(--text); background: var(--surface2); border: 1px solid var(--border); cursor: pointer; white-space: nowrap; transition: color 0.15s, border-color 0.15s; }
         .bind-pill:hover { color: var(--accent); border-color: var(--accent); }
-        /* Placeholder inherits the themed body font (like the "Bind" label beside it),
-           so both track the active theme instead of pinning a hardcoded mono stack. */
         .bind-pill.unset { color: var(--text3); font-style: italic; }
         .bind-act { width: 22px; height: 22px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; line-height: 1; color: var(--text2); background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-s); cursor: pointer; transition: color 0.15s, border-color 0.15s; }
         .bind-act .icon { width: 13px; height: 13px; }
         .bind-act:hover { color: var(--accent); border-color: var(--accent); }
-        /* Controller section in the Settings panel. */
         .gp-status-ok small { color: var(--accent); }
         .gp-status-none small { color: var(--text3); }
         .gp-bind-pill { padding: 2px 8px; border-radius: var(--radius); font-family: inherit; font-size: 12px; color: var(--text); background: var(--surface2); border: 1px solid var(--border); white-space: nowrap; }
         .gp-bind-row .btn-row { padding: 0; gap: 6px; flex-wrap: nowrap; align-items: center; }
         .gp-bind-row .btn-row .btn-action { flex: 0 0 auto; min-width: 0; padding: 5px 10px; font-size: 11px; }
-        /* The ⋯ options button: same 22px chip as .bind-act, just a larger glyph.
-           The ⋯ character already sits on the vertical centre, so let the flex
-           centering place it — no padding nudge (which skewed it upward). */
         .bind-more { font-size: 16px; }
         .bind-toggle { margin-left: 2px; }
-        /* An unbound macro can't be enabled, the track dims and the toggle
-           stops taking the pointer so it reads as locked, not merely off. */
         .toggle.disabled { cursor: not-allowed; opacity: 0.4; }
         .toggle.disabled .toggle-track { background: var(--surface2); }
         #slot-macros { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
         .macros-main { flex: 1; display: flex; flex-direction: row; overflow: hidden; position: relative; }
         .macros-tool-area { flex: 1; overflow: hidden; display: flex; flex-direction: column; position: relative; }
         .macros-tool-area .tool-canvas { flex: 1; }
-        /* The scrolling container for the module list (see panel-macros.js). */
         .macros-canvas-scroll::-webkit-scrollbar { width: 4px; }
         .macros-canvas-scroll::-webkit-scrollbar-track { background: transparent; }
         .macros-canvas-scroll::-webkit-scrollbar-thumb { background: var(--border-dim); border-radius: 2px; }
@@ -954,13 +799,10 @@
         .macros-add-tool-btn { position: absolute; bottom: 14px; right: 14px; display: flex; align-items: center; gap: 5px; background: var(--accent); color: var(--bg); border: none; border-radius: var(--radius); font-size: 11px; font-weight: 700; padding: 7px 14px; cursor: pointer; transition: opacity 0.15s; text-transform: uppercase; letter-spacing: 0.5px; z-index: 20; box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
         .macros-add-tool-btn:hover { opacity: 0.85; }
         .macros-add-tool-btn svg { width: 12px; height: 12px; }
-        /* The `add` glyph is a fill-style icon, so fill it (stroking it left a
-           thin outline mismatched against the bold button text). */
         .macros-add-tool-btn svg path { fill: var(--bg); stroke: none; }
 
         /* -- Step Canvas -- */
         .tool-canvas { display: flex; flex-direction: column; gap: 2px; padding: 8px; min-height: 100%; overflow-y: auto; position: relative; }
-        /* Dragging a module from the picker over the canvas. */
         .tool-canvas.fn-drop-target { box-shadow: inset 0 0 0 2px var(--accent); border-radius: var(--radius); background: var(--accent-glow-faint); }
         .tool-canvas::-webkit-scrollbar { width: 4px; }
         .tool-canvas::-webkit-scrollbar-track { background: transparent; }
@@ -968,11 +810,7 @@
         .tool-canvas::-webkit-scrollbar-thumb:hover { background: var(--border); }
         .tool-canvas-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text3); font-size: 11px; padding: 40px 20px; text-align: center; gap: 6px; user-select: none; }
         .tool-canvas-empty-icon { font-size: 28px; opacity: 0.25; }
-        /* -webkit-user-drag:element re-enables native HTML5 drag under the
-           shell's global `-webkit-user-select:none`, which otherwise silently
-           kills `draggable` in WebKit, the reason blocks couldn't be dragged. */
         .tool-block { display: flex; align-items: center; gap: 6px; padding: 5px 8px; background: var(--surface); border: 1px solid var(--border-dim); border-radius: var(--radius); cursor: default; transition: background 0.1s, border-color 0.15s, box-shadow 0.15s; position: relative; user-select: none; min-height: 32px; -webkit-user-drag: element; }
-        /* Same quirk for the draggable picker entries (module rows). */
         .fn-entry[draggable="true"] { -webkit-user-drag: element; }
         .tool-block:hover { background: var(--surface2); border-color: var(--border); }
         .tool-block.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-glow-faint); }
@@ -980,26 +818,15 @@
         .tool-block.drag-over-below::after { content: ''; position: absolute; bottom: -3px; left: 4px; right: 4px; height: 2px; background: var(--accent); border-radius: 1px; z-index: 10; }
         .tool-block.drag-over-nest { border-color: var(--accent); background: var(--accent-glow-faint); }
         .tool-block.dragging { opacity: 0.4; }
-        /* Hand-drawn drag ghost: a floating clone that follows the cursor during
-           a pointer-based reorder. Fixed-position and click-through so it never
-           masks the element under the pointer (elementFromPoint hit-testing). */
         .tool-drag-ghost { position: fixed; pointer-events: none; z-index: 99999;
             opacity: 0.85; margin: 0; box-shadow: 0 6px 18px rgba(0,0,0,.45);
             transform: rotate(-1deg); }
-        /* While a reorder is live, suppress text selection everywhere so the
-           drag doesn't paint a selection across the canvas. */
         body.tool-dragging-active, body.tool-dragging-active * {
             -webkit-user-select: none; user-select: none; cursor: grabbing !important; }
-        /* A setting block references a shared tool rather than running code, so
-           it reads with an accent-tinted, dashed edge to set it apart from
-           action modules. */
         .tool-block-setting { border-style: dashed; border-color: color-mix(in srgb, var(--accent) 55%, var(--border-dim)); background: color-mix(in srgb, var(--accent) 7%, transparent); }
         .tool-block-setting .tool-icon { color: var(--accent); }
         .tool-block-setting .tool-params { font-family: var(--font-mono); opacity: 0.85; }
-        /* Fill (not just border) on a selected block so a multi-selection reads
-           as one contiguous highlighted run, the way selected text does. */
         .tool-block.selected { background: var(--accent-glow-faint); }
-        /* Count badge on the drag ghost when several modules travel together. */
         .tool-drag-badge { position: absolute; top: -8px; right: -8px; min-width: 18px; height: 18px;
             padding: 0 5px; border-radius: 9px; background: var(--accent); color: var(--bg, #10141c);
             font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
@@ -1022,8 +849,6 @@
         .tool-action-btn svg path, .tool-action-btn svg g { stroke: var(--text); fill: none; }
         .tool-action-btn.del:hover { background: var(--danger-bg); }
         .tool-action-btn.del:hover svg path, .tool-action-btn.del:hover svg g { stroke: var(--danger); }
-        /* Paste target only makes sense once something is on the module
-           clipboard; the canvas gets .has-clip when a module is copied. */
         .tool-action-btn.paste { display: none; }
         .tool-canvas.has-clip .tool-action-btn.paste { display: flex; }
         .tool-block-container { display: flex; flex-direction: column; }
@@ -1050,32 +875,20 @@
         .fn-picker-overlay-close svg { width: 14px; height: 14px; }
         .fn-picker-overlay-close svg path { stroke: var(--text); fill: none; }
 
-        /* -- Resize grab zones --
-           Edges are 9px thick and corners are 18px, a wider grab radius that
-           is easy to land on. The edge zones are inset by exactly the corner
-           size so edges and corners never overlap: the old 6px inset against
-           8px corners left a seam where the two zones fought over the cursor,
-           which read as the resize cursor flickering on then off. A faint
-           accent tint on hover makes it obvious an edge is grabbable. */
         .resize-zone {
             position: fixed; z-index: 9999;
             background: transparent;
             transition: background 0.12s ease;
         }
         .resize-zone:hover { background: var(--accent-glow-faint); }
-        /* Edge zones: 9px grab area, inset by the 18px corner size. */
         .resize-n { top: 0; left: 18px; right: 18px; height: 9px; cursor: ns-resize; }
         .resize-s { bottom: 0; left: 18px; right: 18px; height: 9px; cursor: ns-resize; }
         .resize-e { right: 0; top: 18px; bottom: 18px; width: 9px; cursor: ew-resize; }
         .resize-w { left: 0; top: 18px; bottom: 18px; width: 9px; cursor: ew-resize; }
-        /* Corner zones: 18x18 grab area. */
         .resize-ne { top: 0; right: 0; width: 18px; height: 18px; cursor: nesw-resize; }
         .resize-nw { top: 0; left: 0; width: 18px; height: 18px; cursor: nwse-resize; }
         .resize-se { bottom: 0; right: 0; width: 18px; height: 18px; cursor: nwse-resize; }
         .resize-sw { bottom: 0; left: 0; width: 18px; height: 18px; cursor: nesw-resize; }
-        /* Persistent grip in the bottom-right corner, an always-visible cue
-           that the window resizes, in the same spot as a native resize handle.
-           Lives on the SE zone so hovering the grab area brightens it. */
         .resize-se::after {
             content: ""; position: absolute; right: 5px; bottom: 5px;
             width: 10px; height: 10px; pointer-events: none;
@@ -1086,7 +899,6 @@
                     mask-image: linear-gradient(-45deg, transparent 45%, #000 45%);
         }
         .resize-se:hover::after { opacity: 0.85; }
-        /* During resize, suppress pointer events on content so grab isn't lost */
         body.resizing * { pointer-events: none !important; }
 
         /* -- Console first-open danger notice (scoped to the console panel) -- */
@@ -1124,8 +936,6 @@
         }
         .panel-console .danger-ack:hover { opacity: 0.85; }
 
-        /* Themed tooltip, replaces native `title` bubbles, which render on a
-           lower window level than the shell webview and so hide behind it. */
         .ms-tooltip {
             position: fixed; z-index: 100000; max-width: 260px;
             padding: 5px 9px; font-size: 11px; line-height: 1.35;
@@ -1139,12 +949,10 @@
         .ms-tooltip.show { opacity: 1; transform: translateY(0); }
 
     </style>
-    <!-- Before tool-editor.js: its param rows call createSelect(). -->
     <script src="./modules/ui-select.js"></script>
     <script src="./modules/tool-editor.js"></script>
 </head>
 <body>
-<!-- Resize grab zones: thin invisible strips at window edges/corners -->
 <div class="resize-zone resize-n" data-edge="n"></div>
 <div class="resize-zone resize-s" data-edge="s"></div>
 <div class="resize-zone resize-e" data-edge="e"></div>
@@ -1344,13 +1152,10 @@
 
         <div id="log"></div>
 
-        <!-- Filter panel, absolute bottom-right, injected by JS -->
         <div id="filter-panel"></div>
 
         <div id="ctx-menu"></div>
 
-        
-    
         </div>
 <div class="panel-keys" style="display:none">
 
@@ -1397,7 +1202,6 @@
             </div>
         </div>
 
-        <!-- Flag row: most-recent key / mouse-button indicator -->
         <div id="flag-row">
             <div class="flag-pill" id="flag-key-pill">
                 <span class="flag-label">Key</span>
@@ -1471,8 +1275,6 @@
 
         <div id="ctx-menu"></div>
 
-        
-    
         </div>
 <div class="panel-window" style="display:none">
 
@@ -1545,9 +1347,6 @@
 
         <!-- Window tab (all live data) -->
         <div class="wtab-section active" data-wsection="window">
-            <!-- Same section/heading/card vocabulary as the settings panel:
-                 three read-outs, each named by a heading that sticks while
-                 its values scroll. -->
             <div class="data-scroll">
                 <!-- Focused Window -->
                 <div class="section" data-section="focused">
@@ -1772,10 +1571,6 @@
 </script>
 <div class="panel-settings" style="display:none">
 
-        <!-- Blade-tip clip shape. objectBoundingBox units (0–1) scale with
-             the element so the curve proportions hold at any panel height.
-             Each corner: cubic bezier pulled hard toward the corner point
-             (cp1 nearly at the tip) then exits cleanly along the adjacent edge. -->
         <svg
             width="0"
             height="0"
@@ -1828,16 +1623,7 @@
         <!-- Toast -->
         <div id="toast"></div>
 
-        <!-- The exit curtain is not here. It is a host-owned full-screen
-             webview (ui/ms_curtain.html), because this window is the one the
-             host's teardown closes, a curtain inside it cannot outlive the
-             thing it is covering for. -->
-
         </div>
-        <!-- Context menu, a sibling of the panels, never inside one, so it is
-             not removed from the render tree when its owning panel is hidden.
-             Shared by the Settings and Profiles panels (both drawn by
-             panel-settings.js); position:fixed places it by viewport coords. -->
         <div id="ctx-menu-settings"></div>
         <div class="panel-macros" style="display:none">
         <!-- Header -->
@@ -1864,15 +1650,6 @@
         <div id="slot-macros"></div></div>
     </main>
 
-    <!-- Modal, a shell-level element, deliberately outside every panel div.
-         It hosts the Lua confirm/prompt round-trip (openLuaModal). It used to
-         live inside .panel-settings, so it only rendered while Settings was the
-         active panel: a rebind captured from Macros > Binds queued a confirm
-         that never appeared unless you then switched to Settings. Kept here it
-         floats above whichever panel is showing, where the request originates. -->
-    <!-- inert while closed: it stays in the DOM (only opacity/pointer-events
-         toggle), so without this its buttons/input leak into the Tab order and
-         focus can land on the hidden modal. openModal/closeModal flip it. -->
     <div id="modal-overlay" inert>
         <div id="modal">
             <div id="modal-title"></div>
@@ -1908,10 +1685,8 @@
     <!-- -- Shared: ui-tabs.js -- -->
     <script src="./modules/ui-tabs.js"></script>
 
-
     <!-- -- Shared: log-panel.js -- -->
     <script src="./modules/log-panel.js"></script>
-
 
     <!-- -- ICONS + Shell Dispatch + Navigation -- -->
     <script>
@@ -1981,11 +1756,6 @@
         return '<svg class="' + (cls || 'icon') + '" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">' + (ICONS[name] || '') + '</svg>';
     }
     window.icon = icon;
-    // ICONS is a top-level `const`, and a top-level const is not a property of
-    // window the way a var is, so `window.ICONS` was undefined everywhere,
-    // and every caller that tested for it fell through to its fallback.
-    // Exported explicitly, next to icon(), because the two are one API: icon()
-    // renders a name, and this is how a caller asks whether a name exists.
     window.ICONS = ICONS;
 
     window.shellDispatch = function(panel, action, body) {
@@ -2000,13 +1770,6 @@
         shellDispatch(panel, action, body);
     };
 
-    // Diagnostic: surface JS errors to the Hammerspoon console. Panel init and
-    // button handlers run inside the webview, whose console is invisible from
-    // Lua, so a throw here (e.g. during a panel's IIFE) silently kills every
-    // handler wired after it, the failure looks like "nothing happens." Route
-    // uncaught errors and rejected promises to Lua so they print alongside the
-    // rest of the log. Posts directly (not via shellDispatch) so it still works
-    // if the error fires before the rest of the API is ready.
     function _postJsError(kind, msg, src, line, col, stack) {
         try {
             window.webkit.messageHandlers.msShell.postMessage(
@@ -2033,25 +1796,10 @@
         _panelHandlers[name] = handler;
     };
 
-    // Installed-library client. The theme, sound and macro panels each own a
-    // shelf of hotswappable slices but share this one channel: a panel calls
-    // on(kind, fn) to receive its list, and request/activate/remove/capture to
-    // drive the host. The 'library' push carries the kind as its action.
     (function() {
         var kinds = {};
-        // Kinds the host has answered at least once, and their in-flight retry
-        // timers. Panels fire request(kind) during their eager boot build, which
-        // can beat the host's library subscription and be dropped -- leaving the
-        // shelf permanently empty until a manual reload. request() now re-issues
-        // on a short backoff until the host answers for that kind, so the boot
-        // race self-heals for every shelf (theme, sound, macro) at this one seam.
         var answered = {};
         var retryTimers = {};
-        // Last entries seen per kind, and extra listeners beyond the single
-        // on() owner. on() stays one-per-kind (the panel that owns that shelf),
-        // but the macro builder also needs pack lists to fill its switch-pack
-        // dropdown — subscribe() adds a listener without displacing the owner,
-        // and get() reads the cache synchronously.
         var cache = {};
         var subs = {};
         function post(action, body) {
@@ -2075,11 +1823,7 @@
         window.msLibraryClient = {
             on:       function(kind, fn) { kinds[kind] = fn; },
             request:  function(kind) { requestUntilAnswered(kind); },
-            // Read the cached list for a kind (may be empty until a push lands).
             get:      function(kind) { return cache[kind] ? cache[kind].slice() : []; },
-            // Add a listener without taking over on()'s single owner slot. Fires
-            // immediately with the cache if present, and kicks a request so a
-            // first-time subscriber gets populated.
             subscribe: function(kind, fn) {
                 (subs[kind] = subs[kind] || []).push(fn);
                 if (cache[kind]) { try { fn(cache[kind].slice()); } catch (e) {} }
@@ -2091,12 +1835,10 @@
             remove:   function(kind, slug) { post('libraryRemove', { kind: kind, slug: slug }); },
             capture:  function(kind, name) { post('libraryCapture', { kind: kind, name: name }); },
             rename:   function(kind, slug, name) { post('libraryRename', { kind: kind, slug: slug, name: name }); },
-            // seed:true fills the new entry from the current live slice; false leaves it empty.
             createEmpty: function(kind, name, seed) { post('libraryCreateEmpty', { kind: kind, name: name, seed: seed === true }); },
             clear:    function(kind) { post('libraryClear', { kind: kind }); },
         };
         window.registerPanel('library', function(kind, payload) {
-            // Any push for this kind proves the host is live; stop retrying.
             answered[kind] = true;
             if (retryTimers[kind]) {
                 clearInterval(retryTimers[kind]);
@@ -2113,11 +1855,6 @@
         });
     })();
 
-    // Profiles client. Mirrors the library client but for the profile shelf,
-    // which the host otherwise only ships inside the big settings payload — the
-    // macro builder needs the list on its own to fill the switch-profile
-    // dropdown. Pushed on the 'profileList' channel (distinct from the
-    // 'profiles' rail panel) as { entries: [{ name, active }] }.
     (function() {
         var subs = [];
         var cache = null;
@@ -2158,15 +1895,6 @@
         });
     })();
 
-    // Shell-wide native context menu suppression. Panels install their own
-    // contextmenu handlers to build custom menus, but each is gated on that
-    // panel being visible, so the WebKit menu leaked through everywhere else:
-    // the tab strip, the title bar, gutters, and panels with no handler at all.
-    // This does not stopPropagation, so panel handlers still run and still
-    // build their menus. The native menu is suppressed everywhere by default,
-    // INCLUDING text fields — a raw input still shows the OS-drawn menu that
-    // ignores the theme. A field that genuinely wants native right-click
-    // copy/paste opts back in with the `allow-native-menu` class.
     document.addEventListener("contextmenu", function(e) {
         var t = e.target;
         if (t && t.closest && t.closest(".allow-native-menu")) return;
@@ -2182,10 +1910,8 @@
                 railItem.classList.add('popped-out');
                 railItem.classList.remove('active');
             }
-            // Hide the inline panel to avoid duplicate windows
             var inlinePanel = document.querySelector('.panel-' + panel);
             if (inlinePanel) inlinePanel.style.display = 'none';
-            // If this was the active panel, show the popped placeholder
             if (currentPanel === panel) {
                 var names = { console: 'Console', watcher: 'Macro Monitor', keys: 'Input Monitor', window: 'Window Monitor' };
                 var label = document.getElementById('popped-label');
@@ -2206,7 +1932,6 @@
             // Notify any per-panel listeners
             var fn = window._panelPoppedInFns[panel];
             if (fn) { try { fn(); } catch(e) {} }
-            // Auto-show the panel in the shell when popout is closed
             showPanel(panel);
             return;
         }
@@ -2228,14 +1953,12 @@
         shellDispatch('_shell', 'popOut', { panel: id });
     };
 
-    // Per-panel pause registry, each panel registers its togglePause
     window._panelPauseFns = {};
     window.togglePause = function() {
         var fn = window._panelPauseFns[window.currentPanel];
         if (fn) fn();
     };
 
-    // Per-panel clear registry, each panel registers its clearLog
     window._panelClearFns = {};
     window.clearLog = function() {
         var fn = window._panelClearFns[window.currentPanel];
@@ -2243,7 +1966,6 @@
     };
 
     window.showPanel = function(id) {
-        // If panel is popped out, show the placeholder and focus the popout
         if (window._poppedOutPanels[id]) {
             var names = { console: 'Console', watcher: 'Macro Monitor', keys: 'Input Monitor', window: 'Window Monitor' };
             var label = document.getElementById('popped-label');
@@ -2269,7 +1991,6 @@
         });
         currentPanel = id;
         shellDispatch('_shell', 'navigate', { panel: id });
-        // First-open safety notice for the console panel (no-op after ack).
         if (id === 'console' && typeof window._maybeShowConsoleDanger === 'function') {
             window._maybeShowConsoleDanger();
         }
@@ -2282,12 +2003,6 @@
         if (theme.surface) r.setProperty('--surface', theme.surface);
         if (theme.surface2) r.setProperty('--surface2', theme.surface2);
         if (theme.hover) r.setProperty('--hover', theme.hover);
-        // surface3 has no key in ms_theme.json, Lua derives it from surface2
-        // and hover when it builds the theme CSS. This function did not, so a
-        // live theme update moved every surface *except* this one and it kept
-        // its stock value: #24291a, a dark olive, which is why a red theme
-        // showed a green chip behind the active sound filter. Same blend as
-        // the Lua side, deliberately, two derivations of one colour drift.
         if (theme.surface3) {
             r.setProperty('--surface3', theme.surface3);
         } else if (theme.surface2 && theme.hover) {
@@ -2351,7 +2066,6 @@
         btn.addEventListener('click', function() {
             var panel = btn.getAttribute('data-panel');
             if (!panel) return;
-            // Same-destination nav: play 'back' if already on this panel (not popped out)
             if (currentPanel === panel && !window._poppedOutPanels[panel]) {
                 shellDispatch('_shell', 'playSlot', { slot: 'back' });
                 return;
@@ -2362,27 +2076,11 @@
     });
 
     // -- Keyboard navigation: sound parity --
-    // The pointer plays a 'hover' cue on mouseenter; keyboard focus never did,
-    // so tabbing through the UI was silent and felt off-model. Mirror the cue
-    // when focus moves by keyboard. Intent is tracked explicitly rather than
-    // read from :focus-visible so that clicking a text field (which the engine
-    // still treats as focus-visible) does not chirp, only real key-driven
-    // moves do. The flag is armed by focus-moving keys and disarmed by any
-    // pointer press, both captured so panel handlers cannot swallow them first.
     var _kbNav = false;
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Tab' || (e.key && e.key.indexOf('Arrow') === 0)) _kbNav = true;
     }, true);
 
-    // Enter commits a text field the way clicking away does. The shell's inputs
-    // live outside any <form>, so the browser fires 'change' only on blur, never
-    // on Enter, which is why an edit "didn't take" until you clicked off (this
-    // affected Tools, the macro builder, Browse, etc.). Blur on Enter to run that
-    // same commit once, keeping the single-source-of-truth 'change' handlers.
-    // Capture phase so it still fires for inputs that stopPropagation on keydown
-    // (the macro-builder param fields do, to shield the shortcut layer).
-    // Left alone: textareas (Enter = newline) and fields that own their Enter ,
-    // the console runner (#code-input) and the modal (#modal-input).
     document.addEventListener('keydown', function(e) {
         if (e.key !== 'Enter' || e.isComposing || e.defaultPrevented) return;
         var t = e.target;
@@ -2394,9 +2092,6 @@
         if (t.id === 'code-input' || t.id === 'modal-input') return;
         t.blur();
     }, true);
-    // Zoom shortcuts: Cmd+= / Cmd++ zoom in, Cmd+- zoom out, Cmd+0 reset.
-    // Scoped to the shell webview (only fires while it has focus). Drives the
-    // same setUiZoom host action as the Settings control.
     document.addEventListener('keydown', function(e) {
         if (!e.metaKey || e.ctrlKey || e.altKey) return;
         var k = e.key;
@@ -2406,8 +2101,6 @@
         else if (k === '0') msg = { reset: true };
         if (!msg) return;
         e.preventDefault();
-        // Post on the 'settings' topic — that's the bus channel the host's
-        // action router (ms.ui._actions) listens on.
         if (window.shellPost) {
             window.shellPost('settings', 'setUiZoom',
                 Object.assign({ action: 'setUiZoom' }, msg));
@@ -2427,51 +2120,34 @@
     })();
     </script>
 
-
     <!-- -- Panel: console -- -->
     <script src="./modules/panel-console.js"></script>
-
 
     <!-- -- Panel: watcher -- -->
     <script src="./modules/panel-watcher.js"></script>
 
-
     <!-- -- Panel: keys -- -->
     <script src="./modules/panel-keys.js"></script>
-
 
     <!-- -- Panel: window -- -->
     <script src="./modules/panel-window.js"></script>
 
-
     <!-- -- Panel: settings -- -->
     <script src="./modules/panel-settings.js"></script>
 
-
     <!-- -- Panel: theme & sound -- -->
-    <!-- After panel-settings.js: builds from the window.msUI kit it publishes. -->
     <script src="./modules/panel-theme.js"></script>
 
-
     <!-- -- Panel: plugins -- -->
-    <!-- After panel-settings.js for the same reason panel-theme.js is. -->
     <script src="./modules/panel-plugins.js"></script>
     <script src="./modules/panel-browse.js"></script>
-
 
     <!-- -- Panel: macros -- -->
     <script src="./modules/panel-macros.js"></script>
 
     <!-- -- Global themed tooltips -- -->
     <script>
-    // Native `title` tooltips render in an OS window that sits below the shell
-    // webview's window level, so they're invisible until they happen to spill
-    // past the shell's right edge. This replaces them with an in-webview bubble.
     //
-    // Strategy: on first hover of any element carrying a `title`, move the text
-    // into `data-tip` and drop the `title`. mouseover fires the instant the
-    // pointer enters, well before the OS ~1s tooltip timer, so the native bubble
-    // never appears. Dynamic `.title =` writes are picked up on the next hover.
     (function() {
         var tip = document.createElement("div");
         tip.className = "ms-tooltip";
@@ -2497,8 +2173,8 @@
             var tw = tip.offsetWidth, th = tip.offsetHeight;
             var gap = 6, edge = 8;
             var x = r.left + r.width / 2 - tw / 2;
-            var y = r.bottom + gap;                          // below by default
-            if (y + th + edge > window.innerHeight) y = r.top - th - gap; // flip up
+            var y = r.bottom + gap;
+            if (y + th + edge > window.innerHeight) y = r.top - th - gap;
             x = Math.max(edge, Math.min(x, window.innerWidth - tw - edge));
             y = Math.max(edge, Math.min(y, window.innerHeight - th - edge));
             tip.style.left = Math.round(x) + "px";
@@ -2526,7 +2202,6 @@
                 ? e.target.closest("[title],[data-tip]") : null;
             if (el === current) hide();
         });
-        // Any interaction or layout shift dismisses the current bubble.
         document.addEventListener("mousedown", hide, true);
         window.addEventListener("scroll", hide, true);
         window.addEventListener("blur", hide);

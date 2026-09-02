@@ -2,7 +2,6 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
-        <!-- Design tokens single-sourced with the shell; see ui-tokens.js. -->
         <script src="./modules/ui-tokens.js"></script>
         <style>
             /* -- Fonts -- */
@@ -30,9 +29,6 @@
                 font-weight: 700;
                 font-style: italic;
             }
-
-            /* -- Tokens -- */
-            /* Tokens (:root) come from ui-tokens.js, shared with the shell. */
 
             /* -- Reset -- */
             *,
@@ -168,9 +164,6 @@
                 flex-shrink: 0;
             }
 
-            /* -- Tabs -- */
-            /* .tab / .tab-section styles come from modules/ui-tabs.js */
-
             /* -- State section -- */
             .state-section {
                 padding: 8px 12px;
@@ -230,8 +223,6 @@
                 color: var(--text2);
                 flex: 1;
             }
-            /* The control itself is styled by modules/ui-select.js; only the
-               fit into this row belongs here. */
             #coord-select-mount .macro-select {
                 padding: 2px 6px;
                 min-width: 0;
@@ -264,10 +255,6 @@
             }
 
             /* -- Entry rows -- */
-            /* Kept in lockstep with the shell's global .entry/.badge rules
-               (ms_shell.html) so the popped-out input monitor matches the
-               in-shell panel. When the shell's entry/badge styling changes,
-               mirror it here too. */
             .entry {
                 display: flex;
                 align-items: flex-start;
@@ -496,10 +483,6 @@
                         x:&nbsp;<span id="mx-display">,</span
                         >&nbsp;&nbsp;y:&nbsp;<span id="my-display">,</span>
                     </div>
-                    <!-- Built by createSelect (modules/ui-select.js), mounted
-                         from the script below. The native dropdown this
-                         replaced drew its open popup as an unthemeable macOS
-                         menu. -->
                     <span id="coord-select-mount"></span>
                 </div>
                 <div id="mouse-pills"></div>
@@ -769,7 +752,6 @@
             injectTabStyles();
             const tabs = createTabs({
                 onSwitch(tab) {
-                    // Scroll the newly-visible log to the bottom
                     const log = document.getElementById(tab + "-log");
                     if (log) log.scrollTop = log.scrollHeight;
                 },
@@ -788,15 +770,6 @@
             }
 
             // -- Coordinate-mode dropdown --
-            // Options live here rather than in markup because the control is
-            // built, not parsed. "screen" matches _coordMode's default in
-            // ms_devtools.lua, the host is not asked on load, so the two
-            // defaults have to agree.
-            // The reference resolution the "REF" coord mode scales against is
-            // configurable (ms.setReferenceResolution / the refWidth/refHeight
-            // pack settings), so its label can't be hardcoded. Lua pushes the
-            // live dims via setRefDims; until then, fall back to the built-in
-            // default so the dropdown reads sensibly before the first push.
             var _refDims = { w: 1680, h: 1044 };
             function refLabel() {
                 return "REF " + _refDims.w + "×" + _refDims.h;
@@ -820,10 +793,6 @@
             });
             document.getElementById("coord-select-mount").appendChild(coordSelect);
 
-            // Push from Lua on panel-ready and whenever the ref resolution
-            // changes. setOptions rebuilds the REF item's label and, when REF is
-            // the active mode, the dropdown button too (preserving the current
-            // selection since "ref" stays in the list).
             function setRefDims(body) {
                 if (!body) return;
                 var w = parseInt(body.w, 10), h = parseInt(body.h, 10);
@@ -859,10 +828,6 @@
             });
         </script>
     <script>
-// Suppress the native WebKit context menu, matching ms_shell.html. This file
-// is used both by the baked popout windows and by the devtools windows, so the
-// suppression has to live here rather than in the shell. Text fields are exempt
-// so right-click copy/paste keeps working.
 document.addEventListener("contextmenu", function (e) {
     var t = e.target;
     if (t && t.closest && t.closest(".allow-native-menu")) return;

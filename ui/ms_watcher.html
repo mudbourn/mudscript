@@ -2,7 +2,6 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
-        <!-- Design tokens single-sourced with the shell; see ui-tokens.js. -->
         <script src="./modules/ui-tokens.js"></script>
         <style>
             /* -- Fonts -- */
@@ -32,8 +31,6 @@
             }
 
             /* -- Tokens -- */
-            /* Tokens (:root) come from ui-tokens.js, shared with the shell.
-               --shadow-panel is watcher-local (not a shell token). */
             :root { --shadow-panel: rgba(0, 0, 0, 0.4); }
 
             /* -- Reset -- */
@@ -314,13 +311,11 @@
                 height: 8px;
                 border-radius: 50%;
                 flex-shrink: 0;
-                /* --dot-clr is set per-row via JS (inherits into this child) */
                 background: var(--dot-clr, var(--text3));
                 transition:
                     background 0.1s,
                     opacity 0.1s;
             }
-            /* Higher specificity wins, grays out the dot when muted */
             .filter-row.muted .filter-dot {
                 background: var(--border);
                 opacity: 0.6;
@@ -432,7 +427,6 @@
 
         <div id="log"></div>
 
-        <!-- Filter panel, absolute bottom-right, injected by JS -->
         <div id="filter-panel"></div>
 
         <div id="ctx-menu"></div>
@@ -562,7 +556,6 @@
                     .classList.remove("open");
             }
 
-            // Close filter panel when clicking outside it
             document.addEventListener("mousedown", (e) => {
                 const panel = document.getElementById("filter-panel");
                 const btn = document.getElementById("filter-btn");
@@ -692,10 +685,6 @@
             });
         </script>
     <script>
-// Suppress the native WebKit context menu, matching ms_shell.html. This file
-// is used both by the baked popout windows and by the devtools windows, so the
-// suppression has to live here rather than in the shell. Text fields are exempt
-// so right-click copy/paste keeps working.
 document.addEventListener("contextmenu", function (e) {
     var t = e.target;
     if (t && t.closest && t.closest(".allow-native-menu")) return;
