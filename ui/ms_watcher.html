@@ -2,6 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
+        <script src="./modules/ui-tokens.js"></script>
         <style>
             /* -- Fonts -- */
             @font-face {
@@ -30,30 +31,7 @@
             }
 
             /* -- Tokens -- */
-            :root {
-                --bg: #0d0f09;
-                --surface: #141810;
-                --surface2: #1c2116;
-                --surface3: #24291a;
-                --hover: #2d3523;
-                --accent: #6b8c3a;
-                --accent-hi: #8db84e;
-                --success: #7aa63c;
-                --danger: #c0492e;
-                --warning: #c4a030;
-                --text: #d4cfb6;
-                --text2: rgba(212, 207, 182, 0.85);
-                --text3: rgba(212, 207, 182, 0.55);
-                --border: rgba(141, 184, 78, 0.30);
-                --radius: 2px;
-                --radius-s: 1px;
-                /* panel extras */
-                --mouse: #c4a030;
-                --scroll: #7aa63c;
-                --border-dim: rgba(141, 184, 78, 0.14);
-                --border-faint: rgba(141, 184, 78, 0.07);
-                --shadow-panel: rgba(0, 0, 0, 0.4);
-            }
+            :root { --shadow-panel: rgba(0, 0, 0, 0.4); }
 
             /* -- Reset -- */
             *,
@@ -333,13 +311,11 @@
                 height: 8px;
                 border-radius: 50%;
                 flex-shrink: 0;
-                /* --dot-clr is set per-row via JS (inherits into this child) */
                 background: var(--dot-clr, var(--text3));
                 transition:
                     background 0.1s,
                     opacity 0.1s;
             }
-            /* Higher specificity wins, grays out the dot when muted */
             .filter-row.muted .filter-dot {
                 background: var(--border);
                 opacity: 0.6;
@@ -451,7 +427,6 @@
 
         <div id="log"></div>
 
-        <!-- Filter panel, absolute bottom-right, injected by JS -->
         <div id="filter-panel"></div>
 
         <div id="ctx-menu"></div>
@@ -581,7 +556,6 @@
                     .classList.remove("open");
             }
 
-            // Close filter panel when clicking outside it
             document.addEventListener("mousedown", (e) => {
                 const panel = document.getElementById("filter-panel");
                 const btn = document.getElementById("filter-btn");
@@ -711,10 +685,6 @@
             });
         </script>
     <script>
-// Suppress the native WebKit context menu, matching ms_shell.html. This file
-// is used both by the baked popout windows and by the devtools windows, so the
-// suppression has to live here rather than in the shell. Text fields are exempt
-// so right-click copy/paste keeps working.
 document.addEventListener("contextmenu", function (e) {
     var t = e.target;
     if (t && t.closest && t.closest(".allow-native-menu")) return;

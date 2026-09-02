@@ -159,6 +159,49 @@
                 opacity: 0.72;
             }
 
+            /* -- Force button -- */
+            /* Hidden until the send-off has been on screen past its 3s window,
+               so it only ever offers itself on a stall. Clicking it runs the
+               host's graceful force sequence. */
+            #force {
+                display: none;
+                margin-top: 4px;
+                padding: 6px 14px;
+                font-family: var(--font);
+                font-size: 11px;
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+                color: var(--text);
+                background: transparent;
+                border: 1px solid var(--warning);
+                border-radius: var(--radius);
+                cursor: pointer;
+            }
+            #curtain.showforce {
+                cursor: default;
+            }
+            #curtain.showforce #force {
+                display: inline-block;
+                opacity: 0.85;
+                animation: force-in 0.3s ease;
+            }
+            #force:hover {
+                background: var(--hover);
+                opacity: 1;
+            }
+            #force:disabled {
+                opacity: 0.5;
+                cursor: default;
+            }
+            @keyframes force-in {
+                from {
+                    opacity: 0;
+                }
+                to {
+                    opacity: 0.85;
+                }
+            }
+
             /* -- Brand -- */
             /* The loading screen opens on this word; the exit closes on it. */
             #brand {
@@ -202,6 +245,7 @@
             <div id="block">
                 <div id="mark"></div>
                 <div id="text">Shutting down...</div>
+                <button id="force" type="button">Force shutdown</button>
             </div>
             <div id="brand">mudscript</div>
         </div>
@@ -266,6 +310,16 @@
                 cu.classList.remove("shutdown", "restart");
                 cu.classList.add(MODES[mode] ? mode : "shutdown");
                 if (octane) cu.classList.add("octane");
+
+                const forceBtn = document.getElementById("force");
+                forceBtn.textContent = "Force " + (MODES[mode] ? mode : "shutdown");
+                if (!forceBtn._wired) {
+                    forceBtn._wired = true;
+                    forceBtn.addEventListener("click", function () {
+                        forceBtn.disabled = true;
+                        sendToHost({ action: "forceExit" });
+                    });
+                }
                 /* Force a reflow so the transition has a settled 0 state to
                    run from, setting both states in one go skips the fade.
                    Deliberately not requestAnimationFrame: a webview that is
@@ -301,6 +355,9 @@
                     void cu.offsetWidth;
                     cu.classList.add("visible");
                     sendToHost({ action: "fading" });
+                    setTimeout(function () {
+                        cu.classList.add("showforce");
+                    }, 3500);
                 };
 
                 /* Octane has no fade to align to. */

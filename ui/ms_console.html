@@ -2,6 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
+        <script src="./modules/ui-tokens.js"></script>
         <style>
             /* -- Fonts -- */
             @font-face {
@@ -27,27 +28,6 @@
                 src: url("./fonts/Almendra-BoldItalic.ttf") format("truetype");
                 font-weight: 700;
                 font-style: italic;
-            }
-
-            /* -- Tokens -- */
-            :root {
-                --bg: #0d0f09;
-                --surface: #141810;
-                --surface2: #1c2116;
-                --hover: #2d3523;
-                --accent: #6b8c3a;
-                --accent-hi: #8db84e;
-                --success: #7aa63c;
-                --danger-bg: #1c130f;
-                --danger: #c0492e;
-                --warning: #c4a030;
-                --text: #d4cfb6;
-                --text2: rgba(212, 207, 182, 0.85);
-                --text3: rgba(212, 207, 182, 0.55);
-                --border: rgba(141, 184, 78, 0.30);
-                --border-dim: rgba(141, 184, 78, 0.14);
-                --radius: 2px;
-                --radius-s: 1px;
             }
 
             /* -- Reset -- */
@@ -138,7 +118,6 @@
                 opacity: 0.8;
             }
 
-            /* In the header bar, ghost buttons should not stretch */
             .header-btns .btn-ghost {
                 flex: 0 0 auto;
             }
@@ -636,8 +615,15 @@
                 const msgEl = document.createElement("span");
                 msgEl.className = "msg";
 
-                if (type === "key" || type === "mouse" || type === "sound" || type === "macro") {
-                    msgEl.textContent = "";
+                if (type === "key") {
+                    const arrow = entry.down ? "↓" : "↑";
+                    msgEl.textContent = arrow + " " + (entry.key || entry.msg || "") + " (" + (entry.keyCode ?? "") + ")";
+                } else if (type === "mouse") {
+                    const arrow = entry.down ? "↓" : "↑";
+                    const pos = (entry.x != null && entry.y != null) ? "  " + entry.x + "," + entry.y : "";
+                    msgEl.textContent = arrow + " mouse:" + (entry.button ?? "") + pos;
+                } else if (type === "sound" || type === "macro") {
+                    msgEl.textContent = String(entry.msg ?? "");
                 } else if (type === "input") {
                     msgEl.textContent = "> " + String(entry.msg ?? "");
                 } else {
@@ -685,13 +671,6 @@
             window.doClear = doClear;
 
             // -- First-open danger notice --
-            // Shown once, the first time the console is ever opened, to warn the
-            // user that pasted code runs with full machine access. The ack is
-            // remembered so it never nags again. The ack now lives in
-            // ms_settings.json (not localStorage): the host pushes the persisted
-            // value via setDangerAck() on panel-ready, and dismissDanger() sends
-            // it back to be saved. Until the host reports the state, _dangerAcked
-            // is null (unknown) so the overlay stays down rather than flashing.
             let _dangerAcked = null;
 
             function setDangerAck(acked) {
@@ -709,14 +688,13 @@
                 const el = document.getElementById("danger-overlay");
                 if (el) el.classList.remove("open");
                 _dangerAcked = true;
-                // Persist to ms_settings.json via the host bus.
                 try { lp.sendToHost({ action: "ackDanger" }); } catch (_) {}
                 const input = document.getElementById("code-input");
                 if (input) input.focus();
             }
 
             function maybeShowDanger() {
-                if (_dangerAcked !== false) return; // acked, or state not yet known
+                if (_dangerAcked !== false) return;
                 const el = document.getElementById("danger-overlay");
                 if (!el) return;
                 el.classList.add("open");
@@ -738,7 +716,6 @@
 
             // -- Init --
             document.addEventListener("DOMContentLoaded", () => {
-                // Shell integration: register for incoming Lua pushes
                 if (typeof registerPanel === "function") {
                     registerPanel("console", function(action, body) {
                         if (action === "appendEntry" && body) window.appendEntry(body);
@@ -746,15 +723,10 @@
                         else if (action === "setDangerAck") window.setDangerAck(body === true);
                     });
                 }
-                // Strip window-chrome when embedded in shell
                 if (window.shellPost) {
                     var p = document.getElementById("panel");
                     if (p) { p.style.borderRadius = "0"; p.style.clipPath = "none"; }
                 }
-                // "ready" prompts the host to push the persisted ack state back
-                // via setDangerAck(); the overlay (if unacked) is raised there,
-                // once the value is known. Focus the input now, setDangerAck
-                // will steal focus to the ack button if it opens the notice.
                 lp.sendToHost({ action: "ready" });
                 const overlay = document.getElementById("danger-overlay");
                 if (!overlay || !overlay.classList.contains("open")) {
@@ -762,8 +734,6 @@
                 }
             });
 
-            // While the notice is up, Enter or Escape dismisses it (and the
-            // capture phase keeps that keypress from also running console code).
             document.addEventListener("keydown", (e) => {
                 const overlay = document.getElementById("danger-overlay");
                 if (!overlay || !overlay.classList.contains("open")) return;
@@ -776,10 +746,6 @@
             }, true);
         </script>
     <script>
-// Suppress the native WebKit context menu, matching ms_shell.html. This file
-// is used both by the baked popout windows and by the devtools windows, so the
-// suppression has to live here rather than in the shell. Text fields are exempt
-// so right-click copy/paste keeps working.
 document.addEventListener("contextmenu", function (e) {
     var t = e.target;
     if (t && t.closest && t.closest(".allow-native-menu")) return;

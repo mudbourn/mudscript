@@ -1352,7 +1352,7 @@
                     popView:windowStyle((M.borderless or 0) + (M.nonactivating or 128))
                 end)
                 pcall(function() popView:transparent(true) end)
-                pcall(function() popView:level(hs.canvas.windowLevels.popUpMenu or 101) end)
+                pcall(function() popView:level((hs.canvas.windowLevels.popUpMenu or 101) + 1) end)
                 pcall(function() popView:allowTextEntry(true) end)
                 pcall(function() popView:shadow(true) end)
                 pcall(function()

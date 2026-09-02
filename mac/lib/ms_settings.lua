@@ -1348,6 +1348,8 @@ return function(ms)
                     _warmLive = true
                 elseif data.action == "fading" then
                     _fading()
+                elseif data.action == "forceExit" then
+                    if ms.forceExit then ms.forceExit() end
                 end
             end)
 
@@ -1523,13 +1525,21 @@ return function(ms)
 
         local EXIT_WATCHDOG_S = 6.0
 
+        local _activeFinish
+        local _activeMode
+        local _forcingExit = false
+
         local function _exit(mode, slot, finish)
             local _finished = false
             local function finishOnce()
                 if _finished then return end
                 _finished = true
+                _activeFinish = nil
                 finish()
             end
+
+            _activeMode   = mode
+            _activeFinish = finishOnce
 
             hs.timer.doAfter(EXIT_WATCHDOG_S, function()
                 if _finished then return end
@@ -1558,6 +1568,7 @@ return function(ms)
         end
 
         local RESTART_SENTINEL   = hs.configdir .. "/data/.ms_restart_pending"
+        local SHUTDOWN_SENTINEL  = hs.configdir .. "/data/.ms_shutdown_pending"
         local HARDKILL_SHUTDOWN_S = 4
         local HARDKILL_RESTART_S  = 15
 
@@ -1599,9 +1610,15 @@ return function(ms)
                         "fi"
                     )
                 else
+                    local f = io.open(SHUTDOWN_SENTINEL, "w")
+                    if f then f:write(tostring(pid))
+                    f:close() end
                     _spawnDetached(
                         "sleep " .. HARDKILL_SHUTDOWN_S ..
-                        "; kill -9 " .. pid .. " 2>/dev/null"
+                        "; if [ -f '" .. SHUTDOWN_SENTINEL .. "' ]; then " ..
+                            "kill -9 " .. pid .. " 2>/dev/null; " ..
+                            "rm -f '" .. SHUTDOWN_SENTINEL .. "'; " ..
+                        "fi"
                     )
                 end
             end)
@@ -1645,6 +1662,26 @@ return function(ms)
             _armExternalHardKill("restart")
 
             _exit("restart", "restart", function() hs.reload() end)
+        end
+
+        ms.forceExit = function()
+            if _forcingExit or not _activeFinish then return end
+            _forcingExit = true
+            ms.dev.log({
+                type  = "system",
+                event = (_activeMode or "exit") .. "_force",
+            })
+            pcall(function() os.remove(RESTART_SENTINEL) end)
+            pcall(function() os.remove(SHUTDOWN_SENTINEL) end)
+            local finish = _activeFinish
+            local function drop()
+                _dropCurtain(finish)
+            end
+            if ms.fadeOutSounds then
+                ms.fadeOutSounds(300, drop)
+            else
+                drop()
+            end
         end
 
         ms.reload = function(opts)
@@ -1876,7 +1913,8 @@ return function(ms)
                     return (ms.soundAssign and ms.soundAssign[key]) or def.default
                 end
                 local v = ms._userSettingVals[key]
-                return v ~= nil and v or def.default
+                if v == nil then return def.default end
+                return v
             end
         -- END ms.settings.get --
 

@@ -3507,6 +3507,41 @@
                 return handle
             end
 
+            ms.fadeOutSounds = function(durationMs, done)
+                done = done or function() end
+                durationMs = tonumber(durationMs) or 300
+                local handles, starts = {}, {}
+                for _, h in pairs(ms._slotHandles or {}) do
+                    if type(h) == "userdata" then
+                        local ok, playing = pcall(function() return h:isPlaying() end)
+                        if ok and playing then
+                            handles[#handles + 1] = h
+                            local okv, v = pcall(function() return h:volume() end)
+                            starts[#handles] = (okv and v) or 1
+                        end
+                    end
+                end
+                if #handles == 0 then return done() end
+                local steps = 12
+                local step  = 0
+                local t
+                t = hs.timer.doEvery((durationMs / 1000) / steps, function()
+                    step = step + 1
+                    local f = 1 - (step / steps)
+                    if f < 0 then f = 0 end
+                    for i, h in ipairs(handles) do
+                        pcall(function() h:volume(starts[i] * f) end)
+                    end
+                    if step >= steps then
+                        t:stop()
+                        for _, h in ipairs(handles) do
+                            pcall(function() h:stop() end)
+                        end
+                        done()
+                    end
+                end)
+            end
+
             ms._biasedMenuPt = function(raw)
                 local p  = raw or hs.mouse.absolutePosition()
                 local sf = hs.screen.mainScreen():frame()
@@ -6932,17 +6967,15 @@
                 if ms.loading.isVisible() then
                     local themeJson = hs.json.encode(ms._theme or {})
                     pcall(function() ms.loading.eval("applyTheme(" .. themeJson .. ")") end)
+                    local ver = ms._bootVersionLabel and ms._bootVersionLabel()
+                    if ver then
+                        pcall(function() ms.loading.eval("setVersion('" .. ver:gsub("'", "\\'") .. "')") end)
+                    end
+                    pcall(function() ms.loading.eval("showProfile()") end)
+                    pcall(function() ms.loading.eval("showCreator()") end)
+                    pcall(function() ms.loading.eval("showVersion()") end)
                 end
-                -- The themeLoaded chime overlaps the boot sound on mudspoon, where a
-                -- single MCI wave device is shared; the device-busy (rc=320) retry now
-                -- lives in the sound layer (mudspoon hs/sound.lua), so this can fire
-                -- unconditionally -- the play self-heals once d_Boot frees the device.
                 pcall(function() ms.playSlot("themeLoaded") end)
-                -- Profile / creator / version reveal moved OUT of this init-anchored
-                -- beat into the loading choreography chain (ms_loading _startBoot-
-                -- Choreography), which is anchored to the same clock as the brand dock.
-                -- Driving them here raced the brand-shift transition on mudspoon, so the
-                -- profile text appeared before the logo finished docking.
             end)
             _G._timers[5] = hs.timer.doAfter(t4, function()
                 print("[startup] t=" .. t4 .. ": integrity seed")

@@ -2,6 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
+        <script src="./modules/ui-tokens.js"></script>
         <style>
             /* -- Fonts -- */
             @font-face {
@@ -27,27 +28,6 @@
                 src: url("./fonts/Almendra-BoldItalic.ttf") format("truetype");
                 font-weight: 700;
                 font-style: italic;
-            }
-
-            /* -- Tokens -- */
-            :root {
-                --bg: #0d0f09;
-                --surface: #141810;
-                --surface2: #1c2116;
-                --hover: #2d3523;
-                --accent: #6b8c3a;
-                --accent-hi: #8db84e;
-                --success: #7aa63c;
-                --danger: #c0492e;
-                --warning: #c4a030;
-                --text: #d4cfb6;
-                --text2: rgba(212, 207, 182, 0.85);
-                --text3: rgba(212, 207, 182, 0.55);
-                --border: rgba(141, 184, 78, 0.30);
-                --radius: 2px;
-                --radius-s: 1px;
-                /* panel extras */
-                /* --mouse and --scroll fall back to --warning via var() */
             }
 
             /* -- Reset -- */
@@ -184,9 +164,6 @@
                 flex-shrink: 0;
             }
 
-            /* -- Tabs -- */
-            /* .tab / .tab-section styles come from modules/ui-tabs.js */
-
             /* -- State section -- */
             .state-section {
                 padding: 8px 12px;
@@ -246,8 +223,6 @@
                 color: var(--text2);
                 flex: 1;
             }
-            /* The control itself is styled by modules/ui-select.js; only the
-               fit into this row belongs here. */
             #coord-select-mount .macro-select {
                 padding: 2px 6px;
                 min-width: 0;
@@ -282,11 +257,11 @@
             /* -- Entry rows -- */
             .entry {
                 display: flex;
-                align-items: baseline;
+                align-items: flex-start;
                 gap: 6px;
-                padding: 2px 14px;
-                font-size: 13px;
-                line-height: 1.6;
+                padding: 5px 12px;
+                font-size: 12px;
+                border-bottom: 1px solid var(--border-dim);
             }
             .entry:hover {
                 background: var(--surface);
@@ -316,19 +291,22 @@
                 text-transform: uppercase;
                 padding: 1px 5px;
                 border-radius: var(--radius-s);
+                border: 1px solid transparent;
                 flex-shrink: 0;
             }
             .badge-key {
-                background: color-mix(in srgb, var(--accent) 20%, transparent);
-                color: var(--accent);
+                background: color-mix(in srgb, var(--key, var(--accent)) 20%, transparent);
+                color: var(--key, var(--accent));
+                border-color: color-mix(in srgb, var(--key, var(--accent)) 45%, transparent);
             }
             .badge-mouse {
-                background: color-mix(in srgb, var(--mouse, var(--warning)) 20%, transparent);
-                color: var(--mouse, var(--warning));
+                background: color-mix(in srgb, var(--warning) 20%, transparent);
+                color: var(--warning);
+                border-color: color-mix(in srgb, var(--warning) 45%, transparent);
             }
             .badge-scroll {
-                background: color-mix(in srgb, var(--scroll, var(--warning)) 20%, transparent);
-                color: var(--scroll, var(--warning));
+                background: color-mix(in srgb, var(--scroll) 20%, transparent);
+                color: var(--scroll);
             }
 
             /* -- Arrows -- */
@@ -505,10 +483,6 @@
                         x:&nbsp;<span id="mx-display">,</span
                         >&nbsp;&nbsp;y:&nbsp;<span id="my-display">,</span>
                     </div>
-                    <!-- Built by createSelect (modules/ui-select.js), mounted
-                         from the script below. The native dropdown this
-                         replaced drew its open popup as an unthemeable macOS
-                         menu. -->
                     <span id="coord-select-mount"></span>
                 </div>
                 <div id="mouse-pills"></div>
@@ -778,7 +752,6 @@
             injectTabStyles();
             const tabs = createTabs({
                 onSwitch(tab) {
-                    // Scroll the newly-visible log to the bottom
                     const log = document.getElementById(tab + "-log");
                     if (log) log.scrollTop = log.scrollHeight;
                 },
@@ -797,25 +770,37 @@
             }
 
             // -- Coordinate-mode dropdown --
-            // Options live here rather than in markup because the control is
-            // built, not parsed. "screen" matches _coordMode's default in
-            // ms_devtools.lua, the host is not asked on load, so the two
-            // defaults have to agree.
-            var coordSelect = createSelect({
-                options: [
+            var _refDims = { w: 1680, h: 1044 };
+            function refLabel() {
+                return "REF " + _refDims.w + "×" + _refDims.h;
+            }
+            function coordOptions() {
+                return [
                     { value: "screen",       label: "Screen" },
                     { value: "window",       label: "Window TL" },
                     { value: "windowTR",     label: "Window TR" },
                     { value: "windowBL",     label: "Window BL" },
                     { value: "windowBR",     label: "Window BR" },
                     { value: "windowCenter", label: "Window Center" },
-                    { value: "ref",          label: "REF 1680×1044" },
+                    { value: "ref",          label: refLabel() },
                     { value: "screenCenter", label: "Screen center" },
-                ],
+                ];
+            }
+            var coordSelect = createSelect({
+                options: coordOptions(),
                 value: "screen",
                 onChange: onCoordModeChange,
             });
             document.getElementById("coord-select-mount").appendChild(coordSelect);
+
+            function setRefDims(body) {
+                if (!body) return;
+                var w = parseInt(body.w, 10), h = parseInt(body.h, 10);
+                if (w > 0) _refDims.w = w;
+                if (h > 0) _refDims.h = h;
+                coordSelect.setOptions(coordOptions());
+            }
+            window.setRefDims = setRefDims;
 
             // -- Expose for Lua evaluateJavaScript --
             window.appendEntry      = appendEntry;
@@ -832,6 +817,7 @@
                         else if (action === "loadHistory" && body) window.loadHistory(body);
                         else if (action === "updateActiveKeys" && body) window.updateActiveKeys(body);
                         else if (action === "updateMouseState" && body) window.updateMouseState(body);
+                        else if (action === "setRefDims" && body) window.setRefDims(body);
                     });
                 }
                 if (window.shellPost) {
@@ -842,10 +828,6 @@
             });
         </script>
     <script>
-// Suppress the native WebKit context menu, matching ms_shell.html. This file
-// is used both by the baked popout windows and by the devtools windows, so the
-// suppression has to live here rather than in the shell. Text fields are exempt
-// so right-click copy/paste keeps working.
 document.addEventListener("contextmenu", function (e) {
     var t = e.target;
     if (t && t.closest && t.closest(".allow-native-menu")) return;

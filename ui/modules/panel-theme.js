@@ -309,6 +309,7 @@
                     "Off reverts every colour, the font and the sound set to stock",
                     toggle(customTheme, (e) =>
                         sendToHost({ action: "setCustomTheme", value: e.target.checked }),
+                        true,
                     ),
                 ),
             );

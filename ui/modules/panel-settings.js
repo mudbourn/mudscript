@@ -54,10 +54,6 @@
                 el.classList.add("open");
                 el.style.maxHeight = "";
                 const MARGIN = 6;
-                // The menu is position:fixed inside the zoomed root, so its left/top
-                // and offsetWidth/scrollHeight are in zoomed CSS px, while clientX/Y
-                // and innerWidth/Height come back in physical px. Fold the pointer and
-                // viewport into the same zoomed space or the menu lands off-cursor.
                 const zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
                 x /= zoom; y /= zoom;
                 const vw = window.innerWidth / zoom, vh = window.innerHeight / zoom;
@@ -150,10 +146,13 @@
 
             // Sound //
             const _lastSlot = {};
+            let _lastNonHoverAt = 0;
             function playSlot(slot) {
                 if (_dragging) return;
                 if (slot === "hover" && !document.hasFocus()) return;
                 const now = Date.now();
+                if (slot === "hover" && now - _lastNonHoverAt < 250) return;
+                if (slot !== "hover") _lastNonHoverAt = now;
                 if (now - (_lastSlot[slot] || 0) < 50) return;
                 _lastSlot[slot] = now;
                 sendToHost({ action: "playSlot", slot });
@@ -298,7 +297,6 @@
                 const overlay = document.getElementById("modal-overlay");
                 if (!overlay || !overlay.classList.contains("open")) return;
                 if (e.key === "Enter") {
-                    // Don't double-fire if focus is on the input (its own handler runs).
                     if (document.activeElement === document.getElementById("modal-input")) return;
                     e.preventDefault();
                     playSlot("interact");
@@ -362,7 +360,7 @@
                 return el;
             }
 
-            function toggle(checked, onchange) {
+            function toggle(checked, onchange, silent) {
                 const label = h(
                     "label",
                     { cls: "toggle", onmouseenter: () => playSlot("hover") },
@@ -371,7 +369,7 @@
                         onchange: (e) => {
                             const on = e.target.checked;
                             try { if (onchange) onchange(e); }
-                            finally { playSlot(on ? "toggleOn" : "toggleOff"); }
+                            finally { if (!silent) playSlot(on ? "toggleOn" : "toggleOff"); }
                         },
                     }),
                     h("div", { cls: "toggle-track" }),
@@ -483,7 +481,6 @@
 
             // Sections //
 
-
             function buildSlider(
                 label,
                 hint,
@@ -565,6 +562,7 @@
                                 action: "setMacros",
                                 value: e.target.checked ? 1 : 0,
                             }),
+                            true,
                         ),
                     ),
                 );
@@ -639,8 +637,6 @@
                 const hasSocd = !hidden.socd;
                 const hasGamepad = !hidden.gamepad;
 
-                // Display zoom — scales the whole UI (shell + popouts) for
-                // large or small displays. Also driven by Cmd +/- / Cmd 0.
                 (function () {
                     const z = S.uiZoom || 1.0;
                     const pct = Math.round(z * 100) + "%";
@@ -708,7 +704,6 @@
                     );
                 }
 
-                // SOCD
                 if (hasSocd) {
                     if (hasTrackpad) body.appendChild(divider());
                     body.appendChild(
@@ -776,8 +771,6 @@
                     }
                 }
 
-                // Controller / Gamepad — enable toggle, live detection status,
-                // and the macros currently bound to controller buttons.
                 if (hasGamepad) {
                     if (hasTrackpad || hasSocd) body.appendChild(divider());
                     const gpOn = S.gamepadEnabled === true;
@@ -809,7 +802,6 @@
                     );
 
                     if (gpOn) {
-                        // Live detection status.
                         const TYPE_NAMES = {
                             ds4: "PlayStation",
                             xbox: "Xbox",
@@ -845,7 +837,6 @@
                             );
                         body.appendChild(statusRow);
 
-                        // Macros currently bound to a controller button.
                         const binds = S.gamepadBinds || [];
                         if (binds.length === 0) {
                             body.appendChild(
@@ -959,8 +950,6 @@
                         },
                     });
                 } else if (item.authored && item.uid) {
-                    // Keyless authored items (divider / label): no Edit, but they
-                    // can be deleted by their stable uid.
                     out.push({
                         icon: "",
                         label: "Delete " + (item.type === "divider"
@@ -1113,8 +1102,6 @@
                 );
             }
 
-            // A setting belongs to the default Settings group when it names no
-            // section (or names "settings"); anything else groups by section.
             function isDefaultSection(item) {
                 const s = item && item.section;
                 return !s || s === "settings";
@@ -1144,7 +1131,6 @@
                 }
             }
 
-            // Function tools — each callable from here or from a macro.
             function buildFunctions(body) {
                 const items = filterByOrigin(S.userFunctions || []);
                 if (!items.length) {
@@ -1164,7 +1150,6 @@
                 }
             }
 
-            // Shared helper variables, each editable by its declared type.
             function varControl(v) {
                 const type = v.type || "string";
                 const cur = (v.value !== undefined && v.value !== null)
@@ -1204,8 +1189,6 @@
                 }
             }
 
-            // Render a list of user items, dropping leading/trailing dividers and
-            // merging consecutive ones so a section never shows an empty cell.
             function renderItemsCollapsed(body, items) {
                 let lastWasDivider = true;
                 let rendered = 0;
@@ -1221,7 +1204,6 @@
                     rendered++;
                     renderUserItem(body, item);
                 }
-                // Trailing divider, if any, is the last child added here.
                 if (lastWasDivider && body.childElementCount > start) {
                     const last = body.lastElementChild;
                     if (last && last.classList.contains("divider")) last.remove();
@@ -1229,8 +1211,6 @@
                 return rendered;
             }
 
-            // Display title/desc for a section id that has no user metadata (pack
-            // sections such as "calibration", or any section= a pack chose).
             function packSectionDisplay(id) {
                 if (id === "calibration")
                     return { title: "Calibration", desc: "Tune the pack to your setup" };
@@ -1239,10 +1219,6 @@
                 return { title: title || id, desc: null };
             }
 
-            // A user-created section: a plain heading (title + optional hint)
-            // whose name and hint are edited by right-clicking it, plus its
-            // settings (divider-collapsed). Right-click editing keeps this
-            // distinct from pack/handwritten sections, which have no edit menu.
             function userSectionGroup(meta, items) {
                 const title = meta.icon
                     ? meta.icon + " " + (meta.title || "")
@@ -1261,7 +1237,6 @@
                     }
                 }, meta.hint || null);
 
-                // Right-click the heading to rename, edit the hint, or remove.
                 const editName = async () => {
                     const res = await openModal(
                         "Rename Section", "Name for this section.",
@@ -1511,9 +1486,6 @@
                         })(),
                     ),
                 );
-                // Moving a profile between machines is just another way of
-                // managing it, so import/export live here rather than in a
-                // separate section (matching the theme/sound/macro panels).
                 body.appendChild(
                     btnRow(
                         actionBtn("Import Profile", "", () =>
@@ -1823,9 +1795,6 @@
                 }
                 body.appendChild(btnRow(docBtn, githubBtn));
 
-                // Launch update alerts toggle — the same setting as the menubar
-                // Help item, surfaced here so the update alert's "turn these off
-                // under Help" points at something the user can actually see.
                 body.appendChild(divider());
                 body.appendChild(
                     row(
@@ -1870,9 +1839,6 @@
                 scroll.scrollTop = scrollTop;
             }
 
-            // `preset` (optional) puts the builder in edit mode: { editKey, item }
-            // seeds the draft from an existing authored setting so Save updates it
-            // in place instead of adding a new one.
             function buildSettingBuilder(body, preset) {
                 const draft = {
                     type: "toggle",
@@ -1893,12 +1859,9 @@
                     target: "settings",
                 };
 
-                // Non-null while editing an existing setting; carries the ORIGINAL
-                // key so the host can locate the def even if the key is renamed.
                 let editKey = (preset && preset.editKey) || null;
                 if (preset && preset.item) seedDraftFrom(draft, preset.item);
 
-                // Map a serialized authored-setting item back onto the draft.
                 function seedDraftFrom(dr, item) {
                     dr.type   = item.type || "toggle";
                     dr.key    = item.key || "";
@@ -1996,8 +1959,6 @@
                 body.appendChild(preview);
 
                 // Add / Update / Reset //
-                // Return the builder to add-mode (identity cleared, edit target
-                // dropped). Called after a save and by the Reset button.
                 const clearIdentity = () => {
                     editKey = null;
                     primaryBtn.textContent = "Add Setting";
@@ -2147,9 +2108,6 @@
 
                     if (keyed(t) || t === "groupLabel" || t === "divider") {
                         dyn.appendChild(divider());
-                        // Every known section is a valid destination: the default
-                        // Settings group, user-created sections, and any section a
-                        // pack already uses (calibration and the like).
                         const destOpts = [{ label: "Settings", value: "settings" }];
                         const seen = { settings: true };
                         for (const m of S.userSections || []) {
@@ -2250,13 +2208,6 @@
                 updatePreview();
             }
 
-            // Arrange list — every authored item, grouped by section, each row
-            // draggable so dividers, labels and settings can be positioned. This
-            // is what makes the visual builder competitive with hand-editing:
-            // add drops an item at the end, then it is dragged into place here.
-            // Reordering is constrained to a section (a row only reorders among
-            // its own section's siblings); the whole authored order is sent to
-            // the host on drop.
             const _dragSvg = '<svg class="icon" viewBox="0 0 24 24" fill="none" '
                 + 'xmlns="http://www.w3.org/2000/svg"><path d="M9 6h.01M9 12h.01'
                 + 'M9 18h.01M15 6h.01M15 12h.01M15 18h.01" stroke="currentColor" '
@@ -2271,8 +2222,6 @@
                 return name + "  ·  " + it.type;
             }
 
-            // Read the current DOM order of a section group and push it to the
-            // host as the new authored order (all groups concatenated).
             function commitArrangeOrder(listEl) {
                 const order = [];
                 listEl.querySelectorAll(".arrange-row[data-uid]")
@@ -2289,9 +2238,6 @@
                     return;
                 }
 
-                // One flat, ordered list; section changes print a heading so the
-                // user sees the grouping, but rows carry data-section so a drag
-                // never crosses a boundary.
                 const list = h("div", { cls: "arrange-list" });
                 let lastSection = "";
                 for (const it of authored) {
@@ -2357,9 +2303,6 @@
                 return rowEl;
             }
 
-            // Pointer-based reorder (HTML5 DnD drops are swallowed in this
-            // WKWebView — see the macro builder note). Mirrors that pattern but
-            // flat: a row only reorders among siblings sharing its data-section.
             function wireArrangeDrag(handle, rowEl, listEl) {
                 handle.addEventListener("mousedown", (down) => {
                     if (down.button !== 0) return;
@@ -2398,7 +2341,6 @@
                             .forEach((r) => r.classList.remove(
                                 "drop-above", "drop-below"));
                     };
-                    // Place rowEl relative to the nearest peer under the pointer.
                     const place = (y) => {
                         clearMarks();
                         let best = null, bestPos = "below", bestDist = Infinity;
@@ -2460,10 +2402,6 @@
                 });
             }
 
-            // Load an existing authored setting into the Setting Builder (edit
-            // mode) and reveal the builder tab. Called by each setting's "Edit
-            // tool" context item; rebuilds the builder body from scratch so the
-            // Type control and every field reflect the loaded def.
             window._loadSettingIntoBuilder = (item) => {
                 if (!item || !item.key) return;
                 const bscroll = document.getElementById("tools-builder-scroll");
@@ -2479,20 +2417,12 @@
             function renderToolsPanel() {
                 const scroll = document.getElementById("tools-scroll");
                 if (!scroll) return;
-                // Keep the origin-filter header button in step with the flag,
-                // which outlives a panel rebuild.
                 syncToolsFilterBtn();
                 const active = window._toolsFilter !== "all";
-                // Populate window.msMacroTools so the Function/Setting builders'
-                // Value->Tool dropdowns have data. It is otherwise filled only when
-                // the macro builder calls refreshToolList(), so opening Tools
-                // without ever opening the macro builder left those dropdowns empty.
                 if (window.shellPost) window.shellPost("macros", "listTools", {});
                 const scrollTop = scroll.scrollTop;
                 scroll.innerHTML = "";
 
-                // Pack menus authored with ms.menu.define() (they carry their own
-                // item lists) render first, unchanged.
                 for (const menu of S.userMenus || []) {
                     if (active && !toolOriginMatches(menu.origin)) continue;
                     const title = menu.icon
@@ -2505,7 +2435,6 @@
                     );
                 }
 
-                // Default Settings group: settings that name no section.
                 if (!active
                     || filterByOrigin(S.userSettings).some(isDefaultSection)) {
                     scroll.appendChild(
@@ -2526,10 +2455,6 @@
                     );
                 }
 
-                // Named sections, driven by the settings' `section` field. User
-                // metadata (userSections) lists ones made in the UI; any other
-                // referenced section id is a pack section. User-created first,
-                // then pack sections in first-seen order.
                 const userMeta = {};
                 const order = [];
                 for (const m of S.userSections || []) {
@@ -2547,8 +2472,6 @@
                     const items = filterByOrigin(S.userSettings || [])
                         .filter((it) => it.section === id);
                     if (meta) {
-                        // User-created section: always shown (even empty) unless a
-                        // non-user origin filter is active.
                         if (active && window._toolsFilter !== "user" && !items.length)
                             continue;
                         scroll.appendChild(
@@ -2563,11 +2486,6 @@
                     }
                 }
 
-                // At the very bottom: create your own section. Only one custom
-                // section is allowed, so this creator is hidden once any section
-                // exists — whether made here or defined in the handwritten file
-                // (a setting tagged section= in ms_macros.lua). `order` holds
-                // every custom section id, so an empty `order` means none yet.
                 if ((!active || window._toolsFilter === "user") && !order.length) {
                     scroll.appendChild(
                         section("new-section", "New Section", (body) => {
@@ -2604,17 +2522,11 @@
                         section("builder", "Setting Builder", buildSettingBuilder,
                             "Compose a new setting and preview it live"),
                     );
-                    // The Arrange list rebuilds on every refresh (see below), so
-                    // its body is emptied and refilled — the section shell here is
-                    // created once, alongside the builder.
                     bscroll.appendChild(
                         section("arrange", "Arrange", buildArrange,
                             "Drag to position dividers, labels and settings"),
                     );
                 }
-                // Keep the Arrange list in step with the current authored items
-                // (a new add, delete or reorder changes them) without disturbing
-                // the builder's in-progress draft above it.
                 if (bscroll) {
                     const asec = bscroll.querySelector(
                         '[data-section="arrange"] .section-body');
@@ -2629,12 +2541,6 @@
             }
             window.renderToolsPanel = renderToolsPanel;
 
-            // Header origin filter: cycles All -> Visual -> Hand -> Plugin. Each
-            // tool carries an `origin`: "user" = the visual builder (ms_authored
-            // .json), "pack" = the handwritten ms_macros.lua, "plugin" = a loaded
-            // plugin. The non-"all" states show only that origin. Read by the
-            // Tuning-tab builders and the Function tab list. Origin keys stay
-            // "user"/"pack" in the data model; only their labels changed.
             const TOOL_FILTER_ORDER = ["all", "user", "pack", "plugin"];
             const TOOL_FILTER_LABEL = {
                 all: "All", user: "Visual", pack: "Hand", plugin: "Plugin",
@@ -2666,8 +2572,6 @@
             }
             window.cycleToolsFilter = cycleToolsFilter;
 
-            // Right-clicking the header button opens a menu to jump straight to
-            // any origin, instead of cycling through them one left-click at a time.
             function showToolsFilterMenu(x, y) {
                 showCtxMenu(x, y, TOOL_FILTER_ORDER.map((key) => ({
                     icon: window._toolsFilter === key ? "✓" : "",
@@ -2706,16 +2610,13 @@
             let _fnEditor = null;
             let _fnHotkeysBound = false;
 
-            // Copy/cut/paste/select-all/delete for the function canvas — the same
-            // ToolCanvas clipboard the macro builder drives, gated on the function
-            // canvas being on-screen (its otab section active and the panel open).
             function bindFunctionHotkeys() {
                 if (_fnHotkeysBound) return;
                 _fnHotkeysBound = true;
                 document.addEventListener("keydown", function(e) {
                     if (!_fnCanvas) return;
                     const host = _fnCanvas._root;
-                    if (!host || host.offsetParent === null) return;   // not visible
+                    if (!host || host.offsetParent === null) return;
                     const t = e.target;
                     if (t && t.closest && t.closest("input, textarea, [contenteditable='true']")) return;
                     const mod = e.metaKey || e.ctrlKey;
@@ -2759,8 +2660,6 @@
                 const nameInput = h("input", {
                     type: "text", cls: "input-sm", placeholder: "My Function",
                 });
-                // Coroutine toggle sits beside the name: on = run async in its
-                // own coroutine; off = run inline in the caller's.
                 const coroToggle = toggle(false, () => {});
                 const nameControls = h("div", {});
                 nameControls.style.cssText =
@@ -2824,9 +2723,6 @@
                             const def = buildStepDef(v);
                             if (!def) return;
                             const sid = _fnCanvas.addTool(def);
-                            // Open the parameter editor on the step we just added so
-                            // its params can be set inline, rather than making the
-                            // user right-click to find it.
                             if (sid && _fnEditor) _fnEditor.open(sid);
                         },
                     });
@@ -2857,8 +2753,6 @@
                 window._loadFunctionIntoEditor = (fnDef) => {
                     _fnEditingId = fnDef.id || null;
                     nameInput.value = fnDef.name || fnDef.id || "";
-                    // Legacy defs (no flag) were wrapped as coroutines, so default
-                    // on unless the stored flag is explicitly false.
                     setCoro(fnDef.coroutine !== false);
                     if (_fnCanvas) _fnCanvas.load(fnDef.steps || []);
                     switchToolsTab("functions");
@@ -2868,9 +2762,6 @@
             function buildStepOptions() {
                 const reg = (window.fnPicker && window.fnPicker.registry) || [];
                 const skip = { "if": 1, "for": 1, "while": 1, "repeat": 1 };
-                // Carry the module's category through as a group header, and keep
-                // categories contiguous (in first-seen registry order) so the
-                // shared select can render one header per section.
                 const order = [];
                 const byCat = {};
                 reg.filter((f) => !skip[f.id]).forEach((f) => {
@@ -2892,9 +2783,6 @@
             function fillFunctionList(host) {
                 host.innerHTML = "";
                 let fns = window.msMacroFunctions || [];
-                // Apply the header origin filter. A function tool's `source`
-                // ("pack"/"plugin", else builder) maps onto the same origins the
-                // rest of the panel uses.
                 if (window._toolsFilter && window._toolsFilter !== "all") {
                     fns = fns.filter((fn) => {
                         const origin = fn.source === "pack" ? "pack"
@@ -2913,9 +2801,6 @@
                     return;
                 }
                 fns.forEach((fn) => {
-                    // Pack macros and plugin-defined tools are both reference-only
-                    // callables: no builder Edit/Delete (the compiler doesn't own
-                    // them), just a "Call in macro" action.
                     const isPack = fn.source === "pack";
                     const isPlugin = fn.source === "plugin";
                     const callOnly = isPack || isPlugin;
@@ -2950,9 +2835,6 @@
             }
 
             // Variable tab (declare disk-persistent helper vars) //
-            // Reference to the builder's Default input so each variable's Insert
-            // button can append a {name} token straight into it (same window, no
-            // cross-webview focus tracking needed).
             let _varDefaultInput = null;
             function renderToolVariablesTab() {
                 const scroll = document.getElementById("tools-variables-scroll");
@@ -2972,9 +2854,6 @@
             }
             window.renderToolVariablesTab = renderToolVariablesTab;
 
-            // `preset` (optional) puts the builder in edit mode, seeding the draft
-            // from an existing helper var so Save updates it (re-declaring by the
-            // same name overwrites in place; a rename drops the old declaration).
             function buildVariableBuilder(body, preset) {
                 const draft = preset
                     ? { name: preset.name || "",
@@ -2990,8 +2869,6 @@
                 });
                 body.appendChild(row("Name", "Identifier macros use to read it",
                     nameInput));
-                // Placeholder tracks the chosen type so the Default hint matches
-                // what's expected (0 / text / true) instead of always showing 0.
                 const DEF_PLACEHOLDER = { number: "0", string: "text", boolean: "true" };
                 body.appendChild(row("Type", "How the value is stored",
                     seg([
@@ -3026,7 +2903,6 @@
                         let dv = draft.default;
                         if (draft.type === "number") dv = parseFloat(dv) || 0;
                         else if (draft.type === "boolean") dv = (dv === "true" || dv === "1" || dv === "yes");
-                        // A rename leaves the old declaration behind, so drop it.
                         if (editName && editName !== nm) {
                             sendToTools("deleteHelperVar", { name: editName });
                         }
@@ -3042,9 +2918,6 @@
                 body.appendChild(btnRow(saveVarBtn));
             }
 
-            // Load an existing helper var into the Variable builder (edit mode)
-            // and reveal the Variable tab. Rebuilds the builder body so the Type
-            // control and every field reflect the loaded declaration.
             window._loadVariableIntoBuilder = (v) => {
                 if (!v || !v.name) return;
                 const vscroll = document.getElementById("tools-variables-scroll");
@@ -3069,12 +2942,6 @@
 
             function fillVariableList(host) {
                 host.innerHTML = "";
-                // Read the authoritative helper-var list from S.userVariables --
-                // the same source the Tuning tab uses, delivered to this popout
-                // via receiveState(). window.msMacroTools is only populated by the
-                // macro builder in the MAIN shell webview, so in this (Tools popout)
-                // window it is never filled -- reading it here left this list
-                // permanently empty even when variables existed.
                 const vars = (S && Array.isArray(S.userVariables)) ? S.userVariables : [];
                 if (vars.length === 0) {
                     host.appendChild(h("div", {
@@ -3089,8 +2956,6 @@
                         ? String(v.value) : "";
                     r.appendChild(h("div", { cls: "row-label" },
                         (v.label || v.name) + "  =  " + val));
-                    // Insert the {name} interpolation token into the last-focused
-                    // Value field; if none is focused, copy it so it can be pasted.
                     const token = "{" + v.name + "}";
                     const ins = actionBtn("Insert", "", () => {
                         const el = _varDefaultInput;
@@ -3098,15 +2963,12 @@
                             showAlert("Open the Default field above first.");
                             return;
                         }
-                        // Insert at the caret when the Default field is focused,
-                        // otherwise append to the end.
                         let start = el.selectionStart, end = el.selectionEnd;
                         if (typeof start !== "number" || document.activeElement !== el) {
                             start = el.value.length; end = start;
                         }
                         el.value = el.value.slice(0, start) + token + el.value.slice(end);
                         const caret = start + token.length;
-                        // Fire input so the draft.default binding stays in sync.
                         el.dispatchEvent(new Event("input", { bubbles: true }));
                         el.focus();
                         try { el.setSelectionRange(caret, caret); } catch (e) {}
@@ -3305,9 +3167,6 @@
                 render();
                 renderToolsPanel();
                 renderProfilesPanel();
-                // Keep the Macro Lab header's engine toggle in step with the real
-                // bind validity, however it was changed (hotkey, Settings switch,
-                // target focus/blur).
                 if (window.updateMacrosToggleBtn) {
                     window.updateMacrosToggleBtn(S.macrosEnabled ?? false);
                 }

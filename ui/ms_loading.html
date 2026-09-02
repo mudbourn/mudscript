@@ -320,7 +320,10 @@
                 document.getElementById("brand").classList.add("shifted");
             }
 
+            var _profileArmed = false;
+
             function showProfile() {
+                _profileArmed = true;
                 document.getElementById("profile-name").classList.add("visible");
             }
 
@@ -357,6 +360,7 @@
             // page is ready, the same slow-boot race the brand hits). Idempotent;
             // a no-op once the name is up, or while no name text has been set yet.
             function ensureProfileFallback() {
+                if (!_profileArmed) return;
                 var el = document.getElementById("profile-name");
                 if (!el) return;
                 if (el.classList.contains("visible")) return;
@@ -392,11 +396,9 @@
                 var el = document.getElementById("profile-name");
                 if (el && name) {
                     el.textContent = name;
-                    // If the name arrived late (e.g. macros loaded slowly, so the
-                    // re-asserted pushMeta lands after the 2.4s reveal beat), don't
-                    // wait for a reveal that already fired — show it now.
-                    var content = document.getElementById("content");
-                    if (content && content.classList.contains("visible")) {
+                    // Name arrived after the reveal beat fired: show it now. Gated
+                    // on the reveal being armed so it never beats the sound.
+                    if (_profileArmed) {
                         el.classList.add("visible");
                     }
                 }

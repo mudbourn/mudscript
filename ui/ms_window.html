@@ -2,21 +2,13 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
+        <script src="./modules/ui-tokens.js"></script>
         <style>
             /* -- Fonts -- */
             @font-face { font-family: "Almendra"; src: url("./fonts/Almendra-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; }
             @font-face { font-family: "Almendra"; src: url("./fonts/Almendra-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; }
             @font-face { font-family: "Almendra"; src: url("./fonts/Almendra-Italic.ttf") format("truetype"); font-weight: 400; font-style: italic; }
             @font-face { font-family: "Almendra"; src: url("./fonts/Almendra-BoldItalic.ttf") format("truetype"); font-weight: 700; font-style: italic; }
-
-            /* -- Tokens -- */
-            :root {
-                --bg: #0d0f09; --surface: #141810; --surface2: #1c2116; --hover: #2d3523;
-                --accent: #6b8c3a; --accent-hi: #8db84e; --success: #7aa63c; --danger: #c0492e;
-                --warning: #c4a030; --text: #d4cfb6; --text2: rgba(212,207,182,0.85);
-                --text3: rgba(212,207,182,0.55); --border: rgba(141,184,78,0.30);
-                --radius: 2px; --radius-s: 1px;
-            }
 
             /* -- Reset -- */
             *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
@@ -59,9 +51,6 @@
             #flag-event-name { font: 12px var(--font-mono); flex-shrink: 0; }
             #flag-event-detail { font-size: 11px; color: var(--text3); margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-            /* -- Tabs -- */
-            /* .tab / .tab-section styles come from modules/ui-tabs.js */
-
             /* -- Key/Value grid (structured window + element data) -- */
             .kv-grid { display: grid; grid-template-columns: max-content 1fr; column-gap: 12px; row-gap: 3px; align-items: baseline; }
             .kv-key { font: 700 10px var(--font-mono); letter-spacing: 0.04em; color: var(--text3); text-transform: uppercase; white-space: nowrap; }
@@ -89,9 +78,6 @@
             .ax-banner b { color: var(--text); }
 
             /* -- Settings-style sections -- */
-            /* Same vocabulary as the shell's settings panel, kept in sync by
-               hand because this popout carries its own stylesheet: a sticky
-               heading that names the group, and its values in a card. */
             .section { margin: 0; }
             .section-head {
                 position: sticky; top: 0; z-index: 3;
@@ -282,10 +268,6 @@
                 el.textContent = has ? text : ",";
                 el.classList.toggle("empty", !has);
             }
-            // Visibility is the one flag whose "off" is a state of its own
-            // rather than the absence of one, so the chip says which state it
-            // is in. Dimming a chip that still reads "Visible" is how a
-            // hidden window ended up looking like a visible one.
             const FLAG_OFF_LABEL = { "w-visible": "Hidden" };
             const FLAG_ON_LABEL  = { "w-visible": "Visible" };
 
@@ -302,7 +284,8 @@
             const BADGE = { focus: "badge-focus", move: "badge-move", resize: "badge-resize",
                 minimize: "badge-state", unminimize: "badge-state", fullscreen: "badge-state" };
             const LABEL = { focus: "focused", move: "moved", resize: "resized",
-                minimize: "minimized", unminimize: "restored", fullscreen: "fullscreen" };
+                minimize: "minimized", unminimize: "restored", fullscreen: "fullscreen",
+                hide: "hidden", show: "shown" };
 
             function buildRow(entry) {
                 const row = document.createElement("div");
@@ -479,10 +462,6 @@
             });
         </script>
     <script>
-// Suppress the native WebKit context menu, matching ms_shell.html. This file
-// is used both by the baked popout windows and by the devtools windows, so the
-// suppression has to live here rather than in the shell. Text fields are exempt
-// so right-click copy/paste keeps working.
 document.addEventListener("contextmenu", function (e) {
     var t = e.target;
     if (t && t.closest && t.closest(".allow-native-menu")) return;
