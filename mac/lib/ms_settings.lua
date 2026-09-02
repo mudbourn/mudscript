@@ -1467,6 +1467,8 @@ return function(ms)
 
                 ms.safeShow(view)
 
+                pcall(function() view:alpha(1) end)
+
                 pcall(function() view:level(_CURTAIN_LEVEL) end)
                 pcall(function() view:bringToFront(true) end)
 
@@ -1535,6 +1537,11 @@ return function(ms)
                 if _finished then return end
                 _finished = true
                 _activeFinish = nil
+
+                local v = ms._exitCurtainView
+                if v then pcall(function() v:hide() end) end
+                ms._exitCurtainView = nil
+
                 finish()
             end
 
@@ -1661,7 +1668,9 @@ return function(ms)
 
             _armExternalHardKill("restart")
 
-            _exit("restart", "restart", function() hs.reload() end)
+            _exit("restart", "restart", function()
+                if hs.relaunch then hs.relaunch() else hs.reload() end
+            end)
         end
 
         ms.forceExit = function()
