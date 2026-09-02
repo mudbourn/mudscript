@@ -661,8 +661,8 @@
                     body.appendChild(
                         row(
                             "Display Zoom",
-                            "Scale the whole interface — shell and popouts "
-                                + "(Cmd +/−, Cmd 0 to reset)",
+                            "Scale the whole interface, shell and popouts. "
+                                + "Rebindable hotkeys live under Accessibility Hotkeys below",
                             zoomCtl,
                             "",
                             [
@@ -923,6 +923,22 @@
                                 action: "setOctaneMuteSounds",
                                 value: e.target.checked,
                             });
+                        }),
+                    ),
+                );
+
+                body.appendChild(divider());
+                body.appendChild(
+                    row(
+                        "Accessibility Hotkeys",
+                        "Rebind Octane, zoom, and other system shortcuts in Macros → Binds",
+                        actionBtn("Open Binds", "", () => {
+                            if (window.showPanel) window.showPanel("macros");
+                            setTimeout(() => {
+                                if (window.macroLab && window.macroLab.focusSystemBinds) {
+                                    window.macroLab.focusSystemBinds();
+                                }
+                            }, 60);
                         }),
                     ),
                 );

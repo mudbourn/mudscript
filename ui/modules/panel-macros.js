@@ -4275,12 +4275,23 @@
                     rows.push(bindRow(sub, true));
                 });
             });
-            bindList.appendChild(bindSection(
+            var sec = bindSection(
                 titleCaseGroup(g),
                 g === "system" ? "Always live, these cannot be disabled" : null,
                 rows,
-            ));
+            );
+            sec.setAttribute("data-bind-group", g);
+            bindList.appendChild(sec);
         });
+    }
+
+    function focusSystemBinds() {
+        if (_mtabs) _mtabs.switch("binds");
+        refreshBindList();
+        setTimeout(function() {
+            var sec = bindList.querySelector('[data-bind-group="system"]');
+            if (sec && sec.scrollIntoView) sec.scrollIntoView({ block: "start" });
+        }, 90);
     }
 
     // Title-case each word of a group key so compound groups read cleanly:
@@ -4972,6 +4983,7 @@
         setMacroDef: setMacroDef,
         setBindList: setBindList,
         refreshBinds: refreshBindList,
+        focusSystemBinds: focusSystemBinds,
         setMeta: setMeta,
         refreshMeta: refreshMeta,
         addTool: function(def) { _canvas.addTool(def); closeFnOverlay(); },

@@ -171,6 +171,9 @@ return function(ms)
                 "disable",
                 "toggle",
                 "octane",
+                "zoomIn",
+                "zoomOut",
+                "zoomReset",
             }) do
                 local def = ms.systemBinds._defs[id]
                 if def then
@@ -206,7 +209,7 @@ return function(ms)
                     end
                 end
             end
-            for _, id in ipairs({ "enable", "disable", "toggle", "octane" }) do
+            for _, id in ipairs({ "enable", "disable", "toggle", "octane", "zoomIn", "zoomOut", "zoomReset" }) do
                 local def = ms.systemBinds._defs[id]
                 if def then
                     local eff = ms.systemBinds.effective(id)

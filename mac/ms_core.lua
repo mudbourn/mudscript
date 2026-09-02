@@ -4342,13 +4342,53 @@
                         key = "o",
                     },
                 },
+                zoomIn  = {
+                    label = "Zoom UI In",
+                    ungated = true,
+                    default = {
+                        type = "key",
+                        mods = {"alt"},
+                        key = "=",
+                    },
+                },
+                zoomOut = {
+                    label = "Zoom UI Out",
+                    ungated = true,
+                    default = {
+                        type = "key",
+                        mods = {"alt"},
+                        key = "-",
+                    },
+                },
+                zoomReset = {
+                    label = "Reset UI Zoom",
+                    ungated = true,
+                    default = {
+                        type = "key",
+                        mods = {"alt"},
+                        key = "0",
+                    },
+                },
             }
+
+            local function _applyUiZoom(target)
+                if ms.shell and ms.shell.applyZoom then
+                    ms.shell.applyZoom(target)
+                else
+                    ms._uiZoom = math.max(0.5, math.min(2.0, target))
+                end
+                if ms.saveSettings then ms.saveSettings() end
+                if ms.ui and ms.ui.refresh then ms.ui.refresh() end
+            end
 
             ms.systemBinds._actions = {
                 enable  = function() ms.setMacros(1) end,
                 disable = function() ms.setMacros(0) end,
                 toggle  = function() ms.setMacros(BindValidity == 1 and 0 or 1) end,
                 octane  = function() ms.octane.toggle() end,
+                zoomIn    = function() _applyUiZoom((ms._uiZoom or 1.0) + 0.1) end,
+                zoomOut   = function() _applyUiZoom((ms._uiZoom or 1.0) - 0.1) end,
+                zoomReset = function() _applyUiZoom(1.0) end,
             }
 
             ms.systemBinds.effective = function(id)
@@ -4386,34 +4426,21 @@
                 for id, action in pairs(ms.systemBinds._actions) do
                     local c = ms.systemBinds.effective(id)
                     if not c then goto sysBindContinue end
+                    local ungated = ms.systemBinds._defs[id] and ms.systemBinds._defs[id].ungated
+                    local function fire()
+                        if not ungated and not ms._targetActive and not ms._isSafeZone() then return end
+                        local co = coroutine.create(action)
+                        local ok, err = coroutine.resume(co)
+                        if not ok then print("ms.systemBind error: " .. tostring(err)) end
+                    end
                     if c.type == "key" then
-                        ms.systemBinds._handles[id] = ms.key(c.mods, c.key, false, function()
-                            if not ms._targetActive and not ms._isSafeZone() then return end
-                            local co = coroutine.create(action)
-                            local ok, err = coroutine.resume(co)
-                            if not ok then print("ms.systemBind error: " .. tostring(err)) end
-                        end, nil, true)
+                        ms.systemBinds._handles[id] = ms.key(c.mods, c.key, false, fire, nil, true)
                     elseif c.type == "mouse" then
-                        ms.systemBinds._handles[id] = ms.mouse(c.button, false, function()
-                            if not ms._targetActive and not ms._isSafeZone() then return end
-                            local co = coroutine.create(action)
-                            local ok, err = coroutine.resume(co)
-                            if not ok then print("ms.systemBind error: " .. tostring(err)) end
-                        end, true)
+                        ms.systemBinds._handles[id] = ms.mouse(c.button, false, fire, true)
                     elseif c.type == "scroll" then
-                        ms.systemBinds._handles[id] = ms.scrollBind(c.direction, function()
-                            if not ms._targetActive and not ms._isSafeZone() then return end
-                            local co = coroutine.create(action)
-                            local ok, err = coroutine.resume(co)
-                            if not ok then print("ms.systemBind error: " .. tostring(err)) end
-                        end)
+                        ms.systemBinds._handles[id] = ms.scrollBind(c.direction, fire)
                     elseif c.type == "gamepad" then
-                        ms.systemBinds._handles[id] = ms.gamepadBind(ms.gpButtons(c), function()
-                            if not ms._targetActive and not ms._isSafeZone() then return end
-                            local co = coroutine.create(action)
-                            local ok, err = coroutine.resume(co)
-                            if not ok then print("ms.systemBind error: " .. tostring(err)) end
-                        end)
+                        ms.systemBinds._handles[id] = ms.gamepadBind(ms.gpButtons(c), fire)
                     end
                     ::sysBindContinue::
                 end
