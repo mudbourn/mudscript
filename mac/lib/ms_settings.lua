@@ -6174,7 +6174,7 @@ return function(ms)
                         title = "About",
                         fn = function()
                         ms.playSlot("interact")
-                        ms.alert("Hammerspoon mudscript Utility Library\nBy: mudbourn, https://mudbourn.info", 6)
+                        ms.alert("mudscript HS utilities\nBy: mudbourn, https://mudbourn.info", 6)
                         if ms.macroMeta then
                             local msg = "\"" .. (ms.macroMeta.name or "Unknown Macro Pack") .. "\"\n"
                             if ms.macroMeta.author then msg = msg .. "By: " .. ms.macroMeta.author end

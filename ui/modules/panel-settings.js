@@ -1834,7 +1834,7 @@
                     h(
                         "div",
                         { cls: "group-label" },
-                        "mudscript HS Utilities \u2013 Version: ",
+                        "mudscript HS utilities \u2013 Version: ",
                         h("span", { style: "text-transform: none" }, ver),
                     ),
                 );
@@ -1842,7 +1842,7 @@
                 const aboutBtn = actionBtn("About", "", () => {
                     sendToHost({
                         action: "alert",
-                        msg: "mudscript Utility Library\nBy: mudbourn \u2014 mudbourn.info",
+                        msg: "mudscript HS utilities\nBy: mudbourn \u2014 mudbourn.info",
                         duration: 5,
                     });
                     if (meta.name) {

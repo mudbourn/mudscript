@@ -6856,7 +6856,7 @@
                         ms.alert("Macros loaded. Press " .. _openHint .. " to open settings.", _TOAST_HOLD, true, { priority = "low" })
                     end)
                     _G._loadTimers.announce3 = hs.timer.doAfter(_TOAST_LEAD + 3, function()
-                        ms.alert("Hammerspoon mudscript Utility Library\nBy: mudbourn \xe2\x80\x94 https://mudbourn.info", _TOAST_HOLD, true, { priority = "low" })
+                        ms.alert("mudscript HS utilities\nBy: mudbourn \xe2\x80\x94 https://mudbourn.info", _TOAST_HOLD, true, { priority = "low" })
                     end)
                     _G._loadTimers.announce6 = hs.timer.doAfter(_TOAST_LEAD + 6, function()
                         if ms.macroMeta then
