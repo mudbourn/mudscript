@@ -409,6 +409,16 @@
                         local ok = ms.shell.popOut(pid)
                         if ok then
                             ms.shell.eval("shellReceive('" .. pid .. "', 'poppedOut')")
+                            -- Follow controller focus into the freshly popped
+                            -- window so the same bind that opened it lands there.
+                            if ms._gamepadCallbacks and ms._gamepadCallbacks._nav then
+                                ms._gpNav.popPanel = pid
+                                if ms.shell._gpFocusWindow then
+                                    hs.timer.doAfter(0.05, function()
+                                        ms.shell._gpFocusWindow(pid)
+                                    end)
+                                end
+                            end
                         end
                         return
                     end
@@ -737,14 +747,77 @@
 
             local GP_DZ = 0.5
 
+            -- Controller focus routes to one window at a time: the shell, or a
+            -- popped-out panel (ms._gpNav.target holds its panel id). Every nav
+            -- command is evaluated into whichever window currently holds focus.
+            local function _gpEvalInto(view, js)
+                if not view then return end
+                pcall(function() view:evaluateJavaScript(js) end)
+            end
+
+            local function _gpTargetView()
+                local t = ms._gpNav.target
+                if t and t ~= "shell" and ms.shell.getPopOutView then
+                    return ms.shell.getPopOutView(t)
+                end
+                return nil
+            end
+
             local function _gpEval(cmd, arg)
-                if not (ms.shell and ms.shell.eval) then return end
+                local js
                 if arg ~= nil then
-                    ms.shell.eval(string.format("if(window.gpNav)gpNav('%s',%d)", cmd, arg))
+                    js = string.format("if(window.gpNav)gpNav('%s',%d)", cmd, arg)
                 else
-                    ms.shell.eval(string.format("if(window.gpNav)gpNav('%s')", cmd))
+                    js = string.format("if(window.gpNav)gpNav('%s')", cmd)
+                end
+                local view = _gpTargetView()
+                if view then
+                    _gpEvalInto(view, js)
+                elseif ms.shell and ms.shell.eval then
+                    ms.shell.eval(js)
                 end
             end
+
+            -- Reset a window's nav state and take controller focus into it,
+            -- raising it so the user sees where the cursor went.
+            local function _gpFocusWindow(target)
+                ms._gpNav.target = target
+                local init = "if(window.gpNavInit)gpNavInit()"
+                if target and target ~= "shell" then
+                    local view = ms.shell.getPopOutView and ms.shell.getPopOutView(target)
+                    if view then
+                        ms.safeShow(view)
+                        pcall(function() view:bringToFront(true) end)
+                        _gpEvalInto(view, init)
+                    end
+                elseif ms.shell then
+                    if _shellView then pcall(function() _shellView:bringToFront(true) end) end
+                    if ms.shell.eval then ms.shell.eval(init) end
+                end
+            end
+
+            -- The pop-out / window-switch bind (Options double-tap). Toggle
+            -- controller focus between the shell and a popped-out panel; if none
+            -- is open yet, pop the current shell panel out and follow it.
+            local function _gpSwitchWindow()
+                local n = ms._gpNav
+                if n.target and n.target ~= "shell" and _gpTargetView() then
+                    _gpFocusWindow("shell")
+                    return
+                end
+                local pid = n.popPanel
+                if pid and ms.shell.getPopOutView and ms.shell.getPopOutView(pid) then
+                    _gpFocusWindow(pid)
+                else
+                    -- Nothing popped yet: ask the shell to pop its current panel.
+                    -- The popOut dispatch handler follows focus into the new window.
+                    if ms.shell and ms.shell.eval then
+                        ms.shell.eval("if(window.gpNav)gpNav('popOut')")
+                    end
+                end
+            end
+            ms.shell._gpSwitchWindow = _gpSwitchWindow
+            ms.shell._gpFocusWindow = _gpFocusWindow
 
             local function _gpZoom(delta)
                 if ms.ui and ms.ui._actions and ms.ui._actions.setUiZoom then
@@ -808,7 +881,7 @@
                         elseif n.tapPending then
                             n.tapPending = false
                             if n.tapTimer then n.tapTimer:stop() n.tapTimer = nil end
-                            _gpEval("popOut")
+                            _gpSwitchWindow()
                         else
                             n.tapPending = true
                             n.tapTimer = hs.timer.doAfter(0.28, function()
@@ -832,6 +905,12 @@
                     return true
                 elseif button == "b" then
                     _gpEval("back")
+                    return true
+                elseif button == "x" then
+                    _gpEval("selectAll")
+                    return true
+                elseif button == "y" then
+                    _gpEval("copy")
                     return true
                 elseif button == "l1" then
                     _gpEval("panelPrev")
@@ -864,18 +943,23 @@
             ms.shell.gpEnsureOpenBind = function()
                 if not ms.gamepadEnabled then return end
                 if ms._gpOpenBind or not ms.gamepadBind then return end
-                ms._gpOpenBind = ms.gamepadBind({ "r3", "home" }, function()
+                local function _toggle()
                     if ms.shell and ms.shell.toggle then ms.shell.toggle() end
-                end)
+                end
+                ms._gpOpenBind = ms.gamepadBind({ "menu", "options" }, _toggle)
+                ms._gpOpenBind2 = ms.gamepadBind({ "home" }, _toggle)
             end
 
             ms.shell.gpClearOpenBind = function()
                 if ms._gpOpenBind and ms._gpOpenBind.delete then pcall(ms._gpOpenBind.delete) end
+                if ms._gpOpenBind2 and ms._gpOpenBind2.delete then pcall(ms._gpOpenBind2.delete) end
                 ms._gpOpenBind = nil
+                ms._gpOpenBind2 = nil
             end
 
             local function _gpAttach()
                 _gpStopTimers()
+                ms._gpNav.target = "shell"
                 ms._gamepadCallbacks = ms._gamepadCallbacks or {}
                 ms._gamepadCallbacks._nav = ms.shell._gpNavHandler
                 if ms.shell.eval then ms.shell.eval("if(window.gpNavInit)gpNavInit()") end
@@ -1330,6 +1414,15 @@
                         return
                     end
                     if action == "close" then
+                        -- Hand controller focus back to the shell when the window
+                        -- it was pointing at closes (e.g. Back at the popout root).
+                        if ms._gpNav then
+                            if ms._gpNav.popPanel == panelId then ms._gpNav.popPanel = nil end
+                            if ms._gpNav.target == panelId and ms.shell._gpFocusWindow
+                                and ms._gamepadCallbacks and ms._gamepadCallbacks._nav then
+                                ms.shell._gpFocusWindow("shell")
+                            end
+                        end
                         if _popResizeTaps and _popResizeTaps[panelId] then
                             _popResizeTaps[panelId]:stop()
                             _popResizeTaps[panelId] = nil

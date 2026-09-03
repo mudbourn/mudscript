@@ -252,6 +252,15 @@
 
         <script src="./modules/ui-tabs.js"></script>
         <script src="./modules/log-panel.js"></script>
+        <script src="./modules/gp-nav.js"></script>
+        <script>
+            window.installGpNav({
+                scope: function() { return document.body; },
+                panelKey: function() { return 'window'; },
+                sound: function(slot) { if (window.playSlot) window.playSlot(slot); },
+                closeRoot: function() { if (window.closePanel) window.closePanel(); },
+            });
+        </script>
         <script>
             "use strict";
 
