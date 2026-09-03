@@ -888,7 +888,7 @@
                 ms._toolDefs         = {}
                 ms._toolIndex        = {}
                 ms._themeDefaults = {
-                    bg       = "#0d0f09d9",
+                    bg       = "#0d0f09",
                     surface  = "#141810",
                     surface2 = "#1c2116",
                     hover    = "#2d3523",

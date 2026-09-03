@@ -24,8 +24,9 @@
         if (document.getElementById('gp-nav-css')) return;
         var s = document.createElement('style');
         s.id = 'gp-nav-css';
-        s.textContent = '.gp-focus { outline: 2px solid var(--accent-hi) !important;'
-            + ' outline-offset: -2px; border-radius: var(--radius-s, 4px); }';
+        s.textContent = '.gp-focus { outline: 2px solid var(--text) !important;'
+            + ' outline-offset: -2px; border-radius: var(--radius-s, 4px);'
+            + ' box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--bg) 70%, transparent) !important; }';
         (document.head || document.documentElement).appendChild(s);
     }
 
@@ -150,15 +151,22 @@
         }
 
         // Spatial move: from the focused element, pick the nearest focusable in
-        // the pressed direction. Off-axis distance is weighted so travelling
-        // along a row/column stays coherent, while still allowing a diagonal
-        // fall-through (e.g. Down from a toolbar reaches the content below it).
+        // the pressed direction. A target whose cross-axis extent overlaps the
+        // current element (i.e. it shares the row for a horizontal move, or the
+        // column for a vertical one) always wins over a merely-nearby diagonal
+        // one — so pressing Right from the console input lands on the Run button
+        // beside it, not the log line sitting just above. Only when nothing lines
+        // up does it fall back to the weighted-diagonal score, which still allows
+        // a fall-through (e.g. Down from a toolbar reaching the content below).
         function move(dir) {
             var list = gpInTopbar ? topbarItems() : focusables();
             if (!list.length) { setFocus(null); return; }
             if (!gpFocusEl || list.indexOf(gpFocusEl) === -1) { setFocus(pickInitial(list)); return; }
             var cur = centerOf(gpFocusEl);
+            var cr = gpFocusEl.getBoundingClientRect();
+            var horizontal = (dir === 'left' || dir === 'right');
             var best = null, bestScore = Infinity;
+            var lined = null, linedDist = Infinity;
             for (var i = 0; i < list.length; i++) {
                 if (list[i] === gpFocusEl) continue;
                 var t = centerOf(list[i]);
@@ -167,9 +175,17 @@
                 else if (dir === 'left' && dx < -1) score = -dx + Math.abs(dy) * 2;
                 else if (dir === 'down' && dy > 1) score = dy + Math.abs(dx) * 2;
                 else if (dir === 'up' && dy < -1) score = -dy + Math.abs(dx) * 2;
-                if (score !== null && score < bestScore) { bestScore = score; best = list[i]; }
+                if (score === null) continue;
+                if (score < bestScore) { bestScore = score; best = list[i]; }
+                var tr = list[i].getBoundingClientRect();
+                var overlap = horizontal
+                    ? (tr.bottom > cr.top && tr.top < cr.bottom)
+                    : (tr.right > cr.left && tr.left < cr.right);
+                var primary = horizontal ? Math.abs(dx) : Math.abs(dy);
+                if (overlap && primary < linedDist) { linedDist = primary; lined = list[i]; }
             }
-            if (best) setFocus(best);
+            var pick = lined || best;
+            if (pick) setFocus(pick);
         }
 
         function tabStrip() {
@@ -265,6 +281,10 @@
                     case 'back': kb.close(); return;
                     case 'copy': kb.space(); return;        // Y = space
                     case 'selectAll': kb.backspace(); return; // X = backspace
+                    case 'panelPrev': kb.caretLeft(); return;  // LB = caret left
+                    case 'panelNext': kb.caretRight(); return; // RB = caret right
+                    case 'tabPrev': kb.symbols(); return;      // LT = symbol layer
+                    case 'tabNext': kb.shift(); return;        // RT = shift
                     case 'toggleRail': kb.close(); return;    // Start/Menu = Done
                     default: return;
                 }

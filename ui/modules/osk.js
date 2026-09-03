@@ -57,7 +57,7 @@
             + ' background: var(--surface, #1c1c1c); border: 1px solid var(--border, #333);'
             + ' border-radius: var(--radius, 8px); box-shadow: 0 8px 30px rgba(0,0,0,0.45);'
             + ' font-family: var(--font-mono, ui-monospace, monospace); user-select: none;'
-            + ' max-width: 96vw; }'
+            + ' transform-origin: bottom center; }'
             + '.osk-row { display: flex; gap: 5px; justify-content: center; }'
             + '.osk-key { min-width: 34px; height: 38px; padding: 0 8px; display: flex;'
             + ' align-items: center; justify-content: center; font-size: 15px;'
@@ -75,7 +75,7 @@
             + '.osk-hints { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: center;'
             + ' margin-top: 3px; font-size: 11px; color: var(--text3, #888); }'
             + '.osk-hints b { color: var(--accent, #e0245e); font-weight: 700; margin-right: 3px; }'
-            + '.osk-hints b svg { width: 12px; height: 12px; vertical-align: -1px; }';
+            + '.osk-hints svg { width: 12px; height: 12px; vertical-align: -1px; }';
         (document.head || document.documentElement).appendChild(s);
     }
 
@@ -91,14 +91,15 @@
         triangle: PS_SVG + '<path d="M13.73 4a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/></svg>',
     };
     var GLYPHS = {
-        xbox:    { a: 'A', b: 'B', x: 'X', y: 'Y', menu: '☰' },
-        generic: { a: 'A', b: 'B', x: 'X', y: 'Y', menu: '☰' },
-        ds4:     { a: PS.cross, b: PS.circle, x: PS.square, y: PS.triangle, menu: 'Options' },
-        'switch': { a: 'B', b: 'A', x: 'Y', y: 'X', menu: '+' },
+        xbox:    { a: 'A', b: 'B', x: 'X', y: 'Y', menu: '☰', l1: 'LB', r1: 'RB', l2: 'LT', r2: 'RT' },
+        generic: { a: 'A', b: 'B', x: 'X', y: 'Y', menu: '☰', l1: 'LB', r1: 'RB', l2: 'LT', r2: 'RT' },
+        ds4:     { a: PS.cross, b: PS.circle, x: PS.square, y: PS.triangle, menu: 'Options', l1: 'L1', r1: 'R1', l2: 'L2', r2: 'R2' },
+        'switch': { a: 'B', b: 'A', x: 'Y', y: 'X', menu: '+', l1: 'L', r1: 'R', l2: 'ZL', r2: 'ZR' },
     };
     // slot → action label; the glyph is resolved from the live controller type.
-    var HINTS = [['a', 'Select'], ['b', 'Close'], ['x', '⌫'],
-        ['y', 'Space'], ['menu', 'Done']];
+    // A label beginning with '<' is inline SVG (shift / backspace icons).
+    var HINTS = [['a', 'Select'], ['b', 'Close'], ['x', BACK_SVG], ['y', 'Space'],
+        ['l1', '◀'], ['r1', '▶'], ['l2', '#+='], ['r2', SHIFT_SVG], ['menu', 'Done']];
 
     function glyphSet() { return GLYPHS[window.__gpType] || GLYPHS.xbox; }
 
@@ -149,7 +150,14 @@
             var glyph = g[HINTS[i][0]];
             if (glyph.charAt(0) === '<') b.innerHTML = glyph; else b.textContent = glyph;
             span.appendChild(b);
-            span.appendChild(document.createTextNode(HINTS[i][1]));
+            var desc = HINTS[i][1];
+            if (desc.charAt(0) === '<') {
+                var dsp = document.createElement('span');
+                dsp.innerHTML = desc;
+                span.appendChild(dsp);
+            } else {
+                span.appendChild(document.createTextNode(desc));
+            }
             hints.appendChild(span);
         }
         _root.appendChild(hints);
@@ -166,6 +174,7 @@
         _root.hidden = wasHidden;
         _r = 1; _c = 0;
         paint();
+        if (!wasHidden && _target) positionAbove(_target);
     }
 
     function relabel() {
@@ -261,6 +270,34 @@
         window.removeEventListener('blur', onBlur, true);
     }
 
+    // Shrink the board to fit when the host is narrower than its natural width
+    // (the widest row would otherwise spill its right-hand keys off-screen), then
+    // keep it docked at the bottom unless the field being edited sits low enough
+    // that the docked board would cover it — only then lift the board clear above
+    // the field, so a bottom-pinned field stays visible while a higher one leaves
+    // the board where it belongs.
+    function positionAbove(el) {
+        if (!_root) return;
+        _root.style.transform = 'translateX(-50%)';
+        var natural = _root.offsetWidth;
+        var scale = Math.min(1, (window.innerWidth - 16) / natural);
+        _root.style.transform = 'translateX(-50%) scale(' + scale + ')';
+        var base = 14;
+        if (el) {
+            var r = el.getBoundingClientRect();
+            var vh = window.innerHeight;
+            var h = _root.offsetHeight * scale;
+            var dockedTop = vh - base - h;
+            if (r.bottom > dockedTop) {
+                var desired = (vh - r.top) + 8;
+                var maxBottom = vh - h - 8;
+                if (desired > maxBottom) desired = Math.max(base, maxBottom);
+                base = desired;
+            }
+        }
+        _root.style.bottom = base + 'px';
+    }
+
     function open(target) {
         if (!isTextField(target)) return false;
         _target = target;
@@ -271,6 +308,7 @@
         _r = 1; _c = 0;
         relabel();
         paint();
+        positionAbove(target);
         _openAt = Date.now();
         addDismissListeners();
         playSlot('interact');
@@ -323,9 +361,33 @@
     function typeSpace() { if (isOpen()) { insert(' '); playSlot('interact'); } }
     function doBackspace() { if (isOpen()) { backspace(); playSlot('interact'); } }
 
+    // Bumpers walk the caret through the text like the arrow keys would.
+    function caret(delta) {
+        var el = _target;
+        if (!isOpen() || !el) return;
+        if (el.isContentEditable) {
+            var sel = window.getSelection && window.getSelection();
+            if (sel && sel.modify) sel.modify('move', delta < 0 ? 'backward' : 'forward', 'character');
+        } else if (typeof el.setSelectionRange === 'function') {
+            var len = (el.value || '').length;
+            var pos = el.selectionStart;
+            if (pos == null) pos = len;
+            pos = Math.max(0, Math.min(len, pos + delta));
+            try { el.setSelectionRange(pos, pos); } catch (e) {}
+        }
+        playSlot('hover');
+    }
+
+    // Triggers shift the character set: one toggles upper/shifted glyphs (like
+    // holding shift), the other swaps between the letter and symbol boards.
+    function shiftToggle() { if (!isOpen()) return; _shift = !_shift; relabel(); playSlot('interact'); }
+    function symToggle() { if (!isOpen()) return; _symMode = !_symMode; _shift = false; rebuild(); playSlot('interact'); }
+
     window.MSOsk = {
         open: open, close: close, isOpen: isOpen,
         move: move, press: press, isTextField: isTextField,
         space: typeSpace, backspace: doBackspace,
+        caretLeft: function() { caret(-1); }, caretRight: function() { caret(1); },
+        shift: shiftToggle, symbols: symToggle,
     };
 })();
