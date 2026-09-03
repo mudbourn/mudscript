@@ -15,7 +15,7 @@
     //   toggleRail()   -> optional: collapse/expand the shell rail
     //   switchWindow() -> optional: the pop-out / window-switch action
 
-    var FOCUSABLE = 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"]), .row, .entry, .step, .fn-entry, .fn-cat-head';
+    var FOCUSABLE = 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"]), .row, .entry, .step, .tool-block, .fn-entry, .fn-cat-head';
     var TOPBAR_REGION = '#header';
     var OVERLAY_SEL = '.fn-picker-overlay.open, .macro-overflow.open';
     var TAB_SEL = '.tab, .mtab, .otab, .ttab, .wtab';
@@ -26,7 +26,9 @@
         s.id = 'gp-nav-css';
         s.textContent = '.gp-focus { outline: 2px solid var(--text) !important;'
             + ' outline-offset: -2px; border-radius: var(--radius-s, 4px);'
-            + ' box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--bg) 70%, transparent) !important; }';
+            + ' box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--bg) 70%, transparent) !important; }'
+            + '.gp-grabbing { outline: 2px dashed var(--accent) !important;'
+            + ' opacity: 0.85; }';
         (document.head || document.documentElement).appendChild(s);
     }
 
@@ -35,6 +37,8 @@
         var gpFocusEl = null;
         var gpLastFocus = {};
         var gpInTopbar = false;
+        var gpGrab = null;
+        var gpXTapTimer = null;
 
         function panelKey() { return cfg.panelKey ? cfg.panelKey() : 'panel'; }
         function sound(slot) {
@@ -49,12 +53,27 @@
             if (gpFocusEl) {
                 if (!gpInTopbar) gpLastFocus[panelKey()] = gpFocusEl;
                 gpFocusEl.classList.add('gp-focus');
-                try { gpFocusEl.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {}
+                scrollFocusIntoView(gpFocusEl);
                 sound('hover');
             }
         }
 
         function scope() { return cfg.scope ? cfg.scope() : document.body; }
+
+        // scrollIntoView({block:'nearest'}) leaves a row flush against the top of
+        // its scroller, where a sticky header (or the search box above the list)
+        // clips the focus ring. Scroll the nearest scrollable ancestor so the
+        // focused element keeps a small clearance from both edges.
+        function scrollFocusIntoView(el) {
+            var sc = null, a = el.parentElement;
+            while (a) { if (canScroll(a)) { sc = a; break; } a = a.parentElement; }
+            if (!sc) { try { el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {} return; }
+            var pad = 8;
+            var er = el.getBoundingClientRect();
+            var cr = sc.getBoundingClientRect();
+            if (er.top < cr.top + pad) sc.scrollTop -= (cr.top + pad - er.top);
+            else if (er.bottom > cr.bottom - pad) sc.scrollTop += (er.bottom - (cr.bottom - pad));
+        }
 
         function isVisible(el) {
             if (!el || el.disabled) return false;
@@ -263,7 +282,11 @@
         // switches are announced host-side.
         function announce(msg) { if (cfg.announce) cfg.announce(msg); }
 
-        window.gpNavInit = function() { gpInTopbar = false; setFocus(null); };
+        window.gpNavInit = function() {
+            gpInTopbar = false; gpGrab = null;
+            if (gpXTapTimer) { clearTimeout(gpXTapTimer); gpXTapTimer = null; }
+            setFocus(null);
+        };
 
         function osk() { return window.MSOsk && window.MSOsk.isOpen() ? window.MSOsk : null; }
 
@@ -309,6 +332,85 @@
             return true;
         }
 
+        function toolBlock(el) {
+            return el && el.matches && el.matches('.tool-block[data-sid]') ? el : null;
+        }
+        function macroAddBtn() {
+            var sc = scope();
+            var b = sc && sc.querySelector('.macros-add-tool-btn');
+            return (b && isVisible(b)) ? b : null;
+        }
+        function toolCanvas() {
+            var sc = scope();
+            return sc ? sc.querySelector('.tool-canvas') : null;
+        }
+
+        function xSingle() {
+            if (toolBlock(gpFocusEl)) {
+                gpFocusEl.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+            } else if (inLogPanel()) {
+                synthCtrlKey('a');
+            }
+        }
+        function xDouble() {
+            var canvas = toolCanvas();
+            if (canvas && canvas.gpDuplicateSelection && canvas.gpDuplicateSelection()) {
+                sound('interact');
+            } else if (inLogPanel()) {
+                synthCtrlKey('a');
+            }
+        }
+
+        function ctrlClick(el) {
+            el.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
+        }
+
+        function startGrab() {
+            var el = toolBlock(gpFocusEl);
+            if (!el) return;
+            var root = el.closest('.tool-canvas');
+            if (!root || !root.gpReorderSelection) return;
+            if (!el.classList.contains('selected')) ctrlClick(el);
+            gpGrab = { root: root, sid: el.getAttribute('data-sid') };
+            el.classList.add('gp-grabbing');
+            sound('interact');
+        }
+        function grabMove(dir) {
+            if (!gpGrab) return;
+            if (!gpGrab.root.gpReorderSelection(dir)) return;
+            var el = gpGrab.root.querySelector('.tool-block[data-sid="' + gpGrab.sid + '"]');
+            setFocus(el);
+            if (el) el.classList.add('gp-grabbing');
+        }
+        function endGrab() {
+            if (!gpGrab) return;
+            if (gpFocusEl) gpFocusEl.classList.remove('gp-grabbing');
+            gpGrab = null;
+            sound('back');
+        }
+
+        function doActivate() {
+            if (!gpFocusEl) return;
+            if (window.MSOsk && window.MSOsk.isTextField(gpFocusEl)) {
+                window.MSOsk.open(gpFocusEl);
+            } else if (toolBlock(gpFocusEl) || (gpFocusEl.matches && gpFocusEl.matches('.entry, .step'))) {
+                ctrlClick(gpFocusEl);
+            } else if (gpFocusEl.matches && gpFocusEl.matches('.fn-cat-head')) {
+                // Expanding a category rebuilds the whole entry list, so the
+                // focused head is replaced; re-focus the head at the same
+                // position rather than falling back to the search box at the top.
+                var sc0 = activeOverlay() || scope();
+                var heads0 = sc0 ? Array.prototype.slice.call(sc0.querySelectorAll('.fn-cat-head')) : [];
+                var hidx = heads0.indexOf(gpFocusEl);
+                activate(gpFocusEl);
+                var sc1 = activeOverlay() || scope();
+                var heads1 = sc1 ? sc1.querySelectorAll('.fn-cat-head') : [];
+                if (hidx >= 0 && heads1[hidx]) setFocus(heads1[hidx]);
+            } else {
+                activate(gpFocusEl);
+            }
+        }
+
         window.gpNav = function(cmd, arg) {
             // While the on-screen keyboard is up it owns the controller: the
             // stick/dpad picks a key, A presses it, B dismisses it.
@@ -319,7 +421,8 @@
                     case 'itemDown': kb.move('down'); return;
                     case 'itemLeft': kb.move('left'); return;
                     case 'itemRight': kb.move('right'); return;
-                    case 'activate': kb.press(); return;
+                    case 'activate': case 'grabDrop': kb.press(); return;
+                    case 'grab': return;
                     case 'back': kb.close(); return;
                     case 'copy': kb.space(); return;        // Y = space
                     case 'selectAll': kb.backspace(); return; // X = backspace
@@ -339,8 +442,17 @@
                 switch (cmd) {
                     case 'itemUp': case 'itemLeft': sel.gpMove(-1); return;
                     case 'itemDown': case 'itemRight': sel.gpMove(1); return;
-                    case 'activate': sel.gpPick(); return;
+                    case 'activate': case 'grabDrop': sel.gpPick(); return;
+                    case 'grab': return;
                     case 'back': case 'toggleRail': sel.gpClose(); return;
+                    default: return;
+                }
+            }
+            if (gpGrab) {
+                switch (cmd) {
+                    case 'itemUp': case 'itemLeft': grabMove(-1); return;
+                    case 'itemDown': case 'itemRight': grabMove(1); return;
+                    case 'grabDrop': case 'back': endGrab(); return;
                     default: return;
                 }
             }
@@ -353,25 +465,26 @@
                 case 'itemDown': move('down'); break;
                 case 'itemLeft': if (!adjustRange(-1)) move('left'); break;
                 case 'itemRight': if (!adjustRange(1)) move('right'); break;
-                case 'activate':
-                    // The click's own handler plays the interaction sound; don't
-                    // stack a second one on top of it.
-                    if (gpFocusEl) {
-                        if (window.MSOsk && window.MSOsk.isTextField(gpFocusEl)) {
-                            // Text fields raise the on-screen keyboard instead of
-                            // a bare click, so no physical keyboard is needed.
-                            window.MSOsk.open(gpFocusEl);
-                        } else if (gpFocusEl.matches && gpFocusEl.matches('.entry, .step')) {
-                            // Log rows: A toggles the row into a multi-selection,
-                            // the same as a ctrl+click from the mouse.
-                            gpFocusEl.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
-                        } else {
-                            activate(gpFocusEl);
-                        }
+                case 'activate': doActivate(); break;
+                case 'grab': startGrab(); break;
+                case 'grabDrop': doActivate(); break;
+                case 'copy':
+                    var addBtn = macroAddBtn();
+                    if (addBtn) activate(addBtn);
+                    else if (inLogPanel()) synthCtrlKey('c');
+                    break;
+                case 'selectAll':
+                    if (gpXTapTimer) {
+                        clearTimeout(gpXTapTimer);
+                        gpXTapTimer = null;
+                        xDouble();
+                    } else {
+                        gpXTapTimer = setTimeout(function() {
+                            gpXTapTimer = null;
+                            xSingle();
+                        }, 300);
                     }
                     break;
-                case 'copy': if (inLogPanel()) synthCtrlKey('c'); break;
-                case 'selectAll': if (inLogPanel()) synthCtrlKey('a'); break;
                 case 'back':
                     var ov = activeOverlay();
                     if (ov) {

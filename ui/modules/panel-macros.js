@@ -2184,6 +2184,26 @@
         this._el.appendChild(this._root);
         this._renderEmpty();
         this._preloadIcons();
+
+        var self = this;
+        this._root.gpReorderSelection = function(dir) {
+            var sel = self._selList();
+            if (!sel.length) return false;
+            var order = self._docOrder();
+            var selSet = {};
+            for (var s = 0; s < sel.length; s++) selSet[sel[s]] = true;
+            if (dir < 0) {
+                for (var i = order.indexOf(sel[0]) - 1; i >= 0; i--) {
+                    if (!selSet[order[i]]) { self.moveTools(sel, order[i], "above"); return true; }
+                }
+            } else {
+                for (var j = order.indexOf(sel[sel.length - 1]) + 1; j < order.length; j++) {
+                    if (!selSet[order[j]]) { self.moveTools(sel, order[j], "below"); return true; }
+                }
+            }
+            return false;
+        };
+        this._root.gpDuplicateSelection = function() { return self.duplicateSelected(); };
     }
 
     ToolCanvas.prototype._preloadIcons = function() {
@@ -2381,6 +2401,28 @@
         for (var i=0;i<this._tools.length;i++) {
             this._root.appendChild(this._renderTool(this._tools[i]));
         }
+        this._updateParamMarquee();
+    };
+
+    // A long example (.tool-params) is truncated in the row; when the block is
+    // hovered, selected, or gamepad-focused it scrolls horizontally so the whole
+    // signature can be read. Measure each one's overflow and stash the distance.
+    ToolCanvas.prototype._updateParamMarquee = function(el) {
+        var params = el
+            ? [el.querySelector(".tool-params")]
+            : Array.prototype.slice.call(this._root.querySelectorAll(".tool-params"));
+        for (var i = 0; i < params.length; i++) {
+            var p = params[i];
+            if (!p) continue;
+            var shift = p.scrollWidth - p.clientWidth;
+            if (shift > 2) {
+                p.style.setProperty("--mq", "-" + shift + "px");
+                p.classList.add("has-mq");
+            } else {
+                p.style.removeProperty("--mq");
+                p.classList.remove("has-mq");
+            }
+        }
     };
 
     ToolCanvas.prototype._renderEmpty = function() {
@@ -2438,6 +2480,7 @@
 
         el.addEventListener("mouseenter", function() {
             if (window.playSlot) playSlot("hover");
+            self._updateParamMarquee(el);
         });
         el.addEventListener("click", function(e) {
             if (e.target.closest(".tool-action-btn") || e.target.closest(".tool-drag-handle")) return;
@@ -2562,6 +2605,7 @@
 
         header.addEventListener("mouseenter", function() {
             if (window.playSlot) playSlot("hover");
+            self._updateParamMarquee(header);
         });
         header.addEventListener("click", function(e) {
             if (e.target.closest(".tool-action-btn")||e.target.closest(".tool-drag-handle")||e.target.closest(".tool-nest-toggle")) return;
@@ -3042,6 +3086,37 @@
         var ids = this._selList();
         return this.pasteAfterId(ids.length ? ids[ids.length - 1] : null);
     };
+    // Clone the selected blocks in place, directly after the last one, without
+    // touching the clipboard. The copies become the new selection.
+    ToolCanvas.prototype.duplicateSelected = function() {
+        var ids = this._selList();
+        if (!ids.length) return false;
+        var afterId = ids[ids.length - 1];
+        var insertAt = this._findIdx(this._tools, afterId);
+        var atTop = (insertAt === -1);
+        var newIds = [];
+        for (var i = 0; i < ids.length; i++) {
+            var src = this._map[ids[i]];
+            if (!src) continue;
+            var clone = deepClone(src);
+            this._strip([clone]);
+            clone._sid = nextToolId();
+            this._map[clone._sid] = clone;
+            if (clone.then) this._assignIds(clone.then);
+            if (clone.else) this._assignIds(clone.else);
+            if (clone.body) this._assignIds(clone.body);
+            if (atTop) this._tools.splice(newIds.length, 0, clone);
+            else this._tools.splice(insertAt + 1 + newIds.length, 0, clone);
+            newIds.push(clone._sid);
+        }
+        if (!newIds.length) return false;
+        this._setSelection(newIds);
+        this._render();
+        this._applySelectionClasses();
+        this._emitSelection();
+        this._fireChange();
+        return true;
+    };
 
     /* -- Macro Management State -- */
     var _currentMacroId = null;
@@ -3157,13 +3232,46 @@
         });
         root.addEventListener("click", function(e) {
             e.stopPropagation();
-            if (!root.classList.contains("open") && window.playSlot) playSlot("interact");
+            if (!root.classList.contains("open")) {
+                if (window.playSlot) playSlot("interact");
+                _gpIndex = -1;
+                menu.querySelectorAll(".gp-hi").forEach(function(it) { it.classList.remove("gp-hi"); });
+            }
             root.classList.toggle("open");
         });
         root.addEventListener("keydown", function(e) {
             if (e.key === "Escape") close();
         });
         document.addEventListener("click", close);
+
+        var _gpIndex = -1;
+        function gpItems() {
+            return Array.prototype.slice.call(
+                menu.querySelectorAll(".macro-select-item:not(.macro-select-empty)"));
+        }
+        function gpHighlight(i) {
+            var items = gpItems();
+            if (!items.length) { _gpIndex = -1; return; }
+            _gpIndex = ((i % items.length) + items.length) % items.length;
+            items.forEach(function(it, idx) { it.classList.toggle("gp-hi", idx === _gpIndex); });
+            items[_gpIndex].scrollIntoView({ block: "nearest" });
+        }
+        root.gpIsOpen = function() { return root.classList.contains("open"); };
+        root.gpMove = function(dir) {
+            var items = gpItems();
+            if (!items.length) return;
+            var start = _gpIndex;
+            if (start < 0) start = items.findIndex(function(it) { return it.classList.contains("active"); });
+            gpHighlight(start < 0 ? 0 : start + dir);
+            if (window.playSlot) playSlot("hover");
+        };
+        root.gpPick = function() {
+            var items = gpItems();
+            var it = items[_gpIndex];
+            if (!it) it = items.filter(function(x) { return x.classList.contains("active"); })[0] || items[0];
+            if (it) it.click();
+        };
+        root.gpClose = function() { _gpIndex = -1; close(); };
 
         // No options until the macro list arrives from Lua. The button reads
         // "Select" on its own, and the open menu shows "None".

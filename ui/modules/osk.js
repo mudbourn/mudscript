@@ -210,12 +210,21 @@
         try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
     }
 
+    // number and email inputs throw on selectionStart / setRangeText in WebKit —
+    // the selection API only covers these types — so anything else edits by whole
+    // value (append / trim the tail) instead of by caret range.
+    function canSelect(el) {
+        if (el.tagName === 'TEXTAREA') return true;
+        var type = (el.getAttribute('type') || 'text').toLowerCase();
+        return ['text', 'search', 'url', 'tel', 'password'].indexOf(type) !== -1;
+    }
+
     function insert(text) {
         var el = _target;
         if (!el) return;
         if (el.isContentEditable) {
             el.textContent += text;
-        } else if (typeof el.setRangeText === 'function') {
+        } else if (canSelect(el) && typeof el.setRangeText === 'function') {
             var s = el.selectionStart, e = el.selectionEnd;
             if (s == null) { s = e = (el.value || '').length; }
             el.setRangeText(text, s, e, 'end');
@@ -233,7 +242,7 @@
             dispatchInput(el);
             return;
         }
-        if (typeof el.setRangeText !== 'function') {
+        if (!canSelect(el) || typeof el.setRangeText !== 'function') {
             el.value = (el.value || '').slice(0, -1);
             dispatchInput(el);
             return;
@@ -275,21 +284,27 @@
     // keep it docked at the bottom unless the field being edited sits low enough
     // that the docked board would cover it — only then lift the board clear above
     // the field, so a bottom-pinned field stays visible while a higher one leaves
-    // the board where it belongs.
+    // the board where it belongs. The board is position:fixed inside the zoomed
+    // shell root, so its offsetWidth/Height are already in zoomed px while
+    // innerWidth/Height and getBoundingClientRect come back physical — fold the
+    // physical values through the zoom or a magnified shell pushes it off-screen.
     function positionAbove(el) {
         if (!_root) return;
         _root.style.transform = 'translateX(-50%)';
+        var zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
         var natural = _root.offsetWidth;
-        var scale = Math.min(1, (window.innerWidth - 16) / natural);
+        var vw = window.innerWidth / zoom;
+        var scale = vw > 16 ? Math.min(1, (vw - 16) / natural) : 1;
         _root.style.transform = 'translateX(-50%) scale(' + scale + ')';
         var base = 14;
         if (el) {
             var r = el.getBoundingClientRect();
-            var vh = window.innerHeight;
+            var vh = window.innerHeight / zoom;
+            var rBottom = r.bottom / zoom, rTop = r.top / zoom;
             var h = _root.offsetHeight * scale;
             var dockedTop = vh - base - h;
-            if (r.bottom > dockedTop) {
-                var desired = (vh - r.top) + 8;
+            if (rBottom > dockedTop) {
+                var desired = (vh - rTop) + 8;
                 var maxBottom = vh - h - 8;
                 if (desired > maxBottom) desired = Math.max(base, maxBottom);
                 base = desired;
@@ -368,7 +383,7 @@
         if (el.isContentEditable) {
             var sel = window.getSelection && window.getSelection();
             if (sel && sel.modify) sel.modify('move', delta < 0 ? 'backward' : 'forward', 'character');
-        } else if (typeof el.setSelectionRange === 'function') {
+        } else if (canSelect(el) && typeof el.setSelectionRange === 'function') {
             var len = (el.value || '').length;
             var pos = el.selectionStart;
             if (pos == null) pos = len;

@@ -910,6 +910,16 @@
                 end
 
                 if kind == "release" then
+                    if button == "a" then
+                        if n.holdTimerA then n.holdTimerA:stop() n.holdTimerA = nil end
+                        if n.aGrab then
+                            n.aGrab = false
+                            _gpEval("grabDrop")
+                        else
+                            _gpEval("activate")
+                        end
+                        return true
+                    end
                     if button == "options" then
                         if n.holdTimer then n.holdTimer:stop() n.holdTimer = nil end
                         if n.chordConsumed then
@@ -945,7 +955,12 @@
                     end)
                     return true
                 elseif button == "a" then
-                    _gpEval("activate")
+                    n.aGrab = false
+                    n.holdTimerA = hs.timer.doAfter(0.30, function()
+                        n.aGrab = true
+                        n.holdTimerA = nil
+                        _gpEval("grab")
+                    end)
                     return true
                 elseif button == "b" then
                     _gpEval("back")
