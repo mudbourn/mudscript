@@ -2095,6 +2095,7 @@
             panelKey: function() { return currentPanel; },
             sound: function(slot) { shellDispatch('_shell', 'playSlot', { slot: slot }); },
             closeRoot: function() { shellDispatch('_shell', 'close', {}); },
+            announce: function(text) { shellDispatch('_shell', 'announce', { text: text }); },
             toggleRail: function() {
                 document.body.classList.toggle('rail-collapsed');
                 shellDispatch('_shell', 'playSlot', { slot: 'interact' });

@@ -443,6 +443,12 @@
                         pcall(function() ms.playSlot(body.slot) end)
                         return
                     end
+                    if action == "announce" and body and body.text then
+                        pcall(function()
+                            ms.alert(body.text, 2.2, true, { state = true })
+                        end)
+                        return
+                    end
                     if ms.bus then
                         local topic = "ui:" .. panel .. ":" .. action
                         ms.bus.emit(topic, body)
@@ -780,6 +786,20 @@
 
             -- Reset a window's nav state and take controller focus into it,
             -- raising it so the user sees where the cursor went.
+            local function _gpNavAlert(text)
+                pcall(function() ms.alert(text, 2.2, true, { state = true }) end)
+            end
+
+            -- Tell a window which controller is driving so the on-screen keyboard
+            -- legend can show the right face-button glyphs (Xbox / PlayStation /
+            -- Nintendo). Prepended to the nav-init eval on attach and focus.
+            local function _gpTypeJs()
+                local t = "xbox"
+                local list = ms._gamepadControllers
+                if list and list[1] and list[1].type then t = list[1].type end
+                return "window.__gpType='" .. t .. "';"
+            end
+
             local function _gpFocusWindow(target)
                 ms._gpNav.target = target
                 local init = "if(window.gpNavInit)gpNavInit()"
@@ -788,11 +808,13 @@
                     if view then
                         ms.safeShow(view)
                         pcall(function() view:bringToFront(true) end)
-                        _gpEvalInto(view, init)
+                        _gpEvalInto(view, _gpTypeJs() .. init)
+                        _gpNavAlert("Focused pop-out")
                     end
                 elseif ms.shell then
                     if _shellView then pcall(function() _shellView:bringToFront(true) end) end
-                    if ms.shell.eval then ms.shell.eval(init) end
+                    if ms.shell.eval then ms.shell.eval(_gpTypeJs() .. init) end
+                    _gpNavAlert("Focused shell")
                 end
             end
 
@@ -834,6 +856,20 @@
                 n.rsActive = false
                 n.selectHeld = false
                 n.tapPending = false
+                n.chordConsumed = false
+            end
+
+            -- Menu+Options is the open/close toggle. While the shell is open the
+            -- nav handler consumes both buttons (for the rail and the top bar), so
+            -- the global open chord can't see them — the close has to happen here,
+            -- cancelling any pending single-button action so it doesn't also fire.
+            local function _gpCloseViaChord(n)
+                n.chordConsumed = true
+                if n.holdTimer then n.holdTimer:stop() n.holdTimer = nil end
+                if n.tapTimer then n.tapTimer:stop() n.tapTimer = nil end
+                n.selectHeld = false
+                n.tapPending = false
+                if ms.shell and ms.shell.toggle then ms.shell.toggle() end
             end
 
             local function _gpLsDir(x, y)
@@ -876,6 +912,13 @@
                 if kind == "release" then
                     if button == "options" then
                         if n.holdTimer then n.holdTimer:stop() n.holdTimer = nil end
+                        if n.chordConsumed then
+                            n.chordConsumed = false
+                            n.selectHeld = false
+                            n.tapPending = false
+                            if n.tapTimer then n.tapTimer:stop() n.tapTimer = nil end
+                            return true
+                        end
                         if n.selectHeld then
                             n.selectHeld = false
                         elseif n.tapPending then
@@ -895,6 +938,7 @@
                 end
 
                 if button == "options" then
+                    if a and a.menu then _gpCloseViaChord(n) return true end
                     n.holdTimer = hs.timer.doAfter(0.35, function()
                         n.selectHeld = true
                         n.holdTimer = nil
@@ -925,6 +969,7 @@
                     _gpEval("tabNext")
                     return true
                 elseif button == "menu" then
+                    if a and a.options then _gpCloseViaChord(n) return true end
                     _gpEval("toggleRail")
                     return true
                 elseif button == "up" or button == "down" or button == "left" or button == "right" then
@@ -962,7 +1007,15 @@
                 ms._gpNav.target = "shell"
                 ms._gamepadCallbacks = ms._gamepadCallbacks or {}
                 ms._gamepadCallbacks._nav = ms.shell._gpNavHandler
-                if ms.shell.eval then ms.shell.eval("if(window.gpNavInit)gpNavInit()") end
+                -- Force out of top-bar mode on every open. Eval once now and once
+                -- after a beat: if show() just reloaded the webview, gpNavInit may
+                -- not exist yet at this instant, so the delayed call is what
+                -- actually clears a persisted top-bar state.
+                local function _init()
+                    if ms.shell.eval then ms.shell.eval(_gpTypeJs() .. "if(window.gpNavInit)gpNavInit()") end
+                end
+                _init()
+                hs.timer.doAfter(0.25, _init)
             end
 
             local function _gpDetach()

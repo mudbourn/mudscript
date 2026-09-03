@@ -16,8 +16,8 @@
     //   switchWindow() -> optional: the pop-out / window-switch action
 
     var FOCUSABLE = 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"]), .row, .entry, .step, .fn-entry, .fn-cat-head';
-    var TOPBAR_REGION = '#header, .macro-toolbar';
-    var OVERLAY_SEL = '.fn-picker-overlay.open';
+    var TOPBAR_REGION = '#header';
+    var OVERLAY_SEL = '.fn-picker-overlay.open, .macro-overflow.open';
     var TAB_SEL = '.tab, .mtab, .otab, .ttab, .wtab';
 
     function ensureFocusStyle() {
@@ -60,6 +60,10 @@
             var r = el.getBoundingClientRect();
             if (r.width === 0 && r.height === 0) return false;
             if (el.offsetParent === null && getComputedStyle(el).position !== 'fixed') return false;
+            // A closed side menu is only slid off-screen (transform), not
+            // display:none, so its controls still measure as visible. Treat
+            // anything inside a not-open overlay as unreachable.
+            if (el.closest && el.closest('.fn-picker-overlay:not(.open)')) return false;
             return true;
         }
 
@@ -108,19 +112,64 @@
             return dedupeWrappers(all);
         }
 
-        function step(delta) {
+        function centerOf(el) {
+            var r = el.getBoundingClientRect();
+            return { cx: r.left + r.width / 2, cy: r.top + r.height / 2, top: r.top, left: r.left };
+        }
+
+        // First landing spot when nothing is focused yet: the remembered item,
+        // else the top-left-most control (reading order start).
+        function pickInitial(list) {
+            var remembered = gpLastFocus[panelKey()];
+            if (remembered && list.indexOf(remembered) !== -1) return remembered;
+            if (inLogPanel()) {
+                // A log panel with a text entry (the console) lands on that field
+                // so the user can type straight away. Focus alone does not raise
+                // the on-screen keyboard — that waits for A — so the field is
+                // highlighted, not opened.
+                var tf = window.MSOsk && window.MSOsk.isTextField;
+                if (tf) {
+                    for (var t = 0; t < list.length; t++) {
+                        if (window.MSOsk.isTextField(list[t])) return list[t];
+                    }
+                }
+                // Otherwise land on the freshest row at the bottom, since logs read
+                // newest-last, rather than scrolling up to the oldest.
+                for (var j = list.length - 1; j >= 0; j--) {
+                    if (list[j].matches && list[j].matches('.entry, .step')) return list[j];
+                }
+            }
+            var best = list[0], b = centerOf(best);
+            for (var i = 1; i < list.length; i++) {
+                var c = centerOf(list[i]);
+                if (c.top < b.top - 4 || (Math.abs(c.top - b.top) <= 4 && c.left < b.left)) {
+                    best = list[i]; b = c;
+                }
+            }
+            return best;
+        }
+
+        // Spatial move: from the focused element, pick the nearest focusable in
+        // the pressed direction. Off-axis distance is weighted so travelling
+        // along a row/column stays coherent, while still allowing a diagonal
+        // fall-through (e.g. Down from a toolbar reaches the content below it).
+        function move(dir) {
             var list = gpInTopbar ? topbarItems() : focusables();
             if (!list.length) { setFocus(null); return; }
-            var idx = gpFocusEl ? list.indexOf(gpFocusEl) : -1;
-            if (idx === -1) {
-                var remembered = gpLastFocus[panelKey()];
-                if (remembered && list.indexOf(remembered) !== -1) { setFocus(remembered); return; }
-                setFocus(delta > 0 ? list[0] : list[list.length - 1]); return;
+            if (!gpFocusEl || list.indexOf(gpFocusEl) === -1) { setFocus(pickInitial(list)); return; }
+            var cur = centerOf(gpFocusEl);
+            var best = null, bestScore = Infinity;
+            for (var i = 0; i < list.length; i++) {
+                if (list[i] === gpFocusEl) continue;
+                var t = centerOf(list[i]);
+                var dx = t.cx - cur.cx, dy = t.cy - cur.cy, score = null;
+                if (dir === 'right' && dx > 1) score = dx + Math.abs(dy) * 2;
+                else if (dir === 'left' && dx < -1) score = -dx + Math.abs(dy) * 2;
+                else if (dir === 'down' && dy > 1) score = dy + Math.abs(dx) * 2;
+                else if (dir === 'up' && dy < -1) score = -dy + Math.abs(dx) * 2;
+                if (score !== null && score < bestScore) { bestScore = score; best = list[i]; }
             }
-            var next = idx + delta;
-            if (next < 0) next = 0;
-            if (next >= list.length) next = list.length - 1;
-            setFocus(list[next]);
+            if (best) setFocus(best);
         }
 
         function tabStrip() {
@@ -145,16 +194,40 @@
             setFocus(null);
         }
 
-        function scrollBy(delta) {
-            var sc = scope();
-            if (!sc) return;
-            var el = sc.querySelector('[class$="-scroll"], #scroll, .data-scroll') || sc;
-            var guard = 0;
-            while (el && guard < 6) {
-                if (el.scrollHeight > el.clientHeight + 2) break;
-                el = el.parentElement;
-                guard++;
+        function canScroll(el) {
+            if (!el || el.scrollHeight <= el.clientHeight + 2) return false;
+            var oy = getComputedStyle(el).overflowY;
+            return oy === 'auto' || oy === 'scroll';
+        }
+
+        function scrollTarget(sc) {
+            // Scroll the container the focused item lives in, so a two-pane view
+            // (e.g. the keyboard/mouse logs) scrolls the pane you are actually in.
+            if (gpFocusEl) {
+                var a = gpFocusEl.parentElement;
+                while (a && a !== sc.parentElement) {
+                    if (canScroll(a)) return a;
+                    a = a.parentElement;
+                }
             }
+            // Otherwise the tallest scrollable region within scope (log views,
+            // bind lists, the picker's entry column, generic *-scroll wrappers).
+            var cands = sc.querySelectorAll(
+                '#log, .log, [class$="-scroll"], [class*="scroll"], .fn-picker-entries, .fn-picker-detail, [class*="log"]');
+            var best = null, bestH = 0;
+            for (var i = 0; i < cands.length; i++) {
+                if (canScroll(cands[i]) && cands[i].clientHeight > bestH) {
+                    bestH = cands[i].clientHeight; best = cands[i];
+                }
+            }
+            if (best) return best;
+            return canScroll(sc) ? sc : null;
+        }
+
+        function scrollBy(delta) {
+            var sc = activeOverlay() || scope();
+            if (!sc) return;
+            var el = scrollTarget(sc);
             if (el) el.scrollTop += delta;
         }
 
@@ -169,6 +242,10 @@
         function synthCtrlKey(k) {
             document.dispatchEvent(new KeyboardEvent('keydown', { key: k, ctrlKey: true, bubbles: true }));
         }
+
+        // Only the top-bar toggle announces; panel switches stay quiet. Window
+        // switches are announced host-side.
+        function announce(msg) { if (cfg.announce) cfg.announce(msg); }
 
         window.gpNavInit = function() { gpInTopbar = false; setFocus(null); };
 
@@ -186,6 +263,9 @@
                     case 'itemRight': kb.move('right'); return;
                     case 'activate': kb.press(); return;
                     case 'back': kb.close(); return;
+                    case 'copy': kb.space(); return;        // Y = space
+                    case 'selectAll': kb.backspace(); return; // X = backspace
+                    case 'toggleRail': kb.close(); return;    // Start/Menu = Done
                     default: return;
                 }
             }
@@ -194,8 +274,10 @@
                 case 'panelNext': if (cfg.switchPanel) cfg.switchPanel(1); break;
                 case 'tabPrev': switchTab(-1); break;
                 case 'tabNext': switchTab(1); break;
-                case 'itemUp': case 'itemLeft': step(-1); break;
-                case 'itemDown': case 'itemRight': step(1); break;
+                case 'itemUp': move('up'); break;
+                case 'itemDown': move('down'); break;
+                case 'itemLeft': move('left'); break;
+                case 'itemRight': move('right'); break;
                 case 'activate':
                     // The click's own handler plays the interaction sound; don't
                     // stack a second one on top of it.
@@ -218,10 +300,13 @@
                 case 'back':
                     var ov = activeOverlay();
                     if (ov) {
-                        // Dismiss the side menu via its own close control so its
+                        // Dismiss via the overlay's own close control so its
                         // teardown (and Back sound) runs exactly as a click would.
+                        // Menus that just slide off on an .open class have no such
+                        // control, so drop the class and play Back ourselves.
                         var closeBtn = ov.querySelector('.fn-picker-overlay-close');
-                        if (closeBtn) closeBtn.click();
+                        if (closeBtn) { closeBtn.click(); }
+                        else { ov.classList.remove('open'); sound('back'); }
                         gpInTopbar = false;
                         setFocus(null);
                     } else if (gpInTopbar) {
@@ -236,13 +321,27 @@
                         sound('back');
                         setFocus(null);
                     } else if (cfg.closeRoot) {
+                        // Match the mouse close control, which plays Back before it
+                        // dismisses / re-docks the window.
+                        sound('back');
                         cfg.closeRoot();
                     }
                     break;
                 case 'toggleRail': if (cfg.toggleRail) cfg.toggleRail(); break;
                 case 'focusTopbar':
-                    var titems = topbarItems();
-                    if (titems.length) { gpInTopbar = true; setFocus(titems[0]); }
+                    // Toggle between the top bar and the panel content: pressing
+                    // it again drops back to where you were in the content.
+                    if (gpInTopbar) {
+                        gpInTopbar = false;
+                        sound('back');
+                        var backList = focusables();
+                        var backTo = gpLastFocus[panelKey()];
+                        setFocus(backTo && backList.indexOf(backTo) !== -1 ? backTo : null);
+                        announce('Switched to panel');
+                    } else {
+                        var titems = topbarItems();
+                        if (titems.length) { sound('interact'); gpInTopbar = true; setFocus(titems[0]); announce('Switched to topbar'); }
+                    }
                     break;
                 case 'popOut': if (cfg.switchWindow) cfg.switchWindow(); break;
                 case 'scroll': scrollBy(arg || 0); break;
