@@ -267,6 +267,48 @@
 
         function osk() { return window.MSOsk && window.MSOsk.isOpen() ? window.MSOsk : null; }
 
+        // An open custom dropdown (ui-select) owns the controller the same way the
+        // keyboard does: its root stays in the panel while the menu portals to
+        // <body>, so find it in scope and drive it through its gp* API.
+        function openSelect() {
+            var sc = activeOverlay() || scope();
+            if (!sc) return null;
+            var el = sc.querySelector('.macro-select.open');
+            return (el && el.gpIsOpen && el.gpIsOpen()) ? el : null;
+        }
+
+        // A focus stop is often the .row wrapper, not the control inside it — a
+        // .toggle switch hides its checkbox at 0x0 so only the row is reachable,
+        // and clicking the row does nothing. Forward the press to the real
+        // control: the switch (its label click flips the checkbox and fires its
+        // change handler + sound) or a lone button standing in for the row.
+        function activate(el) {
+            if (!el) return;
+            var ctrl = null;
+            if (el.matches && el.matches('.toggle, button, a[href]')) ctrl = el;
+            else if (el.querySelector) ctrl = el.querySelector('.toggle, button, a[href]');
+            (ctrl || el).click();
+        }
+
+        // Left/Right nudge a focused slider by one step, the way the arrow keys
+        // would for a keyboard user — range inputs otherwise swallow the stop but
+        // can't be driven, so the controller could never change a slider. Returns
+        // true when it handled the press, false to let it fall back to a move.
+        function adjustRange(dir) {
+            var el = gpFocusEl;
+            if (!el || !el.matches || !el.matches('input[type="range"]')) return false;
+            var step = parseFloat(el.step) || 1;
+            var min = el.min !== '' ? parseFloat(el.min) : 0;
+            var max = el.max !== '' ? parseFloat(el.max) : 100;
+            var next = Math.max(min, Math.min(max, (parseFloat(el.value) || 0) + dir * step));
+            if (next === (parseFloat(el.value) || 0)) return true;
+            el.value = next;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+            sound('hover');
+            return true;
+        }
+
         window.gpNav = function(cmd, arg) {
             // While the on-screen keyboard is up it owns the controller: the
             // stick/dpad picks a key, A presses it, B dismisses it.
@@ -289,6 +331,19 @@
                     default: return;
                 }
             }
+            // While a dropdown is open the stick/dpad walks its items, A picks the
+            // highlighted one, B dismisses — everything else is held so presses
+            // don't leak to the panel behind the open menu.
+            var sel = openSelect();
+            if (sel) {
+                switch (cmd) {
+                    case 'itemUp': case 'itemLeft': sel.gpMove(-1); return;
+                    case 'itemDown': case 'itemRight': sel.gpMove(1); return;
+                    case 'activate': sel.gpPick(); return;
+                    case 'back': case 'toggleRail': sel.gpClose(); return;
+                    default: return;
+                }
+            }
             switch (cmd) {
                 case 'panelPrev': if (cfg.switchPanel) cfg.switchPanel(-1); break;
                 case 'panelNext': if (cfg.switchPanel) cfg.switchPanel(1); break;
@@ -296,8 +351,8 @@
                 case 'tabNext': switchTab(1); break;
                 case 'itemUp': move('up'); break;
                 case 'itemDown': move('down'); break;
-                case 'itemLeft': move('left'); break;
-                case 'itemRight': move('right'); break;
+                case 'itemLeft': if (!adjustRange(-1)) move('left'); break;
+                case 'itemRight': if (!adjustRange(1)) move('right'); break;
                 case 'activate':
                     // The click's own handler plays the interaction sound; don't
                     // stack a second one on top of it.
@@ -311,7 +366,7 @@
                             // the same as a ctrl+click from the mouse.
                             gpFocusEl.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
                         } else {
-                            gpFocusEl.click();
+                            activate(gpFocusEl);
                         }
                     }
                     break;

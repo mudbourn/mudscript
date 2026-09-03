@@ -13,6 +13,7 @@
         .macro-select-item { padding: 5px 10px; font-size: 11px; color: var(--text2); white-space: nowrap; cursor: pointer; transition: background 0.12s, color 0.12s; }
         .macro-select-item:hover { background: var(--hover); color: var(--text); }
         .macro-select-item.active { color: var(--accent); }
+        .macro-select-item.gp-hi { background: var(--hover); color: var(--text); box-shadow: inset 0 0 0 1px var(--accent); }
         .macro-select-menu::-webkit-scrollbar { width: 4px; }
         .macro-select-menu::-webkit-scrollbar-track { background: transparent; }
         .macro-select-menu::-webkit-scrollbar-thumb { background: var(--border-dim); border-radius: 2px; }
@@ -64,6 +65,7 @@
           let _opts = [];
           let _value = "";
           let _filter = "";
+          let _gpIndex = -1;
 
           // Optional structure: a sticky search box that filters the list, and
           // per-item group headers. Both are opt-in (opts.searchable / an option
@@ -110,8 +112,27 @@
               return _opts.length ? _opts[0].label : (opts.placeholder || "");
           }
 
+          // Controller highlight: the mouse uses :hover, but a gamepad has no
+          // pointer, so a moved highlight (.gp-hi) marks the item A will pick.
+          function gpItems() {
+              return Array.prototype.slice.call(
+                  entriesWrap.querySelectorAll(".macro-select-item"));
+          }
+          function gpClear() {
+              gpItems().forEach((it) => it.classList.remove("gp-hi"));
+              _gpIndex = -1;
+          }
+          function gpHighlight(i) {
+              const items = gpItems();
+              if (!items.length) { _gpIndex = -1; return; }
+              _gpIndex = ((i % items.length) + items.length) % items.length;
+              items.forEach((it, idx) => it.classList.toggle("gp-hi", idx === _gpIndex));
+              items[_gpIndex].scrollIntoView({ block: "nearest" });
+          }
+
           function close() {
               root.classList.remove("open");
+              gpClear();
               // Return the menu from the body portal to the control, and drop
               // every inline style so the base .macro-select-menu rule hides it.
               if (menu.parentNode !== root) root.appendChild(menu);
@@ -230,6 +251,7 @@
               if (root.classList.contains("open")) { close(); return; }
               play("interact");
               root.classList.add("open");
+              _gpIndex = -1;
               // Portal the menu to <body> so it escapes the fn-picker overlay's
               // overflow:hidden (and any other clipping ancestor). It's a fixed,
               // viewport-anchored layer, so body is the safe parent; place()
@@ -262,6 +284,27 @@
               if (root.contains(e.target) || menu.contains(e.target)) return;
               close();
           }, true);
+
+          // Gamepad API, mirrored by gp-nav while this select is open: move the
+          // highlight, pick the highlighted item (its click handler commits and
+          // closes), or dismiss. Starting from the active item keeps the first
+          // press landing where the eye already is.
+          root.gpIsOpen = () => root.classList.contains("open");
+          root.gpMove = (dir) => {
+              const items = gpItems();
+              if (!items.length) return;
+              let start = _gpIndex;
+              if (start < 0) start = items.findIndex((it) => it.classList.contains("active"));
+              gpHighlight(start < 0 ? 0 : start + dir);
+              play("hover");
+          };
+          root.gpPick = () => {
+              const items = gpItems();
+              let it = items[_gpIndex];
+              if (!it) it = items.filter((x) => x.classList.contains("active"))[0] || items[0];
+              if (it) it.click();
+          };
+          root.gpClose = () => close();
 
           root.setOptions(opts.options || []);
           if (opts.value !== undefined && opts.value !== null) root.value = opts.value;
