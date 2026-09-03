@@ -172,7 +172,23 @@
 
         window.gpNavInit = function() { gpInTopbar = false; setFocus(null); };
 
+        function osk() { return window.MSOsk && window.MSOsk.isOpen() ? window.MSOsk : null; }
+
         window.gpNav = function(cmd, arg) {
+            // While the on-screen keyboard is up it owns the controller: the
+            // stick/dpad picks a key, A presses it, B dismisses it.
+            var kb = osk();
+            if (kb) {
+                switch (cmd) {
+                    case 'itemUp': kb.move('up'); return;
+                    case 'itemDown': kb.move('down'); return;
+                    case 'itemLeft': kb.move('left'); return;
+                    case 'itemRight': kb.move('right'); return;
+                    case 'activate': kb.press(); return;
+                    case 'back': kb.close(); return;
+                    default: return;
+                }
+            }
             switch (cmd) {
                 case 'panelPrev': if (cfg.switchPanel) cfg.switchPanel(-1); break;
                 case 'panelNext': if (cfg.switchPanel) cfg.switchPanel(1); break;
@@ -184,7 +200,11 @@
                     // The click's own handler plays the interaction sound; don't
                     // stack a second one on top of it.
                     if (gpFocusEl) {
-                        if (gpFocusEl.matches && gpFocusEl.matches('.entry, .step')) {
+                        if (window.MSOsk && window.MSOsk.isTextField(gpFocusEl)) {
+                            // Text fields raise the on-screen keyboard instead of
+                            // a bare click, so no physical keyboard is needed.
+                            window.MSOsk.open(gpFocusEl);
+                        } else if (gpFocusEl.matches && gpFocusEl.matches('.entry, .step')) {
                             // Log rows: A toggles the row into a multi-selection,
                             // the same as a ctrl+click from the mouse.
                             gpFocusEl.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
