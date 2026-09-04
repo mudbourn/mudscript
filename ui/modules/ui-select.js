@@ -66,6 +66,7 @@
           let _value = "";
           let _filter = "";
           let _gpIndex = -1;
+          let _connCheck = null;
 
           // Optional structure: a sticky search box that filters the list, and
           // per-item group headers. Both are opt-in (opts.searchable / an option
@@ -131,6 +132,7 @@
           }
 
           function close() {
+              if (_connCheck) { clearInterval(_connCheck); _connCheck = null; }
               root.classList.remove("open");
               gpClear();
               // Return the menu from the body portal to the control, and drop
@@ -258,6 +260,11 @@
               // still positions it against the control. close() restores it.
               (doc.body || doc.documentElement).appendChild(menu);
               menu.style.display = "block";
+              // The menu now lives on <body>, so it survives its owning control
+              // being torn out by a panel re-render — which would strand it open,
+              // floating and detached. Watch the control and close if it leaves
+              // the document.
+              _connCheck = setInterval(function() { if (!root.isConnected) close(); }, 150);
               if (searchInput) {
                   _filter = "";
                   searchInput.value = "";

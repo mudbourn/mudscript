@@ -5379,6 +5379,15 @@
                     if ms._trackpadRightListener then ms._trackpadRightListener:stop() end
                 end
                 ms.bind.rebindSystem()
+
+                if ms.gamepadEnabled and ms.shell then
+                    if ms.shell.gpClearOpenBind then ms.shell.gpClearOpenBind() end
+                    if ms.shell.gpEnsureOpenBind then ms.shell.gpEnsureOpenBind() end
+                    if ms._shellState and ms._shellState.visible and ms.shell._gpNavHandler then
+                        ms._gamepadCallbacks = ms._gamepadCallbacks or {}
+                        ms._gamepadCallbacks._nav = ms.shell._gpNavHandler
+                    end
+                end
             end
 
             ms.suppressMacro = function(id)

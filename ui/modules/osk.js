@@ -44,6 +44,7 @@
     var _shift = false;
     var _target = null;
     var _openAt = 0;
+    var _freePos = null;
 
     function playSlot(slot) { if (window.playSlot) window.playSlot(slot); }
 
@@ -313,6 +314,28 @@
         _root.style.bottom = base + 'px';
     }
 
+    // Right-stick drag: lift the board out of its bottom-docked slot and move it
+    // freely, clamped to the viewport. Deltas arrive in zoomed px from the nav
+    // layer, so measure and clamp in the same zoomed space the board is laid out
+    // in (offsetWidth/Height are already zoomed; fold innerWidth/Height).
+    function nudge(dx, dy) {
+        if (!isOpen() || (!dx && !dy)) return;
+        var zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+        var vw = window.innerWidth / zoom, vh = window.innerHeight / zoom;
+        var w = _root.offsetWidth, h = _root.offsetHeight;
+        if (!_freePos) {
+            var r = _root.getBoundingClientRect();
+            _freePos = { x: r.left / zoom, y: r.top / zoom };
+        }
+        _freePos.x = Math.max(0, Math.min(Math.max(0, vw - w), _freePos.x + dx));
+        _freePos.y = Math.max(0, Math.min(Math.max(0, vh - h), _freePos.y + dy));
+        _root.style.transform = "none";
+        _root.style.right = "auto";
+        _root.style.bottom = "auto";
+        _root.style.left = _freePos.x + "px";
+        _root.style.top = _freePos.y + "px";
+    }
+
     function open(target) {
         if (!isTextField(target)) return false;
         _target = target;
@@ -323,6 +346,10 @@
         _r = 1; _c = 0;
         relabel();
         paint();
+        _freePos = null;
+        _root.style.left = "";
+        _root.style.top = "";
+        _root.style.right = "";
         positionAbove(target);
         _openAt = Date.now();
         addDismissListeners();
@@ -404,5 +431,6 @@
         space: typeSpace, backspace: doBackspace,
         caretLeft: function() { caret(-1); }, caretRight: function() { caret(1); },
         shift: shiftToggle, symbols: symToggle,
+        nudge: nudge,
     };
 })();

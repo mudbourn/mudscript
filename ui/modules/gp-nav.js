@@ -60,19 +60,22 @@
 
         function scope() { return cfg.scope ? cfg.scope() : document.body; }
 
-        // scrollIntoView({block:'nearest'}) leaves a row flush against the top of
-        // its scroller, where a sticky header (or the search box above the list)
-        // clips the focus ring. Scroll the nearest scrollable ancestor so the
-        // focused element keeps a small clearance from both edges.
         function scrollFocusIntoView(el) {
             var sc = null, a = el.parentElement;
             while (a) { if (canScroll(a)) { sc = a; break; } a = a.parentElement; }
             if (!sc) { try { el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {} return; }
             var pad = 8;
-            var er = el.getBoundingClientRect();
-            var cr = sc.getBoundingClientRect();
-            if (er.top < cr.top + pad) sc.scrollTop -= (cr.top + pad - er.top);
-            else if (er.bottom > cr.bottom - pad) sc.scrollTop += (er.bottom - (cr.bottom - pad));
+            for (var i = 0; i < 24; i++) {
+                var er = el.getBoundingClientRect();
+                var cr = sc.getBoundingClientRect();
+                var delta = 0;
+                if (er.top < cr.top + pad) delta = er.top - (cr.top + pad);
+                else if (er.bottom > cr.bottom - pad) delta = er.bottom - (cr.bottom - pad);
+                if (Math.abs(delta) < 1) break;
+                var before = sc.scrollTop;
+                sc.scrollTop += delta;
+                if (Math.abs(sc.scrollTop - before) < 0.5) break;
+            }
         }
 
         function isVisible(el) {
@@ -110,7 +113,18 @@
             });
         }
 
+        // The confirm/prompt modal is a fixed overlay parented to <body>, outside
+        // any panel scope, so find it at the document root and treat it as the
+        // active overlay while it is open — that scopes navigation to its own
+        // buttons and input.
+        function modalOverlay() {
+            var md = document.getElementById('modal-overlay');
+            return (md && md.classList.contains('open')) ? md : null;
+        }
+
         function activeOverlay() {
+            var md = modalOverlay();
+            if (md) return md;
             var sc = scope();
             return sc ? sc.querySelector(OVERLAY_SEL) : null;
         }
@@ -389,6 +403,20 @@
             sound('back');
         }
 
+        // Hold X on a module: delete the selection, first selecting the focused
+        // block if the user hasn't explicitly selected anything yet, so a plain
+        // "walk here, hold X" removes what the cursor sits on.
+        function deleteSelection() {
+            var canvas = toolCanvas();
+            if (!canvas || !canvas.gpDeleteSelection) return;
+            var blk = toolBlock(gpFocusEl);
+            if (blk && !blk.classList.contains('selected')) ctrlClick(blk);
+            if (canvas.gpDeleteSelection()) {
+                sound('back');
+                setFocus(null);
+            }
+        }
+
         function doActivate() {
             if (!gpFocusEl) return;
             if (window.MSOsk && window.MSOsk.isTextField(gpFocusEl)) {
@@ -411,7 +439,7 @@
             }
         }
 
-        window.gpNav = function(cmd, arg) {
+        window.gpNav = function(cmd, arg, arg2) {
             // While the on-screen keyboard is up it owns the controller: the
             // stick/dpad picks a key, A presses it, B dismisses it.
             var kb = osk();
@@ -431,6 +459,7 @@
                     case 'tabPrev': kb.symbols(); return;      // LT = symbol layer
                     case 'tabNext': kb.shift(); return;        // RT = shift
                     case 'toggleRail': kb.close(); return;    // Start/Menu = Done
+                    case 'rstick': if (kb.nudge) kb.nudge(arg || 0, arg2 || 0); return;
                     default: return;
                 }
             }
@@ -468,6 +497,7 @@
                 case 'activate': doActivate(); break;
                 case 'grab': startGrab(); break;
                 case 'grabDrop': doActivate(); break;
+                case 'deleteSel': deleteSelection(); break;
                 case 'copy':
                     var addBtn = macroAddBtn();
                     if (addBtn) activate(addBtn);
@@ -487,7 +517,15 @@
                     break;
                 case 'back':
                     var ov = activeOverlay();
-                    if (ov) {
+                    if (ov && ov.id === 'modal-overlay') {
+                        // Back cancels the modal through its own close path so the
+                        // pending promise resolves (a bare .open drop would strand
+                        // the caller waiting on it).
+                        sound('back');
+                        if (window.closeModal) window.closeModal(false);
+                        gpInTopbar = false;
+                        setFocus(null);
+                    } else if (ov) {
                         // Dismiss via the overlay's own close control so its
                         // teardown (and Back sound) runs exactly as a click would.
                         // Menus that just slide off on an .open class have no such
@@ -533,6 +571,7 @@
                     break;
                 case 'popOut': if (cfg.switchWindow) cfg.switchWindow(); break;
                 case 'scroll': scrollBy(arg || 0); break;
+                case 'rstick': scrollBy(arg2 || 0); break;
             }
         };
     }

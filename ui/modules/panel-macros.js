@@ -2204,6 +2204,15 @@
             return false;
         };
         this._root.gpDuplicateSelection = function() { return self.duplicateSelected(); };
+        this._root.gpDeleteSelection = function() { return self.removeSelected(); };
+
+        // The canvas often renders while the Builder tab is hidden (Binds is the
+        // landing tab), so widths measure as zero and the marquee never arms.
+        // Re-measure whenever the canvas gains or changes size.
+        if (window.ResizeObserver) {
+            this._ro = new ResizeObserver(function() { self._updateParamMarquee(); });
+            this._ro.observe(this._root);
+        }
     }
 
     ToolCanvas.prototype._preloadIcons = function() {
@@ -2402,12 +2411,22 @@
             this._root.appendChild(this._renderTool(this._tools[i]));
         }
         this._updateParamMarquee();
+        var self = this;
+        requestAnimationFrame(function() { self._updateParamMarquee(); });
     };
 
-    // A long example (.tool-params) is truncated in the row; when the block is
-    // hovered, selected, or gamepad-focused it scrolls horizontally so the whole
-    // signature can be read. Measure each one's overflow and stash the distance.
     ToolCanvas.prototype._updateParamMarquee = function(el) {
+        if (!this._root.offsetParent || this._root.clientWidth === 0) {
+            var self = this;
+            if (window.requestAnimationFrame) {
+                requestAnimationFrame(function() {
+                    requestAnimationFrame(function() {
+                        if (self._root.offsetParent && self._root.clientWidth > 0) self._updateParamMarquee(el);
+                    });
+                });
+            }
+            return;
+        }
         var params = el
             ? [el.querySelector(".tool-params")]
             : Array.prototype.slice.call(this._root.querySelectorAll(".tool-params"));
@@ -3879,6 +3898,10 @@
                 // dropped at boot (host bridge not ready yet) self-heals rather
                 // than leaving Installed Macro Packs permanently empty.
                 if (window.msLibraryClient) window.msLibraryClient.request("macro");
+            } else if (tab === "builder" && _canvas) {
+                requestAnimationFrame(function() {
+                    requestAnimationFrame(function() { _canvas._updateParamMarquee(); });
+                });
             }
         },
     });

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mudscript keyboard</title>
+    <style>
+        :root {
+            --bg: #111; --surface: #1c1c1c; --surface2: #262626; --hover: #333;
+            --accent: #e0245e; --accent-hi: #ff5b86;
+            --text: #fff; --text2: #cfcfcf; --text3: #888;
+            --border: #333; --border-dim: #2f2f2f;
+            --radius: 8px; --radius-s: 5px;
+            --font-mono: ui-monospace, monospace;
+        }
+
+        html, body {
+            margin: 0;
+            height: 100%;
+            background: transparent !important;
+            overflow: hidden;
+        }
+
+        /* Keyboard */
+            .osk {
+                position: fixed;
+                left: 50%;
+                bottom: 12px;
+                transform: translateX(-50%);
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+                padding: 10px;
+                background: var(--surface);
+                border: 1px solid var(--border);
+                border-radius: var(--radius);
+                box-shadow: 0 8px 30px rgba(0,0,0,0.45);
+                font-family: var(--font-mono);
+                user-select: none;
+                transform-origin: bottom center;
+            }
+
+            .osk-row {
+                display: flex;
+                gap: 5px;
+                justify-content: center;
+            }
+
+            .osk-key {
+                min-width: 34px;
+                height: 38px;
+                padding: 0 8px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 15px;
+                color: var(--text2);
+                background: var(--surface2);
+                border: 1px solid var(--border-dim);
+                border-radius: var(--radius-s);
+            }
+
+            .osk-key svg { width: 18px; height: 18px; display: block; }
+
+            .osk-key.osk-wide { min-width: 74px; }
+
+            .osk-key.osk-space { min-width: 200px; }
+
+            .osk-key.osk-active {
+                color: var(--text);
+                background: var(--hover);
+                box-shadow: inset 0 0 0 2px var(--accent-hi);
+            }
+
+            .osk-key.osk-on {
+                color: var(--bg);
+                background: var(--accent);
+                border-color: var(--accent);
+            }
+
+            .osk-hints {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 4px 12px;
+                justify-content: center;
+                margin-top: 3px;
+                font-size: 11px;
+                color: var(--text3);
+            }
+
+            .osk-hints b { color: var(--accent); font-weight: 700; margin-right: 3px; }
+
+            .osk-hints svg { width: 12px; height: 12px; vertical-align: -1px; }
+        // END //
+    </style>
+</head>
+<body>
+    <div class="osk" id="osk" hidden></div>
+
+    <script>
+    (function() {
+    "use strict";
+
+        var _root = document.getElementById("osk");
+
+        function faceEl(face) {
+            var el = document.createElement("div");
+            el.className = "osk-key"
+                + (face.w === "wide" ? " osk-wide" : "")
+                + (face.w === "space" ? " osk-space" : "")
+                + (face.on ? " osk-on" : "");
+            if (face.svg) el.innerHTML = face.svg; else el.textContent = face.t || "";
+            return el;
+        }
+
+        // Draw the whole board from a serialisable payload the target window
+        // sends: a grid of key faces, the active cell, and the resolved hint
+        // glyphs. The board is stateless here, so every change is a full redraw.
+        function render(data) {
+            _root.innerHTML = "";
+            var grid = data.grid || [];
+            var active = data.active || { r: -1, c: -1 };
+            for (var r = 0; r < grid.length; r++) {
+                var rowEl = document.createElement("div");
+                rowEl.className = "osk-row";
+                for (var c = 0; c < grid[r].length; c++) {
+                    var el = faceEl(grid[r][c]);
+                    if (r === active.r && c === active.c) el.classList.add("osk-active");
+                    rowEl.appendChild(el);
+                }
+                _root.appendChild(rowEl);
+            }
+            var hints = data.hints || [];
+            if (hints.length) {
+                var hintsEl = document.createElement("div");
+                hintsEl.className = "osk-hints";
+                for (var i = 0; i < hints.length; i++) {
+                    var span = document.createElement("span");
+                    var b = document.createElement("b");
+                    if (hints[i].glyph.svg) b.innerHTML = hints[i].glyph.svg;
+                    else b.textContent = hints[i].glyph.t || "";
+                    span.appendChild(b);
+                    if (hints[i].desc.svg) {
+                        var d = document.createElement("span");
+                        d.innerHTML = hints[i].desc.svg;
+                        span.appendChild(d);
+                    } else {
+                        span.appendChild(document.createTextNode(hints[i].desc.t || ""));
+                    }
+                    hintsEl.appendChild(span);
+                }
+                _root.appendChild(hintsEl);
+            }
+        }
+
+        function show(data) {
+            if (data) render(data);
+            _root.hidden = false;
+        }
+
+        function hide() { _root.hidden = true; }
+
+        function applyTheme(t) {
+            if (!t || typeof t !== "object") return;
+            var s = document.documentElement.style;
+            var map = {
+                bg: "--bg", surface: "--surface", surface2: "--surface2",
+                hover: "--hover", accent: "--accent", accentHi: "--accent-hi",
+                text: "--text", text2: "--text2", text3: "--text3",
+                border: "--border", borderDim: "--border-dim",
+            };
+            for (var k in map) { if (t[k]) s.setProperty(map[k], t[k]); }
+            if (t.radius !== undefined) {
+                s.setProperty("--radius", t.radius + "px");
+                s.setProperty("--radius-s", Math.max(0, t.radius - 1) + "px");
+            }
+            if (t.font) {
+                if (t.fontURL) {
+                    var el = document.getElementById("_ms-osk-font");
+                    if (!el) { el = document.createElement("style"); el.id = "_ms-osk-font"; document.head.appendChild(el); }
+                    el.textContent = '@font-face { font-family: "' + t.font + '"; src: url("' + t.fontURL + '"); }';
+                }
+                s.setProperty("--font-mono", '"' + t.font + '", ui-monospace, monospace');
+            }
+        }
+
+        window.OSK = { render: render, show: show, hide: hide, applyTheme: applyTheme };
+    })();
+    </script>
+</body>
+</html>

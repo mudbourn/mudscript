@@ -627,6 +627,12 @@
         -- show --
             ms.shell.show = function()
                 print("[shell] TRACE show() ENTER visible=" .. tostring(ms._shellState and ms._shellState.visible))
+                if not (ms._shellState and ms._shellState.visible) then
+                    local front = hs.application.frontmostApplication()
+                    if front and front:bundleID() ~= hs.processInfo.bundleID then
+                        ms._shellPrevApp = front
+                    end
+                end
                 if not _shellView then ms.shell.init() end
                 if _shellFadeTimer then
                     _shellFadeTimer:stop()
@@ -638,6 +644,7 @@
                 _shellView:alpha(0)
                 ms.safeShow(_shellView)
                 pcall(function() _shellView:bringToFront(true) end)
+                pcall(hs.focus)
                 ms._shellState = ms._shellState or {}
                 ms._shellState.visible = true
                 if ms.ui then ms.ui._open = true end
@@ -721,6 +728,10 @@
                                 _shellFadeTimer = nil
                             end
                             pcall(function() view:hide() end)
+                            if ms._shellPrevApp then
+                                pcall(function() ms._shellPrevApp:activate() end)
+                                ms._shellPrevApp = nil
+                            end
                         end
                     end)
                     if ms.bus then ms.bus.emit("macroLab:toggled", { visible = false }) end
@@ -769,9 +780,11 @@
                 return nil
             end
 
-            local function _gpEval(cmd, arg)
+            local function _gpEval(cmd, arg, arg2)
                 local js
-                if arg ~= nil then
+                if arg2 ~= nil then
+                    js = string.format("if(window.gpNav)gpNav('%s',%d,%d)", cmd, arg, arg2)
+                elseif arg ~= nil then
                     js = string.format("if(window.gpNav)gpNav('%s',%d)", cmd, arg)
                 else
                     js = string.format("if(window.gpNav)gpNav('%s')", cmd)
@@ -849,11 +862,12 @@
 
             local function _gpStopTimers()
                 local n = ms._gpNav
-                for _, k in ipairs({ "lsTimer", "rsTimer", "holdTimer", "tapTimer" }) do
+                for _, k in ipairs({ "lsTimer", "rsTimer", "holdTimer", "holdTimerX", "tapTimer" }) do
                     if n[k] then n[k]:stop() n[k] = nil end
                 end
                 n.lsDir = nil
                 n.rsActive = false
+                n.xGrab = false
                 n.selectHeld = false
                 n.tapPending = false
                 n.chordConsumed = false
@@ -894,12 +908,15 @@
                             end
                         end
                     elseif button == "right" then
+                        n.rsX = a or 0
                         n.rsY = b or 0
-                        local active = math.abs(n.rsY) >= GP_DZ
+                        local active = math.abs(n.rsX) >= GP_DZ or math.abs(n.rsY) >= GP_DZ
                         if active and not n.rsActive then
                             n.rsActive = true
                             n.rsTimer = hs.timer.doEvery(0.05, function()
-                                _gpEval("scroll", math.floor(-(n.rsY or 0) * 42))
+                                _gpEval("rstick",
+                                    math.floor((n.rsX or 0) * 14),
+                                    math.floor(-(n.rsY or 0) * 42))
                             end)
                         elseif not active and n.rsActive then
                             n.rsActive = false
@@ -917,6 +934,15 @@
                             _gpEval("grabDrop")
                         else
                             _gpEval("activate")
+                        end
+                        return true
+                    end
+                    if button == "x" then
+                        if n.holdTimerX then n.holdTimerX:stop() n.holdTimerX = nil end
+                        if n.xGrab then
+                            n.xGrab = false
+                        else
+                            _gpEval("selectAll")
                         end
                         return true
                     end
@@ -966,7 +992,12 @@
                     _gpEval("back")
                     return true
                 elseif button == "x" then
-                    _gpEval("selectAll")
+                    n.xGrab = false
+                    n.holdTimerX = hs.timer.doAfter(0.4, function()
+                        n.xGrab = true
+                        n.holdTimerX = nil
+                        _gpEval("deleteSel")
+                    end)
                     return true
                 elseif button == "y" then
                     _gpEval("copy")
