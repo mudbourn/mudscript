@@ -897,14 +897,7 @@
                         }
 
                         body.appendChild(divider());
-                        body.appendChild(
-                            row(
-                                "Shell navigation",
-                                "While the shell is open, steer it like a console UI.",
-                                null,
-                                "row-sub",
-                            ),
-                        );
+
                         const GP_SHORTCUTS = [
                             ["R3 + Home", "Open / close the shell"],
                             ["Left stick / D-pad", "Move between items"],
@@ -918,9 +911,37 @@
                             ["Select (double-tap)", "Pop out a dev tool"],
                             ["Select (hold) + D-pad", "Scale the UI"],
                         ];
-                        GP_SHORTCUTS.forEach((s) => {
-                            body.appendChild(row(s[0], s[1], null, "row-sub"));
+
+                        const mapWrap = h("div", { cls: "gp-map-wrap" });
+                        mapWrap.hidden = true;
+                        if (window.buildGamepadMap) {
+                            const gtype =
+                                (ctrls[0] && ctrls[0].type) ||
+                                window.__gpType ||
+                                "xbox";
+                            mapWrap.appendChild(window.buildGamepadMap(gtype));
+                        } else {
+                            GP_SHORTCUTS.forEach((s) => {
+                                mapWrap.appendChild(row(s[0], s[1], null, "row-sub"));
+                            });
+                        }
+
+                        const mapBtn = actionBtn("Show controller map", "", () => {
+                            mapWrap.hidden = !mapWrap.hidden;
+                            mapBtn.textContent = mapWrap.hidden
+                                ? "Show controller map"
+                                : "Hide controller map";
+                            playSlot(mapWrap.hidden ? "back" : "interact");
                         });
+                        body.appendChild(
+                            row(
+                                "Shell navigation",
+                                "While the shell is open, steer it like a console UI.",
+                                mapBtn,
+                                "row-sub",
+                            ),
+                        );
+                        body.appendChild(mapWrap);
                     }
                 }
 
