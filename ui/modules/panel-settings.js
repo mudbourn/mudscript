@@ -898,40 +898,15 @@
 
                         body.appendChild(divider());
 
-                        const GP_SHORTCUTS = [
-                            ["R3 + Home", "Open / close the shell"],
-                            ["Left stick / D-pad", "Move between items"],
-                            ["Right stick", "Scroll"],
-                            ["A", "Select the focused item"],
-                            ["B", "Back out, then close"],
-                            ["LB / RB", "Previous / next panel"],
-                            ["LT / RT", "Previous / next tab"],
-                            ["Start", "Show / hide the sidebar"],
-                            ["Select (tap)", "Jump to the top bar"],
-                            ["Select (double-tap)", "Pop out a dev tool"],
-                            ["Select (hold) + D-pad", "Scale the UI"],
-                        ];
-
-                        const mapWrap = h("div", { cls: "gp-map-wrap" });
-                        mapWrap.hidden = true;
-                        if (window.buildGamepadMap) {
+                        const mapBtn = actionBtn("Open controller map", "", () => {
                             const gtype =
                                 (ctrls[0] && ctrls[0].type) ||
                                 window.__gpType ||
                                 "xbox";
-                            mapWrap.appendChild(window.buildGamepadMap(gtype));
-                        } else {
-                            GP_SHORTCUTS.forEach((s) => {
-                                mapWrap.appendChild(row(s[0], s[1], null, "row-sub"));
-                            });
-                        }
-
-                        const mapBtn = actionBtn("Show controller map", "", () => {
-                            mapWrap.hidden = !mapWrap.hidden;
-                            mapBtn.textContent = mapWrap.hidden
-                                ? "Show controller map"
-                                : "Hide controller map";
-                            playSlot(mapWrap.hidden ? "back" : "interact");
+                            if (window.openGamepadMap) {
+                                window.openGamepadMap(gtype);
+                                playSlot("interact");
+                            }
                         });
                         body.appendChild(
                             row(
@@ -941,7 +916,6 @@
                                 "row-sub",
                             ),
                         );
-                        body.appendChild(mapWrap);
                     }
                 }
 

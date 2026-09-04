@@ -1,10 +1,6 @@
 (function() {
 "use strict";
 
-    // Controller map for the shell's gamepad navigation. Kenney input-prompts
-    // glyphs (CC0), one set per detected pad type so a PlayStation user sees
-    // Cross / R2, not A / RT. confirm = the bottom face button, back = the right
-    // one, which is why the Switch set swaps its A and B to match the hardware.
     var GLYPHS = {
         xbox: {
             silhouette: "<svg viewBox='0 0 64 64' xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink'> <g> <path stroke='none' fill='currentColor' d='M29 32.5 Q29 31.05 28 30 27 29 25.5 29 L24.55 29.15 Q23.7 29.35 23.05 30 22 31.05 22 32.5 22 33.95 23.05 35 L24.55 35.9 25.5 36 Q27 36 28 35 29 33.95 29 32.5 M39 32 Q39 30.75 38.15 29.85 37.3 29 36 29 34.75 29 33.9 29.85 33 30.75 33 32 33 33.25 33.9 34.15 34.75 35 36 35 37.3 35 38.15 34.15 39 33.25 39 32 M41 25 Q41 24.15 40.4 23.55 39.85 23 39 23 38.15 23 37.6 23.55 37 24.15 37 25 37 25.8 37.6 26.4 38.15 27 39 27 39.85 27 40.4 26.4 41 25.8 41 25 M34 20 Q34 19.15 33.45 18.55 32.85 18 32 18 31.15 18 30.6 18.55 30 19.15 30 20 30 20.85 30.6 21.45 31.15 22 32 22 32.85 22 33.45 21.45 34 20.85 34 20 M24 23.5 Q24 22.05 23 21 22 20 20.5 20 19.05 20 18.05 21 17 22.05 17 23.5 17 24.95 18.05 26 19.05 27 20.5 27 22 27 23 26 24 24.95 24 23.5 M45 29 Q45 28.15 44.4 27.55 43.85 27 43 27 42.15 27 41.6 27.55 41 28.15 41 29 41 29.8 41.6 30.4 42.15 31 43 31 43.85 31 44.4 30.4 45 29.8 45 29 M49 25 Q49 24.15 48.4 23.55 47.85 23 47 23 46.15 23 45.6 23.55 45 24.15 45 25 45 25.8 45.6 26.4 46.15 27 47 27 47.85 27 48.4 26.4 49 25.8 49 25 M45 21 Q45 20.15 44.4 19.55 43.85 19 43 19 42.15 19 41.6 19.55 41 20.15 41 21 41 21.8 41.6 22.4 42.15 23 43 23 43.85 23 44.4 22.4 45 21.8 45 21 M23.6 38.65 Q22.1 38.65 20.9 39.6 20.15 40.15 19.5 41.1 L17.45 43.75 Q14.65 47.25 12.7 48 9.55 47.55 8.25 43.95 7.95 42.5 8 40.75 8.1 38 9.1 34.5 L9.35 33.55 Q10.2 30.3 11.35 27 L12.1 25 13.35 21.9 14.35 19.6 15.3 18.6 15.45 18.35 15.85 17.65 Q17.55 15.4 21.55 15 L23.5 15 24.25 15.85 39.7 15.85 40.5 15 42.45 15 Q46.45 15.4 48.1 17.65 L48.55 18.35 48.65 18.6 49.65 19.6 50.65 21.9 51.95 25 52.65 27 54.65 33.55 54.9 34.5 Q55.9 38 56 40.75 56.05 42.5 55.75 43.95 54.45 47.55 51.25 48 49.35 47.25 46.5 43.75 L44.5 41.1 43.1 39.6 Q41.9 38.65 40.4 38.65 L23.6 38.65'/> </g> </svg>",
@@ -51,21 +47,95 @@
     };
 
     var LABELS = {
-        xbox:   { confirm: "A", back: "B", l1: "LB", r1: "RB", l2: "LT", r2: "RT", start: "Start", view: "View", lstick: "L-stick", dpad: "D-pad", rstickMove: "Right stick", home: "R3 + Home" },
-        ds4:    { confirm: "Cross", back: "Circle", l1: "L1", r1: "R1", l2: "L2", r2: "R2", start: "Options", view: "Create", lstick: "L-stick", dpad: "D-pad", rstickMove: "Right stick", home: "R3 + PS" },
-        switch: { confirm: "B", back: "A", l1: "L", r1: "R", l2: "ZL", r2: "ZR", start: "Plus", view: "Minus", lstick: "L-stick", dpad: "D-pad", rstickMove: "Right stick", home: "R3 + Home" },
+        xbox: {
+            confirm: "A",
+            back: "B",
+            x: "X",
+            y: "Y",
+            l1: "LB",
+            r1: "RB",
+            l2: "LT",
+            r2: "RT",
+            start: "Menu",
+            view: "View",
+            lstick: "L-stick",
+            dpad: "D-pad",
+            rstick: "R-stick",
+            home: "Home",
+        },
+        ds4: {
+            confirm: "Cross",
+            back: "Circle",
+            x: "Square",
+            y: "Triangle",
+            l1: "L1",
+            r1: "R1",
+            l2: "L2",
+            r2: "R2",
+            start: "Options",
+            view: "Create",
+            lstick: "L-stick",
+            dpad: "D-pad",
+            rstick: "R-stick",
+            home: "PS",
+        },
+        switch: {
+            confirm: "B",
+            back: "A",
+            x: "Y",
+            y: "X",
+            l1: "L",
+            r1: "R",
+            l2: "ZL",
+            r2: "ZR",
+            start: "Plus",
+            view: "Minus",
+            lstick: "L-stick",
+            dpad: "D-pad",
+            rstick: "R-stick",
+            home: "Home",
+        },
     };
 
-    var ENTRIES = [
-        { roles: ["rstick"], title: function(L) { return L.home; }, desc: "Open / close the shell" },
-        { roles: ["lstick", "dpad"], title: function(L) { return L.lstick + " / " + L.dpad; }, desc: "Move between items" },
-        { roles: ["rstick"], title: function(L) { return L.rstickMove; }, desc: "Scroll the panel" },
-        { roles: ["confirm"], title: function(L) { return L.confirm; }, desc: "Select the focused item" },
-        { roles: ["back"], title: function(L) { return L.back; }, desc: "Back out, then close" },
-        { roles: ["l1", "r1"], title: function(L) { return L.l1 + " / " + L.r1; }, desc: "Previous / next panel" },
-        { roles: ["l2", "r2"], title: function(L) { return L.l2 + " / " + L.r2; }, desc: "Previous / next tab" },
-        { roles: ["start"], title: function(L) { return L.start; }, desc: "Panel View" },
-        { roles: ["view"], title: function(L) { return L.view; }, desc: "Shell manipulation" },
+    var GENERAL = [
+        { badge: ["start", "+", "view"], title: function(L) { return L.start + " + " + L.view; }, desc: "Open or close the shell (or the Home button)" },
+        { badge: ["lstick", "/", "dpad"], title: function(L) { return L.lstick + " / " + L.dpad; }, desc: "Move between items" },
+        { badge: ["rstick"], title: function(L) { return L.rstick; }, desc: "Scroll the panel" },
+        { badge: ["confirm"], title: function(L) { return L.confirm; }, desc: "Select the focused item" },
+        { badge: ["back"], title: function(L) { return L.back; }, desc: "Back out, then close" },
+        { badge: ["l1", "/", "r1"], title: function(L) { return L.l1 + " / " + L.r1; }, desc: "Previous / next panel" },
+        { badge: ["l2", "/", "r2"], title: function(L) { return L.l2 + " / " + L.r2; }, desc: "Previous / next tab" },
+        { badge: ["start"], title: function(L) { return L.start; }, desc: "Show or hide the sidebar" },
+        { badge: ["view"], title: function(L) { return L.view; }, desc: "Jump to the top bar (double-tap pops out a dev tool)" },
+        { badge: ["view", "+", "dpad"], title: function(L) { return "Hold " + L.view + " + " + L.dpad; }, desc: "Scale the UI up or down" },
+        { badge: ["y"], title: function(L) { return L.y; }, desc: "Copy the selection in a log panel" },
+    ];
+
+    var MACRO = [
+        { badge: ["confirm"], title: function(L) { return L.confirm; }, desc: "Select the focused block" },
+        { badge: ["confirm"], title: function(L) { return "Hold " + L.confirm; }, desc: "Grab the block, steer with " + "D-pad, release to drop" },
+        { badge: ["y"], title: function(L) { return L.y; }, desc: "Add a step from the palette" },
+        { badge: ["x"], title: function(L) { return L.x; }, desc: "Open the block's context menu" },
+        { badge: ["x", "x"], title: function(L) { return L.x + " " + L.x; }, desc: "Double-tap to duplicate the selection" },
+        { badge: ["x"], title: function(L) { return "Hold " + L.x; }, desc: "Delete the selected blocks" },
+        { badge: ["l1", "/", "r1"], title: function(L) { return L.l1 + " / " + L.r1; }, desc: "Previous / next panel" },
+        { badge: ["l2", "/", "r2"], title: function(L) { return L.l2 + " / " + L.r2; }, desc: "Previous / next tab" },
+    ];
+
+    var OSK = [
+        { badge: ["lstick", "/", "dpad"], title: function(L) { return L.lstick + " / " + L.dpad; }, desc: "Pick a key" },
+        { badge: ["confirm"], title: function(L) { return L.confirm; }, desc: "Press the highlighted key" },
+        { badge: ["back"], title: function(L) { return L.back; }, desc: "Close the keyboard" },
+        { badge: ["y"], title: function(L) { return L.y; }, desc: "Space" },
+        { badge: ["x"], title: function(L) { return L.x; }, desc: "Backspace" },
+        { badge: ["l1", "/", "r1"], title: function(L) { return L.l1 + " / " + L.r1; }, desc: "Move the caret left / right" },
+        { badge: ["l2"], title: function(L) { return L.l2; }, desc: "Symbol layer" },
+        { badge: ["r2"], title: function(L) { return L.r2; }, desc: "Shift" },
+    ];
+
+    var TABS = [
+        { id: "general", label: "General", groups: [{ entries: GENERAL }] },
+        { id: "macro", label: "Macro Lab", groups: [{ title: "Builder canvas", entries: MACRO }, { title: "On-screen keyboard", entries: OSK }] },
     ];
 
     function ensureCss() {
@@ -73,15 +143,43 @@
         var s = document.createElement("style");
         s.id = "gp-map-css";
         s.textContent =
-            ".gp-map { display: flex; flex-direction: column; gap: 12px; padding: 6px 12px 14px; }"
-            + ".gp-map-hero { display: flex; justify-content: center; }"
-            + ".gp-map-hero svg { width: 148px; height: 148px; color: var(--text2); }"
+            ".gp-map-overlay { position: fixed; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center;"
+            + " background: rgba(0,0,0,0.55); opacity: 0; transition: opacity 0.15s ease; }"
+            + ".gp-map-overlay.open { display: flex; opacity: 1; }"
+            + ".gp-map-modal { display: flex; flex-direction: column; width: 640px; max-width: 92vw; max-height: 88vh;"
+            + " background: var(--surface); border: 1px solid var(--border-dim); border-radius: var(--radius);"
+            + " box-shadow: 0 12px 40px rgba(0,0,0,0.45); overflow: hidden; }"
+            + ".gp-map-head { display: flex; align-items: center; justify-content: space-between; gap: 10px;"
+            + " padding: 10px 12px; border-bottom: 1px solid var(--border-dim); flex-shrink: 0; }"
+            + ".gp-map-head-l { display: flex; align-items: center; gap: 8px; min-width: 0; }"
+            + ".gp-map-head svg { width: 30px; height: 30px; color: var(--text2); flex-shrink: 0; }"
+            + ".gp-map-heading { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); }"
+            + ".gp-map-close { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;"
+            + " border: none; background: transparent; border-radius: var(--radius); cursor: pointer; color: var(--text);"
+            + " opacity: 0.5; font-size: 15px; transition: opacity 0.1s, background 0.1s; }"
+            + ".gp-map-close:hover { opacity: 1; background: var(--hover); }"
+            + ".gp-map-tabs { display: flex; gap: 4px; padding: 8px 12px 0; flex-shrink: 0; }"
+            + ".gp-map-tab { padding: 5px 12px; border: 1px solid var(--border-dim); border-bottom: none;"
+            + " background: var(--surface2); color: var(--text3); border-radius: var(--radius-s) var(--radius-s) 0 0;"
+            + " font-size: 11px; font-weight: 700; cursor: pointer; }"
+            + ".gp-map-tab.active { background: var(--surface); color: var(--accent); }"
+            + ".gp-map-body { padding: 12px; overflow-y: auto; border-top: 1px solid var(--border-dim);"
+            + " scrollbar-width: thin; scrollbar-color: var(--border) transparent; }"
+            + ".gp-map-body::-webkit-scrollbar { width: 5px; }"
+            + ".gp-map-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-s); }"
+            + ".gp-map-body::-webkit-scrollbar-track { background: transparent; }"
+            + ".gp-map-group-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;"
+            + " color: var(--text3); margin: 4px 0 8px; }"
+            + ".gp-map-group + .gp-map-group { margin-top: 14px; }"
             + ".gp-map-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; }"
             + ".gp-map-item { display: flex; align-items: center; gap: 10px; padding: 6px 9px;"
             + " background: var(--surface2); border: 1px solid var(--border-dim); border-radius: var(--radius-s); }"
             + ".gp-map-badge { display: flex; align-items: center; gap: 3px; flex-shrink: 0; color: var(--text); }"
             + ".gp-map-badge svg { width: 26px; height: 26px; display: block; }"
-            + ".gp-map-badge .gp-map-sep { color: var(--text3); font: 600 11px/1 var(--font-mono); }"
+            + ".gp-map-key { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 22px;"
+            + " padding: 0 6px; background: var(--surface); border: 1px solid var(--border-dim); border-radius: var(--radius-s);"
+            + " font: 700 11px/1 var(--font-mono); color: var(--text); }"
+            + ".gp-map-sep { color: var(--text3); font: 600 11px/1 var(--font-mono); }"
             + ".gp-map-txt { min-width: 0; }"
             + ".gp-map-title { font-size: 11px; font-weight: 700; color: var(--text); }"
             + ".gp-map-desc { font-size: 10px; color: var(--text3); line-height: 1.35; }"
@@ -95,37 +193,33 @@
         return e;
     }
 
-    function glyphNode(svg) {
-        var span = el("span");
-        span.innerHTML = svg;
-        return span;
+    function badgeNode(tokens, g, L) {
+        var badge = el("div", "gp-map-badge");
+        tokens.forEach(function(tok) {
+            if (tok === "+" || tok === "/") {
+                var sep = el("span", "gp-map-sep");
+                sep.textContent = tok;
+                badge.appendChild(sep);
+                return;
+            }
+            if (g[tok]) {
+                var span = el("span");
+                span.innerHTML = g[tok];
+                badge.appendChild(span);
+                return;
+            }
+            var key = el("span", "gp-map-key");
+            key.textContent = L[tok] || tok;
+            badge.appendChild(key);
+        });
+        return badge;
     }
 
-    // type comes from window.__gpType (xbox / ds4 / switch / generic); anything
-    // without its own set falls back to the Xbox glyphs.
-    window.buildGamepadMap = function(type) {
-        ensureCss();
-        var t = GLYPHS[type] ? type : "xbox";
-        var g = GLYPHS[t], L = LABELS[t];
-
-        var root = el("div", "gp-map");
-        var hero = el("div", "gp-map-hero");
-        hero.innerHTML = g.silhouette;
-        root.appendChild(hero);
-
+    function gridNode(entries, g, L) {
         var grid = el("div", "gp-map-grid");
-        ENTRIES.forEach(function(entry) {
+        entries.forEach(function(entry) {
             var item = el("div", "gp-map-item");
-            var badge = el("div", "gp-map-badge");
-            entry.roles.forEach(function(role, i) {
-                if (i > 0) {
-                    var sep = el("span", "gp-map-sep");
-                    sep.textContent = "/";
-                    badge.appendChild(sep);
-                }
-                badge.appendChild(glyphNode(g[role]));
-            });
-            item.appendChild(badge);
+            item.appendChild(badgeNode(entry.badge, g, L));
 
             var txt = el("div", "gp-map-txt");
             var ti = el("div", "gp-map-title");
@@ -138,7 +232,106 @@
 
             grid.appendChild(item);
         });
-        root.appendChild(grid);
-        return root;
+        return grid;
+    }
+
+    function renderTab(body, tab, g, L) {
+        body.innerHTML = "";
+        tab.groups.forEach(function(group) {
+            var wrap = el("div", "gp-map-group");
+            if (group.title) {
+                var gt = el("div", "gp-map-group-title");
+                gt.textContent = group.title;
+                wrap.appendChild(gt);
+            }
+            wrap.appendChild(gridNode(group.entries, g, L));
+            body.appendChild(wrap);
+        });
+    }
+
+    var overlay = null;
+
+    function buildOverlay() {
+        ensureCss();
+        overlay = el("div", "gp-map-overlay");
+        overlay.addEventListener("click", function(e) {
+            if (e.target === overlay) window.closeGamepadMap();
+        });
+
+        var modal = el("div", "gp-map-modal");
+
+        var head = el("div", "gp-map-head");
+        var headL = el("div", "gp-map-head-l");
+        var hero = el("span");
+        var heading = el("span", "gp-map-heading");
+        heading.textContent = "Controller Map";
+        headL.appendChild(hero);
+        headL.appendChild(heading);
+        var close = el("button", "gp-map-close fn-picker-overlay-close");
+        close.type = "button";
+        close.textContent = "✕";
+        close.addEventListener("click", function() { window.closeGamepadMap(); });
+        head.appendChild(headL);
+        head.appendChild(close);
+
+        var tabsBar = el("div", "gp-map-tabs");
+        var body = el("div", "gp-map-body");
+
+        modal.appendChild(head);
+        modal.appendChild(tabsBar);
+        modal.appendChild(body);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        overlay._hero = hero;
+        overlay._tabsBar = tabsBar;
+        overlay._body = body;
+        overlay._active = 0;
+        return overlay;
+    }
+
+    function selectTab(idx) {
+        if (!overlay) return;
+        var type = overlay._type;
+        var g = GLYPHS[type], L = LABELS[type];
+        idx = (idx + TABS.length) % TABS.length;
+        overlay._active = idx;
+
+        var btns = overlay._tabsBar.children;
+        for (var i = 0; i < btns.length; i++) {
+            btns[i].classList.toggle("active", i === idx);
+        }
+
+        renderTab(overlay._body, TABS[idx], g, L);
+        overlay._body.scrollTop = 0;
+    }
+
+    window.openGamepadMap = function(type) {
+        if (!overlay) buildOverlay();
+        var t = GLYPHS[type] ? type : "xbox";
+        overlay._type = t;
+
+        overlay._hero.innerHTML = GLYPHS[t].silhouette;
+        overlay._tabsBar.innerHTML = "";
+        TABS.forEach(function(tab, i) {
+            var btn = el("button", "gp-map-tab");
+            btn.type = "button";
+            btn.textContent = tab.label;
+            btn.addEventListener("click", function() { selectTab(i); });
+            overlay._tabsBar.appendChild(btn);
+        });
+
+        overlay.gpTab = function(dir) { selectTab(overlay._active + dir); };
+        selectTab(0);
+        overlay.classList.add("open");
+        return overlay;
+    };
+
+    window.closeGamepadMap = function() {
+        if (overlay) overlay.classList.remove("open");
+    };
+
+    window.buildGamepadMap = function(type) {
+        return window.openGamepadMap(type);
     };
 })();

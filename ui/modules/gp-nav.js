@@ -131,7 +131,14 @@
             return (md && md.classList.contains('open')) ? md : null;
         }
 
+        function mapOverlay() {
+            var mp = document.querySelector('.gp-map-overlay.open');
+            return mp || null;
+        }
+
         function activeOverlay() {
+            var mp = mapOverlay();
+            if (mp) return mp;
             var md = modalOverlay();
             if (md) return md;
             var sc = scope();
@@ -484,6 +491,20 @@
                     case 'grab': return;
                     case 'back': case 'toggleRail': sel.gpClose(); return;
                     default: return;
+                }
+            }
+            var mapOv = mapOverlay();
+            if (mapOv) {
+                switch (cmd) {
+                    case 'tabPrev': if (mapOv.gpTab) mapOv.gpTab(-1); return;
+                    case 'tabNext': if (mapOv.gpTab) mapOv.gpTab(1); return;
+                    case 'back': case 'toggleRail':
+                        if (window.closeGamepadMap) window.closeGamepadMap();
+                        sound('back');
+                        gpInTopbar = false;
+                        setFocus(null);
+                        return;
+                    default: break;
                 }
             }
             if (gpGrab) {
