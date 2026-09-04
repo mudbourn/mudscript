@@ -86,6 +86,18 @@
 
     function glyphSet() { return GLYPHS[window.__gpType] || GLYPHS.xbox; }
 
+    // Prefer the shared per-controller glyphs (ui-glyphs) the map draws, so the
+    // hint bar and the controller map show the same buttons; the plain-text set
+    // above is the fallback for when that library has not loaded.
+    var HINT_TO_GLYPH = { a: 'confirm', b: 'back', x: 'x', y: 'y', menu: 'start' };
+
+    function richGlyph(id) {
+        var lib = window.MSGlyphs;
+        if (!lib) return null;
+        var set = lib[lib[window.__gpType] ? window.__gpType : 'xbox'];
+        return (set && set[HINT_TO_GLYPH[id] || id]) || null;
+    }
+
     function keyLabel(k) {
         if (LABELS[k]) return LABELS[k];
         if (_shift) return SHIFTED[k] || k.toUpperCase();
@@ -122,7 +134,8 @@
         var g = glyphSet();
         var out = [];
         for (var i = 0; i < HINTS.length; i++) {
-            var glyph = g[HINTS[i][0]], desc = HINTS[i][1];
+            var id = HINTS[i][0], desc = HINTS[i][1];
+            var glyph = richGlyph(id) || g[id];
             out.push({
                 glyph: glyph.charAt(0) === '<' ? { svg: glyph } : { t: glyph },
                 desc: desc.charAt(0) === '<' ? { svg: desc } : { t: desc },

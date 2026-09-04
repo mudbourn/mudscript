@@ -157,12 +157,18 @@
         // Shrink the board to fit when the window is narrower than its natural
         // width (a wide row, or a large custom theme font, would otherwise spill
         // its outer keys past the edge).
+        // Scale every layer off the widest board seen, not each layer's own
+        // width, so keys and text stay the same size when the letters and
+        // symbols layouts (which differ in width) swap. Reset by applyTheme,
+        // since a theme's font and radius change the natural key width.
+        var _maxNatural = 0;
         function fit() {
             _root.style.transform = "translateX(-50%)";
             var natural = _root.offsetWidth;
             if (!natural) return;
+            if (natural > _maxNatural) _maxNatural = natural;
             var vw = window.innerWidth;
-            var s = vw > 16 ? Math.min(1, (vw - 16) / natural) : 1;
+            var s = vw > 16 ? Math.min(1, (vw - 16) / _maxNatural) : 1;
             _root.style.transform = "translateX(-50%) scale(" + s + ")";
         }
 
@@ -175,6 +181,7 @@
 
         function applyTheme(t) {
             if (!t || typeof t !== "object") return;
+            _maxNatural = 0;
             var s = document.documentElement.style;
             var map = {
                 bg: "--bg", surface: "--surface", surface2: "--surface2",

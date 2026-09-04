@@ -2808,7 +2808,7 @@
                 const mkSelect = window.createSelect || (typeof createSelect === "function" ? createSelect : null);
                 if (mkSelect) {
                     const addSel = mkSelect({
-                        className: "input-sm",
+                        className: "input-sm macros-add-step",
                         placeholder: "+ Add step…",
                         action: true,
                         searchable: true,

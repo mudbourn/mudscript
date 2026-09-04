@@ -278,7 +278,7 @@
             // Otherwise the tallest scrollable region within scope (log views,
             // bind lists, the picker's entry column, generic *-scroll wrappers).
             var cands = sc.querySelectorAll(
-                '#log, .log, [class$="-scroll"], [class*="scroll"], .fn-picker-entries, .fn-picker-detail, [class*="log"]');
+                '#log, .log, [class$="-scroll"], [class*="scroll"], .fn-picker-entries, .fn-picker-detail, [class*="log"], .gp-map-body');
             var best = null, bestH = 0;
             for (var i = 0; i < cands.length; i++) {
                 if (canScroll(cands[i]) && cands[i].clientHeight > bestH) {
@@ -374,6 +374,11 @@
             var sc = scope();
             var b = sc && sc.querySelector('.macros-add-tool-btn');
             return (b && isVisible(b)) ? b : null;
+        }
+        function macroAddSelect() {
+            var sc = scope();
+            var s = sc && sc.querySelector('.macro-select.macros-add-step');
+            return (s && isVisible(s)) ? s : null;
         }
         function toolCanvas() {
             var sc = scope();
@@ -535,7 +540,9 @@
                 case 'deleteSel': deleteSelection(); break;
                 case 'copy':
                     var addBtn = macroAddBtn();
+                    var addSel = macroAddSelect();
                     if (addBtn) activate(addBtn);
+                    else if (addSel) { if (!addSel.gpIsOpen()) addSel.click(); }
                     else if (inLogPanel()) synthCtrlKey('c');
                     break;
                 case 'selectAll':
