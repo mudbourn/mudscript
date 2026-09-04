@@ -36,6 +36,9 @@
             + 'input[type="range"].gp-focus::-moz-range-thumb {'
             + ' box-shadow: 0 0 0 2px var(--text),'
             + ' 0 0 0 5px color-mix(in srgb, var(--bg) 70%, transparent) !important; }'
+            + '.toggle.gp-focus { outline: none !important; border-radius: 10px;'
+            + ' box-shadow: 0 0 0 2px var(--text),'
+            + ' 0 0 0 5px color-mix(in srgb, var(--bg) 70%, transparent) !important; }'
             + '.gp-grabbing { outline: 2px dashed var(--accent) !important;'
             + ' opacity: 0.85; }';
         (document.head || document.documentElement).appendChild(s);
