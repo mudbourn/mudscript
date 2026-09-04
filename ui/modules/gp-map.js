@@ -97,6 +97,13 @@
         },
     };
 
+    // Modifier glyphs annotate the button they follow rather than naming a
+    // second button: repeat = tap again, hold = press and hold.
+    var MODS = {
+        "@repeat": '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 4L21 7M21 7L18 10M21 7H7C4.79086 7 3 8.79086 3 11M6 20L3 17M3 17L6 14M3 17H17C19.2091 17 21 15.2091 21 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+        "@hold": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M9 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6a1 1 0 0 0 1 1h3.293a.707.707 0 0 1 .5 1.207l-7.086 7.086a1 1 0 0 1-1.414 0l-7.086-7.086a.707.707 0 0 1 .5-1.207H8a1 1 0 0 0 1-1z"/></svg>',
+    };
+
     var GENERAL = [
         { badge: ["start", "+", "view"], title: function(L) { return L.start + " + " + L.view; }, desc: "Open or close the shell (or the Home button)" },
         { badge: ["lstick", "/", "dpad"], title: function(L) { return L.lstick + " / " + L.dpad; }, desc: "Move between items" },
@@ -107,17 +114,17 @@
         { badge: ["l2", "/", "r2"], title: function(L) { return L.l2 + " / " + L.r2; }, desc: "Previous / next tab" },
         { badge: ["start"], title: function(L) { return L.start; }, desc: "Show or hide the sidebar" },
         { badge: ["view"], title: function(L) { return L.view; }, desc: "Jump to the top bar (double-tap pops out a dev tool)" },
-        { badge: ["view", "+", "dpad"], title: function(L) { return "Hold " + L.view + " + " + L.dpad; }, desc: "Scale the UI up or down" },
+        { badge: ["view", "@hold", "+", "dpad"], title: function(L) { return L.view + " + " + L.dpad; }, desc: "Scale the UI up or down" },
         { badge: ["y"], title: function(L) { return L.y; }, desc: "Copy the selection in a log panel" },
     ];
 
     var MACRO = [
         { badge: ["confirm"], title: function(L) { return L.confirm; }, desc: "Select the focused block" },
-        { badge: ["confirm"], title: function(L) { return "Hold " + L.confirm; }, desc: "Grab the block, steer with " + "D-pad, release to drop" },
+        { badge: ["confirm", "@hold"], title: function(L) { return L.confirm; }, desc: "Grab the block, steer with " + "D-pad, release to drop" },
         { badge: ["y"], title: function(L) { return L.y; }, desc: "Add a step from the palette" },
         { badge: ["x"], title: function(L) { return L.x; }, desc: "Open the block's context menu" },
-        { badge: ["x", "x"], title: function(L) { return L.x + " " + L.x; }, desc: "Double-tap to duplicate the selection" },
-        { badge: ["x"], title: function(L) { return "Hold " + L.x; }, desc: "Delete the selected blocks" },
+        { badge: ["x", "@repeat"], title: function(L) { return L.x; }, desc: "Double-tap to duplicate the selection" },
+        { badge: ["x", "@hold"], title: function(L) { return L.x; }, desc: "Delete the selected blocks" },
         { badge: ["l1", "/", "r1"], title: function(L) { return L.l1 + " / " + L.r1; }, desc: "Previous / next panel" },
         { badge: ["l2", "/", "r2"], title: function(L) { return L.l2 + " / " + L.r2; }, desc: "Previous / next tab" },
     ];
@@ -176,6 +183,8 @@
             + " background: var(--surface2); border: 1px solid var(--border-dim); border-radius: var(--radius-s); }"
             + ".gp-map-badge { display: flex; align-items: center; gap: 3px; flex-shrink: 0; color: var(--text); }"
             + ".gp-map-badge svg { width: 26px; height: 26px; display: block; }"
+            + ".gp-map-mod { display: inline-flex; align-items: center; color: var(--text3); }"
+            + ".gp-map-mod svg { width: 15px; height: 15px; }"
             + ".gp-map-key { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 22px;"
             + " padding: 0 6px; background: var(--surface); border: 1px solid var(--border-dim); border-radius: var(--radius-s);"
             + " font: 700 11px/1 var(--font-mono); color: var(--text); }"
@@ -200,6 +209,12 @@
                 var sep = el("span", "gp-map-sep");
                 sep.textContent = tok;
                 badge.appendChild(sep);
+                return;
+            }
+            if (MODS[tok]) {
+                var mod = el("span", "gp-map-mod");
+                mod.innerHTML = MODS[tok];
+                badge.appendChild(mod);
                 return;
             }
             if (g[tok]) {
