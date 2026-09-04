@@ -524,6 +524,7 @@ return function(ms)
                 uiZoom                  = ms._uiZoom or 1.0,
                 octaneMode              = ms._octaneMode or false,
                 octaneMuteSounds        = ms._octaneMuteSounds or false,
+                uiTransparencyOff       = ms._uiTransparencyOff or false,
                 macroLabEnabled         = ms._macroLabEnabled ~= false,
                 githubToken             = (function()
                     if ms._githubToken then return ms._githubToken end
@@ -1254,6 +1255,13 @@ return function(ms)
                 setOctaneMuteSounds = function(data)
                     ms._octaneMuteSounds = data.value and true or false
                     ms.saveSettings()
+                    ms.ui.refresh()
+                end,
+
+                setUiTransparency = function(data)
+                    ms._uiTransparencyOff = not (data.value and true or false)
+                    ms.saveSettings()
+                    if ms.theme and ms.theme.repaint then pcall(ms.theme.repaint) end
                     ms.ui.refresh()
                 end,
 
@@ -2437,6 +2445,29 @@ return function(ms)
                             actions  = {
                                 { label = "Reveal in Finder", action = "revealSpoons", style = "accent" },
                                 { label = "Keep Blocked", action = "keepBlocked" },
+                            },
+                        }
+                    elseif which == "sandbox" then
+                        spec = {
+                            titlebar = "mudscript :// Sandbox Violation",
+                            height   = 430,
+                            title    = "Blocked an unsafe call",
+                            lead     = "A macro script reached outside the macro sandbox — a call "
+                                    .. "like hs.*, os, io, or the shell. mudscript blocked it, so the "
+                                    .. "script was quarantined and its macro did not run.",
+                            rows     = {
+                                { label = "Script", value = "ms_macros.lua" },
+                                { label = "Call", value = "hs.execute(...)" },
+                            },
+                            warning  = {
+                                "Macros run in a restricted sandbox with no access to the system, "
+                                .. "the filesystem, or the shell. A script reaching for those is "
+                                .. "either a mistake or something that should never run unchecked.",
+                                "Edit the macro to stay within the ms.* API and reload. Your other "
+                                .. "macros are unaffected.",
+                            },
+                            actions  = {
+                                { label = "Quit mudscript", action = "keepBlocked", style = "accent" },
                             },
                         }
                     end

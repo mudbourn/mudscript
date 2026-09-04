@@ -242,6 +242,7 @@ return function(ms)
             end
             if data.octaneMode ~= nil then ms._octaneMode = (data.octaneMode == true) end
             if data.octaneMuteSounds ~= nil then ms._octaneMuteSounds = (data.octaneMuteSounds == true) end
+            if data.uiTransparencyOff ~= nil then ms._uiTransparencyOff = (data.uiTransparencyOff == true) end
             if data.swallowHotkeys ~= nil then ms._swallowHotkeys = (data.swallowHotkeys == true) end
             if data.updateAlertsDisabled ~= nil then ms._updateAlertsDisabled = (data.updateAlertsDisabled == true) end
             if data.antiTimeoutEnabled ~= nil then
@@ -427,6 +428,7 @@ return function(ms)
                 uiZoom             = ms._uiZoom or 1.0,
                 octaneMode         = ms._octaneMode or false,
                 octaneMuteSounds   = ms._octaneMuteSounds or false,
+                uiTransparencyOff  = ms._uiTransparencyOff or false,
                 swallowHotkeys     = ms._swallowHotkeys or false,
                 updateAlertsDisabled = ms._updateAlertsDisabled or false,
                 macroLabEnabled    = ms._macroLabEnabled ~= false,
@@ -1760,7 +1762,7 @@ return function(ms)
                     pcall(function() ms.dev:recolor() end)
                     pcall(function() ms.shell.recolorPopouts() end)
                     if ms._macroLabEnabled and ms.shell and ms.shell.eval then
-                        ms.shell.eval("applyTheme(" .. hs.json.encode(ms._theme or {}) .. ")")
+                        ms.shell.eval("applyTheme(" .. hs.json.encode(ms.theme.effective()) .. ")")
                     else
                         ms.ui.hide()
                         hs.timer.doAfter(0.15, function() ms.ui.show() end)

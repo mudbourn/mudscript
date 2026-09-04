@@ -1,11 +1,18 @@
 (function() {
 "use strict";
 
-    // Theme-compliant on-screen keyboard for controller users. Opened by the
-    // gamepad nav layer when A is pressed on a text field; driven entirely by
-    // the controller (dpad picks a key, A presses it, B closes). It dismisses
-    // itself the moment a real keyboard or mouse is used, so it never gets in
-    // the way of someone who reaches for either.
+    // On-screen keyboard driver for controller users. Opened by the gamepad nav
+    // layer when A is pressed on a text field; driven entirely by the controller
+    // (dpad picks a key, A presses it, B closes). It dismisses itself the moment
+    // a real keyboard or mouse is used, so it never gets in the way of someone
+    // who reaches for either.
+    //
+    // The visible keys live in a separate host-owned window (ui/ms_osk.html) that
+    // can be dragged anywhere on screen, free of this window's frame. This module
+    // stays the brain: it owns the layout, the cursor, and the text edits against
+    // the focused field, and streams a serialisable board to the host — which
+    // paints it into that window and moves it on request. Everything that touches
+    // the field runs here, next to the field.
 
     var LETTERS = [
         ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
@@ -38,46 +45,23 @@
     var _symMode = false;
     function LAYOUT_() { return _symMode ? SYMBOLS : LETTERS; }
 
-    var _root = null;
-    var _keyEls = [];
+    var _open = false;
     var _r = 1, _c = 0;
     var _shift = false;
     var _target = null;
     var _openAt = 0;
-    var _freePos = null;
+    var _vcaret = null;
 
     function playSlot(slot) { if (window.playSlot) window.playSlot(slot); }
 
-    function ensureStyle() {
-        if (document.getElementById('osk-css')) return;
-        var s = document.createElement('style');
-        s.id = 'osk-css';
-        s.textContent =
-            '.osk { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%);'
-            + ' z-index: 100000; display: flex; flex-direction: column; gap: 5px; padding: 10px;'
-            + ' background: var(--surface, #1c1c1c); border: 1px solid var(--border, #333);'
-            + ' border-radius: var(--radius, 8px); box-shadow: 0 8px 30px rgba(0,0,0,0.45);'
-            + ' font-family: var(--font-mono, ui-monospace, monospace); user-select: none;'
-            + ' transform-origin: bottom center; }'
-            + '.osk-row { display: flex; gap: 5px; justify-content: center; }'
-            + '.osk-key { min-width: 34px; height: 38px; padding: 0 8px; display: flex;'
-            + ' align-items: center; justify-content: center; font-size: 15px;'
-            + ' color: var(--text2, #cfcfcf); background: var(--surface2, #262626);'
-            + ' border: 1px solid var(--border-dim, #2f2f2f); border-radius: var(--radius-s, 5px);'
-            + ' cursor: default; transition: background 0.08s, color 0.08s, box-shadow 0.08s; }'
-            + '.osk-key svg { width: 18px; height: 18px; display: block; }'
-            + '.osk-key.osk-wide { min-width: 74px; }'
-            + '.osk-key.osk-space { min-width: 200px; }'
-            + '.osk-key.osk-active { color: var(--text, #fff); background: var(--hover, #333);'
-            + ' box-shadow: inset 0 0 0 2px var(--accent-hi, var(--accent, #e0245e)); }'
-            + '.osk-key.osk-on { color: var(--bg, #111); background: var(--accent, #e0245e);'
-            + ' border-color: var(--accent, #e0245e); }'
-            + '.osk[hidden] { display: none !important; }'
-            + '.osk-hints { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: center;'
-            + ' margin-top: 3px; font-size: 11px; color: var(--text3, #888); }'
-            + '.osk-hints b { color: var(--accent, #e0245e); font-weight: 700; margin-right: 3px; }'
-            + '.osk-hints svg { width: 12px; height: 12px; vertical-align: -1px; }';
-        (document.head || document.documentElement).appendChild(s);
+    // Reach the host over whichever window this module is running in — the shell
+    // and every pop-out expose the same post helper. The host forwards a "_osk"
+    // message to the keyboard window.
+    function emit(op, extra) {
+        var payload = { op: op };
+        if (extra) { for (var k in extra) payload[k] = extra[k]; }
+        var send = window.shellDispatch || window.shellPost;
+        if (send) { try { send('_osk', 'osk', payload); } catch (e) {} }
     }
 
     // Face-button glyphs per controller type. GameController reports buttons by
@@ -97,8 +81,6 @@
         ds4:     { a: PS.cross, b: PS.circle, x: PS.square, y: PS.triangle, menu: 'Options', l1: 'L1', r1: 'R1', l2: 'L2', r2: 'R2' },
         'switch': { a: 'B', b: 'A', x: 'Y', y: 'X', menu: '+', l1: 'L', r1: 'R', l2: 'ZL', r2: 'ZR' },
     };
-    // slot → action label; the glyph is resolved from the live controller type.
-    // A label beginning with '<' is inline SVG (shift / backspace icons).
     var HINTS = [['a', 'Select'], ['b', 'Close'], ['x', BACK_SVG], ['y', 'Space'],
         ['l1', '◀'], ['r1', '▶'], ['l2', '#+='], ['r2', SHIFT_SVG], ['menu', 'Done']];
 
@@ -110,92 +92,50 @@
         return k;
     }
 
-    // Some key faces (shift, backspace) are inline SVG rather than a glyph, so
-    // render markup when the label opens with a tag and plain text otherwise.
-    function applyLabel(el, k) {
-        var lbl = keyLabel(k);
-        if (lbl.charAt(0) === '<') el.innerHTML = lbl; else el.textContent = lbl;
-    }
-
     var WIDE = { '{shift}': 1, '{back}': 1, '{enter}': 1, '{done}': 1, '{sym}': 1, '{abc}': 1 };
 
-    function build() {
-        ensureStyle();
-        _root = document.createElement('div');
-        _root.className = 'osk';
-        _keyEls = [];
+    // Serialise the current board into faces the keyboard window can paint
+    // without any keyboard knowledge of its own — plain text or inline SVG per
+    // key, plus a width class and the shift key's on-state.
+    function faceOf(k) {
+        var lbl = keyLabel(k);
+        var f = {};
+        if (lbl.charAt(0) === '<') f.svg = lbl; else f.t = lbl;
+        if (k === '{space}') f.w = 'space';
+        else if (WIDE[k]) f.w = 'wide';
+        if (k === '{shift}' && _shift) f.on = true;
+        return f;
+    }
+
+    function buildGrid() {
         var board = LAYOUT_();
+        var grid = [];
         for (var r = 0; r < board.length; r++) {
-            var rowEl = document.createElement('div');
-            rowEl.className = 'osk-row';
-            var rowKeys = [];
-            for (var c = 0; c < board[r].length; c++) {
-                var k = board[r][c];
-                var el = document.createElement('div');
-                el.className = 'osk-key';
-                if (k === '{space}') el.className += ' osk-space';
-                else if (WIDE[k]) el.className += ' osk-wide';
-                applyLabel(el, k);
-                rowEl.appendChild(el);
-                rowKeys.push(el);
-            }
-            _root.appendChild(rowEl);
-            _keyEls.push(rowKeys);
+            var row = [];
+            for (var c = 0; c < board[r].length; c++) row.push(faceOf(board[r][c]));
+            grid.push(row);
         }
-        var hints = document.createElement('div');
-        hints.className = 'osk-hints';
+        return grid;
+    }
+
+    function buildHints() {
         var g = glyphSet();
+        var out = [];
         for (var i = 0; i < HINTS.length; i++) {
-            var span = document.createElement('span');
-            var b = document.createElement('b');
-            var glyph = g[HINTS[i][0]];
-            if (glyph.charAt(0) === '<') b.innerHTML = glyph; else b.textContent = glyph;
-            span.appendChild(b);
-            var desc = HINTS[i][1];
-            if (desc.charAt(0) === '<') {
-                var dsp = document.createElement('span');
-                dsp.innerHTML = desc;
-                span.appendChild(dsp);
-            } else {
-                span.appendChild(document.createTextNode(desc));
-            }
-            hints.appendChild(span);
+            var glyph = g[HINTS[i][0]], desc = HINTS[i][1];
+            out.push({
+                glyph: glyph.charAt(0) === '<' ? { svg: glyph } : { t: glyph },
+                desc: desc.charAt(0) === '<' ? { svg: desc } : { t: desc },
+            });
         }
-        _root.appendChild(hints);
-        document.body.appendChild(_root);
+        return out;
     }
 
-    // Swap between the letter and symbol boards. They differ in shape, so the
-    // DOM is torn down and rebuilt, keeping the cursor on a sane key.
-    function rebuild() {
-        var wasHidden = _root ? _root.hidden : true;
-        if (_root && _root.parentNode) _root.parentNode.removeChild(_root);
-        _root = null;
-        build();
-        _root.hidden = wasHidden;
-        _r = 1; _c = 0;
-        paint();
-        if (!wasHidden && _target) positionAbove(_target);
+    function renderPayload() {
+        return { grid: buildGrid(), active: { r: _r, c: _c }, hints: buildHints() };
     }
 
-    function relabel() {
-        var board = LAYOUT_();
-        for (var r = 0; r < board.length; r++) {
-            for (var c = 0; c < board[r].length; c++) {
-                applyLabel(_keyEls[r][c], board[r][c]);
-                _keyEls[r][c].classList.toggle('osk-on',
-                    board[r][c] === '{shift}' && _shift);
-            }
-        }
-    }
-
-    function paint() {
-        for (var r = 0; r < _keyEls.length; r++) {
-            for (var c = 0; c < _keyEls[r].length; c++) {
-                _keyEls[r][c].classList.toggle('osk-active', r === _r && c === _c);
-            }
-        }
-    }
+    function pushRender() { if (_open) emit('render', renderPayload()); }
 
     function isTextField(el) {
         if (!el) return false;
@@ -220,6 +160,15 @@
         return ['text', 'search', 'url', 'tel', 'password'].indexOf(type) !== -1;
     }
 
+    // number / email inputs can't use the selection API, so edits there run
+    // against the whole value string. A virtual caret (_vcaret) tracks the edit
+    // point so the bumpers can walk it and inserts/deletes land there, not only
+    // at the tail. Everything else drives the native selection instead.
+    function wholeValue(el) {
+        return !el.isContentEditable
+            && !(canSelect(el) && typeof el.setRangeText === 'function');
+    }
+
     function insert(text) {
         var el = _target;
         if (!el) return;
@@ -230,7 +179,10 @@
             if (s == null) { s = e = (el.value || '').length; }
             el.setRangeText(text, s, e, 'end');
         } else {
-            el.value = (el.value || '') + text;
+            var v = el.value || '';
+            if (_vcaret == null) _vcaret = v.length;
+            el.value = v.slice(0, _vcaret) + text + v.slice(_vcaret);
+            _vcaret += text.length;
         }
         dispatchInput(el);
     }
@@ -244,7 +196,12 @@
             return;
         }
         if (!canSelect(el) || typeof el.setRangeText !== 'function') {
-            el.value = (el.value || '').slice(0, -1);
+            var v = el.value || '';
+            if (_vcaret == null) _vcaret = v.length;
+            if (_vcaret > 0) {
+                el.value = v.slice(0, _vcaret - 1) + v.slice(_vcaret);
+                _vcaret--;
+            }
             dispatchInput(el);
             return;
         }
@@ -265,7 +222,9 @@
     }
     // Switching focus away from this window (to type in another app) should
     // also dismiss it, since a webview only sees keystrokes while it is focused.
-    function onBlur() { close(); }
+    // Ignore the blur that can land as the keyboard window is brought to front
+    // just after opening, so it doesn't dismiss itself instantly.
+    function onBlur() { if (Date.now() - _openAt > 350) close(); }
 
     function addDismissListeners() {
         document.addEventListener('keydown', onRealKey, true);
@@ -280,95 +239,35 @@
         window.removeEventListener('blur', onBlur, true);
     }
 
-    // Shrink the board to fit when the host is narrower than its natural width
-    // (the widest row would otherwise spill its right-hand keys off-screen), then
-    // keep it docked at the bottom unless the field being edited sits low enough
-    // that the docked board would cover it — only then lift the board clear above
-    // the field, so a bottom-pinned field stays visible while a higher one leaves
-    // the board where it belongs. The board is position:fixed inside the zoomed
-    // shell root, so its offsetWidth/Height are already in zoomed px while
-    // innerWidth/Height and getBoundingClientRect come back physical — fold the
-    // physical values through the zoom or a magnified shell pushes it off-screen.
-    function positionAbove(el) {
-        if (!_root) return;
-        _root.style.transform = 'translateX(-50%)';
-        var zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
-        var natural = _root.offsetWidth;
-        var vw = window.innerWidth / zoom;
-        var scale = vw > 16 ? Math.min(1, (vw - 16) / natural) : 1;
-        _root.style.transform = 'translateX(-50%) scale(' + scale + ')';
-        var base = 14;
-        if (el) {
-            var r = el.getBoundingClientRect();
-            var vh = window.innerHeight / zoom;
-            var rBottom = r.bottom / zoom, rTop = r.top / zoom;
-            var h = _root.offsetHeight * scale;
-            var dockedTop = vh - base - h;
-            if (rBottom > dockedTop) {
-                var desired = (vh - rTop) + 8;
-                var maxBottom = vh - h - 8;
-                if (desired > maxBottom) desired = Math.max(base, maxBottom);
-                base = desired;
-            }
-        }
-        _root.style.bottom = base + 'px';
-    }
-
-    // Right-stick drag: lift the board out of its bottom-docked slot and move it
-    // freely, clamped to the viewport. Deltas arrive in zoomed px from the nav
-    // layer, so measure and clamp in the same zoomed space the board is laid out
-    // in (offsetWidth/Height are already zoomed; fold innerWidth/Height).
-    function nudge(dx, dy) {
-        if (!isOpen() || (!dx && !dy)) return;
-        var zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
-        var vw = window.innerWidth / zoom, vh = window.innerHeight / zoom;
-        var w = _root.offsetWidth, h = _root.offsetHeight;
-        if (!_freePos) {
-            var r = _root.getBoundingClientRect();
-            _freePos = { x: r.left / zoom, y: r.top / zoom };
-        }
-        _freePos.x = Math.max(0, Math.min(Math.max(0, vw - w), _freePos.x + dx));
-        _freePos.y = Math.max(0, Math.min(Math.max(0, vh - h), _freePos.y + dy));
-        _root.style.transform = "none";
-        _root.style.right = "auto";
-        _root.style.bottom = "auto";
-        _root.style.left = _freePos.x + "px";
-        _root.style.top = _freePos.y + "px";
-    }
-
     function open(target) {
         if (!isTextField(target)) return false;
         _target = target;
         try { target.focus({ preventScroll: true }); } catch (e) {}
+        _vcaret = wholeValue(target) ? (target.value || '').length : null;
         _shift = false;
         _symMode = false;
-        if (!_root) build(); else _root.hidden = false;
         _r = 1; _c = 0;
-        relabel();
-        paint();
-        _freePos = null;
-        _root.style.left = "";
-        _root.style.top = "";
-        _root.style.right = "";
-        positionAbove(target);
+        _open = true;
         _openAt = Date.now();
         addDismissListeners();
+        emit('open', renderPayload());
         playSlot('interact');
         return true;
     }
 
     function close() {
-        if (!_root || _root.hidden) return;
-        _root.hidden = true;
+        if (!_open) return;
+        _open = false;
         _target = null;
         removeDismissListeners();
+        emit('close');
         playSlot('back');
     }
 
-    function isOpen() { return !!(_root && !_root.hidden); }
+    function isOpen() { return _open; }
 
     function move(dir) {
-        if (!isOpen()) return;
+        if (!_open) return;
         var board = LAYOUT_();
         if (dir === 'up') _r = (_r - 1 + board.length) % board.length;
         else if (dir === 'down') _r = (_r + 1) % board.length;
@@ -377,15 +276,15 @@
         var len = board[_r].length;
         if (_c < 0) _c = len - 1;
         if (_c >= len) _c = 0;
-        paint();
+        pushRender();
         playSlot('hover');
     }
 
     function press() {
-        if (!isOpen()) return;
+        if (!_open) return;
         var k = LAYOUT_()[_r][_c];
-        if (k === '{shift}') { _shift = !_shift; relabel(); playSlot('interact'); return; }
-        if (k === '{sym}' || k === '{abc}') { _symMode = !_symMode; _shift = false; rebuild(); playSlot('interact'); return; }
+        if (k === '{shift}') { _shift = !_shift; pushRender(); playSlot('interact'); return; }
+        if (k === '{sym}' || k === '{abc}') { _symMode = !_symMode; _shift = false; _r = 1; _c = 0; pushRender(); playSlot('interact'); return; }
         if (k === '{back}') { backspace(); playSlot('interact'); return; }
         if (k === '{done}') { close(); return; }
         if (k === '{space}') { insert(' '); playSlot('interact'); return; }
@@ -395,22 +294,26 @@
             return;
         }
         insert(_shift ? (SHIFTED[k] || k.toUpperCase()) : k);
-        if (_shift) { _shift = false; relabel(); }
+        if (_shift) { _shift = false; pushRender(); }
         playSlot('interact');
     }
 
     // Direct button shortcuts driven from the nav layer (Y = space, X = ⌫).
-    function typeSpace() { if (isOpen()) { insert(' '); playSlot('interact'); } }
-    function doBackspace() { if (isOpen()) { backspace(); playSlot('interact'); } }
+    function typeSpace() { if (_open) { insert(' '); playSlot('interact'); } }
+    function doBackspace() { if (_open) { backspace(); playSlot('interact'); } }
 
     // Bumpers walk the caret through the text like the arrow keys would.
     function caret(delta) {
         var el = _target;
-        if (!isOpen() || !el) return;
+        if (!_open || !el) return;
         if (el.isContentEditable) {
             var sel = window.getSelection && window.getSelection();
             if (sel && sel.modify) sel.modify('move', delta < 0 ? 'backward' : 'forward', 'character');
-        } else if (canSelect(el) && typeof el.setSelectionRange === 'function') {
+        } else if (wholeValue(el)) {
+            var wlen = (el.value || '').length;
+            if (_vcaret == null) _vcaret = wlen;
+            _vcaret = Math.max(0, Math.min(wlen, _vcaret + delta));
+        } else if (typeof el.setSelectionRange === 'function') {
             var len = (el.value || '').length;
             var pos = el.selectionStart;
             if (pos == null) pos = len;
@@ -422,8 +325,15 @@
 
     // Triggers shift the character set: one toggles upper/shifted glyphs (like
     // holding shift), the other swaps between the letter and symbol boards.
-    function shiftToggle() { if (!isOpen()) return; _shift = !_shift; relabel(); playSlot('interact'); }
-    function symToggle() { if (!isOpen()) return; _symMode = !_symMode; _shift = false; rebuild(); playSlot('interact'); }
+    function shiftToggle() { if (!_open) return; _shift = !_shift; pushRender(); playSlot('interact'); }
+    function symToggle() { if (!_open) return; _symMode = !_symMode; _shift = false; _r = 1; _c = 0; pushRender(); playSlot('interact'); }
+
+    // Right-stick drag: ask the host to move the keyboard window by a delta. The
+    // window is free of this frame, so it can roam the whole screen.
+    function nudge(dx, dy) {
+        if (!_open || (!dx && !dy)) return;
+        emit('move', { dx: dx * 0.14, dy: -dy * 0.14 });
+    }
 
     window.MSOsk = {
         open: open, close: close, isOpen: isOpen,

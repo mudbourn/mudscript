@@ -91,7 +91,7 @@
             .osk-hints b { color: var(--accent); font-weight: 700; margin-right: 3px; }
 
             .osk-hints svg { width: 12px; height: 12px; vertical-align: -1px; }
-        // END //
+        /* END */
     </style>
 </head>
 <body>
@@ -151,6 +151,19 @@
                 }
                 _root.appendChild(hintsEl);
             }
+            fit();
+        }
+
+        // Shrink the board to fit when the window is narrower than its natural
+        // width (a wide row, or a large custom theme font, would otherwise spill
+        // its outer keys past the edge).
+        function fit() {
+            _root.style.transform = "translateX(-50%)";
+            var natural = _root.offsetWidth;
+            if (!natural) return;
+            var vw = window.innerWidth;
+            var s = vw > 16 ? Math.min(1, (vw - 16) / natural) : 1;
+            _root.style.transform = "translateX(-50%) scale(" + s + ")";
         }
 
         function show(data) {

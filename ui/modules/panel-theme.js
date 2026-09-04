@@ -440,6 +440,12 @@
         sec(root, "opacity", "Opacity",
             "How much of the game shows through each background layer",
             (body) => {
+                body.appendChild(row("Transparency",
+                    "Let the watermark and game show through. Off paints every "
+                    + "panel solid (Octane forces this off).",
+                    toggle(!(S.uiTransparencyOff ?? false), (on) =>
+                        sendToHost({ action: "setUiTransparency", value: on }))));
+
                 body.appendChild(opacityRow("bg", "Panel",
                     "The whole panel over what is behind it"));
 

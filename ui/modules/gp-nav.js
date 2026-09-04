@@ -27,6 +27,15 @@
         s.textContent = '.gp-focus { outline: 2px solid var(--text) !important;'
             + ' outline-offset: -2px; border-radius: var(--radius-s, 4px);'
             + ' box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--bg) 70%, transparent) !important; }'
+            // A slider fills its row, so ring the thumb (the grabbable dot) rather
+            // than the full-width track bar.
+            + 'input[type="range"].gp-focus { outline: none !important; box-shadow: none !important; }'
+            + 'input[type="range"].gp-focus::-webkit-slider-thumb {'
+            + ' box-shadow: 0 0 0 2px var(--text),'
+            + ' 0 0 0 5px color-mix(in srgb, var(--bg) 70%, transparent) !important; }'
+            + 'input[type="range"].gp-focus::-moz-range-thumb {'
+            + ' box-shadow: 0 0 0 2px var(--text),'
+            + ' 0 0 0 5px color-mix(in srgb, var(--bg) 70%, transparent) !important; }'
             + '.gp-grabbing { outline: 2px dashed var(--accent) !important;'
             + ' opacity: 0.85; }';
         (document.head || document.documentElement).appendChild(s);
@@ -570,8 +579,7 @@
                     }
                     break;
                 case 'popOut': if (cfg.switchWindow) cfg.switchWindow(); break;
-                case 'scroll': scrollBy(arg || 0); break;
-                case 'rstick': scrollBy(arg2 || 0); break;
+                case 'rstick': scrollBy(-(arg2 || 0) * 0.42); break;
             }
         };
     }

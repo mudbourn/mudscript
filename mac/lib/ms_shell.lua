@@ -7,8 +7,124 @@
         local _shellEvalQ    = {}
         local _shellFadeTimer = nil
         local _shellReadyWait = nil
+        local _oskView       = nil
 
         ms.shell = {}
+
+        -- On-screen keyboard window --
+            -- A standalone, screen-level webview holding just the controller
+            -- keyboard, so it can be dragged clear of the shell frame. Baked at
+            -- shell boot (hidden, alpha 0) so the first open never flashes white.
+            -- The keys are painted from a board the focused window streams over
+            -- the "_osk" message; that window keeps the cursor and the edits.
+            local function _oskTheme()
+                if _oskView and ms._theme then
+                    pcall(function()
+                        _oskView:evaluateJavaScript(
+                            "if(window.OSK)OSK.applyTheme(" .. hs.json.encode(ms.theme.effective()) .. ")")
+                    end)
+                end
+            end
+
+            ms.shell._buildOsk = function()
+                if _oskView then return end
+                require("hs.webview")
+
+                local sf = hs.screen.mainScreen():frame()
+                local w, h = 620, 320
+                _oskView = hs.webview.new({
+                    x = sf.x + math.floor((sf.w - w) / 2),
+                    y = sf.y + sf.h - h - 40,
+                    w = w,
+                    h = h,
+                })
+                pcall(function()
+                    local M = hs.webview.windowMasks or {}
+                    _oskView:windowStyle((M.borderless or 0) + (M.nonactivating or 128))
+                end)
+                pcall(function() _oskView:transparent(true) end)
+                pcall(function() _oskView:shadow(false) end)
+                pcall(function() _oskView:level((hs.canvas.windowLevels.popUpMenu or 101) + 3) end)
+                _oskView:alpha(0)
+
+                local htmlPath = hs.configdir .. "/ui/ms_osk.html"
+                local baseURL  = "file://" .. hs.configdir .. "/ui/"
+                local f = io.open(htmlPath, "r")
+                if f then
+                    local html = f:read("*all")
+                    f:close()
+                    _oskView:html(html, baseURL)
+                end
+
+                hs.timer.doAfter(0.1, _oskTheme)
+            end
+
+            ms.shell.osk = {}
+
+            ms.shell.osk.render = function(payload)
+                if not _oskView then return end
+                pcall(function()
+                    _oskView:evaluateJavaScript(
+                        "if(window.OSK)OSK.render(" .. hs.json.encode(payload) .. ")")
+                end)
+            end
+
+            ms.shell.osk.show = function(senderView, payload)
+                ms.shell._buildOsk()
+                if not _oskView then return end
+
+                local f = _oskView:frame()
+                local w, h = f.w, f.h
+                local sf = hs.screen.mainScreen():frame()
+                local x = sf.x + math.floor((sf.w - w) / 2)
+                local y = sf.y + sf.h - h - 40
+                local ok, tf = pcall(function() return senderView and senderView:frame() end)
+                if ok and tf then
+                    x = tf.x + math.floor((tf.w - w) / 2)
+                    y = tf.y + tf.h - h + 20
+                end
+                x = math.max(sf.x, math.min(sf.x + sf.w - w, x))
+                y = math.max(sf.y, math.min(sf.y + sf.h - h, y))
+                pcall(function() _oskView:frame({ x = x, y = y, w = w, h = h }) end)
+
+                pcall(function()
+                    _oskView:evaluateJavaScript(
+                        "if(window.OSK)OSK.show(" .. hs.json.encode(payload) .. ")")
+                end)
+                if ms.safeShow then ms.safeShow(_oskView) else pcall(function() _oskView:show() end) end
+                _oskView:alpha(1)
+                pcall(function() _oskView:bringToFront(true) end)
+            end
+
+            ms.shell.osk.hide = function()
+                if not _oskView then return end
+                pcall(function() _oskView:evaluateJavaScript("if(window.OSK)OSK.hide()") end)
+                _oskView:alpha(0)
+                pcall(function() _oskView:hide() end)
+            end
+
+            ms.shell.osk.move = function(dx, dy)
+                if not _oskView then return end
+                pcall(function()
+                    local f = _oskView:frame()
+                    local sf = hs.screen.mainScreen():frame()
+                    local nx = math.max(sf.x, math.min(sf.x + sf.w - f.w, f.x + (dx or 0)))
+                    local ny = math.max(sf.y, math.min(sf.y + sf.h - f.h, f.y + (dy or 0)))
+                    _oskView:frame({ x = nx, y = ny, w = f.w, h = f.h })
+                end)
+            end
+
+            ms.shell.osk._recv = function(body, senderView)
+                if type(body) ~= "table" or not body.op then return end
+                local op = body.op
+                if op == "open" then ms.shell.osk.show(senderView, body)
+                elseif op == "render" then ms.shell.osk.render(body)
+                elseif op == "close" then ms.shell.osk.hide()
+                elseif op == "move" then ms.shell.osk.move(body.dx, body.dy) end
+            end
+
+            ms.shell.osk._retheme = _oskTheme
+        -- END --
 
         -- Bring the shell out of its "js husk" state: flush any JS queued while the
         -- bridge was still coming up, then push the host-owned content (settings and
@@ -175,6 +291,13 @@
                     local panel  = data.panel  or "_shell"
                     local action = data.action or "unknown"
                     local body   = data.body
+
+                    if action == "osk" then
+                        if ms.shell.osk and ms.shell.osk._recv then
+                            ms.shell.osk._recv(body, _shellView)
+                        end
+                        return
+                    end
 
                     if panel == "_shell" and action == "jsError" then
                         local b = body or {}
@@ -521,9 +644,11 @@
                 end
                 pcall(function() _shellView:shadow(true) end)
 
+                ms.shell._buildOsk()
+
                 hs.timer.doAfter(0.05, function()
                     if not _shellView then return end
-                    local themeJson = hs.json.encode(ms._theme or {})
+                    local themeJson = hs.json.encode(ms.theme.effective())
                     _shellView:evaluateJavaScript("applyTheme(" .. themeJson .. ")")
                 end)
 
@@ -702,6 +827,7 @@
         -- hide --
             ms.shell.hide = function()
                 print("[shell] TRACE hide() ENTER visible=" .. tostring(ms._shellState and ms._shellState.visible))
+                pcall(function() ms.shell.osk.hide() end)
                 if _shellView then
                     if _shellFadeTimer then
                         _shellFadeTimer:stop()
@@ -915,8 +1041,8 @@
                             n.rsActive = true
                             n.rsTimer = hs.timer.doEvery(0.05, function()
                                 _gpEval("rstick",
-                                    math.floor((n.rsX or 0) * 14),
-                                    math.floor(-(n.rsY or 0) * 42))
+                                    math.floor((n.rsX or 0) * 100),
+                                    math.floor((n.rsY or 0) * 100))
                             end)
                         elseif not active and n.rsActive then
                             n.rsActive = false
@@ -1096,6 +1222,10 @@
                     ms._shellResizeTap = nil
                 end
                 ms._shellDragging = false
+                if _oskView then
+                    pcall(function() _oskView:delete() end)
+                    _oskView = nil
+                end
                 if _shellView then
                     pcall(function() _shellView:delete() end)
                     _shellView = nil
@@ -1125,7 +1255,7 @@
         -- changes and zoom changes must be pushed to them here too. Called
         -- from applyZoom above (via ms.shell) and from the theme-change sites.
         ms.shell.recolorPopouts = function()
-            local themeJson = hs.json.encode(ms._theme or {})
+            local themeJson = hs.json.encode(ms.theme.effective())
             for _, pop in pairs(_popouts) do
                 if pop and pop.view then
                     pcall(function()
@@ -1460,6 +1590,7 @@
             ms.loadTheme = function()
                 _origLoadTheme()
                 pcall(ms.shell.bakePopOuts)
+                pcall(ms.shell.osk._retheme)
             end
         end
 
@@ -1510,6 +1641,12 @@
                     local body   = data.body or data
                     if action == "playSlot" and body and body.slot then
                         pcall(function() ms.playSlot(body.slot) end)
+                        return
+                    end
+                    if action == "osk" then
+                        if ms.shell.osk and ms.shell.osk._recv then
+                            ms.shell.osk._recv(body, popView)
+                        end
                         return
                     end
                     if action == "close" then
@@ -1756,7 +1893,7 @@
 
                 hs.timer.doAfter(0.5, function()
                     if not popView then return end
-                    local themeJson = hs.json.encode(ms._theme or {})
+                    local themeJson = hs.json.encode(ms.theme.effective())
                     pcall(function() popView:evaluateJavaScript("applyTheme(" .. themeJson .. ")") end)
                     -- Inherit the current UI zoom, same as the dev panels do.
                     local z = ms._uiZoom or 1.0

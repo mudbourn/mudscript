@@ -1591,6 +1591,7 @@
                         { value: "integrity", label: "Integrity Error" },
                         { value: "unknownPlugin", label: "Unrecognized Plugin" },
                         { value: "noLedger", label: "Plugins Not Verified" },
+                        { value: "sandbox", label: "Sandbox Violation" },
                     ];
                     let fakeErrKind = "integrity";
                     const mkSel =

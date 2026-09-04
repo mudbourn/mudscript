@@ -889,8 +889,8 @@
                 ms._toolIndex        = {}
                 ms._themeDefaults = {
                     bg       = "#0d0f09",
-                    surface  = "#141810",
-                    surface2 = "#1c2116",
+                    surface  = "#141810cc",
+                    surface2 = "#1c2116cc",
                     hover    = "#2d3523",
                     accent   = "#6b8c3a",
                     accentHi = "#8db84e",
@@ -921,6 +921,7 @@
                     local r = (ms._theme and (ms._theme.windowRadius or ms._theme.radius))
                         or (ms._themeDefaults and (ms._themeDefaults.windowRadius or ms._themeDefaults.radius))
                         or 0
+                    if ms._octaneMode then r = 0 end
                     if r > 0 then
                         pcall(function() panel:transparent(true) end)
                         pcall(function() panel:shadow(false) end)
@@ -943,6 +944,49 @@
                     end)
                 end
             -- END Window Radius Helper --
+
+            -- Effective theme [ms.theme] --
+                -- Panel translucency is the alpha byte on surface/surface2 (it
+                -- reveals the watermark behind the panels). Octane and the
+                -- Appearance transparency toggle force those flat opaque, so the
+                -- compositor has no per-pixel blending to do. Every window is
+                -- painted from this, not ms._theme directly.
+                ms.theme.effective = function()
+                    local t = {}
+                    for k, v in pairs(ms._theme or {}) do t[k] = v end
+                    if ms._uiTransparencyOff or ms._octaneMode then
+                        local function opaque(hx)
+                            if type(hx) ~= "string" then return hx end
+                            local six = hx:match("^(#%x%x%x%x%x%x)%x%x$")
+                            if six then return six end
+                            local three = hx:match("^(#%x%x%x)%x$")
+                            if three then return three end
+                            return hx
+                        end
+                        t.bg = opaque(t.bg)
+                        t.surface = opaque(t.surface)
+                        t.surface2 = opaque(t.surface2)
+                        t.hover = opaque(t.hover)
+                    end
+                    return t
+                end
+
+                -- Re-push the effective theme and window radius to every live
+                -- window. Called when something that changes the effective look
+                -- but not ms._theme flips — the transparency toggle or octane.
+                ms.theme.repaint = function()
+                    if ms._macroLabEnabled and ms.shell and ms.shell.eval then
+                        pcall(function()
+                            ms.shell.eval("applyTheme(" .. hs.json.encode(ms.theme.effective()) .. ")")
+                        end)
+                    end
+                    if ms.shell then
+                        if ms.shell.recolorPopouts then pcall(ms.shell.recolorPopouts) end
+                        if ms.shell.osk and ms.shell.osk._retheme then pcall(ms.shell.osk._retheme) end
+                        if ms.shell.applyWindowRadius then pcall(ms.shell.applyWindowRadius) end
+                    end
+                end
+            -- END Effective theme --
 
                 require("hs.eventtap")
                 require("hs.mouse")
@@ -2514,6 +2558,7 @@
                 if ms.devtools and ms.devtools.setWinElementInspect then
                     pcall(function() ms.devtools:setWinElementInspect(false) end)
                 end
+                if ms.theme and ms.theme.repaint then pcall(ms.theme.repaint) end
             end
             ms.octane._remove = function()
                 if ms.dev and ms.dev.log and ms.dev.log.resumeAll then
@@ -2525,6 +2570,7 @@
                 if ms._menuVisible and ms._menuHoverStart then
                     pcall(ms._menuHoverStart)
                 end
+                if ms.theme and ms.theme.repaint then pcall(ms.theme.repaint) end
             end
 
             ms._hotkeys = {
