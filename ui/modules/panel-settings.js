@@ -2758,6 +2758,7 @@
                     type: "text", cls: "input-sm", placeholder: "My Function",
                 });
                 const coroToggle = toggle(false, () => {});
+                coroToggle.tabIndex = 0;
                 const nameControls = h("div", {});
                 nameControls.style.cssText =
                     "display:flex;align-items:center;gap:8px;flex:2;min-width:0;";

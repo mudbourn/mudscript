@@ -3134,7 +3134,7 @@
         this._applySelectionClasses();
         this._emitSelection();
         this._fireChange();
-        return true;
+        return newIds[newIds.length - 1];
     };
 
     /* -- Macro Management State -- */

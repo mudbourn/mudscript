@@ -207,6 +207,19 @@
         // beside it, not the log line sitting just above. Only when nothing lines
         // up does it fall back to the weighted-diagonal score, which still allows
         // a fall-through (e.g. Down from a toolbar reaching the content below).
+        function reanchor() {
+            if (!gpFocusEl || document.contains(gpFocusEl)) return;
+            var sid = gpFocusEl.getAttribute && gpFocusEl.getAttribute('data-sid');
+            if (!sid) return;
+            var sc = activeOverlay() || scope();
+            var fresh = sc && sc.querySelector('.tool-block[data-sid="' + sid + '"]');
+            if (!fresh) return;
+            gpFocusEl.classList.remove('gp-focus');
+            gpFocusEl = fresh;
+            fresh.classList.add('gp-focus');
+            if (!gpInTopbar) gpLastFocus[panelKey()] = fresh;
+        }
+
         function move(dir) {
             var list = gpInTopbar ? topbarItems() : focusables();
             if (!list.length) { setFocus(null); return; }
@@ -394,11 +407,18 @@
         }
         function xDouble() {
             var canvas = toolCanvas();
-            if (canvas && canvas.gpDuplicateSelection && canvas.gpDuplicateSelection()) {
-                sound('interact');
-            } else if (inLogPanel()) {
-                synthCtrlKey('a');
+            if (canvas && canvas.gpDuplicateSelection) {
+                var blk = toolBlock(gpFocusEl);
+                if (blk && !blk.classList.contains('selected')) ctrlClick(blk);
+                var sid = canvas.gpDuplicateSelection();
+                if (sid) {
+                    sound('interact');
+                    var fresh = canvas.querySelector('.tool-block[data-sid="' + sid + '"]');
+                    if (fresh) setFocus(fresh);
+                    return;
+                }
             }
+            if (inLogPanel()) synthCtrlKey('a');
         }
 
         function ctrlClick(el) {
@@ -525,6 +545,7 @@
                     default: return;
                 }
             }
+            reanchor();
             switch (cmd) {
                 case 'panelPrev': if (cfg.switchPanel) cfg.switchPanel(-1); break;
                 case 'panelNext': if (cfg.switchPanel) cfg.switchPanel(1); break;
