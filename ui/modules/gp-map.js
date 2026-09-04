@@ -219,14 +219,18 @@
         var grid = el("div", "gp-map-grid");
         entries.forEach(function(entry) {
             var item = el("div", "gp-map-item");
-            item.appendChild(badgeNode(entry.badge, g, L));
+            var badge = badgeNode(entry.badge, g, L);
+            item.appendChild(badge);
 
             var txt = el("div", "gp-map-txt");
-            var ti = el("div", "gp-map-title");
-            ti.textContent = entry.title(L);
+            var title = entry.title(L);
+            if (title.replace(/\s+/g, "") !== badge.textContent.replace(/\s+/g, "")) {
+                var ti = el("div", "gp-map-title");
+                ti.textContent = title;
+                txt.appendChild(ti);
+            }
             var de = el("div", "gp-map-desc");
             de.textContent = entry.desc;
-            txt.appendChild(ti);
             txt.appendChild(de);
             item.appendChild(txt);
 
@@ -304,6 +308,7 @@
 
         renderTab(overlay._body, TABS[idx], g, L);
         overlay._body.scrollTop = 0;
+        if (window.gpSetFocus && btns[idx]) window.gpSetFocus(btns[idx]);
     }
 
     window.openGamepadMap = function(type) {

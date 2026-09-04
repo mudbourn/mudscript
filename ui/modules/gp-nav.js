@@ -318,6 +318,11 @@
             setFocus(null);
         };
 
+        // Let an overlay (e.g. the controller map) hand the controller a fresh
+        // focus target so the highlight lands inside it the moment it opens,
+        // rather than stranding it on the button that launched the overlay.
+        window.gpSetFocus = function(el) { setFocus(el || null); };
+
         function osk() { return window.MSOsk && window.MSOsk.isOpen() ? window.MSOsk : null; }
 
         // An open custom dropdown (ui-select) owns the controller the same way the

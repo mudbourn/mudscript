@@ -2452,8 +2452,8 @@ return function(ms)
                             titlebar = "mudscript :// Sandbox Violation",
                             height   = 430,
                             title    = "Blocked an unsafe call",
-                            lead     = "A macro script reached outside the macro sandbox — a call "
-                                    .. "like hs.*, os, io, or the shell. mudscript blocked it, so the "
+                            lead     = "A macro script reached outside the macro sandbox, with a call "
+                                    .. "like hs.*, os.*, io.* or the shell. mudscript blocked it, so the "
                                     .. "script was quarantined and its macro did not run.",
                             rows     = {
                                 { label = "Script", value = "ms_macros.lua" },

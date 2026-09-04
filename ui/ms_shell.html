@@ -2102,8 +2102,8 @@
             closeRoot: function() { shellDispatch('_shell', 'close', {}); },
             announce: function(text) { shellDispatch('_shell', 'announce', { text: text }); },
             toggleRail: function() {
-                document.body.classList.toggle('rail-collapsed');
-                shellDispatch('_shell', 'playSlot', { slot: 'interact' });
+                if (window._shellToggleRail) window._shellToggleRail();
+                else document.body.classList.toggle('rail-collapsed');
             },
             switchWindow: function() {
                 if (typeof popOutPanel === 'function') popOutPanel(currentPanel);
@@ -2326,6 +2326,10 @@
             persistCollapsed(false);
             shellDispatch('_shell', 'playSlot', { slot: 'interact' });
         }
+        window._shellToggleRail = function() {
+            if (body.classList.contains('rail-collapsed')) expand();
+            else collapse();
+        };
 
         divider.addEventListener('mouseenter', function() {
             shellDispatch('_shell', 'playSlot', { slot: 'hover' });
