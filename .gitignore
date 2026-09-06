@@ -13,15 +13,3 @@ ignore/
 
 # Key files
 *.pem
-
-# Compiled AHK binary
-*.exe
-*.exe.manifest
-
-# Rust build artifacts
-mac/bin/hidinject-rs/target/
-docs/function-index.md
-docs/icon-requirements.md
-ui/_build_shell_v2.py
-ui/_build_shell.py
-mac/ms_core_pre_pivot.lua.bak
