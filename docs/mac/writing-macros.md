@@ -98,35 +98,46 @@ ms.bind.define("spawnAlt", SpawnAltFunction, {
 
 ## Sub-item System
 
-Sub-items let a single root bind dispatch to different variants depending on which modifier key is held at fire time.
+A sub-item is its own bind that shares a root bind's trigger and is selected by the modifier keys held at fire time. Each variant carries its own function. A sub-item is declared by pointing its `default.type` at the parent bind's id instead of at `"key"` or `"mouse"`, with `default.mods` naming the modifiers that select it. The bind system fires the sibling whose modifiers are all held, and the bare parent when none are.
+
+The `{ sub = ..., mod = ... }` shorthand is gone. `ms.bind.define` now raises an error if it sees `sub` or `mod`.
 
 ### Defining sub-items
 
-> **Registration order matters.** `ms.bind.define` asserts that a sub-item's parent already exists in the registry. Always define the root bind before any sub-items. Sub-items of sub-items (two levels deep) work the same way.
->
-> **LuaJIT upvalue note.** When a closure references a local function that is declared *after* the closure in the same chunk loaded via `setfenv`, LuaJIT can miscompile the reference as a global lookup instead of an upvalue. If a function `F` is defined on line 155 and a closure on line 140 tries to call `F()`, `F` will be `nil` at call time. The robust workaround is to look up `F` through `ms.bind._wires["id"]` at call time, a table field access is never affected by this issue.
+> **Registration order matters.** `ms.bind.define` asserts that a sub-item's parent already exists in the registry. Always define the root bind before any sub-items. Sub-items of sub-items (two levels deep) work the same way, a sub-item just names another sub-item as its `default.type`.
 
 ```lua
--- Root bind must be defined before any sub-items that reference it.
--- For cross-references to functions defined later in the file, look them up
--- via ms.bind._wires at call time rather than capturing them as closure upvalues.
--- LuaJIT setfenv chunks can miscompile upvalue references across certain distances
--- as globals; _wires is a table access and is not subject to that issue.
-ms.bind.define("superJump", function()
-    if ms.modHeld("superThrow") then
-        local fn = ms.bind._wires.superThrow   -- safe late-binding lookup
-        if fn then fn() end
-    else HighLeapAssistFunction() end
-end, { group="main", label="High Leap Assist", default={type="mouse", button=3} })
+-- Root bind
+ms.bind.define("superJump", HighLeapAssistFunction, {
+    group   = "main",
+    label   = "High Leap Assist",
+    default = { type = "mouse", button = 3 },
+})
 
--- Sub-items, fire when parent fires and their mod key is held.
--- These must be registered AFTER the parent ("superJump") because ms.bind.define
--- asserts that the parent id already exists in the registry.
-ms.bind.define("superThrow", ThrowTrickFunction,     { sub="superJump",  label="Throw Trick", mod="alt" })
-ms.bind.define("throwLow",   ThrowTrickFunction,     { sub="superThrow", label="Throw Low",   mod="v"   })
-ms.bind.define("jumpHigh",   HighLeapAssistFunction, { sub="superJump",  label="Jump High",   mod="v"   })
-ms.bind.define("jumpLow",    HighLeapAssistFunction, { sub="superJump",  label="Jump Low",    mod="x"   })
+-- Sub-items, selected by the modifier held when the root trigger fires
+ms.bind.define("superThrow", ThrowTrickFunction, {
+    label   = "Throw Trick",
+    default = { type = "superJump", mods = {"alt"} },
+})
+
+ms.bind.define("jumpHigh", HighJumpFunction, {
+    label   = "Jump High",
+    default = { type = "superJump", mods = {"v"} },
+})
+
+ms.bind.define("jumpLow", LowJumpFunction, {
+    label   = "Jump Low",
+    default = { type = "superJump", mods = {"x"} },
+})
+
+-- A sub-item of a sub-item
+ms.bind.define("throwLow", ThrowLowFunction, {
+    label   = "Throw Low",
+    default = { type = "superThrow", mods = {"v"} },
+})
 ```
+
+> **LuaJIT upvalue note.** When a closure references a local function declared *after* it in the same chunk loaded via `setfenv`, LuaJIT can miscompile the reference as a global lookup instead of an upvalue, leaving it `nil` at call time. Look the function up through `ms.bind._wires["id"]` at call time instead, a table field access is never affected.
 
 ### Independent binds
 

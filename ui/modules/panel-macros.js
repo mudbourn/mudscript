@@ -1218,7 +1218,7 @@
                 t.source === "builder" ? "Authored here" : "Declared in the pack");
             if (t.type === "slider") {
                 html += toolMetaRow("Range", (t.min != null ? t.min : "?")
-                    + " – " + (t.max != null ? t.max : "?")
+                    + " - " + (t.max != null ? t.max : "?")
                     + (t.step ? " (step " + t.step + ")" : ""));
             }
             if (t.type === "seg" && t.options) {

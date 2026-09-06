@@ -133,16 +133,7 @@ Starts or stops the SOCD listener based on `ms.socdEnabled`. Call this after cha
 
 ## Trackpad / Pen Mode
 
-When enabled, re-routes root macro binds through `ms.trackpadBindOverrides` instead of their normal `default` bind. The default overrides move `superJump` from mouse button 3 to a keyboard key.
-
-```lua
--- Defined at the top of ms_core.lua; edit to change trackpad bind overrides:
-ms.trackpadBindOverrides = {
-    superJump = {type="key", mods={}, key="k"},
-}
-```
-
-The trackpad hold listeners (`ms._trackpadLeftListener`, `ms._trackpadRightListener`) simulate a held left or right mouse button while their configured key is held. Hold keys are set via Settings > Trackpad Hold Keys. Defaults are `n` (left) and `j` (right).
+Trackpad / Pen Mode lets a keyboard key stand in for a held mouse button, for setups without a physical mouse. Toggling `ms.trackpadMode` starts or stops the two trackpad hold listeners (`ms._trackpadLeftListener`, `ms._trackpadRightListener`), which simulate a held left or right mouse button while their configured key is held. Hold keys are set via Settings > Trackpad Hold Keys. Defaults are `n` (left) and `j` (right).
 
 ---
 

@@ -3382,7 +3382,7 @@
                         ms._missingSoundsSig = sig
                         local msg = missing .. " assigned sound"
                             .. (missing == 1 and "" or "s")
-                            .. " could not be found — active sound folder may be "
+                            .. " could not be found. Active sound folder may be "
                             .. "empty or misplaced (" .. SoundActiveDir
                             .. "). Falling back to defaults."
                         print("ms.sound: " .. msg)

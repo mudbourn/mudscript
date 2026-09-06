@@ -2450,7 +2450,7 @@ return function(ms)
                 local stub = io.open(macrosPath, "w")
                 if stub then
                     stub:write(
-                        "-- New profile — add your macros below.\n"
+                        "-- New profile. Add your macros below.\n"
                         .. "ms.macroMeta = { name = \"" .. targetName .. "\", author = \"\" }\n"
                     )
                     stub:close()
@@ -2795,7 +2795,7 @@ return function(ms)
             local blankSrc = (ms.package and ms.package.blankMacroSrc
                 and ms.package.blankMacroSrc(folderName))
                 or table.concat({
-                    "-- New profile — add your macros below.",
+                    "-- New profile. Add your macros below.",
                     "ms.macroMeta = {",
                     "    name   = \"" .. folderName .. "\",",
                     "    author = \"\",",
