@@ -17,3 +17,5 @@ ignore/
 /*.log
 /*.txt
 /*.md
+!README.md
+!docs/*.md
