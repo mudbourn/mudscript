@@ -193,11 +193,14 @@ My position:
 
 ## Documentation
 
+The documentation site (`docs/index.html`) presents everything below as browsable pages with search. The source markdown:
+
 - **[Is mudscript safe?](docs/TRUST.md)**: a plain-language look at what mudscript does and does not do
-- **[macOS API Reference](docs/DOCS_MAC.md)**: every `ms.*` function documented
-- **[Windows API Reference](docs/DOCS_WINDOWS.md)**: Windows-specific API
+- **[macOS API Reference](docs/mac/)**: every `ms.*` function documented, split by topic
 - **[Key Codes](docs/KEY_CODES.md)**: key name reference for binds and captures
 - **[Architecture](docs/ARCHITECTURE.md)**: technical details, directory layout, security model
+
+The Windows API reference is in progress.
 
 ---
 

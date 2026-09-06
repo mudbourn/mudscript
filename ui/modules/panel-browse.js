@@ -123,8 +123,8 @@
 
         const id = h("div", { cls: "browse-card-id" },
             name,
-            h("div", { cls: "browse-meta", title: bits.join("  ·  ") },
-                bits.join("  ·  ")),
+            h("div", { cls: "browse-meta", title: bits.join("  -  ") },
+                bits.join("  -  ")),
         );
         card.appendChild(h("div", { cls: "browse-card-top" }, id));
 

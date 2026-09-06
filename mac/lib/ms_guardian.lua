@@ -26,28 +26,12 @@ YQIDAQAB
 -- END Paths --
 
 -- Helpers --
-    -- Cross-platform shell plumbing. mac/ shells out for hashing and signature
-    -- verification, but those command strings assumed macOS tools -- `shasum`,
-    -- `base64 -D -i/-o`, `jq` -- that are absent or unreachable on Windows, so the
-    -- whole Guardian silently no-op'd there (every hash returned nil -> "error" ->
-    -- skipped, never blocking). These helpers make the SAME checks run on either
-    -- OS. Three portability points below: path form, hash tool, and base64/jq.
-
-    -- (1) Path form. coreutils `sha256sum` ESCAPES any filename containing a
-    -- backslash: it prefixes the whole output line with '\' and doubles the inner
-    -- backslashes, which shifts the hash column and breaks parsing. On Windows HOME
-    -- is a native path (e.g. C:\srv\...\..) so every path handed to a shell tool
-    -- must be forward-slashed first. On mac paths carry no backslashes -> no-op.
+    -- Forward-slash and shell-quote a path so coreutils tools never escape it
     local function _shq(p)
         return "'" .. tostring(p):gsub("\\", "/"):gsub("'", "'\\''") .. "'"
     end
 
-    -- (2) Hash tool. macOS ships `shasum` (perl) but not `sha256sum`; git-for-
-    -- Windows ships `sha256sum` (coreutils) while its `shasum` (core_perl) is off
-    -- the runtime sh PATH -- the "shasum: command not found" flood. Probe once for
-    -- whichever exists; both print `<64hex>  <path>` over identical bytes, so a
-    -- manifest seeded by shasum (mac) or Get-FileHash (Windows deploy) matches
-    -- either. shasum first keeps mac byte-for-byte identical to before.
+    -- Probe once for whichever hash tool exists, preferring shasum
     local _hashCmd
     local function _hashTool()
         if _hashCmd ~= nil then return _hashCmd end
@@ -79,8 +63,7 @@ YQIDAQAB
         if not paths or #paths == 0 then return out end
         local tool = _hashTool()
         if not tool then return out end
-        -- Map the forward-slashed form we pass (and that the tool echoes back) to
-        -- the ORIGINAL path, so callers keep looking up hashed[absPath] unchanged.
+        -- Map the forward-slashed form back to the original path for lookups
         local norm2orig, quoted = {}, {}
         for i = 1, #paths do
             norm2orig[tostring(paths[i]):gsub("\\", "/")] = paths[i]
@@ -89,22 +72,17 @@ YQIDAQAB
         local res = hs.execute(tool .. " " .. table.concat(quoted, " ") .. " 2>/dev/null")
         if not res then return out end
         for line in res:gmatch("[^\n]+") do
-            line = line:gsub("^\\", "")                       -- drop escape prefix
+            line = line:gsub("^\\", "")
             local hash, path = line:match("^(%x+)%s+%*?(.+)$")
             if hash and #hash >= 64 and path then
-                path = path:gsub("\\\\", "/"):gsub("\\", "/") -- unescape / normalise
+                path = path:gsub("\\\\", "/"):gsub("\\", "/")
                 out[norm2orig[path] or path] = hash:sub(1, 64):lower()
             end
         end
         return out
     end
 
-    -- (3b) Canonical JSON identical to `jq -c -S` byte-for-byte (keys sorted by
-    -- codepoint, no insignificant whitespace, slashes unescaped, integers without
-    -- a decimal point, UTF-8 passed through). Replaces the `jq -c -S` shell-out in
-    -- the file-manifest signature check -- jq is absent on Windows and off the sh
-    -- PATH on macOS. Lifted from ms_registry.lua, which verifies live signatures
-    -- with these exact bytes.
+    -- Canonical JSON identical to `jq -c -S` byte-for-byte
     local function _canonEscape(s)
         return (s:gsub('[%z\1-\31\\"]', function(c)
             local b = string.byte(c)
@@ -147,21 +125,17 @@ YQIDAQAB
         return "null"
     end
 
-    -- Ensure the data dir via the POSIX shell (os.execute would hit cmd.exe on
-    -- Windows and fail on `mkdir -p`). Cheap and idempotent; the dir normally
-    -- exists already.
+    -- Ensure the data dir via the POSIX shell
     local function _ensureDataDir()
         hs.execute("mkdir -p " .. _shq(_dataPath))
     end
 
-    -- Decode a base64 blob with openssl (identical flags on every platform),
-    -- replacing `base64 -D -i/-o` whose decode flags are macOS-only. Writes bare
-    -- \n via "wb": on Windows text-mode "w" would CRLF-rewrite the signed message
-    -- and every verify would fail (the same bug fixed in the registry client).
+    -- Write bare bytes, keeping \n unrewritten on every platform
     local function _writeBin(path, body)
         local f = io.open(path, "wb")
         if not f then return false end
-        f:write(body); f:close()
+        f:write(body)
+        f:close()
         return true
     end
     local function _b64decode(b64Path, outPath)
@@ -363,8 +337,7 @@ YQIDAQAB
             generated = fm.generated,
             files     = fm.files,
         }
-        -- Canonicalise in pure Lua (jq -c -S equivalent) instead of shelling out
-        -- to jq, which is absent on Windows and off Hammerspoon's PATH on macOS.
+        -- Canonicalise in pure Lua (jq -c -S equivalent)
         local okEnc, minified = pcall(_canonJSON, signPayload)
         if not okEnc or type(minified) ~= "string" or minified == "" then
             return false
@@ -428,10 +401,7 @@ YQIDAQAB
     local function _hashSpoonTree(absDir)
         local tool = _hashTool()
         if not tool then return nil end
-        -- find emits './relpath' (forward-slash, no backslash) so the per-file
-        -- hashes never trip coreutils escaping; only the cd target needs
-        -- forward-slashing (Windows HOME is a native path). Tool substituted for
-        -- the mac-only `shasum`.
+        -- find emits './relpath' so per-file hashes never trip coreutils escaping
         local out, ok = hs.execute(
             "cd " .. _shq(absDir) .. " && find . -type f ! -name '.DS_Store' " ..
             "! -name '._*' ! -path './__MACOSX/*' " ..
@@ -614,11 +584,7 @@ YQIDAQAB
 
             if onProgress then pcall(onProgress, "Downloading signed bundle...") end
 
-            -- Download the bundle with curl, NOT hs.http.asyncGet: asyncGet
-            -- returns the body through a lossy NSData->string conversion that
-            -- corrupts non-UTF8 bytes, so the .zip came out unextractable and
-            -- the update silently failed at unzip. curl writes exact bytes; -L
-            -- follows the release-asset redirect; args are an array (no shell).
+            -- Download with curl, which writes exact bytes unlike hs.http.asyncGet
             local tmpArchive = _archivePath .. "ms_bundle_update.zip"
             local _dlTask = hs.task.new("/usr/bin/curl", function(fCode)
                 if fCode ~= 0 then
@@ -776,7 +742,8 @@ YQIDAQAB
         end)
 
         local _guardianView = nil
-        local _guardianPos   = nil -- tracked in Lua, not read back from frame(), to survive drag
+        -- Tracked in Lua, not read back from frame(), to survive drag
+        local _guardianPos   = nil
 
         local _ucGuardian = hs.webview.usercontent.new("guardian")
 
@@ -797,9 +764,7 @@ YQIDAQAB
                 end)
 
             elseif body == "revealSpoons" then
-                -- Reveal the folder in the OS file manager. `/usr/bin/open` is
-                -- macOS-only; on Windows use explorer via the native shell (this
-                -- one call bypasses the POSIX-sh routing with with_shell=false).
+                -- Reveal the folder in the OS file manager
                 if package.config:sub(1, 1) == "\\" then
                     os.execute('explorer "' .. _spoonsDir:gsub("/", "\\") .. '"')
                 else
@@ -807,7 +772,8 @@ YQIDAQAB
                 end
 
             else
-                local ok, data = pcall(hs.json.decode, body) -- JSON move delta from the drag handler
+                -- JSON move delta from the drag handler
+                local ok, data = pcall(hs.json.decode, body)
 
                 if ok and data and data.action == "repair" then
                     _repairViaUpdate(
@@ -935,8 +901,7 @@ YQIDAQAB
                             _fadeStep = _fadeStep + 1
                             local _a = math.min(_fadeStep / _fadeSteps, 1.0)
                             pcall(function() _guardianView:alpha(_a) end)
-                            -- doEvery's callback receives no timer arg (Hammerspoon
-                            -- parity), so stop via the captured handle, not a param.
+                            -- Stop via the captured handle; doEvery passes no timer arg
                             if _a >= 1.0 and _fadeTimer then _fadeTimer:stop() end
                         end)
                     end

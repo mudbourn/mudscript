@@ -40,10 +40,7 @@ return function(ms)
         local visualLuaPath   = os.getenv("HOME") .. "/.hammerspoon/data/ms_macros_visual.lua"
         local helperVarsPath  = os.getenv("HOME") .. "/.hammerspoon/data/ms_helpervars.json"
 
-        -- Builder content that belongs to a profile beyond ms_macros.lua: the
-        -- visual macro source + its compiled output, authored tools, and helper
-        -- vars. Each rides with the profile like ms_theme.json — otherwise it
-        -- lives in the global data/ dir and leaks across every profile.
+        -- Builder content that rides with a profile beyond ms_macros.lua
         local function profileContentFiles()
             return {
                 { live = visualJsonPath, name = "ms_macros_visual.json" },
@@ -69,9 +66,7 @@ return function(ms)
                 type="scroll",
                 direction=dir,
             } end
-            -- gamepad:<btn> for a single button, or gamepad:<b1>+<b2>+... for a
-            -- chord. Single binds keep the legacy {button=} shape; chords use
-            -- {buttons={}} so older single-button configs round-trip unchanged.
+            -- Parse gamepad single button or a chord
             local gp = str:match("^gamepad:([%w+]+)$")
             if gp then
                 local list = {}
@@ -262,18 +257,7 @@ return function(ms)
                     if entry.enabled ~= nil then
                         ms.binds[id] = entry.enabled
                     end
-                    -- Load a stored bind regardless of whether the macro is
-                    -- registered right now. The old `def and ...` gate dropped
-                    -- the bind for any macro not in the registry at load time —
-                    -- which, for a VISUAL macro (whose bind lives ONLY here in
-                    -- settings, never as a define() default), meant a load run
-                    -- while ms_macros_visual.json was mid-hotswap or its compile
-                    -- transiently failed would strip the bind from bindConfig,
-                    -- and the next saveSettings would then erase it from disk for
-                    -- good. Round-tripping the raw bind keeps it alive across
-                    -- such windows; an orphan entry is harmless (rebind iterates
-                    -- the registry, save just writes it back) and is cleaned up
-                    -- properly when the macro is actually deleted.
+                    -- Load a stored bind regardless of registry membership
                     if type(entry.bind) == "table" and entry.bind.type then
                         ms.bindConfig[id] = entry.bind
                     end
@@ -294,7 +278,6 @@ return function(ms)
                     end
                 end
             end
-            if data.macroLabEnabled ~= nil then ms._macroLabEnabled = (data.macroLabEnabled == true) end
             if data.shell and type(data.shell) == "table" then
                 ms._shellState = ms._shellState or {}
                 local s = data.shell
@@ -303,14 +286,7 @@ return function(ms)
                 if s.w ~= nil then ms._shellState.w = tonumber(s.w) end
                 if s.h ~= nil then ms._shellState.h = tonumber(s.h) end
                 if s.lastPanel ~= nil then ms._shellState.lastPanel = tostring(s.lastPanel) end
-                -- Shell visibility: force hidden on a COLD boot (the loading
-                -- screen owns the screen then, and the shell starts closed).
-                -- Only during a live hotswap (profile switch / pack activate,
-                -- flagged by _quickReloading) do we preserve the shell's REAL
-                -- on-screen state — otherwise the toggle forgets it is open and
-                -- replays the open sequence on the next Alt+P. Calling
-                -- ms.shell.isVisible() at boot also perturbed the loading
-                -- choreography, so it must stay out of the cold-boot path.
+                -- Force shell hidden on cold boot, preserve real state on hotswap
                 if ms._quickReloading then
                     ms._shellState.visible =
                         (ms.shell and ms.shell.isVisible and ms.shell.isVisible()) or false
@@ -517,8 +493,7 @@ return function(ms)
         local function _trim(s)
             return (type(s) == "string") and s:match("^%s*(.-)%s*$") or ""
         end
-        -- Stable id every authored item carries so the Arrange list can reorder
-        -- and the UI can delete keyless items (dividers/labels have no key).
+        -- Stable id every authored item carries for reorder and keyless delete
         local _uidSeq = 0
         local function _newUid()
             _uidSeq = _uidSeq + 1
@@ -534,18 +509,11 @@ return function(ms)
                 type = t,
                 authored = true,
             }
-            -- Carry a stable uid through when the caller supplied one (edits,
-            -- reorders, on-disk defs); addAuthoredSetting/load mint one otherwise.
+            -- Carry a caller-supplied uid through
             if type(raw.uid) == "string" and raw.uid ~= "" then
                 def.uid = raw.uid
             end
-            -- "settings"/nil is default, "calibration" the built-in group, any
-            -- other value a user-created section id to render inside. The rest of
-            -- the system (disk, UI push, tools list, grouping) names this field
-            -- `section`; `target` is a legacy alias kept so older callers/payloads
-            -- still resolve. Reading only `target` here silently dropped the
-            -- placement on every load and edit, since sanitize is the shared choke
-            -- point for both save and load.
+            -- Resolve placement section, with `target` as a legacy alias
             local placement = raw.section
             if placement == nil or placement == "" then placement = raw.target end
             if type(placement) == "string"
@@ -621,8 +589,7 @@ return function(ms)
                 for _, def in ipairs(data) do
                     local clean = ms._sanitizeAuthoredDef(def)
                     if clean then
-                        -- Legacy files predate uids; mint one so every item is
-                        -- addressable. Persisted on the next save.
+                        -- Mint a uid for legacy items that predate them
                         if not clean.uid then clean.uid = _newUid() end
                         table.insert(ms._authoredSettings, clean)
                     end
@@ -711,10 +678,7 @@ return function(ms)
             return true
         end
 
-        -- Tear down every authored def from the live registry and re-register
-        -- them from ms._authoredSettings, so the render order (which follows
-        -- ms._userSettingDefs) matches the authored list after a reorder. Current
-        -- values are snapshotted into the pending map so keyed settings keep them.
+        -- Re-register every authored def so render order follows the authored list
         ms._reregisterAuthored = function()
             ms._pendingUserSettings = ms._pendingUserSettings or {}
             for _, d in ipairs(ms._authoredSettings or {}) do
@@ -738,8 +702,7 @@ return function(ms)
             ms._defineAuthoredSettings()
         end
 
-        -- Remove an authored item by its stable uid — the only way to delete
-        -- keyless items (dividers, labels), which carry no key.
+        -- Remove an authored item by its stable uid
         ms.removeAuthoredSettingByUid = function(uid)
             if type(uid) ~= "string" or uid == "" then
                 return false, "a uid is required"
@@ -758,9 +721,7 @@ return function(ms)
             return true
         end
 
-        -- Reorder the authored list to match `order` (an array of uids). Uids the
-        -- caller omits keep their current relative order, appended after the ones
-        -- it named, so a partial order never drops an item.
+        -- Reorder the authored list to match `order`, an array of uids
         ms.reorderAuthoredSettings = function(order)
             if type(order) ~= "table" then
                 return false, "order must be a list of ids"
@@ -791,10 +752,7 @@ return function(ms)
             return true
         end
 
-        -- Replace an authored setting's definition in place, keeping its slot in
-        -- the list. A same-key edit preserves the user's current value (when it
-        -- still validates against the new def). Renaming the key starts fresh at
-        -- the new default. Renaming onto an existing key is refused.
+        -- Replace an authored setting's definition in place
         ms.updateAuthoredSetting = function(oldKey, raw)
             if type(oldKey) ~= "string" or oldKey == "" then
                 return false, "a key is required"
@@ -821,9 +779,7 @@ return function(ms)
             -- Snapshot the live value so a same-key edit doesn't reset it.
             local prevVal = ms._userSettingVals and ms._userSettingVals[oldKey]
 
-            -- Tear down the old registration (index / value / defs), mirroring
-            -- removeAuthoredSetting, remembering where the def sat so the new
-            -- one can take the same slot.
+            -- Tear down the old registration, remembering its slot
             if ms._userSettingIndex then ms._userSettingIndex[oldKey] = nil end
             if ms._userSettingVals  then ms._userSettingVals[oldKey]  = nil end
             local defsPos
@@ -837,26 +793,23 @@ return function(ms)
                 end
             end
 
-            -- Seed the retained value so define() adopts it (same-key edits
-            -- only, and only when it still validates against the new def).
+            -- Seed the retained value so define() adopts it
             if def.key == oldKey and prevVal ~= nil then
                 ms._pendingUserSettings = ms._pendingUserSettings or {}
                 ms._pendingUserSettings[def.key] = prevVal
             end
 
             local prevDef = ms._authoredSettings[foundAt]
-            -- Keep the item's identity stable across an edit so the Arrange list
-            -- and any pending reorder still address it.
+            -- Keep the item's identity stable across an edit
             def.uid = prevDef.uid or def.uid or _newUid()
             ms._authoredSettings[foundAt] = def
             local ok = pcall(ms.settings.define, def)
             if not ok then
-                ms._authoredSettings[foundAt] = prevDef   -- roll back
+                ms._authoredSettings[foundAt] = prevDef
                 return false, "could not register the setting"
             end
 
-            -- define() appends to _userSettingDefs; move it back to the slot the
-            -- old def held so the setting keeps its position in the list.
+            -- Move the appended def back to the slot the old def held
             if defsPos and ms._userSettingDefs then
                 local last = #ms._userSettingDefs
                 if last > defsPos then
@@ -870,13 +823,6 @@ return function(ms)
             if ms.bus and ms.bus.emit then pcall(ms.bus.emit, "ui:macros:listTools") end
             return true
         end
-
-        -- Section metadata (user-created Tuning-tab sections) --
-        -- A section is just the `section` field a setting carries; a setting
-        -- groups under whatever name it names. This store only holds the title
-        -- and icon for sections the user made in the UI, so an empty one still
-        -- shows and can be renamed. Pack sections (calibration and any other
-        -- section= a pack uses) need no entry; their title is derived.
 
         -- Turn a display title into a stable, collision-free section id.
         local function _sectionIdFromTitle(title, taken)
@@ -921,8 +867,7 @@ return function(ms)
 
         ms.addAuthoredMenu = function(raw)
             ms._authoredMenus = ms._authoredMenus or {}
-            -- Only one user-created section is allowed; the UI hides the creator
-            -- once any section exists, and this guards against a stale caller.
+            -- Only one user-created section is allowed
             if #ms._authoredMenus >= 1 then
                 return false, "a custom section already exists"
             end
@@ -1743,12 +1688,7 @@ return function(ms)
                 elseif result == false then
                     reloadOk = false
                 else
-                    -- reloadMacros re-runs the macro chunk and plugins.loadAll,
-                    -- but not the authored settings — the macro-slice hotswap
-                    -- path (ms_ui.lua) pairs it with these two for that reason.
-                    -- Run them here so authored settings survive without letting
-                    -- reloadUI run below (which would wipe the setting/tool defs
-                    -- reloadMacros just restored and never re-load plugins).
+                    -- Restore authored settings without letting reloadUI run below
                     if ms._loadAuthoredSettings then pcall(ms._loadAuthoredSettings) end
                     if ms._defineAuthoredSettings then pcall(ms._defineAuthoredSettings) end
                     if ms._loadAuthoredMenus then pcall(ms._loadAuthoredMenus) end
@@ -1782,12 +1722,7 @@ return function(ms)
                 pcall(function() ms.reloadSettings() end)
             end
 
-            -- When macros were reloaded, reloadMacros already rebuilt every UI
-            -- surface (registry, binds, settings, plugins). Running reloadUI on
-            -- top of that tears down the plugin-registered tools and setting
-            -- modules and never re-loads the plugins (they stay flagged loaded,
-            -- so plugins.load early-returns) — bricking installed plugins until
-            -- a full hs.reload. Same guard the settings block above uses.
+            -- Skip reloadUI when macros were reloaded; it would brick plugins
             if qr.ui and not qr.macros then
                 pcall(function() ms.reloadUI() end)
             end
@@ -1838,10 +1773,7 @@ return function(ms)
             ms.settings.define = function(def)
                 assert(type(def) == "table",
                     "ms.settings.define: argument must be a table")
-                -- Stamp where this def came from so the Tools panel can filter by
-                -- origin. ms._defineOrigin is set to "pack" while ms_macros.lua
-                -- runs and "plugin" while a plugin loads; a runtime define with no
-                -- context (the authored-setting builder) is the user's own.
+                -- Stamp where this def came from so the Tools panel can filter
                 if def._origin == nil then def._origin = ms._defineOrigin or "user" end
                 local t = def.type
                 assert(_SETTING_TYPES[t],
@@ -2313,9 +2245,7 @@ return function(ms)
             return moved
         end
 
-        -- Copy (not move) a dir's contents into dst — used to bank sounds into a
-        -- profile folder on save/seed while leaving the live copies in place.
-        -- Skips .bak scratch files so profile folders stay clean.
+        -- Copy a dir's contents into dst, skipping .bak scratch files
         local function copyDirContents(src, dst)
             if not hs.fs.attributes(src) then return 0 end
             local q = function(s) return "'" .. s:gsub("'", "'\\''") .. "'" end
@@ -2454,11 +2384,7 @@ return function(ms)
             local currentName = sanitizeName(
                 (ms.macroMeta and ms.macroMeta.name) or "unnamed"
             )
-            -- Flush live state (binds, enabled flags, cooldowns, ...) to
-            -- ms_settings.json BEFORE archiving it below. Without this, a bind
-            -- set since the last save is written to disk only by the target's
-            -- reload — i.e. never for the profile we are leaving — so the
-            -- archived copy is stale and the bind is lost on switch-back.
+            -- Flush live state to ms_settings.json before archiving it below
             pcall(ms.saveSettings)
             hs.fs.mkdir(profilesPath)
             hs.fs.mkdir(profilesPath .. currentName)
@@ -2477,9 +2403,7 @@ return function(ms)
             local curSoundsDir = profilesPath .. currentName .. "/sounds/"
             moveDirContents(SoundActiveDir, curSoundsDir .. "active/")
             moveDirContents(SoundMacroDir,  curSoundsDir .. "macro/")
-            -- Archive the current profile's visual macros, tools, and vars so
-            -- they do not leak into the target. Moving clears the live copies;
-            -- a target with none stays cleared (a fresh profile is empty).
+            -- Archive the current profile's visual macros, tools, and vars
             for _, cf in ipairs(profileContentFiles()) do
                 if hs.fs.attributes(cf.live) then
                     moveFile(cf.live, profilesPath .. currentName .. "/" .. cf.name)
@@ -2521,12 +2445,7 @@ return function(ms)
                 if hs.fs.attributes(arch) then moveFile(arch, cf.live) end
             end
 
-            -- Safety net: never leave the live ms_macros.lua absent. If the
-            -- target profile had no ms_macros.lua (a freshly created empty
-            -- profile), the archive step above removed the current one and
-            -- nothing replaced it — which would hard-crash the next cold boot's
-            -- security audit. Seed the same minimal stub boot uses so the live
-            -- install always has a valid, auditable macros file.
+            -- Never leave the live ms_macros.lua absent; seed the minimal stub
             if not hs.fs.attributes(macrosPath) then
                 local stub = io.open(macrosPath, "w")
                 if stub then
@@ -2538,23 +2457,11 @@ return function(ms)
                 end
             end
 
-            -- Bring the live content in line with the profile's same-named
-            -- packs so the profile counts as aligned ("Active"). Activating each
-            -- pack (content + marker) BEFORE the hotswap means the follow-on
-            -- reloadMacros/loadSettings pick up the applied state, and — because
-            -- the live content now matches the pack — the boot-time fingerprint
-            -- reconcile keeps the profile aligned across restarts (a plain
-            -- marker set would drift back on reboot, e.g. sound assignments).
-            -- Kinds with no same-named pack are left to fingerprint reconcile
-            -- after the hotswap; they will not match the profile slug, so the
-            -- profile stays unaligned there until the user sets that pack, which
-            -- is exactly the intended "mix = not a specific profile" behaviour.
+            -- Activate the profile's same-named packs before the hotswap
             local alignedKinds = {}
             if ms.package and ms.package.librarySlug
                 and ms.package.libraryActivate and ms.package.libraryHasEntry then
-                -- Authoritative: the target profile's explicit component-pack
-                -- links (packs.json). Fall back per-kind to the same-name slug
-                -- convention for legacy profiles that predate packs.json.
+                -- Prefer explicit packs.json links, fall back to the slug convention
                 local links = ms.package.getProfilePacks
                     and ms.package.getProfilePacks(targetName) or nil
                 local pslug = ms.package.librarySlug(targetName)
@@ -2573,13 +2480,7 @@ return function(ms)
                 target = targetName,
             })
 
-            -- Hotswap the running state in place instead of a full hs.reload().
-            -- Everything the target profile just moved onto disk is re-read
-            -- here, the same surfaces boot rebuilds: macros (handwritten +
-            -- visual) + plugins + settings + binds via reloadMacros, then
-            -- theme, sounds, and authored settings. Quiet-flagged so the
-            -- individual reloads suppress their own toasts and refocus dance;
-            -- our single "Switched" toast stands in for all of them.
+            -- Hotswap the running state in place instead of a full hs.reload()
             local wasQuick = ms._quickReloading
             ms._quickReloading = true
             if ms.ui and ms.ui._actions and ms.ui._actions.reloadMacros then
@@ -2595,10 +2496,7 @@ return function(ms)
             if ms._loadAuthoredMenus then pcall(ms._loadAuthoredMenus) end
             ms._quickReloading = wasQuick
 
-            -- Kinds already aligned above (a same-named pack was activated) keep
-            -- that marker. Any remaining kind is reconciled to whatever slice is
-            -- now live by content fingerprint — which won't match the profile
-            -- slug, leaving the profile intentionally unaligned there.
+            -- Reconcile any not-yet-aligned kind by content fingerprint
             if ms.package and ms.package.reconcileActive then
                 for _, k in ipairs({ "theme", "sound", "macro" }) do
                     if not alignedKinds[k] then
@@ -2607,9 +2505,7 @@ return function(ms)
                 end
             end
 
-            -- Record the live setup as "on" this profile. Set last, after the
-            -- internal libraryActivate calls above, so it is the final word (a
-            -- manual pack hotswap later clears it — see ms_ui libraryActivate).
+            -- Record the live setup as "on" this profile, set last
             if ms.package and ms.package.setActiveProfile then
                 pcall(ms.package.setActiveProfile, targetName)
             end
@@ -2618,8 +2514,7 @@ return function(ms)
             ms.alert("Switched to \"" .. targetName .. "\".", 3, true)
             ms.ui.markDirty()
             ms.ui.refresh()
-            -- Repaint the Installed Library shelves so the reconciled markers
-            -- show up as moved badges without waiting for a panel re-open.
+            -- Repaint the Installed Library shelves
             if ms.ui._actions and ms.ui._actions.libraryList then
                 for _, k in ipairs({ "theme", "sound", "macro" }) do
                     pcall(ms.ui._actions.libraryList, { kind = k })
@@ -2878,10 +2773,7 @@ return function(ms)
             end
         end
 
-        -- Create a fresh, bare-bones profile entry (credits only, no macros)
-        -- without touching or reloading the active profile. The name auto-indexes
-        -- ("New Profile 1", "New Profile 2", …) so repeated creates never collide;
-        -- the index climbs until the user renames one.
+        -- Create a fresh profile entry without touching the active profile
         local function createNewProfile(seed)
             local sq = function(s) return "'" .. s:gsub("'", "'\\''") .. "'" end
             hs.fs.mkdir(profilesPath)
@@ -2899,10 +2791,7 @@ return function(ms)
                 return
             end
 
-            -- Empty-but-valid macros: just credits, no binds. The boot loader
-            -- treats a bindless file as an empty profile (a warning, not a fault).
-            -- Uses the same canonical stub the blank macro PACK is seeded with,
-            -- so the two are byte-identical and the pack reconciles as active.
+            -- Empty-but-valid macros: the same canonical stub the blank pack uses
             local blankSrc = (ms.package and ms.package.blankMacroSrc
                 and ms.package.blankMacroSrc(folderName))
                 or table.concat({
@@ -2922,13 +2811,7 @@ return function(ms)
             mf:write(blankSrc)
             mf:close()
 
-            -- Seed from the current setup so a new profile need not come up
-            -- default/silent. This is the "save my current combination of
-            -- theme + sound + macro packs as a profile" path, so it must capture
-            -- the live MACROS too — not just the look + settings + sounds.
-            -- Dropping macros here was the root of two bugs: a seeded profile
-            -- could never bundle the macro pack you had live, and switching to
-            -- it equipped the blank stub. Mirror saveCurrentProfile's file set.
+            -- Seed from the current setup, capturing live macros too
             if seed then
                 if hs.fs.attributes(jsonPath) then
                     hs.execute("/bin/cp " .. sq(jsonPath) .. " " .. sq(dir .. "/ms_settings.json"))
@@ -2942,21 +2825,16 @@ return function(ms)
                 copyDirContents(SoundActiveDir, dir .. "/sounds/active/")
                 copyDirContents(SoundMacroDir,  dir .. "/sounds/macro/")
                 -- Live handwritten macros overwrite the blank stub written above
-                -- so the profile carries the current macro pack, not an empty one.
                 if hs.fs.attributes(macrosPath) then
                     hs.execute("/bin/cp " .. sq(macrosPath) .. " " .. sq(dir .. "/ms_macros.lua"))
                 end
-                -- Visual macros, authored tools, and helper vars travel too, the
-                -- same content saveCurrentProfile banks (see profileContentFiles).
+                -- Visual macros, authored tools, and helper vars travel too
                 for _, cf in ipairs(profileContentFiles()) do
                     if hs.fs.attributes(cf.live) then
                         hs.execute("/bin/cp " .. sq(cf.live) .. " " .. sq(dir .. "/" .. cf.name))
                     end
                 end
-                -- Bank the seeded slices as profile-named component packs so the
-                -- profile is an explicit collection of packs from creation. Import
-                -- (copy-only) rather than capture: creating a profile must not flip
-                -- the live per-kind .active markers (we are not switching to it).
+                -- Bank the seeded slices as profile-named component packs (copy-only)
                 if ms.package and ms.package.libraryImportDir then
                     for _, k in ipairs({ "macro", "theme", "sound" }) do
                         pcall(ms.package.libraryImportDir, k, dir,
@@ -2965,18 +2843,11 @@ return function(ms)
                 end
             end
 
-            -- Parity: a blank profile spawns matching blank theme + sound packs
-            -- in their libraries, so a fresh profile's look and sounds can be
-            -- hotswapped the same way its macros can. Seeded profiles skip this
-            -- (they already carry the live theme/sounds). Best-effort — a name
-            -- clash just leaves the existing pack in place.
+            -- A blank profile spawns matching blank theme + sound packs
             if not seed and ms.package and ms.package.libraryCreateEmpty then
                 for _, k in ipairs({ "macro", "theme", "sound" }) do
                     local ok, rec, err = pcall(ms.package.libraryCreateEmpty, k, folderName)
-                    -- Surface a failed pack creation instead of swallowing it —
-                    -- a silent pcall here is what let a missing macro pack go
-                    -- unnoticed. rec==nil means the create declined (name clash)
-                    -- or errored; log both so a real failure is diagnosable.
+                    -- Log a failed pack creation instead of swallowing it
                     if not ok or not rec then
                         local why = (not ok) and tostring(rec) or tostring(err)
                         print("createNewProfile: libraryCreateEmpty(" .. k
@@ -2993,10 +2864,7 @@ return function(ms)
                 end
             end
 
-            -- Record the profile's explicit component-pack links (packs.json) for
-            -- whichever kinds now have a same-named pack — blank profiles created
-            -- them above, seeded profiles imported them. switchProfile and boot
-            -- read this as the authoritative link instead of the name convention.
+            -- Record the profile's explicit component-pack links in packs.json
             if ms.package and ms.package.setProfilePacks
                 and ms.package.libraryHasEntry and ms.package.librarySlug then
                 local slug = ms.package.librarySlug(folderName)
@@ -3009,11 +2877,7 @@ return function(ms)
 
             ms._profilesDirty = true
 
-            -- A blank profile switches to itself: its three same-named packs
-            -- all become active together, so the profile reads as aligned
-            -- ("Active") in one step. switchProfile runs the full hotswap and
-            -- its own toast, so return here rather than double-toasting. Seeded
-            -- profiles are left inactive (creating != switching for those).
+            -- A blank profile switches to itself so it reads as aligned
             if not seed then
                 ms.playSlot("update")
                 if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
@@ -3023,9 +2887,7 @@ return function(ms)
 
             ms.playSlot("update")
             ms.alert("Created \"" .. folderName .. "\".", 3)
-            -- markDirty forces refresh to rebuild the pushed state (which reads
-            -- getProfiles); without it refresh re-sends the stale cache and the
-            -- new entry only shows after a reload.
+            -- markDirty forces refresh to rebuild the pushed state
             if ms.ui then
                 if ms.ui.markDirty then ms.ui.markDirty() end
                 if ms.ui.refresh then ms.ui.refresh() end
@@ -3065,9 +2927,7 @@ return function(ms)
             if hs.fs.attributes(themePath) then
                 hs.execute("/bin/cp " .. sq(themePath) .. " " .. sq(profilesPath .. folderName .. "/ms_theme.json"))
             end
-            -- Sounds travel with the profile too. Previously omitted, which
-            -- silently dropped a profile's sound set on save and left switches
-            -- promoting nothing (root cause of the lost theme+sounds recovery).
+            -- Sounds travel with the profile too
             local sndDst = profilesPath .. folderName .. "/sounds/"
             copyDirContents(SoundActiveDir, sndDst .. "active/")
             copyDirContents(SoundMacroDir,  sndDst .. "macro/")
@@ -3077,12 +2937,7 @@ return function(ms)
                     hs.execute("/bin/cp " .. sq(cf.live) .. " " .. sq(profilesPath .. folderName .. "/" .. cf.name))
                 end
             end
-            -- A profile is a collection of component packs. Capture the live slice
-            -- of each kind into a profile-named library pack (overwriting in place),
-            -- mark it active, and record the links in packs.json — so the shelves
-            -- show the profile's own packs as active and a later switch restores
-            -- them explicitly (not by fragile fingerprint). This is the explicit
-            -- save the "don't auto-save on hotswap" model defers to.
+            -- Capture the live slice of each kind into a profile-named pack
             if ms.package and ms.package.libraryCapture and ms.package.setProfilePacks then
                 local refs = {}
                 for _, k in ipairs({ "theme", "sound", "macro" }) do
@@ -3105,11 +2960,7 @@ return function(ms)
             end)
         end
 
-        -- Rewrite the name field inside a macros file's ms.macroMeta table, so a
-        -- renamed profile's credits (and the name saveCurrentProfile looks up)
-        -- stay in step with its folder. Scoped to the first name= after
-        -- macroMeta; strips quotes/backslashes from the value so the result is
-        -- always valid, auditable Lua.
+        -- Rewrite the name field inside a macros file's ms.macroMeta table
         local function rewriteMacroMetaName(path, newName)
             local f = io.open(path, "r")
             if not f then return false end
@@ -3127,9 +2978,7 @@ return function(ms)
             return true
         end
 
-        -- Rename a profile: its folder, its live/stored macros credit, and its
-        -- three same-named packs (so the alignment slug follows). Works for the
-        -- active profile (whose files are live) and inactive ones alike.
+        -- Rename a profile: its folder, macros credit, and same-named packs
         local function renameProfile(oldName, newName)
             local oldFolder = sanitizeName(oldName or "")
             newName = type(newName) == "string" and newName:gsub("^%s+", ""):gsub("%s+$", "") or ""
@@ -3162,9 +3011,7 @@ return function(ms)
                 rewriteMacroMetaName(profilesPath .. newFolder .. "/ms_macros.lua", newFolder)
             end
 
-            -- Keep the profile's same-named packs aligned (slug follows the
-            -- folder). Pass newFolder so the pack slug derives from the same
-            -- sanitized base the alignment check uses.
+            -- Keep the profile's same-named packs aligned as the slug follows
             if ms.package and ms.package.libraryRenameEntry and ms.package.librarySlug then
                 for _, k in ipairs({ "macro", "theme", "sound" }) do
                     pcall(ms.package.libraryRenameEntry, k,

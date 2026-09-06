@@ -58,13 +58,7 @@ return function(ms)
         ms.loading.create = function()
             local _startBootChoreography
 
-            -- Reset the ready-handshake guard so THIS create() owns a fresh boot
-            -- choreography. The flag lives on _G and survives a config re-entry
-            -- (see the __ms_core_running guard in ms_core), so without this reset
-            -- a stale `true` from a prior boot makes the fallback below skip the
-            -- fade-in and the loading screen never appears. This reset lived in
-            -- ms_core pre-extraction and was dropped when the module was split
-            -- out — restoring it here, where create() owns the choreography.
+            -- Reset the ready-handshake guard so this create() owns a fresh boot
             _G._bootChoreographyStarted = false
 
             local sf  = hs.screen.mainScreen():frame()
@@ -72,26 +66,18 @@ return function(ms)
             local lx  = sf.x + math.floor((sf.w - lw) / 2)
             local ly  = sf.y + math.floor((sf.h - lh) / 2)
 
-            -- Handler name MUST match the one the page posts to
-            -- (window.webkit.messageHandlers.loading in ms_loading.html); a
-            -- mismatch silently drops the ready handshake, leaving the reveal to
-            -- depend entirely on the 0.9s fallback timer below.
+            -- Handler name must match the one the page posts to in ms_loading.html
             local _ucLoad = hs.webview.usercontent.new("loading")
             _ucLoad:setCallback(function(message)
                 local ok, data = pcall(hs.json.decode, message.body)
                 if not ok or type(data) ~= "table" then return end
                 if data.action == "ready" then
                     if _G._bootChoreographyStarted then
-                        -- Re-assert the brand now that the page has handshaked.
+                        -- Re-assert the brand now that the page has handshaked
                         if _lWebView then
                             pcall(function() _lWebView:evaluateJavaScript("showBrand()") end)
                         end
-                        -- Re-assert profile/creator TEXT too. When the choreography
-                        -- ran off the 0.9s fallback timer (page not yet ready), its
-                        -- setProfileName/setCreator calls hit an unloaded page and
-                        -- no-op'd, leaving the name permanently blank — the profile
-                        -- equivalent of the brand race above. Now that the page is
-                        -- proven ready, push the meta again (idempotent).
+                        -- Re-assert profile/creator text now the page is proven ready
                         ms.loading.pushMeta()
                     else
                         _startBootChoreography()
@@ -131,12 +117,7 @@ return function(ms)
                 if _G._bootChoreographyStarted then return end
                 _G._bootChoreographyStarted = true
 
-                -- Anchor ms_core's progress/announce sequence to THIS moment (the brand
-                -- intro actually beginning), not to a fixed wall-clock from init. On
-                -- WebView2 this fires late (async controller bring-up); ms_core then
-                -- follows with its own lead so the two clocks can't drift. See the
-                -- "Boot-sequence anchor" block in ms_core. Fired before the intro work
-                -- below so the lead is measured from the same instant on both engines.
+                -- Anchor ms_core's progress/announce sequence to the brand intro start
                 if type(ms._onBootAnchor) == "function" then
                     pcall(ms._onBootAnchor)
                 end
@@ -144,11 +125,7 @@ return function(ms)
                 _G._loadTimers = {}
 
                 pcall(function() ms.loadTheme() end)
-                -- Deliberately do NOT push the theme here: the screen comes up in
-                -- the neutral default look and snaps to the user's theme at the
-                -- animGate "Applying theme…" step, in sync with the themeLoaded
-                -- sound (ms_core ~6556). The compat label themes with everything
-                -- else at that moment via CSS vars (its font is var(--font)).
+                -- The theme is pushed later at the "Applying theme..." step, not here
 
                 if ms.macroMeta and ms.macroMeta.name then
                     js("setProfileName('" .. ms.macroMeta.name:gsub("'", "\\'") .. "')")

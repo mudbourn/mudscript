@@ -1,6 +1,5 @@
 --- === HIDInject ===
 --- Opt-in HID injection: ms.hid.* posts input directly to the target app.
---- See README.md for behaviour, rationale, and migration notes.
 
 local obj = {}
 obj.__index = obj

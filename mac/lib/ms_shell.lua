@@ -12,11 +12,7 @@
         ms.shell = {}
 
         -- On-screen keyboard window --
-            -- A standalone, screen-level webview holding just the controller
-            -- keyboard, so it can be dragged clear of the shell frame. Baked at
-            -- shell boot (hidden, alpha 0) so the first open never flashes white.
-            -- The keys are painted from a board the focused window streams over
-            -- the "_osk" message; that window keeps the cursor and the edits.
+            -- Standalone screen-level webview holding the controller keyboard.
             local function _oskTheme()
                 if _oskView and ms._theme then
                     pcall(function()
@@ -85,7 +81,14 @@
                 end
                 x = math.max(sf.x, math.min(sf.x + sf.w - w, x))
                 y = math.max(sf.y, math.min(sf.y + sf.h - h, y))
-                pcall(function() _oskView:frame({ x = x, y = y, w = w, h = h }) end)
+                pcall(function()
+                    _oskView:frame({
+                        x = x,
+                        y = y,
+                        w = w,
+                        h = h,
+                    })
+                end)
 
                 pcall(function()
                     _oskView:evaluateJavaScript(
@@ -110,7 +113,12 @@
                     local sf = hs.screen.mainScreen():frame()
                     local nx = math.max(sf.x, math.min(sf.x + sf.w - f.w, f.x + (dx or 0)))
                     local ny = math.max(sf.y, math.min(sf.y + sf.h - f.h, f.y + (dy or 0)))
-                    _oskView:frame({ x = nx, y = ny, w = f.w, h = f.h })
+                    _oskView:frame({
+                        x = nx,
+                        y = ny,
+                        w = f.w,
+                        h = f.h,
+                    })
                 end)
             end
 
@@ -126,18 +134,7 @@
             ms.shell.osk._retheme = _oskTheme
         -- END --
 
-        -- Bring the shell out of its "js husk" state: flush any JS queued while the
-        -- bridge was still coming up, then push the host-owned content (settings and
-        -- the theme/sound/macro shelves) into the panels. Idempotent -- guarded by
-        -- _shellHydrated so it runs exactly once per shell instance no matter how many
-        -- signals fire it.
-        --
-        -- Why more than one caller: the page's own `ready` post (ms_shell.html
-        -- DOMContentLoaded) is a single fire-and-forget that races the WebView2 bring-up
-        -- AND waits on the whole inlined UI bundle parsing first, so it can be dropped or
-        -- land after the show() timeout -- and when it's lost, hydration never ran and the
-        -- shell sat as a bare frame. The `selfTest` diagnostic, by contrast, round-trips
-        -- reliably every session, so it (and the show() timeout fallback) also drive this.
+        -- Flush queued JS and push host-owned content into the panels, once.
         local function _hydrateShell()
             if _shellHydrated then return end
             _shellHydrated = true
@@ -148,12 +145,7 @@
             _shellEvalQ = {}
             hs.timer.doAfter(0.1, function()
                 if ms.ui and ms.ui.refresh then pcall(ms.ui.refresh) end
-                -- Proactively push every installed-library kind now that the bus is
-                -- definitely wired. The manager panels each fire a one-shot request()
-                -- during HTML load, which can beat the host's "ui:library:*" subscription
-                -- and be dropped -- leaving Installed Macro Packs (and the theme/sound
-                -- shelves) empty until a reload. This re-push does not depend on that
-                -- early request landing.
+                -- Re-push every installed-library kind now the bus is wired.
                 if ms.ui and ms.ui._actions and ms.ui._actions.libraryList then
                     for _, k in ipairs({ "theme", "sound", "macro" }) do
                         pcall(ms.ui._actions.libraryList, { kind = k })
@@ -163,20 +155,20 @@
         end
         ms.shell._hydrate = _hydrateShell
 
-        -- Base (100%-zoom) minimum window sizes. The live floor is these
-        -- scaled by ms._uiZoom, so a zoomed-in UI needs a bigger window and a
-        -- zoomed-out one can go smaller. Shared by the resize math and the
-        -- zoom rescaler below.
+        -- Base (100%-zoom) minimum window sizes, scaled live by ms._uiZoom.
         local BASE_SHELL_W, BASE_SHELL_H = 800, 500
         local BASE_POP_W,   BASE_POP_H   = 460, 320
-        ms._shellBaseMin = { w = BASE_SHELL_W, h = BASE_SHELL_H }
-        ms._popBaseMin   = { w = BASE_POP_W,   h = BASE_POP_H }
+        ms._shellBaseMin = {
+            w = BASE_SHELL_W,
+            h = BASE_SHELL_H,
+        }
+        ms._popBaseMin = {
+            w = BASE_POP_W,
+            h = BASE_POP_H,
+        }
 
         -- applyZoom --
-            -- Set the global UI zoom, applied uniformly to the shell and every
-            -- popout via CSS `zoom` (documentElement). Rescales open window
-            -- frames proportionally so apparent content size is preserved, and
-            -- clamps to the new zoom-scaled minimum. Range 0.5–2.0.
+            -- Set the global UI zoom on shell and popouts, rescaling open frames. Range 0.5-2.0.
             ms.shell.applyZoom = function(newZoom, opts)
                 opts = opts or {}
                 local old = ms._uiZoom or 1.0
@@ -225,11 +217,7 @@
         -- isReady --
             ms.shell.isReady = function() return _shellReady end
             ms.shell.webview = function() return _shellView end
-            -- Whether the shell window is actually on screen right now. Used so
-            -- a live settings reload (profile switch / pack hotswap) reflects the
-            -- shell's real state instead of forcing it "closed" — otherwise the
-            -- shell stays visible but its toggle thinks it is hidden and re-runs
-            -- the open sequence on the next Alt+P.
+            -- Whether the shell window is actually on screen right now.
             ms.shell.isVisible = function()
                 if not _shellView then return false end
                 local ok, w = pcall(function() return _shellView:hswindow() end)
@@ -311,20 +299,13 @@
                         return
                     end
 
-                    -- DIAGNOSTIC: bridge self-test. Driven from the Lua side via a
-                    -- direct window.chrome.webview.postMessage (see the probe eval after
-                    -- :html), bypassing the app's window.webkit API. If this branch
-                    -- prints, page->Lua transport WORKS and the payload tells us whether
-                    -- our webkit-shim installed; if it never prints, the COM receive path
-                    -- is broken despite correct vtable offsets.
+                    -- DIAGNOSTIC: bridge self-test driven from Lua via postMessage.
                     if panel == "_shell" and action == "selfTest" then
                         local b = body or {}
                         print(string.format(
                             "[shell] BRIDGE SELF-TEST RECEIVED: hasChrome=%s webkitType=%s hasMsgHandlers=%s",
                             tostring(b.hasChrome), tostring(b.webkitType), tostring(b.hasMsgHandlers)))
-                        -- The self-test proves the page->Lua bridge is live. If the page's
-                        -- own `ready` post was lost in the bring-up race, this is our
-                        -- reliable second signal to hydrate the panels.
+                        -- Reliable second signal to hydrate the panels.
                         _hydrateShell()
                         return
                     end
@@ -532,8 +513,7 @@
                         local ok = ms.shell.popOut(pid)
                         if ok then
                             ms.shell.eval("shellReceive('" .. pid .. "', 'poppedOut')")
-                            -- Follow controller focus into the freshly popped
-                            -- window so the same bind that opened it lands there.
+                            -- Follow controller focus into the freshly popped window.
                             if ms._gamepadCallbacks and ms._gamepadCallbacks._nav then
                                 ms._gpNav.popPanel = pid
                                 if ms.shell._gpFocusWindow then
@@ -652,12 +632,7 @@
                     _shellView:evaluateJavaScript("applyTheme(" .. themeJson .. ")")
                 end)
 
-                -- DIAGNOSTIC: bridge self-test probe. evaluateJavaScript (Lua->page) is
-                -- known to work; this pushes a message back OUT through WebView2's native
-                -- window.chrome.webview.postMessage, bypassing the app's window.webkit
-                -- API entirely, and reports whether our webkit-shim installed. Handled in
-                -- the channel callback above (action "selfTest"). Runs late enough that
-                -- the page (and any AddScriptToExecuteOnDocumentCreated) has initialized.
+                -- DIAGNOSTIC: bridge self-test probe, handled by action "selfTest" above.
                 hs.timer.doAfter(0.6, function()
                     if not _shellView then return end
                     pcall(function() _shellView:evaluateJavaScript([[
@@ -791,13 +766,7 @@
                     end)
                 end
 
-                -- The window is shown at alpha 0 above; it only becomes visible when we
-                -- fade it in. Originally that was gated on `_shellReady` (the page's JS
-                -- "ready" post). If the page->Lua bridge never delivers that message
-                -- (e.g. a broken WKWebView-vs-WebView2 transport), the shell would stay
-                -- invisible FOREVER despite being open. So: fade in now if ready, else
-                -- poll briefly and fall back to fading in anyway after a timeout -- and
-                -- log it, so a missing handshake is diagnosable instead of silent.
+                -- Fade in now if ready, else poll briefly and force it after a timeout.
                 if _shellReady then
                     _fadeIn()
                 else
@@ -806,16 +775,19 @@
                     _shellReadyWait = hs.timer.doEvery(0.1, function()
                         waited = waited + 0.1
                         if _shellReady then
-                            if _shellReadyWait then _shellReadyWait:stop(); _shellReadyWait = nil end
+                            if _shellReadyWait then
+                                _shellReadyWait:stop()
+                                _shellReadyWait = nil
+                            end
                             _fadeIn()
                         elseif waited >= 1.5 then
-                            if _shellReadyWait then _shellReadyWait:stop(); _shellReadyWait = nil end
+                            if _shellReadyWait then
+                                _shellReadyWait:stop()
+                                _shellReadyWait = nil
+                            end
                             print("[shell] ready handshake timed out (1.5s) -- forcing "
                                 .. "visible and hydrating anyway; page->Lua bridge may be slow")
-                            -- Last-resort: neither `ready` nor `selfTest` reached us in
-                            -- time, but the bridge may simply be slow. Hydrate now so the
-                            -- shell isn't left a bare frame; idempotent if a signal lands
-                            -- moments later.
+                            -- Last-resort hydrate so the shell is not left a bare frame.
                             _hydrateShell()
                             _fadeIn()
                         end
@@ -868,10 +840,7 @@
         -- toggle --
             ms.shell.toggle = function()
                 local isOpen = ms._shellState and ms._shellState.visible
-                -- DIAGNOSTIC: live timer count + toggle wall-time. If the count climbs
-                -- every toggle, a repeating timer is leaking onto the single pump (which
-                -- would make every toggle progressively laggier). Flat count => the lag
-                -- is on the WebView2 / pump-wake side, not a timer leak.
+                -- DIAGNOSTIC: live timer count + toggle wall-time.
                 local _tc = (hs.timer._activeCount and hs.timer._activeCount()) or -1
                 local _t0 = hs.timer.secondsSinceEpoch()
                 if _shellView and isOpen then
@@ -890,9 +859,7 @@
 
             local GP_DZ = 0.5
 
-            -- Controller focus routes to one window at a time: the shell, or a
-            -- popped-out panel (ms._gpNav.target holds its panel id). Every nav
-            -- command is evaluated into whichever window currently holds focus.
+            -- Controller focus routes to one window; nav commands eval into it.
             local function _gpEvalInto(view, js)
                 if not view then return end
                 pcall(function() view:evaluateJavaScript(js) end)
@@ -923,15 +890,12 @@
                 end
             end
 
-            -- Reset a window's nav state and take controller focus into it,
-            -- raising it so the user sees where the cursor went.
+            -- Shows a transient gamepad-nav alert.
             local function _gpNavAlert(text)
                 pcall(function() ms.alert(text, 2.2, true, { state = true }) end)
             end
 
-            -- Tell a window which controller is driving so the on-screen keyboard
-            -- legend can show the right face-button glyphs (Xbox / PlayStation /
-            -- Nintendo). Prepended to the nav-init eval on attach and focus.
+            -- Tell a window which controller is driving, for the keyboard legend glyphs.
             local function _gpTypeJs()
                 local t = "xbox"
                 local list = ms._gamepadControllers
@@ -957,9 +921,7 @@
                 end
             end
 
-            -- The pop-out / window-switch bind (Options double-tap). Toggle
-            -- controller focus between the shell and a popped-out panel; if none
-            -- is open yet, pop the current shell panel out and follow it.
+            -- The pop-out / window-switch bind (Options double-tap).
             local function _gpSwitchWindow()
                 local n = ms._gpNav
                 if n.target and n.target ~= "shell" and _gpTargetView() then
@@ -971,7 +933,6 @@
                     _gpFocusWindow(pid)
                 else
                     -- Nothing popped yet: ask the shell to pop its current panel.
-                    -- The popOut dispatch handler follows focus into the new window.
                     if ms.shell and ms.shell.eval then
                         ms.shell.eval("if(window.gpNav)gpNav('popOut')")
                     end
@@ -999,10 +960,7 @@
                 n.chordConsumed = false
             end
 
-            -- Menu+Options is the open/close toggle. While the shell is open the
-            -- nav handler consumes both buttons (for the rail and the top bar), so
-            -- the global open chord can't see them — the close has to happen here,
-            -- cancelling any pending single-button action so it doesn't also fire.
+            -- Menu+Options close chord, cancelling any pending single-button action.
             local function _gpCloseViaChord(n)
                 n.chordConsumed = true
                 if n.holdTimer then n.holdTimer:stop() n.holdTimer = nil end
@@ -1148,7 +1106,12 @@
                     if n.selectHeld then
                         if button == "up" or button == "right" then _gpZoom(0.1) else _gpZoom(-0.1) end
                     else
-                        local map = { up = "itemUp", down = "itemDown", left = "itemLeft", right = "itemRight" }
+                        local map = {
+                            up = "itemUp",
+                            down = "itemDown",
+                            left = "itemLeft",
+                            right = "itemRight",
+                        }
                         _gpEval(map[button])
                     end
                     return true
@@ -1179,10 +1142,7 @@
                 ms._gpNav.target = "shell"
                 ms._gamepadCallbacks = ms._gamepadCallbacks or {}
                 ms._gamepadCallbacks._nav = ms.shell._gpNavHandler
-                -- Force out of top-bar mode on every open. Eval once now and once
-                -- after a beat: if show() just reloaded the webview, gpNavInit may
-                -- not exist yet at this instant, so the delayed call is what
-                -- actually clears a persisted top-bar state.
+                -- Force out of top-bar mode on every open, now and after a beat.
                 local function _init()
                     if ms.shell.eval then ms.shell.eval(_gpTypeJs() .. "if(window.gpNavInit)gpNavInit()") end
                 end
@@ -1249,11 +1209,7 @@
         local _popResizeTaps = {}
         local _popDragTaps = {}
 
-        -- Broadcasts to the general panel popouts (browse, appearance, tools,
-        -- profiles, macros …). These live in _popouts and, unlike the four dev
-        -- panels, are NOT covered by ms.dev:recolor / ms.dev:rezoom — so theme
-        -- changes and zoom changes must be pushed to them here too. Called
-        -- from applyZoom above (via ms.shell) and from the theme-change sites.
+        -- Push the current theme to every general panel popout.
         ms.shell.recolorPopouts = function()
             local themeJson = hs.json.encode(ms.theme.effective())
             for _, pop in pairs(_popouts) do
@@ -1266,10 +1222,7 @@
             end
         end
 
-        -- Re-round the shell window and every open popout to the current theme
-        -- corner radius. Called after a live theme change so the native window
-        -- frame tracks the Appearance "Corner radius" slider instead of staying
-        -- at the value baked in when the window was first opened.
+        -- Re-round the shell and every open popout to the current corner radius.
         ms.shell.applyWindowRadius = function()
             if not (ms.theme and ms.theme.applyWindowRadius) then return end
             if _shellView then
@@ -1304,13 +1257,14 @@
             end
         end
 
-        -- finderInterlude --
-        -- Runs `fn` (a blocking Finder panel) with the shell and popouts hidden,
-        -- then restores them.
+        -- Runs fn (a blocking Finder panel) with the shell and popouts hidden.
         ms.shell.finderInterlude = function(fn)
             local restore = {}
             if _shellView and ms._shellState and ms._shellState.visible then
-                if _shellFadeTimer then _shellFadeTimer:stop(); _shellFadeTimer = nil end
+                if _shellFadeTimer then
+                    _shellFadeTimer:stop()
+                    _shellFadeTimer = nil
+                end
                 pcall(function() _shellView:hide() end)
                 restore.shell = true
             end
@@ -1328,7 +1282,8 @@
                 end
             end
 
-            hs.focus()  -- bring the panel's host (Hammerspoon) frontmost
+            -- Bring the panel's host (Hammerspoon) frontmost.
+            hs.focus()
             local ok, a, b, c = pcall(fn)
 
             if restore.shell then
@@ -1365,12 +1320,7 @@
 
         local _popAnimTimers = {}
         -- animatePopWindow --
-            -- easing: p (0..1) -> eased t. Defaults to ease-out cubic, which
-            -- decelerates into the final frame — the gentle settle lands while
-            -- the window is fully visible, so it reads well for growing OUT.
-            -- The close animation is the temporal reverse, so it passes an
-            -- ease-IN instead (see popIn) to keep the gentle motion on the
-            -- still-visible end rather than after it has faded away.
+            -- easing: p (0..1) -> eased t, defaulting to ease-out cubic.
             local function animatePopWindow(panelId, view, fromFrame, toFrame, fromAlpha, toAlpha, onDone, easing)
                 if _popAnimTimers[panelId] then
                     _popAnimTimers[panelId]:stop()
@@ -1650,8 +1600,7 @@
                         return
                     end
                     if action == "close" then
-                        -- Hand controller focus back to the shell when the window
-                        -- it was pointing at closes (e.g. Back at the popout root).
+                        -- Hand controller focus back to the shell when its window closes.
                         if ms._gpNav then
                             if ms._gpNav.popPanel == panelId then ms._gpNav.popPanel = nil end
                             if ms._gpNav.target == panelId and ms.shell._gpFocusWindow
@@ -1895,7 +1844,7 @@
                     if not popView then return end
                     local themeJson = hs.json.encode(ms.theme.effective())
                     pcall(function() popView:evaluateJavaScript("applyTheme(" .. themeJson .. ")") end)
-                    -- Inherit the current UI zoom, same as the dev panels do.
+                    -- Inherit the current UI zoom.
                     local z = ms._uiZoom or 1.0
                     if z ~= 1.0 then
                         pcall(function()

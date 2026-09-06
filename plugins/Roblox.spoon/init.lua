@@ -1,6 +1,5 @@
 --- === Roblox ===
 --- Roblox target + live settings reader + anti-timeout + cache cleaner.
---- See README.md for behaviour and rationale.
 
 local obj = {}
 obj.__index = obj
@@ -254,11 +253,7 @@ function obj:init()
     -- END Anti-Timeout --
 
     -- Camera Sensitivity --
-        -- The manual camera-sensitivity slider. It used to live in the pack's
-        -- ms_macros.lua; it belongs here because it only means anything for the
-        -- Roblox camera, and the Sensitivity Tether below drives it. Defined
-        -- before the tether so the tether's graft finds it. Persisted value is
-        -- restored by ms.settings.define (pending user settings) as before.
+        -- Manual camera-sensitivity slider, driven by the Sensitivity Tether below
         ms.settings.define({
             type    = "slider",
             key     = "cameraSensitivity",
@@ -343,8 +338,7 @@ function obj:init()
                 run  = function() return ms.roblox.isFocused() end,
             })
 
-            -- Moved here from the roblox settings section: a function that
-            -- pops the live Roblox settings as an alert.
+            -- Pops the live Roblox settings as an alert
             ms.tools.define({
                 id   = "roblox.showSettings",
                 name = "Roblox: Show Settings",

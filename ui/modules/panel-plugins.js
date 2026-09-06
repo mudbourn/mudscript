@@ -62,7 +62,7 @@
 
           const id = h("div", { cls: "plugin-card-id" },
               name,
-              h("div", { cls: "plugin-meta", title: bits.join("  ·  ") }, bits.join("  ·  ")),
+              h("div", { cls: "plugin-meta", title: bits.join("  -  ") }, bits.join("  -  ")),
           );
 
           const top = h("div", { cls: "plugin-card-top" }, id);

@@ -407,6 +407,61 @@
                 background: transparent !important;
             }
 
+            /* Anchor-jump offset so a targeted heading clears the fixed header */
+            #content :is(h1, h2, h3, h4)[id] {
+                scroll-margin-top: 72px;
+            }
+
+            /* Sidebar nav tree */
+            .nav-group-label {
+                padding: 18px 18px 6px;
+                font-size: 11px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                color: var(--muted);
+            }
+
+            #toc a.nav-page {
+                font-weight: 600;
+                color: var(--text);
+            }
+
+            #toc a.nav-page.active-page {
+                color: var(--accent-hi);
+                border-left-color: var(--accent);
+                background: var(--accent-glow);
+            }
+
+            #toc .page-toc a {
+                font-size: 12px;
+                padding-top: 3px;
+                padding-bottom: 3px;
+            }
+
+            #toc .page-toc a.lvl-h3 {
+                padding-left: 34px;
+            }
+
+            .repo-link {
+                padding: 5px 14px;
+                border: 1px solid var(--border);
+                border-radius: 7px;
+                background: var(--bg);
+                color: var(--muted);
+                font-size: 13px;
+                font-weight: 500;
+                text-decoration: none;
+                transition:
+                    color 0.15s,
+                    border-color 0.15s;
+            }
+
+            .repo-link:hover {
+                color: var(--text);
+                border-color: var(--accent);
+            }
+
             /* ── Scrollbar ─────────────────────────────────────────────────────────── */
             ::-webkit-scrollbar {
                 width: 6px;
@@ -573,18 +628,19 @@
                 />
                 <div id="search-results"></div>
             </div>
-            <div class="switcher">
-                <button id="btn-mac" onclick="setPlatform('mac')">macOS</button>
-                <button id="btn-windows" onclick="setPlatform('windows')">
-                    Windows
-                </button>
-            </div>
+            <a
+                class="repo-link"
+                href="https://github.com/mudbourn/mudscript"
+                target="_blank"
+                rel="noopener"
+                >GitHub</a
+            >
         </div>
 
         <!-- ── Body ────────────────────────────────────────────────────────────────── -->
         <div id="layout">
             <nav id="sidebar">
-                <div id="toc-label">Contents</div>
+                <div id="toc-label">Documentation</div>
                 <div id="toc"></div>
             </nav>
 
@@ -596,156 +652,209 @@
         </div>
 
         <script>
-            // ── Configuration ─────────────────────────────────────────────────────────────
+            // ── Navigation model ─────────────────────────────────────────────────────────
             //
-            // Raw GitHub URLs for the markdown files. These are fetched on every page load
-            // so updating docs = push a new .md file to the repo. No Docker rebuild needed.
-            // GitHub raw serves with CORS headers, so client-side fetch works fine.
-            //
-            // Change the repo path below if you rename the repo or move the files.
+            // Each page is a markdown file fetched from GitHub raw on demand, so updating
+            // docs stays "push a .md file." Adding a page means adding an entry here.
             //
             const DOCS_BASE =
                 "https://raw.githubusercontent.com/mudbourn/mudscript/main/docs";
-            const DOCS_URLS = {
-                mac: `${DOCS_BASE}/DOCS_MAC.md`,
-                windows: `${DOCS_BASE}/DOCS_WINDOWS.md`,
-            };
-            // ─────────────────────────────────────────────────────────────────────────────
 
-            let currentPlatform = null;
+            const NAV = [
+                {
+                    group: "Reference (macOS)",
+                    pages: [
+                        { slug: "writing-macros", title: "Writing Macros", file: "mac/writing-macros.md" },
+                        { slug: "input", title: "Input: Keyboard, Mouse & Camera", file: "mac/input.md" },
+                        { slug: "timing-state", title: "Timing, State & Control", file: "mac/timing-state.md" },
+                        { slug: "audio", title: "Audio", file: "mac/audio.md" },
+                        { slug: "modes-profiles", title: "Settings, Modes & Profiles", file: "mac/modes-profiles.md" },
+                        { slug: "utilities", title: "Utility Functions, Hotkeys & Constants", file: "mac/utilities.md" },
+                        { slug: "system", title: "System Integrity & Settings API", file: "mac/system.md" },
+                        { slug: "theme-dev", title: "Theme, Capabilities & Developer Tools", file: "mac/theme-dev.md" },
+                        { slug: "key-codes", title: "Key Codes", file: "KEY_CODES.md" },
+                    ],
+                },
+                {
+                    group: "Guide",
+                    pages: [
+                        { slug: "trust", title: "Is mudscript safe?", file: "TRUST.md" },
+                    ],
+                },
+                {
+                    group: "Project",
+                    pages: [
+                        { slug: "architecture", title: "Architecture", file: "ARCHITECTURE.md" },
+                    ],
+                },
+            ];
+
+            const PAGES = {};
+            NAV.forEach((g) => g.pages.forEach((p) => (PAGES[p.slug] = p)));
+            const DEFAULT_SLUG = NAV[0].pages[0].slug;
+
+            let currentSlug = null;
             let scrollSpy = null;
+
+            // ── Slug + id helpers ─────────────────────────────────────────────────────────
+
+            function slugify(text) {
+                return text
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/^-|-$/g, "");
+            }
+
+            // Assigns stable, text-derived ids so search anchors match rendered anchors.
+            function assignHeadingIds(root) {
+                const used = {};
+                root.querySelectorAll("h2, h3, h4").forEach((h) => {
+                    let base = slugify(h.textContent) || "section";
+                    used[base] = (used[base] || 0) + 1;
+                    h.id = used[base] > 1 ? base + "-" + used[base] : base;
+                });
+            }
 
             // ── Routing ───────────────────────────────────────────────────────────────────
 
-            function getPlatformFromURL() {
-                return (
-                    new URLSearchParams(location.search).get("platform") ||
-                    "mac"
-                );
+            function currentRoute() {
+                const slug =
+                    new URLSearchParams(location.search).get("p") ||
+                    DEFAULT_SLUG;
+                return {
+                    slug: PAGES[slug] ? slug : DEFAULT_SLUG,
+                    anchor: location.hash ? location.hash.slice(1) : null,
+                };
             }
 
-            function setPlatform(p) {
-                if (p === currentPlatform) return;
-                currentPlatform = p;
-
+            function navigate(slug, anchor, push) {
                 const u = new URL(location.href);
-                u.searchParams.set("platform", p);
-                history.replaceState(null, "", u);
-
-                document
-                    .getElementById("btn-mac")
-                    .classList.toggle("active", p === "mac");
-                document
-                    .getElementById("btn-windows")
-                    .classList.toggle("active", p === "windows");
-
-                loadDocs(p);
+                u.searchParams.set("p", slug);
+                u.hash = anchor ? "#" + anchor : "";
+                if (push) history.pushState(null, "", u);
+                else history.replaceState(null, "", u);
+                render(slug, anchor);
             }
 
-            // ── Fetching + rendering ──────────────────────────────────────────────────────
+            // ── Fetch + render ────────────────────────────────────────────────────────────
 
-            function loadDocs(p) {
+            function fetchMarkdown(slug) {
+                const page = PAGES[slug];
+                return fetch(DOCS_BASE + "/" + page.file).then((r) => {
+                    if (!r.ok) throw new Error("HTTP " + r.status + " — " + r.url);
+                    return r.text();
+                });
+            }
+
+            function render(slug, anchor) {
+                if (slug === currentSlug) {
+                    if (anchor) scrollToAnchor(anchor);
+                    return;
+                }
+                currentSlug = slug;
+
                 const content = document.getElementById("content");
                 content.innerHTML =
                     '<p class="status loading">Loading documentation</p>';
-                document.getElementById("toc").innerHTML = "";
                 if (scrollSpy) {
                     scrollSpy.disconnect();
                     scrollSpy = null;
                 }
 
-                const src = DOCS_URLS[p];
-
-                if (!src || src.startsWith("REPLACE")) {
-                    content.innerHTML = `
-      <h1>Documentation</h1>
-      <p>No URL configured for the <strong>${p}</strong> platform.</p>
-      <p>Edit the <code>DOCS_URLS</code> object at the top of
-      <code>index.html</code> and point it at your hosted markdown file.</p>`;
-                    return;
-                }
-
-                fetch(src)
-                    .then((r) => {
-                        if (!r.ok)
-                            throw new Error(`HTTP ${r.status} — ${r.url}`);
-                        return r.text();
-                    })
+                fetchMarkdown(slug)
                     .then((md) => {
                         content.innerHTML = marked.parse(md);
+                        assignHeadingIds(content);
                         content
                             .querySelectorAll("pre code")
                             .forEach((el) => hljs.highlightElement(el));
-                        buildTOC();
-                        buildSearchIndex();
+                        buildSidebar(slug);
                         initScrollSpy();
-                        // Scroll to anchor if one is in the URL
-                        const hash = location.hash;
-                        if (hash) {
-                            const el = document.getElementById(hash.slice(1));
-                            if (el)
-                                setTimeout(
-                                    () =>
-                                        el.scrollIntoView({
-                                            behavior: "smooth",
-                                            block: "start",
-                                        }),
-                                    80,
-                                );
-                        }
+                        document
+                            .getElementById("content-wrap")
+                            .scrollTo?.(0, 0);
+                        window.scrollTo(0, 0);
+                        if (anchor) scrollToAnchor(anchor);
                     })
                     .catch((err) => {
-                        content.innerHTML = `
-        <h1>Failed to load</h1>
-        <p>${err.message}</p>
-        <p>Make sure the URL is publicly accessible and CORS is enabled on your storage bucket.</p>`;
+                        content.innerHTML =
+                            "<h1>Failed to load</h1><p>" +
+                            err.message +
+                            "</p><p>Make sure the page is published to the repository.</p>";
                     });
             }
 
-            // ── Table of contents ─────────────────────────────────────────────────────────
+            function scrollToAnchor(id) {
+                const el = document.getElementById(id);
+                if (el)
+                    setTimeout(
+                        () =>
+                            el.scrollIntoView({
+                                behavior: "smooth",
+                                block: "start",
+                            }),
+                        60,
+                    );
+            }
 
-            function buildTOC() {
+            // ── Sidebar ───────────────────────────────────────────────────────────────────
+
+            function buildSidebar(activeSlug) {
                 const toc = document.getElementById("toc");
-                const content = document.getElementById("content");
-                const headings = [...content.querySelectorAll("h2, h3")];
-
                 toc.innerHTML = "";
 
-                headings.forEach((h, i) => {
-                    // Assign a stable id if the markdown renderer didn't
-                    if (!h.id) {
-                        h.id =
-                            "s" +
-                            i +
-                            "-" +
-                            h.textContent
-                                .toLowerCase()
-                                .replace(/[^a-z0-9]+/g, "-")
-                                .replace(/^-|-$/g, "");
-                    }
+                NAV.forEach((group) => {
+                    const label = document.createElement("div");
+                    label.className = "nav-group-label";
+                    label.textContent = group.group;
+                    toc.appendChild(label);
 
+                    group.pages.forEach((page) => {
+                        const a = document.createElement("a");
+                        a.href = "?p=" + page.slug;
+                        a.className = "nav-page";
+                        a.textContent = page.title;
+                        if (page.slug === activeSlug)
+                            a.classList.add("active-page");
+                        a.addEventListener("click", (e) => {
+                            e.preventDefault();
+                            navigate(page.slug, null, true);
+                        });
+                        toc.appendChild(a);
+
+                        if (page.slug === activeSlug)
+                            appendPageToc(toc, page.slug);
+                    });
+                });
+            }
+
+            function appendPageToc(toc, slug) {
+                const content = document.getElementById("content");
+                const headings = [...content.querySelectorAll("h2, h3")];
+                if (!headings.length) return;
+
+                const box = document.createElement("div");
+                box.className = "page-toc";
+
+                headings.forEach((h) => {
                     const a = document.createElement("a");
-                    a.href = "#" + h.id;
+                    a.href = "?p=" + slug + "#" + h.id;
                     a.className = "lvl-" + h.tagName.toLowerCase();
-                    a.textContent = h.textContent.replace(/^[\d]+\.\s/, ""); // strip leading numbers for h2
-
+                    a.textContent = h.textContent;
                     a.addEventListener("click", (e) => {
                         e.preventDefault();
-                        h.scrollIntoView({
-                            behavior: "smooth",
-                            block: "start",
-                        });
-                        history.replaceState(null, "", "#" + h.id);
+                        navigate(slug, h.id, true);
                     });
-
-                    toc.appendChild(a);
+                    box.appendChild(a);
                 });
+
+                toc.appendChild(box);
             }
 
             // ── Scroll spy ────────────────────────────────────────────────────────────────
 
             function initScrollSpy() {
-                const links = document.querySelectorAll("#toc a");
+                const links = document.querySelectorAll("#toc .page-toc a");
                 const headings = document.querySelectorAll(
                     "#content h2, #content h3",
                 );
@@ -757,40 +866,53 @@
                             if (!entry.isIntersecting) return;
                             links.forEach((l) => l.classList.remove("active"));
                             const active = document.querySelector(
-                                `#toc a[href="#${entry.target.id}"]`,
+                                '#toc .page-toc a[href$="#' + entry.target.id + '"]',
                             );
                             if (active) {
                                 active.classList.add("active");
-                                // Keep active item visible in the sidebar
                                 active.scrollIntoView({
                                     block: "nearest",
-                                    behavior: "smooth",
                                 });
                             }
                         });
                     },
-                    {
-                        rootMargin: "-8% 0px -82% 0px",
-                        threshold: 0,
-                    },
+                    { rootMargin: "-8% 0px -82% 0px", threshold: 0 },
                 );
 
                 headings.forEach((h) => scrollSpy.observe(h));
             }
 
-            // ── Search ────────────────────────────────────────────────────────────────────
+            // ── Search (across every page) ─────────────────────────────────────────────────
 
             let searchIndex = [];
+            let searchReady = false;
             let searchFocusIdx = -1;
 
             function buildSearchIndex() {
-                searchIndex = [];
-                const content = document.getElementById("content");
+                const slugs = Object.keys(PAGES);
+                Promise.all(
+                    slugs.map((slug) =>
+                        fetchMarkdown(slug)
+                            .then((md) => ({ slug, md }))
+                            .catch(() => null),
+                    ),
+                ).then((docs) => {
+                    const scratch = document.createElement("div");
+                    docs.forEach((doc) => {
+                        if (!doc) return;
+                        scratch.innerHTML = marked.parse(doc.md);
+                        assignHeadingIds(scratch);
+                        indexOnePage(doc.slug, PAGES[doc.slug].title, scratch);
+                    });
+                    searchReady = true;
+                });
+            }
+
+            function indexOnePage(slug, pageTitle, root) {
                 let curHeading = null;
                 let curId = null;
 
-                // Walk every relevant element in document order
-                content.querySelectorAll("h2, h3, h4, p, li").forEach((el) => {
+                root.querySelectorAll("h2, h3, h4, p, li").forEach((el) => {
                     const tag = el.tagName.toLowerCase();
                     const text = el.textContent.trim();
                     if (!text) return;
@@ -801,7 +923,8 @@
                         searchIndex.push({
                             type: "heading",
                             title: text,
-                            context: "",
+                            context: pageTitle,
+                            slug,
                             id: el.id,
                             lc: text.toLowerCase(),
                         });
@@ -809,33 +932,33 @@
                         searchIndex.push({
                             type: "heading",
                             title: text,
-                            context: curHeading || "",
+                            context: curHeading || pageTitle,
+                            slug,
                             id: curId,
                             lc: text.toLowerCase(),
                         });
                     } else if (curId) {
-                        // Paragraph / list item — index for content search
-                        const snippet = text.slice(0, 90);
                         searchIndex.push({
                             type: "content",
-                            title: curHeading || "",
-                            context: snippet,
+                            title: curHeading || pageTitle,
+                            context: text.slice(0, 90),
+                            slug,
                             id: curId,
                             lc: text.toLowerCase(),
                         });
                     }
                 });
 
-                // Also index inline code spans (function/method names)
-                content.querySelectorAll(":not(pre) > code").forEach((el) => {
+                root.querySelectorAll(":not(pre) > code").forEach((el) => {
                     const text = el.textContent.trim();
-                    if (!text || !curId) return;
                     const heading = el.closest("h2, h3, h4");
+                    if (!text) return;
                     searchIndex.push({
                         type: "code",
                         title: text,
-                        context: curHeading || "",
-                        id: heading ? heading.id : curId,
+                        context: pageTitle,
+                        slug,
+                        id: heading ? heading.id : null,
                         lc: text.toLowerCase(),
                     });
                 });
@@ -849,16 +972,15 @@
 
                 searchIndex.forEach((entry) => {
                     if (!entry.lc.includes(q)) return;
-                    const key = entry.id + "|" + entry.title;
+                    const key = entry.slug + "|" + entry.id + "|" + entry.title;
                     if (seen.has(key)) return;
                     seen.add(key);
                     results.push(entry);
                 });
 
-                // Headings and exact code matches first
                 results.sort((a, b) => {
-                    const aExact = a.lc === query.toLowerCase();
-                    const bExact = b.lc === query.toLowerCase();
+                    const aExact = a.lc === q;
+                    const bExact = b.lc === q;
                     if (aExact !== bExact) return aExact ? -1 : 1;
                     const rank = { heading: 0, code: 1, content: 2 };
                     return (rank[a.type] || 2) - (rank[b.type] || 2);
@@ -884,48 +1006,52 @@
                 searchFocusIdx = -1;
 
                 if (!results.length) {
-                    box.innerHTML = '<div class="sr-empty">No results</div>';
+                    box.innerHTML =
+                        '<div class="sr-empty">' +
+                        (searchReady ? "No results" : "Indexing…") +
+                        "</div>";
                     box.classList.add("open");
                     return;
                 }
 
                 box.innerHTML = results
                     .map(
-                        (r, i) => `
-                    <div class="sr" data-id="${r.id}" data-i="${i}">
-                        <div class="sr-title">${hl(r.title, query)}</div>
-                        ${r.context ? `<div class="sr-context">${hl(r.context, query)}</div>` : ""}
-                    </div>`,
+                        (r, i) =>
+                            '<div class="sr" data-slug="' +
+                            r.slug +
+                            '" data-id="' +
+                            (r.id || "") +
+                            '" data-i="' +
+                            i +
+                            '"><div class="sr-title">' +
+                            hl(r.title, query) +
+                            "</div>" +
+                            (r.context
+                                ? '<div class="sr-context">' +
+                                  hl(r.context, query) +
+                                  "</div>"
+                                : "") +
+                            "</div>",
                     )
                     .join("");
+                box.classList.add("open");
 
                 box.querySelectorAll(".sr").forEach((el) => {
                     el.addEventListener("mousedown", (e) => {
                         e.preventDefault();
-                        goToResult(el.dataset.id);
+                        goToResult(el.dataset.slug, el.dataset.id);
                     });
                 });
-
-                box.classList.add("open");
             }
 
-            function goToResult(id) {
-                const target = document.getElementById(id);
-                if (target) {
-                    target.scrollIntoView({
-                        behavior: "smooth",
-                        block: "start",
-                    });
-                    history.replaceState(null, "", "#" + id);
-                }
+            function goToResult(slug, id) {
                 closeSearch();
+                document.getElementById("search-input").blur();
+                navigate(slug, id || null, true);
             }
 
             function closeSearch() {
-                document
-                    .getElementById("search-results")
-                    .classList.remove("open");
-                searchFocusIdx = -1;
+                document.getElementById("search-results").classList.remove("open");
             }
 
             function initSearch() {
@@ -934,7 +1060,7 @@
 
                 input.addEventListener("input", () => {
                     const q = input.value.trim();
-                    if (!q || q.length < 2) {
+                    if (q.length < 2) {
                         closeSearch();
                         return;
                     }
@@ -954,7 +1080,7 @@
                         searchFocusIdx = Math.max(searchFocusIdx - 1, 0);
                     } else if (e.key === "Enter") {
                         const f = items[searchFocusIdx];
-                        if (f) goToResult(f.dataset.id);
+                        if (f) goToResult(f.dataset.slug, f.dataset.id);
                         return;
                     } else if (e.key === "Escape") {
                         closeSearch();
@@ -973,7 +1099,6 @@
                     setTimeout(closeSearch, 160),
                 );
 
-                // Press / anywhere to focus the search box
                 document.addEventListener("keydown", (e) => {
                     if (
                         e.key === "/" &&
@@ -987,12 +1112,43 @@
                 });
             }
 
+            // ── In-content link interception ────────────────────────────────────────────────
+
+            function initContentLinks() {
+                document.getElementById("content").addEventListener("click", (e) => {
+                    const a = e.target.closest("a");
+                    if (!a) return;
+                    const href = a.getAttribute("href") || "";
+                    const m = href.match(/^\?p=([\w-]+)(?:#([\w-]+))?$/);
+                    if (m && PAGES[m[1]]) {
+                        e.preventDefault();
+                        navigate(m[1], m[2] || null, true);
+                        return;
+                    }
+                    if (href.startsWith("#")) {
+                        e.preventDefault();
+                        navigate(currentSlug, href.slice(1), true);
+                    }
+                });
+            }
+
             // ── Init ──────────────────────────────────────────────────────────────────────
 
             marked.setOptions({ gfm: true, breaks: false });
 
             initSearch();
-            setPlatform(getPlatformFromURL());
+            initContentLinks();
+            buildSearchIndex();
+
+            window.addEventListener("popstate", () => {
+                const r = currentRoute();
+                render(r.slug, r.anchor);
+            });
+
+            (function boot() {
+                const r = currentRoute();
+                render(r.slug, r.anchor);
+            })();
         </script>
     </body>
 </html>

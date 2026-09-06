@@ -17,11 +17,7 @@ return function(ms)
 
 -- State --
     local queue = {}
-    -- The state tier: a reserved single slot that always sits at the bottom
-    -- anchor (most prominent) with every normal alert stacked above it, and is
-    -- never evicted by maxAlerts. Only one occupant at a time -- macro bind
-    -- state and octane share it. A new state message morphs the live slot in
-    -- place instead of tearing it down and rebuilding.
+    -- Reserved single slot at the bottom anchor, never evicted by maxAlerts
     local stateEntry = nil
 -- END State --
 
@@ -262,11 +258,7 @@ return function(ms)
         animateEntry(entry, f.y, f.y, 1, 0, onDone, force)
     end
 
-    -- Morph the live state slot to a new message in place: cross-fade the text
-    -- and tween the box width so a bind flip (enabled -> disabled, octane
-    -- on -> off) reads as one alert changing its mind, never a teardown and
-    -- rebuild. Always animates -- these confirmations should be seen even when
-    -- octane mode has muted every other animation.
+    -- Morph the live state slot to a new message in place
     local function morphStateEntry(entry, newMsg)
         local c = entry.canvas
 
@@ -279,8 +271,7 @@ return function(ms)
         local _, txtColor = themeColors()
         local sx, _, sw   = screenBounds()
 
-        -- Start from the canvas's live width, not the old message's, so a flip
-        -- landing mid-morph tweens from wherever the box currently is.
+        -- Start from the canvas's live width so a mid-morph flip tweens smoothly
         local oldW               = c:frame().w or ({ measure(entry.msg or "") })[1]
         local newW, newH, textH  = measure(newMsg)
 
@@ -294,7 +285,12 @@ return function(ms)
             local f  = c:frame()
             local cx = sx + (sw - w) / 2
 
-            c:frame({ x = cx, y = f.y, w = w, h = newH })
+            c:frame({
+                x = cx,
+                y = f.y,
+                w = w,
+                h = newH,
+            })
 
             pcall(function()
                 c:elementAttribute(2, "textColor", {
@@ -305,10 +301,20 @@ return function(ms)
                 })
             end)
             pcall(function()
-                c:elementAttribute(2, "frame", { x = 0, y = PADDING + 4, w = w, h = textH })
+                c:elementAttribute(2, "frame", {
+                    x = 0,
+                    y = PADDING + 4,
+                    w = w,
+                    h = textH,
+                })
             end)
             pcall(function()
-                c:elementAttribute(3, "frame", { x = w - CLOSE_W, y = 5, w = CLOSE_W - 4, h = 14 })
+                c:elementAttribute(3, "frame", {
+                    x = w - CLOSE_W,
+                    y = 5,
+                    w = CLOSE_W - 4,
+                    h = 14,
+                })
             end)
         end
 
@@ -472,8 +478,7 @@ return function(ms)
         end
     end
 
-    -- Retire the state slot: always fade it out first (forced, so octane mode
-    -- can't skip straight to deletion while it's still on screen), then delete.
+    -- Retire the state slot, forcing a fade-out before deletion
     local function dismissState()
         if not stateEntry then return end
 
@@ -501,8 +506,7 @@ return function(ms)
         local sx, _, sw, sBottom = screenBounds()
         local c, h, showX, hideX = makeCanvas(msg, sx, sBottom - MsAlert.bottomY, sw, 0)
 
-        -- One level above the normal alerts so the reserved slot always wins
-        -- any z-overlap, not just the vertical ordering.
+        -- One level above the normal alerts so the reserved slot wins z-overlap
         c:level((hs.canvas.windowLevels.screenSaver or 1000) + 2)
 
         local entry = {
@@ -616,9 +620,7 @@ return function(ms)
             end
         end
 
-        -- The state slot sits above the entire normal stack -- highest on
-        -- screen, on top of everything regardless of source. Forced fade only
-        -- on first show; plain repositions respect octane mode like the rest.
+        -- The state slot sits above the entire normal stack
         if stateEntry and stateEntry.canvas then
             local targetY = currentY - stateEntry.h
 
@@ -634,9 +636,7 @@ return function(ms)
 -- END Redraw --
 
 -- State tier --
-    -- The reserved 5th layer. Macro bind state and octane both route here.
-    -- First call fades a fresh slot in; every later call morphs the live slot
-    -- in place rather than obliterating and redrawing it.
+    -- The reserved layer; macro bind state and octane both route here
     function MsAlert:_showState(msg, duration, noDefaultSound)
         if not ms._startupSoundDone then return end
         if MsAlert._sealed then return end
@@ -677,8 +677,7 @@ return function(ms)
         local src = opts and opts.source or "system"
         local id  = opts and opts.id or nil
 
-        -- State-tier alerts (macro bind state, octane) bypass the normal queue
-        -- entirely and live in the reserved slot.
+        -- State-tier alerts bypass the normal queue and live in the reserved slot
         if opts and (opts.state or opts.priority == "state"
             or id == "_state" or id == "octane_state") then
             return self:_showState(msg, duration, noDefaultSound)

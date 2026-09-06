@@ -1,6 +1,6 @@
 --- === Minecraft ===
 --- Minecraft target + live client data via the ms-mc-bridge mod (loopback
---- WebSocket). See README.md for behaviour, freshness modes, and rationale.
+--- WebSocket).
 
 local obj = {}
 obj.__index = obj

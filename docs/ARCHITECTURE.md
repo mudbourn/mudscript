@@ -4,6 +4,4 @@ Technical details about mudscript's internal structure, security model, and deve
 
 ---
 
-DOCUMENTATION IN DEVELOPEMNT
-
-HELP GREATLY APPRECIATED
+This page is in progress. Contributions are welcome.

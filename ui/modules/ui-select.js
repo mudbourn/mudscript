@@ -78,7 +78,7 @@
               searchWrap.className = "macro-select-search";
               searchInput = doc.createElement("input");
               searchInput.type = "text";
-              searchInput.placeholder = opts.searchPlaceholder || "Search…";
+              searchInput.placeholder = opts.searchPlaceholder || "Search...";
               searchInput.setAttribute("spellcheck", "false");
               searchInput.setAttribute("autocomplete", "off");
               searchInput.setAttribute("autocorrect", "off");
@@ -106,7 +106,7 @@
           }
 
           function labelFor(v) {
-              // Action selects (e.g. "+ Add step…") are menus, not a persistent
+              // Action selects (e.g. "+ Add step...") are menus, not a persistent
               // choice — always show the placeholder.
               if (opts.action) return opts.placeholder || "";
               for (const o of _opts) if (o.value === v) return o.label;

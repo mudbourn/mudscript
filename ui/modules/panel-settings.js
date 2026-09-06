@@ -1713,7 +1713,7 @@
                         body.appendChild(
                             row(
                                 "GitHub Token",
-                                token ? "••••••••" + token.slice(-4) : "Required for artifact downloads",
+                                token ? "********" + token.slice(-4) : "Required for artifact downloads",
                                 h("input", {
                                     type: "password",
                                     cls: "input-sm",
@@ -2316,7 +2316,7 @@
                 if (it.type === "groupLabel")
                     return "“" + (it.label || "") + "” label";
                 const name = it.label || it.key || "(setting)";
-                return name + "  ·  " + it.type;
+                return name + "  -  " + it.type;
             }
 
             function commitArrangeOrder(listEl) {
@@ -2810,10 +2810,10 @@
                 if (mkSelect) {
                     const addSel = mkSelect({
                         className: "input-sm macros-add-step",
-                        placeholder: "+ Add step…",
+                        placeholder: "+ Add step...",
                         action: true,
                         searchable: true,
-                        searchPlaceholder: "Search modules…",
+                        searchPlaceholder: "Search modules...",
                         options: buildStepOptions(),
                         value: undefined,
                         onChange: (v) => {
@@ -2904,8 +2904,8 @@
                     const callOnly = isPack || isPlugin;
                     const r = h("div", { cls: "row row-sub" });
                     const lbl = h("div", { cls: "row-label" }, fn.name || fn.id);
-                    if (isPack) lbl.appendChild(h("small", {}, "from pack · call by id “" + fn.id + "”"));
-                    else if (isPlugin) lbl.appendChild(h("small", {}, "from plugin · call by id “" + fn.id + "”"));
+                    if (isPack) lbl.appendChild(h("small", {}, "from pack - call by id “" + fn.id + "”"));
+                    else if (isPlugin) lbl.appendChild(h("small", {}, "from plugin - call by id “" + fn.id + "”"));
                     r.appendChild(lbl);
                     const controls = h("div", { style: "display:flex;gap:6px" });
                     if (callOnly) {

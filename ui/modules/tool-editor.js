@@ -917,7 +917,7 @@
 
             const options = tools.map((t) => ({
                 value: t.key,
-                label: (t.label || t.key) + "  ·  " + t.type,
+                label: (t.label || t.key) + "  -  " + t.type,
             }));
             let seen = tools.some((t) => t.key === current);
             if (current && !seen) {
@@ -942,7 +942,7 @@
             ph.className = "tool-ed-tool-select";
             const chosen = options.find((o) => o.value === current);
             ph.textContent = chosen ? chosen.label
-                : (options.length ? "Select a tool…" : "No tools, create one in Add Module");
+                : (options.length ? "Select a tool..." : "No tools, create one in Add Module");
             return ph;
         }
       // END Build Parameter Row //

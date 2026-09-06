@@ -2,22 +2,12 @@
     -- Hammerspoon mudscript Utility Library --
         -- 0. Bootstrap & Spoons --
             if _G.__ms_core_running then
-                -- This rig's hs.reload() re-runs init IN-PROCESS (same Lua state; _G is
-                -- preserved), so a reload re-enters ms_core with the guard already set.
-                -- We deliberately do NOT re-init: rebuilding `ms` would orphan every
-                -- engine object the first init created -- hotkeys/taps store their own
-                -- teardown ref ON `ms` (e.g. ms._openMenuHotkey) and delete the old one
-                -- before rebinding, so a wiped `ms` can't delete them and each reload
-                -- would STACK a duplicate toggle hotkey (one keypress -> show+hide ->
-                -- shell never shows, both sounds, leaked fade timers).
-                --
-                -- But we MUST clear the exit-lifecycle flags: ms.restart sets
-                -- ms._restarting=true immediately before calling hs.reload, and on macOS
-                -- (fresh-state reload) that flag naturally vanishes. Here it survives, so
-                -- the next ms.shutdown/ms.restart hits `if ms._restarting then return end`
-                -- and no-ops -- the app can then only be killed. Reset them on every
-                -- reload so shutdown/restart keep working.
-                if ms then ms._restarting = false; ms._shuttingDown = false; ms._quickReloading = false end
+                -- In-process reload: keep existing ms, clear only exit-lifecycle flags
+                if ms then
+                    ms._restarting = false
+                    ms._shuttingDown = false
+                    ms._quickReloading = false
+                end
                 return
             end
             _G.__ms_core_running = true
@@ -492,13 +482,9 @@
             ms._keyBindingsByCode = {}
             ms.bindConfig = {}
             ms.bindHandles = {}
-            -- Per-macro "ignore extra modifiers" flags (id -> true). When set, a
-            -- key/combo bind matches as long as its DECLARED modifiers are held,
-            -- tolerating any additional modifiers held at the time (subset match)
-            -- instead of demanding an exact modifier set. Persisted in settings.
+            -- Per-macro subset-match flags (id -> true) for ignoring extra modifiers
             ms.bindIgnoreMods = ms.bindIgnoreMods or {}
-            -- Modifier-only triggers ({ type="mods", mods={...} }). Evaluated in
-            -- the keyboard listener's flagsChanged branch, not via keycode.
+            -- Modifier-only triggers, evaluated in the flagsChanged branch
             ms._modBindings = {}
             ms.systemBinds             = {
                 _config = {},
@@ -914,10 +900,7 @@
 
                 ms.theme.applyWindowRadius = function(panel)
                     if not panel then return end
-                    -- The host window frame follows the theme's Corner radius (the value
-                    -- the Appearance slider edits) so the frame and the inner content
-                    -- round to the same value. An explicit windowRadius in the theme
-                    -- file still overrides it for anyone who wants the frame to differ.
+                    -- Host frame follows the theme Corner radius; explicit windowRadius overrides
                     local r = (ms._theme and (ms._theme.windowRadius or ms._theme.radius))
                         or (ms._themeDefaults and (ms._themeDefaults.windowRadius or ms._themeDefaults.radius))
                         or 0
@@ -926,10 +909,7 @@
                         pcall(function() panel:transparent(true) end)
                         pcall(function() panel:shadow(false) end)
                     end
-                    -- Windows: the host window frame is rounded by a region at the theme
-                    -- radius (hs.webview:cornerRadius). Without this the frame stays at
-                    -- DWM's fixed ~8px and ignores windowRadius. No-op on mac (method
-                    -- absent there; the transparent WKWebView is rounded by CSS below).
+                    -- Windows: round the host frame via cornerRadius; no-op on mac
                     pcall(function()
                         if panel.cornerRadius then panel:cornerRadius(r) end
                     end)
@@ -946,11 +926,7 @@
             -- END Window Radius Helper --
 
             -- Effective theme [ms.theme] --
-                -- Panel translucency is the alpha byte on surface/surface2 (it
-                -- reveals the watermark behind the panels). Octane and the
-                -- Appearance transparency toggle force those flat opaque, so the
-                -- compositor has no per-pixel blending to do. Every window is
-                -- painted from this, not ms._theme directly.
+                -- Flattens surface alpha to opaque under octane or the transparency toggle
                 ms.theme.effective = function()
                     local t = {}
                     for k, v in pairs(ms._theme or {}) do t[k] = v end
@@ -971,9 +947,7 @@
                     return t
                 end
 
-                -- Re-push the effective theme and window radius to every live
-                -- window. Called when something that changes the effective look
-                -- but not ms._theme flips — the transparency toggle or octane.
+                -- Re-push the effective theme and window radius to every live window
                 ms.theme.repaint = function()
                     if ms._macroLabEnabled and ms.shell and ms.shell.eval then
                         pcall(function()
@@ -1133,10 +1107,7 @@
                     ms.keytrack[61] = flags.ctrl
                     ms.keytrack[55] = flags.cmd
                     ms.keytrack[54] = flags.cmd
-                    -- Modifier-only binds fire on the rising edge when the active
-                    -- modifier set exactly matches, once per press (the `fired`
-                    -- latch clears when the set no longer matches). Only when no
-                    -- ordinary key is held, so Alt+K never trips an Alt bind.
+                    -- Modifier-only binds fire once per press on exact match, no real key held
                     if ms._modBindings and #ms._modBindings > 0 and not _anyRealKeyHeld() then
                         for _, mb in ipairs(ms._modBindings) do
                             local exact =
@@ -1212,9 +1183,7 @@
                                 if binding.modsAny then
                                     -- Fire on the keycode regardless of modifiers.
                                 elseif binding.subsetMods then
-                                    -- Declared modifiers must be held; extras are
-                                    -- tolerated (so plain-key binds fire even while
-                                    -- an unrelated modifier is down).
+                                    -- Subset: declared modifiers must be held, extras tolerated
                                     if binding.mods.cmd   and not flags.cmd   then modsMatch = false end
                                     if binding.mods.alt   and not flags.alt   then modsMatch = false end
                                     if binding.mods.ctrl  and not flags.ctrl  then modsMatch = false end
@@ -3024,7 +2993,10 @@
                     local ok, enc = pcall(hs.json.encode, store, true)
                     if not ok then return end
                     local f = io.open(varsPath, "w")
-                    if f then f:write(enc); f:close() end
+                    if f then
+                        f:write(enc)
+                        f:close()
+                    end
                 end
 
                 local function ensureLoaded()
@@ -3032,7 +3004,8 @@
                     loaded = true
                     local f = io.open(varsPath, "r")
                     if not f then return end
-                    local raw = f:read("*all"); f:close()
+                    local raw = f:read("*all")
+                    f:close()
                     local ok, data = pcall(hs.json.decode, raw)
                     if ok and type(data) == "table" then
                         store.defs = type(data.defs) == "table" and data.defs or {}
@@ -6326,9 +6299,7 @@
                                 }
                             end
                         end
-                        -- Helper vars are bindable too: a Value->Tool field can
-                        -- read one live. They carry kind="var" so the editor
-                        -- emits {__varRef} (ms.vars.get) rather than a setting.
+                        -- Helper vars are bindable too, carrying kind="var" so the editor emits {__varRef}
                         if ms.vars and ms.vars.list then
                             local okV, vlist = pcall(ms.vars.list)
                             if okV and type(vlist) == "table" then
@@ -6349,11 +6320,7 @@
                         local json = hs.json.encode(tools)
                         _macroShellEval("if(window.macroLab)macroLab.setToolList(" .. json .. ")")
 
-                        -- Function tools go to a separate list, consumed by the
-                        -- "Call function" block and the Tools panel Function tab.
-                        -- Two sources: builder-authored function tools (editable)
-                        -- and the current pack's bound macros (reference-only,
-                        -- callable via ms.callFn by their bind id).
+                        -- Function tools list: builder-authored functions plus the pack's bound macros
                         local fns = {}
                         local seenFn = {}
                         if ms.compiler and ms.compiler.listFunctions then
@@ -6381,11 +6348,7 @@
                                 end
                             end
                         end
-                        -- Tools registered via ms.tools.define with a run fn
-                        -- (e.g. a plugin's "open folder/file" actions) are
-                        -- callable, function-like items — surface them in the
-                        -- Functions list so they show up and can be invoked from
-                        -- a macro (ms.callFn resolves them, see ms_core callFn).
+                        -- Tools defined with a run fn are callable, so surface them in the Functions list
                         if ms._toolDefs then
                             for _, def in ipairs(ms._toolDefs) do
                                 if type(def) == "table" and def.id
@@ -6697,19 +6660,16 @@
                 do
                     local af = io.open(macrosPath, "r")
                     if not af then
-                        -- A missing ms_macros.lua must not take down all of
-                        -- Hammerspoon. It can be absent mid-move (an interrupted
-                        -- profile switch or pack activate) or for a freshly
-                        -- created empty profile. Seed a minimal valid stub and
-                        -- carry on with an empty macro set instead of error()ing
-                        -- out of boot; the user can re-activate a pack from the
-                        -- Installed Library once the shell is up.
+                        -- Seed a minimal stub instead of erroring out of boot when ms_macros.lua is missing
                         print("ms_macros.lua missing at boot; seeding an empty stub: " .. macrosPath)
                         rawSrc = "-- ms_macros.lua was missing at boot and has been reset.\n"
                             .. "-- Activate a macro pack from the Installed Library to restore your macros.\n"
                             .. "ms.macroMeta = { name = \"Recovered\", author = \"\" }\n"
                         local seed = io.open(macrosPath, "w")
-                        if seed then seed:write(rawSrc); seed:close() end
+                        if seed then
+                            seed:write(rawSrc)
+                            seed:close()
+                        end
                     else
                         rawSrc = af:read("*all")
                         af:close()
@@ -6752,9 +6712,7 @@
                 end
                 ms.loading.pushMeta()
                 if not next(ms.registry._defs) then
-                    -- A bindless file is a legitimately empty profile (see
-                    -- createNewProfile), not necessarily malformed — warn, don't
-                    -- fault, matching the tolerant hotswap reload path.
+                    -- A bindless file is a legitimately empty profile, so warn rather than fault
                     print("Warning: ms_macros.lua declared no ms.bind.define calls (empty profile?).")
                     hs.timer.doAfter(0.5, function()
                         ms.alert("This profile has no macros yet. Add some in the Macros panel.", 5)
@@ -6777,10 +6735,7 @@
             -- END 14a. Visual Macros --
 
             -- 14b. Macro Pack Library Migration --
-                -- Surface the live pack and every saved profile's pack in the
-                -- Installed Macro Packs library (one-time, non-destructive). Runs
-                -- here because ms.package (13c) and ms.macroMeta (14/14a) are both
-                -- ready. Never let a migration hiccup block boot.
+                -- One-time, non-destructive surfacing of live and saved-profile packs into the library
                 if ms.package and ms.package.migrateMacroPacks then
                     local migOk, migErr = pcall(ms.package.migrateMacroPacks)
                     if not migOk then
@@ -6794,13 +6749,7 @@
                         print("ms.package.migrateProfilePacks (boot): " .. tostring(mpErr))
                     end
                 end
-                -- Keep each kind's active marker tracking whatever slice is live,
-                -- by content fingerprint. switchProfile activates a profile's packs
-                -- (copying their files live), so live == pack and reconcile re-flags
-                -- them here on every boot. The fingerprint now canonicalizes JSON
-                -- and ignores profile-owned macro binds, so macro packs reconcile as
-                -- reliably as theme/sound. A live slice that matches no stored pack
-                -- (a custom/edited mix) simply leaves that kind's badge clear.
+                -- Re-flag each kind's active marker by content fingerprint on every boot
                 if ms.package and ms.package.reconcileActive then
                     for _, k in ipairs({ "theme", "sound", "macro" }) do
                         local rcOk, rcErr = pcall(ms.package.reconcileActive, k)
@@ -6864,13 +6813,7 @@
         ms._startupSoundDone = false
 
         -- Loading Screen Announce & Boot Completion --
-            -- The app version label shown on the loading screen. Extracted from the
-            -- old t3 beat so the loading choreography can own the profile/creator/
-            -- version reveal on a SINGLE clock (anchored to the brand-dock chain),
-            -- instead of a second init-anchored timer that raced it -- on mudspoon the
-            -- two clocks drift and the profile appeared before the brand finished
-            -- docking. Reads MANIFEST.json; on the testing channel derives the -pre.N
-            -- label from the patch bump + build number.
+            -- App version label for the loading screen; on the testing channel derives -pre.N
             ms._bootVersionLabel = function()
                 local p = os.getenv("HOME") .. "/.hammerspoon/MANIFEST.json"
                 local f = io.open(p, "r")
@@ -6939,10 +6882,7 @@
                             local _checkFn = (ms._updateChannel == "testing")
                                 and ms.integrity.checkForUpdateBeta
                                 or  ms.integrity.checkForUpdate
-                            -- Combine the app-version check with a scan of every
-                            -- installed package / plugin, then announce them all
-                            -- in one alert. Content items report to Settings
-                            -- \u{2192} Browse; the app to Help \u{2192} Check for Update.
+                            -- Combine the app-version check with an installed package/plugin scan into one alert
                             _checkFn(function(u)
                                 local function announce(items)
                                     items = items or {}
@@ -6974,19 +6914,7 @@
             end
 
             -- Single-instance guard --
-                -- Hammerspoon is meant to run as ONE process. The watchdog /
-                -- relaunch machinery (and a stray manual launch) can spin up a
-                -- second instance that fights the first over the shared
-                -- ~/.hammerspoon state. Two instances are two OS processes, so an
-                -- in-process flag can't see across them -- announce over
-                -- NSDistributedNotificationCenter instead. Every instance
-                -- announces {pid, bootTime} on boot; whichever instance is OLDER
-                -- evicts the newcomer with SIGKILL (so the duplicate never runs
-                -- teardown against the shared files -- see the exit-curtain /
-                -- init.lua-perms hazards), plays the error chime and tells the
-                -- user. The newcomer does nothing itself; the incumbent evicts
-                -- it. Runs synchronously here, before the deferred boot chain
-                -- below, so a duplicate is killed long before it arms hotkeys.
+                -- Announce {pid, bootTime} over distributed notifications; older instance SIGKILLs the newcomer
                 pcall(function()
                     if not hs.distributednotifications then return end
                     local NOTE   = "info.mudbourn.mudscript.instanceAnnounce"
@@ -7001,9 +6929,7 @@
                     end
 
                     local watcher = hs.distributednotifications.new(function(_, object, userInfo)
-                        -- Prefer the `object` string (always delivered across
-                        -- processes); fall back to userInfo, whose cross-process
-                        -- delivery is less reliable. Payload is "pid:bootTime".
+                        -- Payload "pid:bootTime": prefer the object string, fall back to userInfo
                         local theirPid, theirBoot
                         if type(object) == "string" then
                             local p, b = object:match("^(%d+):([%d%.]+)$")
@@ -7030,9 +6956,7 @@
                             .. " >/dev/null 2>&1")
                         print("[instance-guard] evicted duplicate Hammerspoon pid "
                             .. tostring(theirPid))
-                        -- "error" is a real event slot, so playSlot resolves it
-                        -- like any other system sound: user assignment > active
-                        -- pack (a_Error) > built-in default (d_Error).
+                        -- "error" is a real event slot resolved by playSlot
                         pcall(function() ms.playSlot("error") end)
                         pcall(function()
                             ms.alert("Hammerspoon is already running. "
@@ -7043,10 +6967,7 @@
                     _G.__ms_instanceWatcher = watcher
                     ms._instanceWatcher = watcher
 
-                    -- Announce ourselves so any incumbent can evict us. Repost a
-                    -- couple of times in case the incumbent's listener was not up
-                    -- at the exact instant of the first post -- comparison is on
-                    -- boot times, so a repost can never make the newcomer win.
+                    -- Announce ourselves so any incumbent can evict us, reposted a few times
                     local myBootStr = string.format("%.4f", myBoot)
                     local payload   = tostring(myPid) .. ":" .. myBootStr
                     local function announce()
@@ -7065,27 +6986,7 @@
 
             _G._timers = {}
 
-            -- Boot-sequence anchor (mudspoon/WebView2 parity) --
-            --   WAS: hs.timer.doAfter(2.9) measured from init -- a fixed wall-clock beat
-            --   that assumed the loading page was already up. That holds on WKWebView
-            --   (~synchronous :html + ready handshake) but NOT on WebView2, whose
-            --   controller comes up ASYNC: the page-ready handshake -- and so the brand-
-            --   intro choreography in ms_loading -- arrive late, while this fixed 2.9s beat
-            --   fired on its own clock and collided with the still-running intro. That
-            --   two-clock drift is the "rushed / no parity / delayed" boot on Windows.
-            --
-            --   NOW: the whole progress sequence is anchored to the choreography actually
-            --   STARTING. ms_loading fires ms._onBootAnchor the instant _startBoot-
-            --   Choreography runs (on the real ready handshake, or its own 0.5s fallback),
-            --   and we start the sequence BOOT_ANCHOR_LEAD later. Every beat below is
-            --   already relative to when _runInitSequence runs, so re-anchoring this one
-            --   outer timer re-anchors the entire sequence coherently on both engines. On
-            --   WKWebView the anchor fires almost immediately, so mac timing is unchanged;
-            --   on WebView2 the sequence now WAITS for the page instead of racing it.
-            --
-            --   BOOT_ANCHOR_LEAD is the single dial for the feel. BOOT_ANCHOR_CAP is a
-            --   safety net: if the anchor somehow never fires (a webview that never comes
-            --   up at all), the sequence still runs so boot can't strand.
+            -- Boot sequence anchored to the loading choreography start, with a safety cap
             local BOOT_ANCHOR_LEAD = 2.9
             local BOOT_ANCHOR_CAP  = 5.0
             local _initSeqArmed    = false

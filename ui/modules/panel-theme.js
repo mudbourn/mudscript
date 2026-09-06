@@ -267,7 +267,7 @@
         }
 
         for (const e of entries) {
-            const meta = [e.origin, e.version].filter(Boolean).join(" · ");
+            const meta = [e.origin, e.version].filter(Boolean).join(" - ");
             const r = h("div", { cls: "row", onmouseenter: () => playSlot("hover") });
             const lbl = h("div", { cls: "row-label" }, e.name);
             if (meta) lbl.appendChild(h("small", {}, meta));
@@ -423,7 +423,7 @@
                 body.appendChild(
                     row(
                         c.label,
-                        set[c.key] ? c.hint : c.hint + " · default",
+                        set[c.key] ? c.hint : c.hint + " - default",
                         colorField(c.key, value),
                         "",
                         [{
@@ -470,7 +470,7 @@
                     body.appendChild(
                         row(
                             c.label,
-                            set[c.key] ? c.hint : c.hint + " · derived",
+                            set[c.key] ? c.hint : c.hint + " - derived",
                             colorField(c.key, value),
                             "",
                             [{

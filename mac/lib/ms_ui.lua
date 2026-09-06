@@ -659,7 +659,7 @@ return function(ms)
                 .. "(Option, Option+Shift), mouse buttons, scroll, and\n"
                 .. "controller buttons work too — hold several pad\n"
                 .. "buttons at once for a controller combo.\n"
-                .. "Release to set  ·  Escape to cancel."
+                .. "Release to set  -  Escape to cancel."
 
             local function captureMsg()
                 return "Current:  " .. current .. "\n\n" .. INSTRUCTIONS

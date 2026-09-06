@@ -30,5 +30,3 @@ ms.bind.define("NewMacro1", NewMacro1Function, {
         key  = "G",
     },
 })
-
--- Camera Sensitivity lives in the Roblox plugin (Roblox.spoon) now. --

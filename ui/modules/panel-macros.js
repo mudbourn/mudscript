@@ -11,16 +11,16 @@
         var MOUSE_REFS = [
             { value: "Absolute",     label: "Absolute (screen coords)" },
             { value: "Mouse",        label: "Mouse (relative to cursor)" },
-            { value: "WindowTL",     label: "Window · Top-Left" },
-            { value: "WindowTR",     label: "Window · Top-Right" },
-            { value: "WindowBL",     label: "Window · Bottom-Left" },
-            { value: "WindowBR",     label: "Window · Bottom-Right" },
-            { value: "WindowCenter", label: "Window · Center" },
-            { value: "ScreenTL",     label: "Screen · Top-Left" },
-            { value: "ScreenTR",     label: "Screen · Top-Right" },
-            { value: "ScreenBL",     label: "Screen · Bottom-Left" },
-            { value: "ScreenBR",     label: "Screen · Bottom-Right" },
-            { value: "ScreenCenter", label: "Screen · Center" }
+            { value: "WindowTL",     label: "Window - Top-Left" },
+            { value: "WindowTR",     label: "Window - Top-Right" },
+            { value: "WindowBL",     label: "Window - Bottom-Left" },
+            { value: "WindowBR",     label: "Window - Bottom-Right" },
+            { value: "WindowCenter", label: "Window - Center" },
+            { value: "ScreenTL",     label: "Screen - Top-Left" },
+            { value: "ScreenTR",     label: "Screen - Top-Right" },
+            { value: "ScreenBL",     label: "Screen - Bottom-Left" },
+            { value: "ScreenBR",     label: "Screen - Bottom-Right" },
+            { value: "ScreenCenter", label: "Screen - Center" }
         ];
         var SCROLL_DIRS = ["up", "down", "left", "right"];
         var WINDOW_OPS = ["Move", "Resize", "Frame"];
@@ -1351,7 +1351,7 @@
             }
             var opts = [{ value: "", label: "Pick a tool..." }];
             _tools.forEach(function(t) {
-                opts.push({ value: t.key, label: (t.label || t.key) + "  ·  " + t.type });
+                opts.push({ value: t.key, label: (t.label || t.key) + "  -  " + t.type });
             });
             return opts;
         }
@@ -2134,7 +2134,7 @@
         if (action === "ms.dragPath") {
             var pts = (typeof params.points === "string" && params.points.trim())
                 ? params.points.split(";").filter(function(s){ return s.trim(); }).length : 0;
-            return (params.button || "Left") + " drag · " + pts + " pts";
+            return (params.button || "Left") + " drag - " + pts + " pts";
         }
         if (action === "ms.switchProfile") return "profile: " + (params.name || "?");
         if (action === "ms.switchPack") return (params.kind || "macro") + " pack: " + (params.slug || "?");
@@ -2484,9 +2484,9 @@
         var nm = document.createElement("span");
         nm.className = "tool-action-name";
         // A setting block is a reference to a shared tool, not a code action, so
-        // it reads "Setting · <label>" rather than the bare "setting" action.
+        // it reads "Setting - <label>" rather than the bare "setting" action.
         nm.textContent = isSetting
-            ? ("Setting · " + ((step.params && (step.params.label || step.params.key)) || "?"))
+            ? ("Setting - " + ((step.params && (step.params.label || step.params.key)) || "?"))
             : step.action;
         el.appendChild(nm);
 
@@ -3782,7 +3782,7 @@
 
         for (var i = 0; i < _macroLib.length; i++) {
             (function(e) {
-                var meta = [e.origin, e.version].filter(Boolean).join(" · ");
+                var meta = [e.origin, e.version].filter(Boolean).join(" - ");
                 var r = kit.h("div", { cls: "row",
                     onmouseenter: function() { if (window.playSlot) playSlot("hover"); } });
                 var lbl = kit.h("div", { cls: "row-label" }, e.name);
@@ -4288,7 +4288,7 @@
             if (targets.length) {
                 items.push({
                     icon:  "",
-                    label: (m.parent ? "Change linked macro…" : "Link to another macro…"),
+                    label: (m.parent ? "Change linked macro..." : "Link to another macro..."),
                     action: function() { kit.showCtxMenu(x, y, targets, m.label || m.id); },
                 });
             }
@@ -4353,7 +4353,7 @@
                 });
             }
         }, isSub
-            ? "Click to rebind · capture mode is set in the ⋯ menu"
+            ? "Click to rebind - capture mode is set in the ⋯ menu"
             : "Click to rebind"));
 
         // The ⋯ options menu. Rendered for every row — even system binds, whose

@@ -81,11 +81,6 @@ YQIDAQAB
         end
 
         -- _dataDir is created once, lazily, by the only writer that targets it
-        -- (persist -> CACHE_PATH). writeFile itself must NOT shell out: it is also
-        -- used for the verify temp files under TMPDIR (which always exists), and on
-        -- Windows every hs.execute is a ~140ms cmd->sh spawn -- 3 of those per verify
-        -- purely to mkdir a dir that already exists was a large chunk of the Browse
-        -- stall. Mac's popen made it free, so this was Windows-only.
         local _dataDirEnsured = false
         local function ensureDataDir()
             if _dataDirEnsured then return end
@@ -94,12 +89,7 @@ YQIDAQAB
         end
 
         local function writeFile(path, body)
-            -- Binary mode: on Windows LuaJIT's text-mode "w" rewrites every \n to
-            -- \r\n. The signature message is `canon .. "\n"`, so a text-mode write
-            -- makes openssl hash `canon\r\n` while the signer (jq) hashed `canon\n`
-            -- -- every verify then fails and the whole library shows empty. mac's
-            -- "w" never translates, which is why this was Windows-only. "wb" keeps
-            -- bare \n on both platforms (same reason hs/execute.lua writes "wb").
+            -- Binary mode keeps bare \n on both platforms so signed bytes match
             local f = io.open(path, "wb")
             if not f then return false end
             f:write(body)
@@ -134,36 +124,12 @@ YQIDAQAB
     -- END Helpers --
 
     -- Signature --
-        -- Rebuild the exact bytes the registry signer hashed and verify the RSA
-        -- signature with openssl. The signer runs `jq -c -S '{formatVersion,
-        -- generated, entries}'` (see bin/registry_sign.sh); that canonical form
-        -- -- compact, recursively key-sorted, raw UTF-8, forward slashes NOT
-        -- escaped, integers with no fractional part, plus jq's trailing newline.
-        -- hs.json.encode CANNOT reproduce it: NSJSONSerialization (which backs it)
-        -- neither sorts keys nor leaves slashes unescaped (it emits `https:\/\/`),
-        -- so every byte comparison failed and served an EMPTY registry (no browse,
-        -- no installs). canonicalJSON() below rebuilds the jq -c -S bytes in pure
-        -- Lua, which also keeps the `jq` dependency out of the client (it is absent
-        -- on Windows and off Hammerspoon's PATH on macOS).
-        -- openssl (on PATH here and on macOS) does the base64 decode
-        -- and the verify, so no platform-specific base64 flags (-D vs -d, the
-        -- macOS-only -i/-o) are needed either.
-        -- openssl drives signature verification; the Windows POSIX-shell path cannot
-        -- reach it (the same gap that makes the Guardian inert -- shasum/openssl are not
-        -- on that shell's PATH). Probe once so we can (a) skip a pointless verify that
-        -- would just fail, and (b) let loadLocal trust the shipped bundled index when the
-        -- tool is missing rather than reject it and leave the whole library empty.
+        -- Probe openssl once, gating verify and letting loadLocal trust the bundled index
         local _opensslChecked, _opensslOK = false, false
         local function opensslAvailable()
             if not _opensslChecked then
                 _opensslChecked = true
-                -- macOS ships LibreSSL as /usr/bin/openssl (what hs.execute
-                -- resolves), whose `openssl version` prints "LibreSSL x.y.z" --
-                -- NOT "OpenSSL". Matching only "OpenSSL" made the probe report
-                -- unavailable, so verifySignature bailed and every strict adopt
-                -- failed with "Index signature did not verify" -> empty library.
-                -- LibreSSL provides the same `base64`/`dgst -verify` CLI we use
-                -- (confirmed verifying the live signature), so accept both.
+                -- Accept both OpenSSL and macOS's LibreSSL
                 local out, ok = hs.execute("openssl version 2>/dev/null")
                 _opensslOK = (ok and type(out) == "string"
                     and (out:find("OpenSSL") ~= nil
@@ -172,12 +138,7 @@ YQIDAQAB
             return _opensslOK
         end
 
-        -- Canonical JSON identical to `jq -c -S`, byte-for-byte: object keys sorted
-        -- by codepoint (Lua's default string compare is a byte compare, which equals
-        -- codepoint order for UTF-8), no insignificant whitespace, forward slashes
-        -- left unescaped, integers printed without a decimal point, and UTF-8 passed
-        -- through verbatim (jq -c is not --ascii-output). This is the byte sequence
-        -- the signer hashed; hs.json.encode is not a substitute (see the note above).
+        -- Canonical JSON identical to `jq -c -S` byte-for-byte, the bytes the signer hashed
         local function canonEscape(s)
             return (s:gsub('[%z\1-\31\\"]', function(c)
                 local b = string.byte(c)
@@ -195,7 +156,8 @@ YQIDAQAB
         local function canonNumber(n)
             if n ~= n or n == math.huge or n == -math.huge then return "null" end
             if n == math.floor(n) and math.abs(n) < 1e15 then
-                return string.format("%.0f", n)   -- integer, no fractional part
+                -- Integer, no fractional part
+                return string.format("%.0f", n)
             end
             return string.format("%.17g", n)
         end
@@ -210,9 +172,7 @@ YQIDAQAB
                 return v and "true" or "false"
             elseif t == "table" then
                 local n = #v
-                -- Positive array length => JSON array. Empty tables serialise as
-                -- an object ({}); the signed index carries no empty arrays, so the
-                -- object/array ambiguity of an empty Lua table never bites.
+                -- Positive array length is a JSON array, empty tables an object
                 if n > 0 then
                     local parts = {}
                     for i = 1, n do parts[i] = canonicalJSON(v[i]) end
@@ -227,7 +187,8 @@ YQIDAQAB
                 end
                 return "{" .. table.concat(parts, ",") .. "}"
             end
-            return "null"   -- nil / hs.json null sentinel / unsupported
+            -- nil, hs.json null sentinel, or unsupported
+            return "null"
         end
 
         local function verifySignature(doc)
@@ -235,8 +196,7 @@ YQIDAQAB
             if type(doc.signature) ~= "string" or doc.signature == "" then
                 return false
             end
-            -- Cannot verify without openssl; report unverified (loadLocal decides whether
-            -- a given source is trusted enough to adopt anyway).
+            -- Without openssl, report unverified and let loadLocal decide
             if not opensslAvailable() then return false end
 
             local payload = {
@@ -248,7 +208,8 @@ YQIDAQAB
             if not okEncode or type(canon) ~= "string" or canon == "" then
                 return false
             end
-            local minified = canon .. "\n"   -- jq's CLI trailing newline is part of the signed bytes
+            -- jq's CLI trailing newline is part of the signed bytes
+            local minified = canon .. "\n"
 
             local keyPath = tmpPath("pub")
             local sigB64  = tmpPath("sig") .. ".b64"
@@ -259,9 +220,7 @@ YQIDAQAB
             writeFile(sigB64, doc.signature)
             writeFile(msgPath, minified)
 
-            -- Decode the base64 signature with openssl (identical on every
-            -- platform) rather than base64(1), whose decode flag differs by OS.
-            -- -A reads the blob as a single line.
+            -- Decode the base64 signature with openssl, portable across platforms
             hs.execute("openssl base64 -d -A -in " .. sq(sigB64) ..
                 " -out " .. sq(sigPath) .. " 2>/dev/null")
             os.remove(sigB64)
@@ -363,21 +322,11 @@ YQIDAQAB
             local cached = decode(readFile(CACHE_PATH))
             if cached and adopt(cached, "cache", true) then return true end
 
-            -- The bundled index ships INSIDE the deployed app tree, so it inherits the
-            -- same trust as the Lua code that reads it; its signature is a defence-in-
-            -- depth check against on-disk tampering. That check needs openssl, which the
-            -- Windows shell path cannot reach -- and requiring it there rejected the
-            -- shipped index and left Browse showing "no packages". So require the
-            -- signature only when we can actually verify it; otherwise trust the local
-            -- shipped file. Network indexes (adopt below in refresh) stay strict, since
-            -- those are untrusted regardless of tooling.
+            -- The bundled index is trusted as shipped, so require its signature only when openssl can verify it
             local bundled = decode(readFile(BUNDLED_PATH))
             if bundled then
                 local ok, why = adopt(bundled, "bundled", opensslAvailable())
                 if ok then return true end
-                -- Surfaced so a still-empty library after this fix names its cause
-                -- (e.g. a signature that verifies-and-fails while openssl IS present,
-                -- which would point at a canonical-JSON byte mismatch, not tooling).
                 print("[ms.registry] bundled index rejected (openssl="
                     .. tostring(opensslAvailable()) .. "): " .. tostring(why))
             elseif not bundled then
@@ -390,7 +339,10 @@ YQIDAQAB
         local function persist(doc)
             doc._fetchedAt = os.time()
             local ok, body = pcall(hs.json.encode, doc)
-            if ok and body then ensureDataDir(); writeFile(CACHE_PATH, body) end
+            if ok and body then
+                ensureDataDir()
+                writeFile(CACHE_PATH, body)
+            end
         end
     -- END Load --
 
@@ -502,16 +454,16 @@ YQIDAQAB
                 return done(nil, "Package download location is not permitted.")
             end
 
-            -- Download with curl via hs.task, NOT hs.http.asyncGet. asyncGet
-            -- returns the body as a Lua string through a lossy NSData->string
-            -- conversion that corrupts non-UTF8 bytes, so a .mspkg (a zip) comes
-            -- out with a different hash than the registry's — every binary
-            -- download "fails the hash" and updates never take. curl writes the
-            -- exact bytes; -L follows GitHub's release-asset redirect, and args
-            -- are passed as an array (no shell), so the URL needs no escaping.
+            -- Download with curl via hs.task, since asyncGet corrupts non-UTF8 bytes and breaks the hash
             local path = tmpPath("dl") .. ".mspkg"
             local args = {
-                "-sSL", "--fail", "--max-time", "120", "-o", path, entry.url,
+                "-sSL",
+                "--fail",
+                "--max-time",
+                "120",
+                "-o",
+                path,
+                entry.url,
             }
             local task = hs.task.new("/usr/bin/curl", function(code, _, stderr)
                 if code ~= 0 then

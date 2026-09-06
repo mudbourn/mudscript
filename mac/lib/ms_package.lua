@@ -13,12 +13,7 @@ return function(ms)
     -- Helpers --
         local function sq(s) return "'" .. tostring(s):gsub("\\", "/"):gsub("'", "'\\''") .. "'" end
 
-        -- Cross-platform sha256. macOS ships `shasum` (perl) but not `sha256sum`;
-        -- git-for-Windows ships `sha256sum` (coreutils) while its `shasum` is off
-        -- the runtime sh PATH -- so a `shasum`-only hash silently fails on Windows
-        -- and every download's hash check mismatches. Probe once for whichever tool
-        -- the sh actually has (shasum first, keeping mac byte-for-byte identical),
-        -- and strip the coreutils escape prefix a filename with special chars adds.
+        -- Cross-platform sha256 tool: shasum on mac, sha256sum on git-for-Windows
         local _hashCmd = nil
         local function hashTool()
             if _hashCmd ~= nil then return _hashCmd end
@@ -36,7 +31,7 @@ return function(ms)
             if not tool then return nil end
             local out = hs.execute(tool .. " " .. sq(path) .. " 2>/dev/null")
             if type(out) ~= "string" then return nil end
-            local h = out:gsub("^\\", ""):match("^(%x+)")   -- drop escape prefix, take hex
+            local h = out:gsub("^\\", ""):match("^(%x+)")
             return (h and #h >= 64) and h:sub(1, 64):lower() or nil
         end
 
@@ -92,13 +87,11 @@ return function(ms)
             if dir and dir:find("mspkg%-") then hs.execute("/bin/rm -rf " .. sq(dir)) end
         end
 
-        -- Where a packaged relative path lands in the live install. Shared by
-        -- install and the library so an activated slice reaches the same dirs.
+        -- Where a packaged relative path lands in the live install
         local function destFor(clean)
             if clean == "ms_macros.lua" then
                 return _hsDir .. "/ms_macros.lua"
             elseif clean == "ms_macros_visual.lua" then
-                -- The compiled visual macros live in data/, not the top level.
                 return _dataDir .. "/ms_macros_visual.lua"
             elseif clean:find("^ms_") and clean:find("%.json$") then
                 return _dataDir .. "/" .. clean
@@ -219,7 +212,6 @@ return function(ms)
         end
 
         ms.package.recordPlugins = function(names, manifest, id)
-            -- `id` is the registry entry id (see recordContent).
             id = (type(id) == "string" and id ~= "" and id)
                 or (manifest and manifest.id) or nil
             local ledger = readLedger() or {
@@ -259,15 +251,17 @@ return function(ms)
             return nil
         end
 
-        -- `id` is the registry entry id, which the manifest does not carry, so
-        -- the caller passes it.
+        -- Record installed non-plugin content, keyed by registry id
         ms.package.recordContent = function(manifest, id)
             id = (type(id) == "string" and id ~= "" and id)
                 or (type(manifest) == "table" and manifest.id) or nil
             if type(manifest) ~= "table" or type(id) ~= "string" or id == "" then
                 return false
             end
-            local ledger = readContentLedger() or { version = 1, content = {} }
+            local ledger = readContentLedger() or {
+                version = 1,
+                content = {},
+            }
             ledger.content[id] = {
                 id          = id,
                 type        = manifest.type,
@@ -283,8 +277,7 @@ return function(ms)
             return writeFile(_contentLedgerPath, json .. "\n")
         end
 
-        -- Returns { [id] = { version = ..., ... }, ... } for installed content,
-        -- or an empty table. Used by Browse to flag already-installed entries.
+        -- Installed content records keyed by id, for Browse to flag entries
         ms.package.listContent = function()
             local ledger = readContentLedger()
             return (ledger and ledger.content) or {}
@@ -509,7 +502,10 @@ return function(ms)
 
         local function profileComponents(relPaths, includeSoundsInTheme)
             local comp = {
-                theme    = { files = {}, includesSounds = includeSoundsInTheme and true or false },
+                theme = {
+                    files = {},
+                    includesSounds = includeSoundsInTheme and true or false,
+                },
                 sound    = { files = {} },
                 macro    = { files = {} },
                 settings = { files = {} },
@@ -714,10 +710,7 @@ return function(ms)
     -- END Split --
 
     -- Apply dropped files --
-        -- Post-copy side effects shared by install and library activation:
-        -- recompile visual macros, rehydrate the slot map, and flag sounds
-        -- dirty so the panel rediscovers them. `installed` is the list of
-        -- relative paths that actually landed on disk.
+        -- Post-copy side effects shared by install and library activation
         local function applyDropped(installed)
             local sawAudio = false
 
@@ -725,10 +718,7 @@ return function(ms)
                 if isAudioRel(rel) then sawAudio = true end
             end
 
-            -- A dropped visual-macros source must be recompiled to its .lua.
-            -- rebuild() is the compile-all entry point (compile(macroDef) is a
-            -- single-macro helper and needs an argument), and load() brings the
-            -- result into the live sandbox so the macros actually register.
+            -- Recompile a dropped visual-macros source and load it into the sandbox
             if ms.compiler and ms.compiler.rebuild then
                 for _, rel in ipairs(installed) do
                     if rel == "ms_macros_visual.json" then
@@ -767,22 +757,9 @@ return function(ms)
     -- END Apply dropped files --
 
     -- Install --
-        -- Install a full profile package into profiles/<name>/, seed its
-        -- component packs into the library, and link packs.json — the
-        -- reciprocal of a profile export. Unlike the generic install path it
-        -- does NOT splatter files over the live setup: importing a profile
-        -- adds it to the Profiles menu, and switching to it (switchProfile) is
-        -- what goes live. Routing a profile through the plain install had three
-        -- faults this fixes: no library packs were seeded (libKind "profile"
-        -- is not a library kind, so the seed gate was never true), no
-        -- profiles/<name>/ entry was created (so it never showed in the menu,
-        -- even after a reload), and the live splatter only took effect after a
-        -- full hs.reload().
+        -- Install a full profile into profiles/<name>/, seed its component packs, and link packs.json
         local function installProfile(staging, manifest, opts)
-            -- Profile identity: the macroMeta.name inside ms_macros.lua (what
-            -- the Profiles menu and the pack-slug convention key on), falling
-            -- back to the manifest name. Sanitised to a filesystem-safe folder
-            -- name the same way ms_settings.sanitizeName does.
+            -- Profile folder name from macroMeta.name, sanitised filesystem-safe
             local folderName
             local body = readFile(staging .. "/ms_macros.lua")
             if body then
@@ -801,8 +778,7 @@ return function(ms)
                 return nil, "Could not create profile folder."
             end
 
-            -- Copy every profile-eligible file from staging into the profile
-            -- dir, preserving relative structure.
+            -- Copy every profile-eligible file from staging into the profile dir
             local installed = {}
             for rel in pairs(manifest.contents or {}) do
                 local clean = safeRelPath(rel)
@@ -820,13 +796,14 @@ return function(ms)
 
             if #installed == 0 then return nil, "Nothing could be installed." end
 
-            -- Seed each component pack into the installed library from the
-            -- STAGED files (not the live setup — the live slice is unrelated to
-            -- the profile being imported), so the profile's look, sounds, and
-            -- macros can be hotswapped and switchProfile can activate them.
+            -- Seed each component pack into the library from the staged files
             local pslug = ms.package.librarySlug(folderName)
             local refs  = {}
-            for _, kind in ipairs({ "macro", "theme", "sound" }) do
+            for _, kind in ipairs({
+                "macro",
+                "theme",
+                "sound",
+            }) do
                 local files = {}
                 for rel in pairs(manifest.contents or {}) do
                     local clean = safeRelPath(rel)
@@ -845,8 +822,7 @@ return function(ms)
                 end
             end
 
-            -- Link the profile to the component packs just seeded (packs.json),
-            -- the authoritative map switchProfile and boot read.
+            -- Link the profile to the component packs just seeded (packs.json)
             if next(refs) and ms.package.setProfilePacks then
                 pcall(ms.package.setProfilePacks, folderName, refs)
             end
@@ -903,10 +879,7 @@ return function(ms)
             local staging  = tempDir("install")
             hs.execute("/usr/bin/unzip -qq -o " .. sq(path) .. " -d " .. sq(staging) .. " 2>/dev/null")
 
-            -- A full profile import is installed as a first-class profile (its
-            -- own dir + seeded component packs + packs.json), not splattered
-            -- over the live setup. A component slice pulled FROM a profile
-            -- (opts.component) still takes the generic single-kind path below.
+            -- A full profile import installs as a first-class profile, not over the live setup
             if manifest.type == "profile" and not opts.component then
                 local res, perr = installProfile(staging, manifest, opts)
                 rmrf(staging)
@@ -953,10 +926,7 @@ return function(ms)
                 end
             end
 
-            -- Mirror the slice into the installed library so the panels can
-            -- hotswap it later. The kind is the component for a slice install,
-            -- else the package's own type. Named after the manifest, so a slice
-            -- pulled from a profile inherits that profile's name.
+            -- Mirror the slice into the installed library so the panels can hotswap it
             local libKind = opts.component or manifest.type
             if #installed > 0 and ms.package.isLibraryKind(libKind) and not opts.noLibrary then
                 local libFiles = {}
@@ -992,8 +962,7 @@ return function(ms)
                     pcall(function() ms.package.recordPlugins(names, manifest, opts.id) end)
                 end
             else
-                -- Record the installed version for Update detection. A component
-                -- slice is a partial install, so it is not recorded.
+                -- Record the installed version for Update detection
                 if not opts.component then
                     pcall(function() ms.package.recordContent(manifest, opts.id) end)
                 end
@@ -1118,10 +1087,7 @@ return function(ms)
             local function addDir(relDir, absDir)
                 if not hs.fs.attributes(absDir) then return end
                 for entry in hs.fs.dir(absDir) do
-                    -- Skip dotfiles and .bak backups. Activation writes a
-                    -- <file>.bak next to each overwritten asset, and those
-                    -- siblings live right inside sounds/macro/; collecting them
-                    -- pollutes the slice and breaks the reconcile fingerprint.
+                    -- Skip dotfiles and .bak backups
                     if entry ~= "." and entry ~= ".." and not entry:find("^%.")
                         and not entry:find("%.bak") then
                         local abs = absDir .. entry
@@ -1131,8 +1097,7 @@ return function(ms)
             end
 
             if kind == "macro" then
-                -- baseDir lets us collect a pack from an arbitrary folder (a
-                -- profile dir) rather than the live locations, for migration.
+                -- baseDir collects a pack from an arbitrary folder, for migration
                 local base = opts and opts.baseDir
                 local dataSrc = function(f) return base and (base .. "/" .. f) or (_dataDir .. "/" .. f) end
                 addIf("ms_macros.lua",         base and (base .. "/ms_macros.lua") or (_hsDir .. "/ms_macros.lua"))
@@ -1188,12 +1153,7 @@ return function(ms)
     -- END Export Helpers --
 
     -- Installed Library --
-        -- A shelf of installed, hotswappable slices — a theme, a sound pack, or
-        -- a macro pack — that Browse fills on install and the panels manage.
-        -- Each entry is a folder under data/library/<kind>/<slug>/ holding the
-        -- slice's files verbatim (by their live relative paths) plus meta.json.
-        -- Activating an entry copies those files into the live dirs, reusing the
-        -- same destinations install writes to. See [[partial-install-single-asset-slices]].
+        -- A shelf of installed, hotswappable slices under data/library/<kind>/<slug>/
         local LIBRARY_ROOT = _dataDir .. "/library"
 
         local LIBRARY_KINDS = {
@@ -1220,21 +1180,17 @@ return function(ms)
             return LIBRARY_ROOT .. "/" .. kind .. "/" .. slug
         end
 
-        -- Exposed so profile code can map a profile name to its pack slug and
-        -- test whether the profile's same-named pack exists in a kind.
+        -- Maps a profile name to its pack slug and tests for a same-named pack
         ms.package.librarySlug = librarySlug
         ms.package.libraryHasEntry = function(kind, slug)
             if not LIBRARY_KINDS[kind] then return false end
             return hs.fs.attributes(libraryDir(kind, librarySlug(slug)) .. "/meta.json") ~= nil
         end
 
-        -- The canonical blank macro source. Shared by createNewProfile and
-        -- libraryCreateEmpty so a blank profile's live ms_macros.lua and its
-        -- blank macro pack are byte-identical — which lets the reconcile
-        -- fingerprint match them and keeps the pack marked active across boots.
+        -- The canonical blank macro source, byte-identical across profile and pack
         ms.package.blankMacroSrc = function(name)
             return table.concat({
-                "-- New profile — add your macros below.",
+                "-- New profile - add your macros below.",
                 "ms.macroMeta = {",
                 "    name   = \"" .. tostring(name or "") .. "\",",
                 "    author = \"\",",
@@ -1251,9 +1207,7 @@ return function(ms)
             return nil
         end
 
-        -- Which stored slice of a kind is currently live. Persisted as a plain
-        -- slug in data/library/<kind>/.active so the panels can flag the active
-        -- entry and boot can tell whether a pack still needs importing.
+        -- Which stored slice of a kind is currently live, persisted as a plain slug
         local function activeMarkerPath(kind) return LIBRARY_ROOT .. "/" .. kind .. "/.active" end
 
         ms.package.libraryGetActive = function(kind)
@@ -1275,16 +1229,7 @@ return function(ms)
             end
         end
 
-        -- The profile the live setup is "on", tracked explicitly rather than
-        -- inferred from the three pack markers. A profile switch records the
-        -- profile name here. A single-pack hotswap NO LONGER clears it: a profile
-        -- is a collection of component packs, so swapping one component just swaps
-        -- that slot's live pack while the profile stays active (its packs.json
-        -- still names the saved pack until the user saves). This decouples "which
-        -- profile is active" from pack naming — same-named packs are not required
-        -- to exist, and packs named off-convention (e.g. a shared sound pack) no
-        -- longer make the profile read as unaligned. The value is a raw profile
-        -- folder name (what getProfiles returns), or nil when nothing is claimed.
+        -- The profile the live setup is "on", tracked explicitly by folder name
         local activeProfilePath = LIBRARY_ROOT .. "/.active_profile"
         ms.package.getActiveProfile = function()
             local s = readFile(activeProfilePath)
@@ -1301,13 +1246,7 @@ return function(ms)
             end
         end
 
-        -- A profile is an explicit collection of component packs, one per kind.
-        -- profiles/<name>/packs.json records the library slug the profile uses for
-        -- each kind, so a profile can point at off-convention or shared packs (a
-        -- profile named "Combat Warriors Macros" can own a macro pack named
-        -- anything). A missing key = that slot is a custom/unsaved mix with no
-        -- linked pack. This is the authoritative link; the old same-name slug
-        -- convention is only a fallback for legacy profiles that predate this file.
+        -- profiles/<name>/packs.json records the library slug the profile uses per kind
         local function profilePacksPath(name)
             return _hsDir .. "/profiles/" .. tostring(name) .. "/packs.json"
         end
@@ -1316,7 +1255,11 @@ return function(ms)
             local t = readJSON(profilePacksPath(name))
             if type(t) ~= "table" then return nil end
             local out = {}
-            for _, k in ipairs({ "theme", "sound", "macro" }) do
+            for _, k in ipairs({
+                "theme",
+                "sound",
+                "macro",
+            }) do
                 if type(t[k]) == "string" and t[k] ~= "" then out[k] = t[k] end
             end
             return out
@@ -1324,7 +1267,11 @@ return function(ms)
         ms.package.setProfilePacks = function(name, tbl)
             if not name or name == "" or type(tbl) ~= "table" then return false end
             local rec = {}
-            for _, k in ipairs({ "theme", "sound", "macro" }) do
+            for _, k in ipairs({
+                "theme",
+                "sound",
+                "macro",
+            }) do
                 if type(tbl[k]) == "string" and tbl[k] ~= "" then rec[k] = tbl[k] end
             end
             local dir = _hsDir .. "/profiles/" .. tostring(name)
@@ -1332,9 +1279,7 @@ return function(ms)
             return writeFile(profilePacksPath(name), hs.json.encode(rec) .. "\n")
         end
 
-        -- Copy a slice into the library. `files` is { relpath = absSource },
-        -- exactly the shape collect() returns. `meta` carries the display name
-        -- (which inherits its origin profile's name), origin, and version.
+        -- Copy a slice { relpath = absSource } into the library
         ms.package.librarySave = function(kind, files, meta)
             if not LIBRARY_KINDS[kind] then return nil, "Not a library kind: " .. tostring(kind) end
             if type(files) ~= "table" or next(files) == nil then
@@ -1406,8 +1351,7 @@ return function(ms)
             return out
         end
 
-        -- Copy a stored slice's files into the live install and run the same
-        -- post-copy steps install does. Backs up whatever it overwrites.
+        -- Copy a stored slice into the live install, backing up what it overwrites
         ms.package.libraryActivate = function(kind, slug)
             if not LIBRARY_KINDS[kind] then return nil, "Not a library kind." end
             slug = librarySlug(slug)
@@ -1415,8 +1359,7 @@ return function(ms)
             local filesDir = libraryDir(kind, slug) .. "/files"
             if not hs.fs.attributes(filesDir) then return nil, "No such library entry." end
 
-            -- A macro pack's ms_macros.lua is executed on the next reload, so it
-            -- must pass the same security scan install runs before it goes live.
+            -- A macro pack's ms_macros.lua must pass the same security scan as install
             if kind == "macro" and ms.auditMacros then
                 local src = readFile(filesDir .. "/ms_macros.lua")
                 if type(src) == "string" and src ~= "" then
@@ -1432,21 +1375,14 @@ return function(ms)
                 "cd " .. sq(filesDir) .. " && find . -type f ! -name '.DS_Store' ! -name '*.bak' 2>/dev/null"
             ) or ""
 
-            -- The set of relpaths the incoming slice provides, so the replace
-            -- step below can spare live files this slice is about to overwrite.
+            -- The set of relpaths the incoming slice provides
             local incoming = {}
             for line in rels:gmatch("[^\r\n]+") do
                 local clean = safeRelPath(line:gsub("^%./", ""))
                 if clean and pathAllowed(kind, clean) then incoming[clean] = true end
             end
 
-            -- Clean replace: activation must swap the slice, not layer onto it.
-            -- Remove exactly the files the previously-active entry owned that
-            -- this one does not carry (e.g. a blank macro pack must clear the
-            -- prior pack's ms_macros_visual.*). Scoped to the prior entry's own
-            -- file list, so shared assets (sounds/macro/) another pack placed
-            -- are never collateral. Skipped when there is no prior marker — the
-            -- live state is custom and we cannot know what it owns.
+            -- Clean replace: remove files the prior active entry owned that this one lacks
             local prev = ms.package.libraryGetActive(kind)
             if prev and prev ~= slug then
                 local prevDir = libraryDir(kind, prev) .. "/files"
@@ -1487,14 +1423,7 @@ return function(ms)
                 end
             end
 
-            -- A blank pack carries no files. That is a valid "reset to
-            -- default" activation (the same way a blank macro pack or profile
-            -- is), NOT a failure — only error if the slice HAD files and every
-            -- copy failed. The clean-replace above already removed the prior
-            -- entry's files; also clear this kind's live default targets so it
-            -- resets even when there was no prior marker (custom/unmanaged live
-            -- state). Non-destructive: only the config file that pins a
-            -- non-default look/preset is removed, never the user's audio.
+            -- A blank pack resets to default; only fail if it had files and every copy failed
             local hadFiles = next(incoming) ~= nil
             if hadFiles and #installed == 0 then
                 return nil, "Nothing could be activated."
@@ -1506,14 +1435,10 @@ return function(ms)
                     os.remove(_hsDir .. "/sound_assign.json")
                     ms._soundsDirty = true
                 elseif kind == "macro" then
-                    -- Clean-replace just removed the prior pack's ms_macros.lua
-                    -- and a blank pack carries none — leaving the live macros
-                    -- file absent, which breaks reloadMacros and would crash the
-                    -- next cold boot's audit. Seed the same minimal stub boot
-                    -- and switchProfile use so there is always a valid file.
+                    -- Seed a minimal stub so the live macros file is never absent
                     if not fileExists(_hsDir .. "/ms_macros.lua") then
                         writeFile(_hsDir .. "/ms_macros.lua",
-                            "-- Blank macro pack — add your macros below.\n"
+                            "-- Blank macro pack - add your macros below.\n"
                             .. "ms.macroMeta = { name = \"" .. tostring(slug)
                             .. "\", author = \"\" }\n")
                     end

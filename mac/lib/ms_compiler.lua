@@ -9,14 +9,7 @@
         ms.compiler = {}
 
         -- Broken-macro quarantine --
-            -- A macro whose emitted body fails to compile is not dropped from
-            -- the generated file (which would take the WHOLE chunk down on load,
-            -- unregistering every visual macro at once and blanking their
-            -- binds). Instead rebuild emits a call to this helper, which
-            -- registers the macro normally — so it keeps its list slot and key
-            -- bind — with a body that surfaces the compile error when run. The
-            -- failure stays isolated to the one broken macro and is visible
-            -- instead of silent.
+            -- Registers a macro whose body failed to compile, surfacing the error when run
             ms._brokenMacro = function(spec)
                 spec = type(spec) == "table" and spec or {}
                 local id = spec.id
@@ -29,7 +22,10 @@
                     error("[ms.compiler] macro '" .. id
                         .. "' failed to compile: " .. errMsg, 0)
                 end, label)
-                local opts = { group = spec.group or "visual", label = label }
+                local opts = {
+                    group = spec.group or "visual",
+                    label = label,
+                }
                 if spec.cooldown then opts.cooldown = spec.cooldown end
                 local b = spec.bind
                 if type(b) == "table" and (b.type or b.key) then
@@ -46,15 +42,12 @@
         -- Helpers --
             local function toolRef(val)
                 if type(val) ~= "table" then return nil end
-                -- A setting binding: Value->Tool wired to an authored setting.
+                -- Value->Tool wired to an authored setting
                 if type(val.__toolRef) == "string"
                     and val.__toolRef:match("^[%a_][%w_]*$") then
                     return 'ms.settings.get("' .. val.__toolRef .. '")'
                 end
-                -- A helper-var binding: Value->Tool wired to a declared, disk-
-                -- persistent shared variable. Read live so several macros see
-                -- the same value; distinct tag from settings so the two pools
-                -- never collide.
+                -- Value->Tool wired to a declared shared helper var, read live
                 if type(val.__varRef) == "string"
                     and val.__varRef:match("^[%a_][%w_]*$") then
                     return 'ms.vars.get("' .. val.__varRef .. '")'
@@ -62,13 +55,7 @@
                 return nil
             end
 
-            -- Expand {name} tokens in a string literal into live helper-var
-            -- reads, emitting a Lua concatenation. A string with no valid token
-            -- returns a plain quoted literal unchanged, so existing macros (and
-            -- text that merely contains braces, e.g. NBT like {Health:20}) are
-            -- untouched. `{{` / `}}` escape literal braces inside an interpolated
-            -- string. Reads are coerced with tostring(x or "") so numeric or
-            -- unset vars concatenate cleanly instead of erroring.
+            -- Expands {name} tokens in a string literal into live helper-var reads
             local function interpString(s)
                 if not s:match("{[%a_][%w_]*}") then
                     return string.format("%q", s)
@@ -84,9 +71,11 @@
                 while i <= n do
                     local c = s:sub(i, i)
                     if c == "{" and s:sub(i + 1, i + 1) == "{" then
-                        lit[#lit + 1] = "{"; i = i + 2
+                        lit[#lit + 1] = "{"
+                        i = i + 2
                     elseif c == "}" and s:sub(i + 1, i + 1) == "}" then
-                        lit[#lit + 1] = "}"; i = i + 2
+                        lit[#lit + 1] = "}"
+                        i = i + 2
                     elseif c == "{" then
                         local close = s:find("}", i + 1, true)
                         local name = close and s:sub(i + 1, close - 1) or nil
@@ -95,10 +84,12 @@
                             parts[#parts + 1] = 'tostring(ms.vars.get("' .. name .. '") or "")'
                             i = close + 1
                         else
-                            lit[#lit + 1] = "{"; i = i + 1
+                            lit[#lit + 1] = "{"
+                            i = i + 1
                         end
                     else
-                        lit[#lit + 1] = c; i = i + 1
+                        lit[#lit + 1] = c
+                        i = i + 1
                     end
                 end
                 flushLit()
@@ -109,10 +100,7 @@
 
             local function serialize(val)
                 local ref = toolRef(val)
-                -- A wired var/setting value used as string text may itself embed
-                -- {name} tokens; expand them at runtime. (Numeric contexts go
-                -- through numArg, which stays bare, and conditions resolve the
-                -- ref directly — so this only affects value/text fields.)
+                -- A wired value used as text may embed {name} tokens, expanded at runtime
                 if ref then return "ms.interp(" .. ref .. ")" end
                 local t = type(val)
                 if t == "string"  then return interpString(val) end
@@ -309,19 +297,14 @@
             emitters["var_set"] = function(step, lvl)
                 local p = step.params or {}
                 local value = serialize(p.value)
-                -- A valid identifier is hoisted (see tempVarDecl), so assign to
-                -- it — declaring `local` here would shadow the hoisted var and
-                -- strand its value in this block. Fall back to a local only for
-                -- names that couldn't be hoisted.
+                -- Assign to the hoisted var when the name is a valid identifier, else declare a local
                 if type(p.name) == "string" and p.name:match("^[%a_][%w_]*$") then
                     return indent(lvl) .. p.name .. " = " .. value
                 end
                 return indent(lvl) .. "local " .. ident(p.name, "v") .. " = " .. value
             end
 
-            -- Call a function tool (an authored, reusable ms.fn) by name. The
-            -- name is identifier-validated so nothing can break out of the
-            -- string literal; an empty/invalid name emits an inert comment.
+            -- Call a function tool by validated name, or emit an inert comment
             emitters["call_fn"] = function(step, lvl)
                 local p = step.params or {}
                 local name = type(p.name) == "string"
@@ -332,9 +315,7 @@
                 return indent(lvl) .. 'ms.callFn("' .. name .. '")'
             end
 
-            -- Write a declared helper var (disk-persistent, shared across
-            -- macros). Reads are done by binding a Value field to the var
-            -- (see toolRef); this is the explicit write side.
+            -- Write a declared helper var, the explicit counterpart to a Value->Tool read
             emitters["hvar_set"] = function(step, lvl)
                 local p = step.params or {}
                 local name = type(p.name) == "string"
@@ -346,18 +327,13 @@
                     .. serialize(p.value) .. ")"
             end
 
-            -- Switch to another profile by name. The name is an arbitrary
-            -- folder string (may contain spaces), so it's a quoted literal via
-            -- serialize, not an identifier.
+            -- Switch to another profile by name
             emitters["ms.switchProfile"] = function(step, lvl)
                 local p = step.params or {}
                 return indent(lvl) .. "ms.switchProfile(" .. serialize(p.name or "") .. ")"
             end
 
-            -- Activate an installed library pack (macro / theme / sound slice)
-            -- by slug. kind is constrained to the known slices; slug is a
-            -- quoted literal. Emits the public ms.switchPack(slug, kind) so the
-            -- generated line is identical to what a handwritten macro would call.
+            -- Activate an installed library pack by slug and kind
             emitters["ms.switchPack"] = function(step, lvl)
                 local p = step.params or {}
                 local kind = tostring(p.kind or "macro")
@@ -388,8 +364,9 @@
 
             local _flowCounter = 0
 
-            -- Ongoing inter-step delay set by an action_delay step. See
+            -- Ongoing inter-step delay set by an action_delay step
             local _actionDelay = 0
+
             local _CONTAINER = {
                 ["if"]     = true,
                 ["for"]    = true,
@@ -397,10 +374,7 @@
                 ["repeat"] = true,
             }
 
-            -- In an expression context (if/while conditions) a {name} token is
-            -- the variable's live value, so it expands to a bare `ms.vars.get`
-            -- call — no quoting/tostring like the string-literal case. Keeps the
-            -- {name} UI convention uniform across every field the user types in.
+            -- Expands {name} tokens in a condition into bare ms.vars.get reads
             local function interpExpr(s)
                 return (s:gsub("{([%a_][%w_]*)}", 'ms.vars.get("%1")'))
             end
@@ -408,10 +382,7 @@
             local function stepCond(step)
                 local c = step.condition
                 if c == nil then c = step.params and step.params.condition end
-                -- A condition wired to a tool/var arrives as a {__toolRef} /
-                -- {__varRef} table. Resolve it to the live read expression
-                -- (ms.settings.get / ms.vars.get) instead of interpolating a
-                -- string — otherwise the branch silently compiles to `true`.
+                -- A condition wired to a tool/var resolves to its live read expression
                 local ref = toolRef(c)
                 if ref then return ref end
                 if type(c) == "table" then c = nil end
@@ -422,16 +393,12 @@
             local function thenSteps(step) return step["then"] or step.then_steps end
             local function elseSteps(step) return step["else"] or step.else_steps end
 
-            -- Local ("temp") variables are declared per-step by var_set, which
-            -- would scope them to the block they sit in — so a var_add in a
-            -- sibling/outer block, or a read before the first set, would hit a
-            -- global nil and blow up (nil arithmetic). Collect every temp-var
-            -- name up front (recursing into if/for/while/repeat bodies) so the
-            -- compiler can hoist a single function-scoped declaration; var_set
-            -- then assigns instead of re-declaring. Only valid Lua identifiers
-            -- are hoisted; anything else falls back to a local at its use site.
+            -- Collects every temp-var name so the compiler can hoist one function-scoped decl
             local VAR_ACTIONS = {
-                var_set = true, var_add = true, var_sub = true, var_mul = true,
+                var_set = true,
+                var_add = true,
+                var_sub = true,
+                var_mul = true,
             }
             local function collectTempVars(steps, seen, order)
                 if type(steps) ~= "table" then return end
@@ -450,9 +417,7 @@
                 end
             end
 
-            -- The hoisted declaration line, or nil when the macro uses no temp
-            -- vars. Every var starts at 0 so a var_add before any var_set still
-            -- does arithmetic instead of erroring; a var_set overwrites it.
+            -- The hoisted declaration line seeding every temp var at 0, or nil when none
             local function tempVarDecl(steps)
                 local seen, order = {}, {}
                 collectTempVars(steps, seen, order)
@@ -651,7 +616,8 @@
                 lines[#lines + 1] = indent(1) .. "local t = 100"
                 local tvDecl = tempVarDecl(steps)
                 if tvDecl then lines[#lines + 1] = tvDecl end
-                _actionDelay = 0   -- never leak a delay between macros
+                -- Never leak a delay between macros
+                _actionDelay = 0
                 for _, step in ipairs(steps) do
                     lines[#lines + 1] = emitStep(step, 1)
                 end
@@ -687,10 +653,7 @@
                 return table.concat(lines, "\n")
             end
 
-            -- Compile a function tool: a named, reusable ms.fn registered so
-            -- any macro can invoke it with ms.callFn("id"). Reuses the exact
-            -- step emitters the macro compiler uses, so a function tool is
-            -- authored on the same canvas and behaves identically at runtime.
+            -- Compile a named, reusable ms.fn any macro can invoke with ms.callFn("id")
             ms.compiler.compileFunction = function(fnDef)
                 assert(type(fnDef) == "table", "ms.compiler.compileFunction: fnDef must be a table")
                 assert(type(fnDef.id) == "string", "ms.compiler.compileFunction: fnDef.id must be a string")
@@ -703,10 +666,7 @@
                 local fnName = id .. "Tool"
                 local lines = {}
 
-                -- coroutine=false makes ms.fn return the raw function, so the
-                -- tool runs inline in its caller's coroutine; otherwise it is
-                -- wrapped to run in its own (async). Legacy defs (nil) stay
-                -- wrapped, preserving how they already behave.
+                -- coroutine=false runs the tool inline in its caller, else it is wrapped async
                 local asCoroutine = fnDef.coroutine ~= false
                 local secondArg = asCoroutine
                     and ('"' .. label:gsub('[\r\n"]', " ") .. '"')
@@ -737,18 +697,10 @@
                 return string.format("%q", v)
             end
 
-            -- Does this emitted source parse as valid Lua? compile() can happily
-            -- return syntactically broken text (a raw `code` step or a hand-typed
-            -- condition passes straight through), and the whole generated file is
-            -- loaded as ONE chunk — so a single bad macro would fail the load and
-            -- unregister every visual macro. Parse each macro on its own first so
-            -- the damage can be contained. Returns nil on success, else the error.
+            -- Parses one macro's emitted source alone so a bad macro can't sink the file
             local function syntaxError(src)
                 if type(src) ~= "string" then return "compiler returned non-string" end
-                -- Mirror the load() path used elsewhere here: LuaJIT reports
-                -- _VERSION "Lua 5.1" and keeps loadstring, so prefer it and only
-                -- fall back to 5.2+ load(). Parsing alone — undefined globals in
-                -- the source don't matter since we never execute the chunk.
+                -- Prefer loadstring (LuaJIT), falling back to 5.2+ load
                 local chunk, err
                 if loadstring then
                     chunk, err = loadstring(src, "ms_macro_check")
@@ -759,10 +711,7 @@
                 return tostring(err)
             end
 
-            -- Source for a quarantined macro: registers it via ms._brokenMacro so
-            -- it keeps its list slot and bind but reports the compile error when
-            -- run. All interpolated values go through luaStr, so an error string
-            -- full of quotes/newlines can't itself produce broken source.
+            -- Source registering a quarantined macro via ms._brokenMacro
             local function brokenMacroSource(macroDef, errMsg)
                 local b = macroDef.bind
                 local bindLit = "nil"
@@ -800,9 +749,7 @@
                 lines[#lines + 1] = "-- END Creator Credits --"
                 lines[#lines + 1] = ""
 
-                -- Indent the body one level inside its fold markers, matching
-                -- the Creator Credits block, so each section collapses cleanly
-                -- in Zed. Blank lines stay bare (no trailing whitespace).
+                -- Indent the body one level inside its fold markers so it collapses in Zed
                 local function indentBlock(src)
                     local out = {}
                     for line in (src .. "\n"):gmatch("([^\n]*)\n") do
@@ -847,9 +794,7 @@
                     error("ms.compiler.rebuild: invalid JSON in " .. jsonPath .. ": " .. tostring(data))
                 end
 
-                -- Compile errors from this pass, keyed by macro id. saveMacro
-                -- reads this right after rebuild() to tell the builder a save
-                -- produced a broken macro instead of silently succeeding.
+                -- Compile errors from this pass, keyed by macro id, read by saveMacro
                 ms.compiler._errors = {}
 
                 local macros = data.macros or {}
@@ -859,10 +804,7 @@
                 for id, macroDef in pairs(macros) do
                     macroDef.id = id
                     local srcOk, src = pcall(ms.compiler.compile, macroDef)
-                    -- Two failure modes: the emitter itself throws (srcOk false),
-                    -- or it returns text that does not parse (syntaxError). Either
-                    -- way, quarantine the macro so its bad Lua can't sink the
-                    -- whole file's load.
+                    -- Quarantine on either failure mode: the emitter throws, or its text won't parse
                     local errMsg
                     if not srcOk then
                         errMsg = tostring(src)
@@ -881,8 +823,7 @@
                     count = count + 1
                 end
 
-                -- Function tools compile ahead of the macros so a macro that
-                -- calls one finds it already defined in the same chunk.
+                -- Function tools compile ahead of macros so a caller finds one already defined
                 local functions = data.functions or {}
                 local fnSources = {}
                 local fnCount = 0
@@ -898,13 +839,14 @@
                     if fnErr then
                         print("ms.compiler: function compile error for '" .. id .. "': " .. fnErr)
                         ms.compiler._errors["fn:" .. id] = fnErr
-                        -- A comment is valid Lua, so it keeps the file loadable.
-                        -- Any macro that calls this tool hits a nil at runtime
-                        -- (isolated) instead of failing the whole load.
+                        -- Emit a comment so the file stays loadable and callers hit an isolated nil
                         srcF = "-- [FUNCTION COMPILE ERROR for " .. id .. "]\n"
                             .. "-- " .. fnErr:gsub("\n", "\n-- ") .. "\n"
                     end
-                    fnSources[#fnSources + 1] = { id = "fn:" .. id, source = srcF }
+                    fnSources[#fnSources + 1] = {
+                        id     = "fn:" .. id,
+                        source = srcF,
+                    }
                     fnCount = fnCount + 1
                 end
                 table.sort(fnSources, function(a, b) return a.id < b.id end)
@@ -940,9 +882,7 @@
                     ms.compiler._registeredIds = nil
                 end
 
-                -- Function tools register into ms.fn.registry, not ms.registry,
-                -- so clear the previous batch there too or the second load
-                -- trips ms.fn.define's "already registered" assert.
+                -- Clear the previous function-tool batch from ms.fn.registry too
                 local prevFn = ms.compiler._registeredFnIds
                 if prevFn and ms.fn and ms.fn.registry then
                     for id in pairs(prevFn) do
@@ -1019,8 +959,7 @@
                 for _, id in ipairs(ms.compiler.list()) do reg[id] = true end
                 ms.compiler._registeredIds = reg
 
-                -- Any ms.fn ids that appeared during this load are function
-                -- tools we own; remember them so the next load can clear them.
+                -- Remember ms.fn ids that appeared this load so the next load can clear them
                 local fnReg = {}
                 if ms.fn and ms.fn.registry then
                     for _, id in ipairs(ms.fn.registry._defList) do
@@ -1110,16 +1049,7 @@
                     end
                 end
 
-                -- Preserve the macro's key bind across a builder save. The
-                -- builder canvas has no bind editor, so macroDef.bind arrives
-                -- nil; writing it blindly would strip a bind the user set via the
-                -- rebind UI (which lives in ms.bindConfig / ms_settings.json, not
-                -- in this JSON) or one previously baked here. Fall back to the
-                -- live bindConfig entry — folded to the stored { type,key,mods }
-                -- shape the compiler emits as a `default` bind — then to the
-                -- existing JSON entry. This both prevents the clobber AND bakes
-                -- the current bind in, so it travels with the pack and survives
-                -- profile switches instead of being settings-only.
+                -- Preserve the macro's key bind across a save, falling back to live bindConfig then JSON
                 local bind = macroDef.bind
                 if bind == nil then
                     local cfg = ms.bindConfig and ms.bindConfig[macroId]
@@ -1127,7 +1057,11 @@
                         and (cfg.type == nil or cfg.type == "key") and cfg.key ~= nil then
                         local mods = {}
                         for _, m in ipairs(cfg.mods or {}) do mods[#mods + 1] = m end
-                        bind = { type = "key", key = cfg.key, mods = mods }
+                        bind = {
+                            type = "key",
+                            key  = cfg.key,
+                            mods = mods,
+                        }
                     elseif type(data.macros[macroId]) == "table" then
                         bind = data.macros[macroId].bind
                     end
@@ -1328,7 +1262,10 @@
                 local data = readData()
                 local out = {}
                 for id, def in pairs(data.functions) do
-                    out[#out + 1] = { id = id, name = def.name or id }
+                    out[#out + 1] = {
+                        id   = id,
+                        name = def.name or id,
+                    }
                 end
                 table.sort(out, function(a, b) return a.id < b.id end)
                 return out
@@ -1382,7 +1319,7 @@
                 local f = io.open(jsonPath, "r")
                 if f then
                     local raw = f:read("*all")
-                f:close()
+                    f:close()
                     local ok, parsed = pcall(hs.json.decode, raw)
                     if ok and type(parsed) == "table" then
                         data = parsed
