@@ -13,3 +13,7 @@ ignore/
 
 # Key files
 *.pem
+
+/*.log
+/*.txt
+/*.md
