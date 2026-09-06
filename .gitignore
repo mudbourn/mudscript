@@ -4,8 +4,8 @@ backups/
 ignore/
 .DS_Store
 *.pem
-/*.log
-/*.txt
-/*.md
+*.log
+*.txt
+*.md
 !README.md
 !docs/*.md
