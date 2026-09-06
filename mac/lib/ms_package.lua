@@ -1456,10 +1456,7 @@ return function(ms)
             }
         end
 
-        -- Public, macro-callable alias for activating an installed pack by slug.
-        -- Top-level so a handwritten macro can call it exactly as the visual
-        -- builder emits it (ms.switchPack), and so the builder module can be
-        -- labelled by a real function name. kind defaults to a macro pack.
+        -- Macro-callable alias for activating an installed pack by slug
         ms.switchPack = function(slug, kind)
             return ms.package.libraryActivate(kind or "macro", slug)
         end
@@ -1479,9 +1476,7 @@ return function(ms)
             return true
         end
 
-        -- Rename a stored slice in place. The slug (folder name + .active
-        -- marker) stays put so nothing has to move on disk; only the display
-        -- name in meta.json changes. Mirrors the profiles panel's rename.
+        -- Rename a stored slice's display name in place
         ms.package.libraryRename = function(kind, slug, newName)
             if not LIBRARY_KINDS[kind] then return nil, "Not a library kind." end
             slug = librarySlug(slug)
@@ -1495,18 +1490,14 @@ return function(ms)
             return rec
         end
 
-        -- Rename a stored slice's SLUG (folder) as well as its display name, so
-        -- a profile rename can keep its same-named packs aligned (alignment
-        -- matches by slug). Moves the entry folder, updates meta, and carries
-        -- the .active marker across if this entry was active. No-op if the entry
-        -- does not exist; refuses to clobber an existing target slug.
+        -- Rename a stored slice's slug and display name
         ms.package.libraryRenameEntry = function(kind, oldSlug, newName)
             if not LIBRARY_KINDS[kind] then return nil, "Not a library kind." end
             oldSlug = librarySlug(oldSlug)
             newName = type(newName) == "string" and newName:gsub("^%s+", ""):gsub("%s+$", "") or ""
             if newName == "" then return nil, "Name cannot be empty." end
             local oldDir = libraryDir(kind, oldSlug)
-            if not hs.fs.attributes(oldDir) then return nil end   -- nothing to rename
+            if not hs.fs.attributes(oldDir) then return nil end
             local newSlug = librarySlug(newName)
             if newSlug ~= oldSlug then
                 local newDir = libraryDir(kind, newSlug)
@@ -1529,17 +1520,7 @@ return function(ms)
             return rec
         end
 
-        -- Record each visual macro's current key bind into the LIVE
-        -- ms_macros_visual.json, so a subsequent capture banks it and the bind
-        -- travels with the pack. Visual macros register with no built-in bind —
-        -- the key lives only in ms_settings.json (profile-owned) — so swapping a
-        -- pack onto another profile's settings loses the bind. The compiler
-        -- already emits a `default` bind from a macro's `bind` field
-        -- (ms_compiler.lua), so recording it here makes the activated pack
-        -- self-bind. Folding the LIVE file (not just the stored copy) keeps live
-        -- and stored byte-identical, so the reconcile fingerprint still matches.
-        -- Only key binds are folded (the shape the compiler fully restores);
-        -- other bind types stay settings-only.
+        -- Fold each visual macro's live key bind into ms_macros_visual.json
         local function foldLiveMacroBinds()
             if type(ms.bindConfig) ~= "table" then return end
             local jsonPath = _dataDir .. "/ms_macros_visual.json"
@@ -1560,10 +1541,7 @@ return function(ms)
             if changed then writeFile(jsonPath, hs.json.encode(data) .. "\n") end
         end
 
-        -- Create a bare-bones, empty library slot the user can populate later —
-        -- the pack analogue of Create New Profile ([[create-new-profile-makes-empty-entry]]).
-        -- Meta only, no files; activating it copies nothing (the live slice
-        -- stays put) until the user saves their current setup into it.
+        -- Create an empty library slot to populate later
         ms.package.libraryCreateEmpty = function(kind, name)
             if not LIBRARY_KINDS[kind] then return nil, "Not a library kind." end
             name = (type(name) == "string" and name ~= "") and name or ("New " .. kind)
@@ -1572,14 +1550,7 @@ return function(ms)
             if hs.fs.attributes(dir) then return nil, "A pack with that name already exists." end
             hs.execute("mkdir -p " .. sq(dir .. "/files"))
 
-            -- A blank SOUND pack is not silent-empty: like a blank profile
-            -- (seeded default rather than silent), it represents the DEFAULT
-            -- preset. Seed a full default sound_assign.json (every slot mapped
-            -- to its built-in default sample) so activating the pack resets the
-            -- live assignments — and therefore the Presets indicator — to
-            -- Default. Without it, activation kept the previous pack's slot map
-            -- (applyDropped only merges the assigns a slice carries), so the
-            -- preset never showed Default.
+            -- A blank sound pack seeds the full default sound_assign.json
             local fileCount = 0
             if kind == "sound" and ms.soundSlotDefaults then
                 local assigns = ms.soundSlotDefaults()
@@ -1589,9 +1560,7 @@ return function(ms)
                     fileCount = 1
                 end
             elseif kind == "macro" then
-                -- A blank macro pack carries the same stub ms_macros.lua a blank
-                -- profile goes live with, so the two are byte-identical and the
-                -- pack's active marker survives the reconcile fingerprint.
+                -- A blank macro pack carries the blank-profile stub ms_macros.lua
                 writeFile(dir .. "/files/ms_macros.lua",
                     ms.package.blankMacroSrc(name))
                 fileCount = 1
@@ -1609,11 +1578,7 @@ return function(ms)
             return record
         end
 
-        -- Create a new named entry seeded from the current live slice — the
-        -- pack analogue of Create New Profile ▸ "Seed from current". Unlike
-        -- libraryCapture it does NOT flip the active marker (creating a profile
-        -- doesn't switch to it), and it refuses to clobber an existing name.
-        -- If nothing is live to seed, it falls back to an empty slot.
+        -- Create a new named entry seeded from the current live slice
         ms.package.libraryCreateSeeded = function(kind, name)
             if not LIBRARY_KINDS[kind] then return nil, "Not a library kind." end
             name = (type(name) == "string" and name ~= "") and name or ("New " .. kind)
@@ -1634,8 +1599,7 @@ return function(ms)
             })
         end
 
-        -- Remove every stored entry of a kind except the active one — the pack
-        -- analogue of Clear Saved Profiles. Returns the count removed.
+        -- Remove every stored entry of a kind except the active one
         ms.package.libraryClear = function(kind)
             if not LIBRARY_KINDS[kind] then return 0, "Not a library kind." end
             local active = ms.package.libraryGetActive(kind)
@@ -1649,15 +1613,13 @@ return function(ms)
             return removed
         end
 
-        -- Absolute path to a stored slice's files, so export can pack a
-        -- specific library entry rather than only the live one.
+        -- Absolute path to a stored slice's files
         ms.package.libraryFilesDir = function(kind, slug)
             if not LIBRARY_KINDS[kind] then return nil end
             return libraryDir(kind, librarySlug(slug)) .. "/files"
         end
 
-        -- Snapshot the current live slice of a kind into the library, so the
-        -- user can bank the setup they are running and hotswap back to it.
+        -- Snapshot the current live slice of a kind into the library
         ms.package.libraryCapture = function(kind, name)
             if not LIBRARY_KINDS[kind] then return nil, "Not a library kind." end
 
@@ -1671,13 +1633,11 @@ return function(ms)
                 name   = (type(name) == "string" and name ~= "" and name) or "Current " .. kind,
                 origin = "captured",
             })
-            -- Capturing banks the live slice, so that entry is what is live now.
             if rec then ms.package.librarySetActive(kind, rec.slug) end
             return rec, err
         end
 
-        -- Import a slice sitting in an arbitrary folder (e.g. a profile dir)
-        -- into the library. Copy only; the source folder is left untouched.
+        -- Import a slice from an arbitrary folder into the library
         ms.package.libraryImportDir = function(kind, baseDir, meta)
             if not LIBRARY_KINDS[kind] then return nil, "Not a library kind." end
             if not hs.fs.attributes(baseDir) then return nil, "No such folder." end
@@ -1686,10 +1646,7 @@ return function(ms)
             return ms.package.librarySave(kind, files, meta or {})
         end
 
-        -- One-time, non-destructive migration: surface every macro pack the user
-        -- already has — the live pack plus each saved profile's pack — as library
-        -- entries so they appear in Installed Macro Packs and can be hotswapped.
-        -- Copies only; never deletes profile files. Idempotent by slug + marker.
+        -- Surface every existing macro pack as a library entry
         ms.package.migrateMacroPacks = function()
             local macroRoot  = LIBRARY_ROOT .. "/macro"
             local doneMarker = macroRoot .. "/.migrated"
@@ -1734,12 +1691,7 @@ return function(ms)
             writeFile(doneMarker, os.date("!%Y-%m-%dT%H:%M:%SZ") .. "\n")
         end
 
-        -- Backfill profiles/<name>/packs.json for legacy profiles that predate it,
-        -- by linking to any already-existing same-named component pack. Runs every
-        -- boot but no-ops per profile that already has packs.json, and never
-        -- CREATES packs (that would be an implicit save) — a profile with no
-        -- same-named pack in a kind is left unlinked for that slot until the user
-        -- explicitly saves. Idempotent and cheap (a few fs stats per profile).
+        -- Backfill packs.json for legacy profiles by linking same-named packs
         ms.package.migrateProfilePacks = function()
             local profilesDir = _hsDir .. "/profiles/"
             if not hs.fs.attributes(profilesDir) then return end
@@ -1756,22 +1708,13 @@ return function(ms)
             end
         end
 
-        -- Files whose bytes are regenerated on the fly (so they never compare
-        -- equal even when the slice is otherwise identical) — excluded from the
-        -- reconcile fingerprint. sound_assign.json is re-encoded by collect();
-        -- ms_macros_visual.lua is recompiled from its .json on every rebuild()
-        -- (the .json source stays in the fingerprint), so its bytes drift.
+        -- Files regenerated on the fly, excluded from the reconcile fingerprint
         local RECONCILE_SKIP = {
             ["sound_assign.json"]     = true,
             ["ms_macros_visual.lua"]  = true,
         }
 
-        -- Deterministic JSON serialization (sorted object keys) so a slice's
-        -- *.json files fingerprint by CONTENT, not by hs.json.encode's unstable
-        -- key order. Without this, a plain re-encode of an identical table (e.g.
-        -- a bind serialized {type,key,mods} vs {key,type,mods}) produced different
-        -- bytes and flipped the reconcile badge. Array vs object is inferred:
-        -- a non-empty pure-sequence table is an array, everything else an object.
+        -- Deterministic JSON serialization with sorted object keys
         local function canonicalJSON(v)
             local t = type(v)
             if t == "table" then
@@ -1801,10 +1744,7 @@ return function(ms)
             return "null"
         end
 
-        -- Per-macro key binds are profile-owned (they live in ms_settings.json and
-        -- are folded into the pack only so they travel on activation). Two macro
-        -- slices with identical macro CONTENT but different binds are the same pack
-        -- for reconcile purposes, so strip binds before fingerprinting.
+        -- Strip profile-owned binds before fingerprinting
         local function stripVisualBinds(tbl)
             if type(tbl) == "table" and type(tbl.macros) == "table" then
                 for _, m in pairs(tbl.macros) do
@@ -1814,11 +1754,7 @@ return function(ms)
             return tbl
         end
 
-        -- A stable content fingerprint of a { rel = abs } slice: sorted rel paths,
-        -- each reduced to a content token. JSON files are canonicalized (and macro
-        -- binds stripped) so key-order and bind drift never cause a false mismatch;
-        -- other files are md5'd. Returns nil if the slice is empty or a hash is
-        -- unavailable, so a failed hash never masquerades as a match.
+        -- A stable content fingerprint of a { rel = abs } slice
         local function sliceFingerprint(files)
             local rels = {}
             for rel in pairs(files) do
@@ -1863,15 +1799,11 @@ return function(ms)
             return out
         end
 
-        -- Point the active marker at whichever stored entry matches the live
-        -- slice by content, so themes/sounds flag correctly even when the live
-        -- state was set outside the library (theme editor, wholesale profile
-        -- switch). If nothing matches, the live state is custom/unsaved and no
-        -- entry is claimed. Runs every boot; a handful of md5s over small slices.
+        -- Point the active marker at the stored entry matching the live slice
         ms.package.reconcileActive = function(kind)
             if not LIBRARY_KINDS[kind] then return end
             local liveFp = sliceFingerprint(ms.package.collect(kind))
-            if not liveFp then return end   -- can't fingerprint — leave marker be
+            if not liveFp then return end
 
             for _, rec in ipairs(ms.package.libraryList(kind)) do
                 if sliceFingerprint(entryFiles(kind, rec.slug)) == liveFp then

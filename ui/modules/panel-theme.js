@@ -3,7 +3,7 @@
 
 
 
-    // State //
+    // State
     let S = {};
     let _pending = {};
     let _openSoundPicker = null;
@@ -27,9 +27,7 @@
         { key: "dangerBg", label: "Danger (bg)",   hint: "Backdrop behind danger text" },
     ];
 
-    // Advanced overrides. These are normally *derived* from the colours above
-    // (see applyTheme in log-panel.js). Leaving a field blank keeps the derived
-    // value; setting one overrides it — the same keys the theme file exposes.
+    // Advanced overrides
     const ADVANCED_KEYS = [
         { key: "text2",          label: "Text (secondary)", hint: "Labels, sublabels" },
         { key: "text3",          label: "Text (muted)",     hint: "Hints, placeholders" },
@@ -44,14 +42,14 @@
         { key: "scroll",         label: "Scrollbar",        hint: "Scrollbar thumb" },
     ];
 
-    // Live preview //
+    // Live preview
     function previewTheme() {
         const t = Object.assign({}, S.theme || {}, _pending);
         if (window._shellApplyTheme) window._shellApplyTheme(t);
         else if (window.settingsApplyTheme) window.settingsApplyTheme(t);
     }
 
-    // Committing //
+    // Committing
     const SETTLE_MS = 350;
     let _commitTimers = {};
     let _editingUntil = 0;
@@ -97,7 +95,7 @@
         return a >= 255 ? rgb : rgb + a.toString(16).padStart(2, "0");
     }
 
-    // Colour field //
+    // Colour field
     function colorField(key, current) {
         const { h } = ui();
         const wrap = h("div", { cls: "color-field" });
@@ -145,7 +143,7 @@
         return wrap;
     }
 
-    // Opacity field //
+    // Opacity field
     function opacityRow(key, label, hint) {
         const { h } = ui();
         const theme = Object.assign({}, S.theme || {}, _pending);
@@ -207,17 +205,16 @@
         return wrap;
     }
 
-    // Sections //
+    // Sections
     function sec(root, id, title, desc, buildFn) {
         root.appendChild(ui().section(id, title, buildFn, desc));
     }
 
-    // Installed library //
+    // Installed library
     const LIB_STATE = { theme: [], sound: [] };
     const LIB_NOUN  = { theme: "theme", sound: "sound pack" };
 
-    // Per-entry actions, mirroring the profiles panel's profileMenuItems so
-    // a pack row and a profile row offer the same shape of ⋯ menu.
+    // Per-entry actions
     function libMenuItems(kind, e) {
         const items = [];
         if (!e.active) items.push({
@@ -290,8 +287,7 @@
             });
             r.appendChild(menuBtn);
 
-            // Click the row to activate (unless it is already live), matching
-            // the profiles panel's click-to-switch affordance.
+            // Click the row to activate
             if (!e.active) r.addEventListener("click", () =>
                 window.msLibraryClient.activate(kind, e.slug, e.name));
             r.addEventListener("contextmenu", (ev) => {
@@ -307,9 +303,7 @@
         if (wrap) fillLibList(kind, wrap);
     }
 
-    // Two sub-sections mirroring the profiles panel: Installed (the hotswap
-    // list) and Manage — create/save plus import/export, since moving a pack
-    // between machines is just another way of managing it.
+    // Two sub-sections mirroring the profiles panel: Installed
     function librarySection(root, kind, title, desc, captureLabel) {
         const { h, btnRow, actionBtn } = ui();
         const noun = LIB_NOUN[kind];
@@ -324,8 +318,7 @@
             "Creating, saving and moving " + noun + "s", (body) => {
             body.appendChild(btnRow(
                 actionBtn("Create New " + noun, "", async () => {
-                    // Name the entry, then choose seed-or-blank — the pack
-                    // mirror of Create New Profile.
+                    // Name the entry
                     const r = await window.openModal(
                         "Create New " + noun,
                         "Name a fresh " + noun + ".",
@@ -348,17 +341,14 @@
                     }
                 }),
             ));
-            // Import routes by the package's manifest; Export here is scoped to
-            // the live slice of this kind (per-pack export lives in the ⋯ menu).
+            // Import routes by the package's manifest
             body.appendChild(btnRow(
                 actionBtn("Import " + noun + "...", "", () =>
                     sendToHost({ action: "importPackage" })),
                 actionBtn("Export current " + noun + "...", "", () =>
                     sendToHost({ action: "exportPackage", type: kind })),
             ));
-            // Clear every stored entry except the active one, mirroring the
-            // profiles panel. Always rendered (the manage section is not
-            // repainted per push); the host clears only non-active entries.
+            // Clear every stored entry except the active
             body.appendChild(btnRow(
                 actionBtn("Clear Saved " + noun + "s", "danger", async () => {
                     const r = await window.openModal(
@@ -386,7 +376,7 @@
         });
     }
 
-    // Theme tab //
+    // Theme tab
     function buildTheme(root) {
         const { h, row, toggle, btnRow, actionBtn } = ui();
         const theme = Object.assign({}, S.theme || {}, _pending);
@@ -436,7 +426,7 @@
             }
         });
 
-        // Opacity //
+        // Opacity
         sec(root, "opacity", "Opacity",
             "How much of the game shows through each background layer",
             (body) => {
@@ -461,7 +451,7 @@
                     + "stay solid for legibility."));
             });
 
-        // Advanced / derived colour overrides //
+        // Advanced / derived colour overrides
         sec(root, "colours-adv", "Derived colours",
             "Normally computed from the colours above — set to override, blank to derive",
             (body) => {
@@ -483,7 +473,7 @@
                 }
             });
 
-        // Radius //
+        // Radius
         sec(root, "shape", "Shape", "Corner rounding across every panel", (body) => {
             const radius = theme.radius ?? 8;
             const radWrap = h("div", { cls: "row slider-row", onmouseenter: () => playSlot("hover") });
@@ -516,7 +506,7 @@
             body.appendChild(radWrap);
         });
 
-        // Font //
+        // Font
         sec(root, "type", "Type", "The face the whole shell is set in", (body) => {
             const fonts   = S.themeFonts || [];
             const current = S.themeFontValue || "";
@@ -542,7 +532,7 @@
             );
         });
 
-        // Escape hatches //
+        // Escape hatches
         sec(root, "themefile", "Theme File", "Editing ms_theme.json by hand", (body) => {
             body.appendChild(
                 btnRow(
@@ -562,7 +552,7 @@
             "Hotswap a saved look", "Save current theme...");
     }
 
-    // Sound picker //
+    // Sound picker
     const themeLocked = () => S.customThemeEnabled === false;
     const LOCK_HINT = "Turn custom theme on to change sounds";
 
@@ -703,7 +693,7 @@
         }
     });
 
-    // Sound tab //
+    // Sound tab
     const slotsIn = (group) => (S.soundSlots || []).filter((s) => s.group === group);
 
     function defaultAssignsFor(slots) {
@@ -809,7 +799,7 @@
                 ),
             );
 
-            // Volume //
+            // Volume
             const volWrap = h("div", { cls: "row slider-row", onmouseenter: () => playSlot("hover") });
             volWrap.addEventListener("contextmenu", (e) => {
                 e.preventDefault();
@@ -842,7 +832,7 @@
             body.appendChild(volWrap);
         });
 
-        // Presets //
+        // Presets
         const presets   = S.soundPresets || [];
         const ALL_SLOTS = S.soundSlots || [];
         const presetSlotIds = ALL_SLOTS.filter(s => s.d || s.a).map(s => s.id);
@@ -901,7 +891,7 @@
             ));
         });
 
-        // Slots //
+        // Slots
         const names = S.soundNames || [];
 
         const loadSlots = slotsIn("load");
@@ -929,7 +919,7 @@
             });
         }
 
-        // Sound library //
+        // Sound library
         const entries = S.soundEntries || [];
         const byKind = (k) => entries.filter((e) => e.kind === k);
 
@@ -1029,8 +1019,7 @@
             "Hotswap a saved set", "Save current sounds...");
     }
 
-    // Share tab //
-    // Tabs //
+    // Share tab
     function tabs() {
         if (_tabs) return _tabs;
         const panel = document.querySelector(".panel-theme");
@@ -1053,7 +1042,7 @@
     }
     window.switchThemeTab = switchThemeTab;
 
-    // Render //
+    // Render
     function renderInto(id, buildFn) {
         const el = document.getElementById(id);
         if (!el) return;

@@ -17,7 +17,7 @@ return function(ms)
 
 -- State --
     local queue = {}
-    -- Reserved single slot at the bottom anchor, never evicted by maxAlerts
+    -- Reserved bottom-anchor slot
     local stateEntry = nil
 -- END State --
 
@@ -43,7 +43,7 @@ return function(ms)
         }
     end
 
-    -- Shared geometry so makeCanvas and the in-place morph agree on sizing.
+    -- Shared geometry
     local PADDING = 16
     local LINE_H  = 20
     local CLOSE_W = 22
@@ -271,7 +271,6 @@ return function(ms)
         local _, txtColor = themeColors()
         local sx, _, sw   = screenBounds()
 
-        -- Start from the canvas's live width so a mid-morph flip tweens smoothly
         local oldW               = c:frame().w or ({ measure(entry.msg or "") })[1]
         local newW, newH, textH  = measure(newMsg)
 
@@ -324,7 +323,6 @@ return function(ms)
             local t     = step / steps
             local ease  = 1 - (1 - t) ^ 3
             local w     = oldW + (newW - oldW) * ease
-            -- Triangular text fade: full -> 0 at the midpoint -> full.
             local alpha = (t <= 0.5) and (1 - t / 0.5) or ((t - 0.5) / 0.5)
 
             if step >= half and not swapped then
@@ -478,7 +476,7 @@ return function(ms)
         end
     end
 
-    -- Retire the state slot, forcing a fade-out before deletion
+    -- Retire the state slot
     local function dismissState()
         if not stateEntry then return end
 
@@ -506,7 +504,6 @@ return function(ms)
         local sx, _, sw, sBottom = screenBounds()
         local c, h, showX, hideX = makeCanvas(msg, sx, sBottom - MsAlert.bottomY, sw, 0)
 
-        -- One level above the normal alerts so the reserved slot wins z-overlap
         c:level((hs.canvas.windowLevels.screenSaver or 1000) + 2)
 
         local entry = {
@@ -620,7 +617,6 @@ return function(ms)
             end
         end
 
-        -- The state slot sits above the entire normal stack
         if stateEntry and stateEntry.canvas then
             local targetY = currentY - stateEntry.h
 
@@ -636,7 +632,7 @@ return function(ms)
 -- END Redraw --
 
 -- State tier --
-    -- The reserved layer; macro bind state and octane both route here
+    -- Show a state-tier alert in the reserved slot
     function MsAlert:_showState(msg, duration, noDefaultSound)
         if not ms._startupSoundDone then return end
         if MsAlert._sealed then return end
@@ -677,7 +673,6 @@ return function(ms)
         local src = opts and opts.source or "system"
         local id  = opts and opts.id or nil
 
-        -- State-tier alerts bypass the normal queue and live in the reserved slot
         if opts and (opts.state or opts.priority == "state"
             or id == "_state" or id == "octane_state") then
             return self:_showState(msg, duration, noDefaultSound)

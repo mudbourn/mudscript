@@ -1,12 +1,12 @@
 (function() {
     "use strict";
-// State //
+// State
             let S = {};
             let _modalResolve = null;
             let _toastTimer = null;
             let _ctxTarget = null;
 
-            // Context menu //
+            // Context menu
             function closeCtxMenu() {
                 const el = document.getElementById("ctx-menu-settings");
                 if (el) el.classList.remove("open");
@@ -84,7 +84,7 @@
                 if (e.key === "Escape") closeCtxMenu();
             });
 
-            // Bridge //
+            // Bridge
             function sendToHost(msg) {
                 const s = typeof msg === "string" ? msg : JSON.stringify(msg);
                 if (window.shellPost) {
@@ -97,7 +97,7 @@
                 }
             }
 
-            // Shell integration //
+            // Shell integration
             if (window.registerPanel) {
                 window.registerPanel("settings", function(action, body) {
                     if (action === "state" && body) {
@@ -108,7 +108,7 @@
                 });
             }
 
-            // Window drag //
+            // Window drag
             let _dragging = false;
             (function () {
                 let _drag = null;
@@ -144,7 +144,7 @@
                     });
             })();
 
-            // Sound //
+            // Sound
             const _lastSlot = {};
             let _lastNonHoverAt = 0;
             function playSlot(slot) {
@@ -158,7 +158,7 @@
                 sendToHost({ action: "playSlot", slot });
             }
 
-            // Toast //
+            // Toast
             function showAlert(msg, duration) {
                 const el = document.getElementById("toast");
                 el.textContent = msg;
@@ -177,7 +177,7 @@
                 _toastTimer = null;
             }
 
-            // Modal //
+            // Modal
             function openModal(
                 title,
                 msg,
@@ -321,7 +321,7 @@
                     }
                 });
 
-            // Shutdown //
+            // Shutdown
             let _shuttingDown = false;
 
             async function requestShutdown() {
@@ -342,7 +342,7 @@
                 sendToHost({ action: "shutdown" });
             }
 
-            // Helpers //
+            // Helpers
             function h(tag, attrs = {}, ...children) {
                 const el = document.createElement(tag);
                 for (const [k, v] of Object.entries(attrs)) {
@@ -479,7 +479,7 @@
                 groupLabel, showCtxMenu,
             };
 
-            // Sections //
+            // Sections
 
             function buildSlider(
                 label,
@@ -630,7 +630,7 @@
                 );
             }
 
-            // buildAccessibility, input and motion settings //
+            // buildAccessibility, input and motion settings
             function buildAccessibility(body) {
                 const hidden = S.hiddenFeatures || {};
                 const hasTrackpad = !hidden.trackpad;
@@ -1159,7 +1159,7 @@
                 return !s || s === "settings";
             }
 
-            // buildSettings, the default Settings group //
+            // buildSettings, the default Settings group
             function buildSettings(body) {
                 const items = filterByOrigin(S.userSettings || [])
                     .filter(isDefaultSection);
@@ -1234,7 +1234,7 @@
                 }
             }
 
-            // buildUserSection, a pack ms.menu.define() menu (its own item list) //
+            // buildUserSection, a pack ms.menu.define() menu (its own item list)
             function buildUserSection(body, menu) {
                 for (const item of menu.items || []) {
                     renderUserItem(body, item);
@@ -1907,7 +1907,7 @@
                 );
             }
 
-            // Render //
+            // Render
             function render() {
                 const scroll = document.getElementById("scroll");
                 const scrollTop = scroll.scrollTop;
@@ -2032,7 +2032,7 @@
                         "row-sub row-compact",
                     );
 
-                // Stable containers //
+                // Stable containers
                 body.appendChild(
                     row(
                         "Type",
@@ -2049,13 +2049,13 @@
                 const dyn = h("div", { cls: "setting-builder-dyn" });
                 body.appendChild(dyn);
 
-                // Preview //
+                // Preview
                 body.appendChild(divider());
                 body.appendChild(groupLabel("Preview"));
                 const preview = h("div", { cls: "setting-builder-preview" });
                 body.appendChild(preview);
 
-                // Add / Update / Reset //
+                // Add / Update / Reset
                 const clearIdentity = () => {
                     editKey = null;
                     primaryBtn.textContent = "Add Setting";
@@ -2086,7 +2086,7 @@
                     btnRow(primaryBtn, actionBtn("Reset", "", clearIdentity)),
                 );
 
-                // Builders //
+                // Builders
                 function buildDef() {
                     const d = { type: draft.type, target: draft.target };
                     if (keyed(draft.type)) {
@@ -2132,7 +2132,7 @@
                     return null;
                 }
 
-                // Type-specific fields //
+                // Type-specific fields
                 function renderDynamic() {
                     dyn.innerHTML = "";
                     const t = draft.type;
@@ -2702,7 +2702,7 @@
                 return { action: fn.name, params: params };
             }
 
-            // Function tab (reuses the macro step canvas) //
+            // Function tab (reuses the macro step canvas)
             let _fnCanvas = null;
             let _fnEditor = null;
             let _fnHotkeysBound = false;
@@ -2932,7 +2932,7 @@
                 });
             }
 
-            // Variable tab (declare disk-persistent helper vars) //
+            // Variable tab (declare disk-persistent helper vars)
             let _varDefaultInput = null;
             function renderToolVariablesTab() {
                 const scroll = document.getElementById("tools-variables-scroll");
@@ -3109,7 +3109,7 @@
                 });
             }
 
-            // Tools tab strip //
+            // Tools tab strip
             let _otabs = null;
             function toolsTabs() {
                 if (_otabs) return _otabs;
@@ -3133,7 +3133,7 @@
             }
             window.switchToolsTab = switchToolsTab;
 
-            // Profiles panel (rendered into #profiles-scroll) //
+            // Profiles panel (rendered into #profiles-scroll)
             function renderProfilesPanel() {
                 const el = document.getElementById("profiles-scroll");
                 if (!el) return;
@@ -3146,7 +3146,7 @@
             }
             window.renderProfilesPanel = renderProfilesPanel;
 
-            // Theme application //
+            // Theme application
             window.settingsApplyTheme = settingsApplyTheme;
 
             function applyFont(font, fontURL) {
@@ -3173,7 +3173,7 @@
             function settingsApplyTheme(t) {
                 if (!t) return;
                 const r = document.documentElement.style;
-                // Base colors //
+                // Base colors
                 if (t.bg) r.setProperty("--bg", t.bg);
                 if (t.surface) r.setProperty("--surface", t.surface);
                 if (t.surface2) r.setProperty("--surface2", t.surface2);
@@ -3186,7 +3186,7 @@
                 if (t.warning) r.setProperty("--warning", t.warning);
                 if (t.text) r.setProperty("--text", t.text);
 
-                // Derived: text2/text3 from text //
+                // Derived: text2/text3 from text
                 if (t.text && !t.text2) {
                     const c = hexToRgb(t.text);
                     if (c) r.setProperty("--text2", `rgba(${c.r},${c.g},${c.b},0.85)`);
@@ -3196,7 +3196,7 @@
                     if (c) r.setProperty("--text3", `rgba(${c.r},${c.g},${c.b},0.55)`);
                 }
 
-                // Derived: border from accent + hover mix //
+                // Derived: border from accent + hover mix
                 if (t.accent && t.hover && !t.border) {
                     const a = hexToRgb(t.accent);
                     const h = hexToRgb(t.hover);
@@ -3208,7 +3208,7 @@
                     }
                 }
 
-                // Derived: accent glow //
+                // Derived: accent glow
                 if (t.accent && !t.accentGlow) {
                     const a = hexToRgb(t.accent);
                     if (a) r.setProperty("--accent-glow", `rgba(${a.r},${a.g},${a.b},0.4)`);
@@ -3218,7 +3218,7 @@
                     if (a) r.setProperty("--accent-glow-faint", `rgba(${a.r},${a.g},${a.b},0.12)`);
                 }
 
-                // Derived: danger glow/border //
+                // Derived: danger glow/border
                 if (t.danger && !t.dangerGlow) {
                     const d = hexToRgb(t.danger);
                     if (d) r.setProperty("--danger-glow", `rgba(${d.r},${d.g},${d.b},0.6)`);
@@ -3228,7 +3228,7 @@
                     if (d) r.setProperty("--danger-border", `rgba(${d.r},${d.g},${d.b},0.3)`);
                 }
 
-                // Explicit overrides always win //
+                // Explicit overrides always win
                 if (t.text2) r.setProperty("--text2", t.text2);
                 if (t.text3) r.setProperty("--text3", t.text3);
                 if (t.border) r.setProperty("--border", t.border);
@@ -3237,23 +3237,21 @@
                 if (t.dangerGlow) r.setProperty("--danger-glow", t.dangerGlow);
                 if (t.dangerBorder) r.setProperty("--danger-border", t.dangerBorder);
 
-                // Radius, font //
+                // Radius, font
                 if (t.radius !== undefined) {
                     r.setProperty("--radius", t.radius + "px");
                     r.setProperty(
                         "--radius-s",
                         Math.max(0, t.radius - 1) + "px",
                     );
-                    // The window frame corner + its outline read --ms-window-radius, so
-                    // update it here too or the edge stays at its boot radius while the
-                    // content re-rounds. windowRadius overrides when explicitly set.
+                    // The window frame corner + its outline read --ms-window-radius
                     var wr = (t.windowRadius !== undefined) ? t.windowRadius : t.radius;
                     r.setProperty("--ms-window-radius", wr + "px");
                 }
                 applyFont(t.font, t.fontURL);
             }
 
-            // receiveState //
+            // receiveState
             function receiveState(state) {
                 S = state;
                 applyTheme(S.theme);
@@ -3272,7 +3270,7 @@
                 if (window.renderPluginsPanel) window.renderPluginsPanel(state);
             }
 
-            // Init //
+            // Init
             document.addEventListener("DOMContentLoaded", () => {
                 if (window.shellPost) {
                     var p = document.getElementById("panel");

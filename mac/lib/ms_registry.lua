@@ -1,4 +1,4 @@
--- ms_registry (Package Registry Client) --
+-- Package registry client
 return function(ms)
 
     local _home    = os.getenv("HOME")
@@ -80,7 +80,7 @@ YQIDAQAB
             return body
         end
 
-        -- _dataDir is created once, lazily, by the only writer that targets it
+        -- Create _dataDir once, lazily
         local _dataDirEnsured = false
         local function ensureDataDir()
             if _dataDirEnsured then return end
@@ -89,7 +89,6 @@ YQIDAQAB
         end
 
         local function writeFile(path, body)
-            -- Binary mode keeps bare \n on both platforms so signed bytes match
             local f = io.open(path, "wb")
             if not f then return false end
             f:write(body)
@@ -124,12 +123,11 @@ YQIDAQAB
     -- END Helpers --
 
     -- Signature --
-        -- Probe openssl once, gating verify and letting loadLocal trust the bundled index
+        -- Probe openssl once
         local _opensslChecked, _opensslOK = false, false
         local function opensslAvailable()
             if not _opensslChecked then
                 _opensslChecked = true
-                -- Accept both OpenSSL and macOS's LibreSSL
                 local out, ok = hs.execute("openssl version 2>/dev/null")
                 _opensslOK = (ok and type(out) == "string"
                     and (out:find("OpenSSL") ~= nil
@@ -138,7 +136,7 @@ YQIDAQAB
             return _opensslOK
         end
 
-        -- Canonical JSON identical to `jq -c -S` byte-for-byte, the bytes the signer hashed
+        -- Canonical JSON escaping (matches jq -c -S)
         local function canonEscape(s)
             return (s:gsub('[%z\1-\31\\"]', function(c)
                 local b = string.byte(c)
@@ -156,7 +154,6 @@ YQIDAQAB
         local function canonNumber(n)
             if n ~= n or n == math.huge or n == -math.huge then return "null" end
             if n == math.floor(n) and math.abs(n) < 1e15 then
-                -- Integer, no fractional part
                 return string.format("%.0f", n)
             end
             return string.format("%.17g", n)
@@ -172,7 +169,6 @@ YQIDAQAB
                 return v and "true" or "false"
             elseif t == "table" then
                 local n = #v
-                -- Positive array length is a JSON array, empty tables an object
                 if n > 0 then
                     local parts = {}
                     for i = 1, n do parts[i] = canonicalJSON(v[i]) end
@@ -187,7 +183,6 @@ YQIDAQAB
                 end
                 return "{" .. table.concat(parts, ",") .. "}"
             end
-            -- nil, hs.json null sentinel, or unsupported
             return "null"
         end
 
@@ -196,7 +191,6 @@ YQIDAQAB
             if type(doc.signature) ~= "string" or doc.signature == "" then
                 return false
             end
-            -- Without openssl, report unverified and let loadLocal decide
             if not opensslAvailable() then return false end
 
             local payload = {
@@ -208,7 +202,6 @@ YQIDAQAB
             if not okEncode or type(canon) ~= "string" or canon == "" then
                 return false
             end
-            -- jq's CLI trailing newline is part of the signed bytes
             local minified = canon .. "\n"
 
             local keyPath = tmpPath("pub")
@@ -220,7 +213,7 @@ YQIDAQAB
             writeFile(sigB64, doc.signature)
             writeFile(msgPath, minified)
 
-            -- Decode the base64 signature with openssl, portable across platforms
+            -- Decode the base64 signature with openssl
             hs.execute("openssl base64 -d -A -in " .. sq(sigB64) ..
                 " -out " .. sq(sigPath) .. " 2>/dev/null")
             os.remove(sigB64)
@@ -322,7 +315,6 @@ YQIDAQAB
             local cached = decode(readFile(CACHE_PATH))
             if cached and adopt(cached, "cache", true) then return true end
 
-            -- The bundled index is trusted as shipped, so require its signature only when openssl can verify it
             local bundled = decode(readFile(BUNDLED_PATH))
             if bundled then
                 local ok, why = adopt(bundled, "bundled", opensslAvailable())
@@ -454,7 +446,7 @@ YQIDAQAB
                 return done(nil, "Package download location is not permitted.")
             end
 
-            -- Download with curl via hs.task, since asyncGet corrupts non-UTF8 bytes and breaks the hash
+            -- Download with curl via hs.task
             local path = tmpPath("dl") .. ".mspkg"
             local args = {
                 "-sSL",

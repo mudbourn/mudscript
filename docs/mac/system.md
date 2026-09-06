@@ -6,9 +6,9 @@
 
 The system integrity check detects unauthorised modifications to `ms_core.lua` by comparing its SHA-256 hash to a stored baseline. The update system fetches a new `ms_core.lua` from GitHub, verifies its RSA-2048 signature and hash before installing, backs up the old file, and reloads automatically.
 
-The trusted hash is stored in `~/.hammerspoon/data/.ms_trusted_hash` — one line, 64 hex characters. It is seeded automatically from `MANIFEST.json` on a clean install, and updated after every successful update. Normal reloads never change it.
+The trusted hash is stored in `~/.hammerspoon/data/.ms_trusted_hash`, one line, 64 hex characters. It is seeded automatically from `MANIFEST.json` on a clean install, and updated after every successful update. Normal reloads never change it.
 
-> **Note:** `ms.integrity` is read-only from `ms_macros.lua`. Macro code cannot call `deleteTrustedHash()` or `writeTrustedHash()`. Use **Settings › Developer › Trust Current Version** for all trust management.
+> **Note:** `ms.integrity` is read-only from `ms_macros.lua`. Macro code cannot call `deleteTrustedHash()` or `writeTrustedHash()`. Use **Settings > Developer > Trust Current Version** for all trust management.
 
 ---
 
@@ -49,18 +49,18 @@ Read or write the baseline hash file at `~/.hammerspoon/data/.ms_trusted_hash`.
 
 Seals the running `ms_core.lua` as the new trusted baseline. Writes its hash to `.ms_trusted_hash` and shows a confirmation alert.
 
-Available via **Settings › Developer › Trust Current Version**. The item is greyed out when the file already matches the stored hash.
+Available via **Settings > Developer > Trust Current Version**. The item is greyed out when the file already matches the stored hash.
 
 ---
 
 ### `ms.integrity.update()`
 
-Full async update flow. Triggered via **Settings › Help › Check for Update**.
+Full async update flow. Triggered via **Settings > Help > Check for Update**.
 
 1. Fetches `MANIFEST.json` from `ms._updateManifestURL` over HTTPS (HTTP is rejected)
-2. Verifies the RSA-2048 signature in the manifest against the built-in public key — aborts on invalid signature
+2. Verifies the RSA-2048 signature in the manifest against the built-in public key, aborts on invalid signature
 3. Downloads `ms_core.lua` from the `url` field in the manifest
-4. Compares the downloaded file's SHA-256 to the `sha256` field — installs regardless (logs a warning if stale)
+4. Compares the downloaded file's SHA-256 to the `sha256` field, installs regardless (logs a warning if stale)
 5. Backs up the current `ms_core.lua` to `backups/ms_core_<timestamp>.lua.bak`
 6. Installs the new file, updates `.ms_trusted_hash`, re-stamps the local `MANIFEST.json`, reloads after 3 seconds
 
@@ -99,7 +99,7 @@ ms._updateManifestURL = "https://raw.githubusercontent.com/you/repo/main/MANIFES
 
 ### Release workflow
 
-The GitHub Actions workflow (`.github/workflows/release.yml`) triggers on any push that touches `ms_core.lua` or `ms_core.ahk` (path filter: `paths: [ms_core.lua, ms_core.ahk]`). When triggered it always stamps — there is no step-level condition gating the stamp on which file changed:
+The GitHub Actions workflow (`.github/workflows/release.yml`) triggers on any push that touches `ms_core.lua` or `ms_core.ahk` (path filter: `paths: [ms_core.lua, ms_core.ahk]`). When triggered it always stamps, there is no step-level condition gating the stamp on which file changed:
 
 1. Computes the SHA-256 of `ms_core.lua`
 2. Signs it with the RSA private key stored in GitHub Secrets (`MS_SIGNING_KEY`)
@@ -107,7 +107,7 @@ The GitHub Actions workflow (`.github/workflows/release.yml`) triggers on any pu
 
 The public key is embedded in `ms_core.lua` (`ms._updatePublicKey`). The private key never leaves GitHub Secrets.
 
-**Rotating the signing key** — if the private key is ever compromised or needs replacing:
+**Rotating the signing key**, if the private key is ever compromised or needs replacing:
 
 ```bash
 openssl genrsa -out private.pem 2048
@@ -120,7 +120,7 @@ Paste the contents of `public.pem` into `ms._updatePublicKey` in `ms_core.lua`, 
 
 ## User Settings & Menu API
 
-Macro packs can declare their own settings, panel sections, and hide unused built-in features. These calls belong in the **Pack Settings** zone of `ms_macros.lua` — after `ms.macroMeta`, before macro functions.
+Macro packs can declare their own settings, panel sections, and hide unused built-in features. These calls belong in the **Pack Settings** zone of `ms_macros.lua`, after `ms.macroMeta`, before macro functions.
 
 ---
 
@@ -133,12 +133,12 @@ Registers a setting or visual item in the **Settings** section of the panel. Ite
 | Field | Required | Description |
 |-------|----------|-------------|
 | `type` | yes | `"toggle"` \| `"slider"` \| `"seg"` \| `"action"` \| `"soundSlot"` \| `"group"` \| `"divider"` \| `"groupLabel"` |
-| `key` | yes (except divider/groupLabel) | Unique identifier. Used for storage and `ms.settings.get`. For `soundSlot` items the key names the sound slot; `ms.settings.get` returns the currently assigned sound name rather than a value from settings storage. |
-| `label` | — | Row label shown in the panel. |
-| `hint` | — | Optional subtitle shown below the label. |
-| `save` | — | `false` to skip persisting to `ms_settings.json`. Default: `true`. |
-| `default` | — | Initial value used when no saved value exists. |
-| `onChange(value)` | — | Called when the user changes the value. Also called once at startup with `default` — **only if `default` is not `nil`**. If a saved value exists, a second call follows with the saved value. |
+| `key` | yes (except divider/groupLabel) | Unique identifier. Used for storage and `ms.settings.get`. For `soundSlot` items the key names the sound slot, and `ms.settings.get` returns the currently assigned sound name rather than a value from settings storage. |
+| `label` | - | Row label shown in the panel. |
+| `hint` | - | Optional subtitle shown below the label. |
+| `save` | - | `false` to skip persisting to `ms_settings.json`. Default: `true`. |
+| `default` | - | Initial value used when no saved value exists. |
+| `onChange(value)` | - | Called when the user changes the value. Also called once at startup with `default`, **only if `default` is not `nil`**. If a saved value exists, a second call follows with the saved value. |
 
 **Type-specific fields:**
 
@@ -152,7 +152,7 @@ Registers a setting or visual item in the **Settings** section of the panel. Ite
 
 #### `type = "soundSlot"`
 
-Registers a user-defined sound event slot that appears in **Settings › Sound** alongside the built-in slots (`hover`, `update`, `settingsOpen`, etc.). The user assigns an audio file to the slot from the sound picker.
+Registers a user-defined sound event slot that appears in **Settings > Sound** alongside the built-in slots (`hover`, `update`, `settingsOpen`, etc.). The user assigns an audio file to the slot from the sound picker.
 
 ```lua
 ms.settings.define({
@@ -168,9 +168,9 @@ Play the assigned sound at runtime:
 ms.playSlot("myHitSound")   -- plays whatever the user assigned
 ```
 
-`ms.settings.get("myHitSound")` returns the currently assigned sound name (from `ms.soundAssign`), or `default` if nothing has been assigned. `ms.settings.set` is not supported for `soundSlot` keys — use the Sound section UI to assign sounds.
+`ms.settings.get("myHitSound")` returns the currently assigned sound name (from `ms.soundAssign`), or `default` if nothing has been assigned. `ms.settings.set` is not supported for `soundSlot` keys, use the Sound section UI to assign sounds.
 
-`soundSlot` items can also be declared inside `ms.menu.define` item lists; they appear in the custom section **and** are extracted into the Sound section automatically.
+`soundSlot` items can also be declared inside `ms.menu.define` item lists. They appear in the custom section **and** are extracted into the Sound section automatically.
 
 ---
 
@@ -229,7 +229,7 @@ ms.settings.define({
 ms.settings.define({
     key = "runCalibration", label = "Calibration",
     type = "action", btnLabel = "Run",
-    onAction = function() ms.alert("Calibrating…", 2, true) end,
+    onAction = function() ms.alert("Calibrating...", 2, true) end,
 })
 
 -- Visual divider
@@ -270,8 +270,8 @@ Registers a custom panel section that appears **below the Tools section** in dec
 |-------|----------|-------------|
 | `id` | yes | Unique section identifier. |
 | `title` | yes | Header text shown in the panel. |
-| `icon` | — | Emoji prepended to the title. |
-| `items` | yes | Array of item definitions — same fields as `ms.settings.define`. |
+| `icon` | - | Emoji prepended to the title. |
+| `items` | yes | Array of item definitions, same fields as `ms.settings.define`. |
 
 Items inside `items` with a `key` are automatically reachable via `ms.settings.get` / `ms.settings.set`.
 
@@ -295,7 +295,7 @@ ms.menu.define({
 
 ### `ms.features.hide(name)`
 
-Hides a built-in panel feature for the current macro pack session. Purely cosmetic — the underlying system keeps working. The item reappears if the call is removed and Hammerspoon reloads.
+Hides a built-in panel feature for the current macro pack session. Purely cosmetic, the underlying system keeps working. The item reappears if the call is removed and Hammerspoon reloads.
 
 ```lua
 ms.features.hide("sensitivity")       -- Camera Sensitivity slider in Tools
@@ -304,7 +304,7 @@ ms.features.hide("trackpad")          -- Trackpad / Pen Mode row in Tools
 ms.features.hide("independentBinds")  -- Independent Binds row in Tools
 ```
 
-> `"sound"` and `"profiles"` cannot be hidden — they are required for core functionality.
+> `"sound"` and `"profiles"` cannot be hidden, they are required for core functionality.
 
 ---
 

@@ -15,10 +15,10 @@ ms.press("v", {"cmd"})        -- Cmd+V down
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `key` | string/number | — | Key name or numeric keycode. |
+| `key` | string/number | - | Key name or numeric keycode. |
 | `mods` | table | `{}` | Modifier keys, e.g. `{"cmd", "shift"}`. |
 
-**Key names:** any single character, or named keys: `"space"`, `"escape"`, `"return"`, `"tab"`, `"left"`, `"right"`, `"up"`, `"down"`, `"shift"`, `"ctrl"`, `"alt"`, `"cmd"`, `"f1"`–`"f12"`. Numeric keycodes are also accepted.
+**Key names:** any single character, or named keys: `"space"`, `"escape"`, `"return"`, `"tab"`, `"left"`, `"right"`, `"up"`, `"down"`, `"shift"`, `"ctrl"`, `"alt"`, `"cmd"`, `"f1"`-`"f12"`. Numeric keycodes are also accepted.
 
 ---
 
@@ -45,7 +45,7 @@ ms.forgetHeld("w")
 
 Every `ms.press` records the key so `ms.cancelMacros()` can release it later. That ledger normally clears itself on `ms.release`, but there is one case where you must not send the key-up: the player has physically pressed the same key you are holding. Sending it would cut their own input mid-game, while their hardware key-up releases the key for you anyway.
 
-Leaving the entry in place instead is not an option — the next panic or disable would fire a stray key-up into the game long after your macro ended. `ms.forgetHeld` is the way out: surrender the key without touching the event stream.
+Leaving the entry in place instead is not an option, the next panic or disable would fire a stray key-up into the game long after your macro ended. `ms.forgetHeld` is the way out: surrender the key without touching the event stream.
 
 ```lua
 if ms.keystate("w") then
@@ -73,11 +73,11 @@ ms.type("e", nil, 5)          -- 5 ms hold
 
 ### `ms.hold(key, mods, durationMs)`
 
-Presses and holds a key. With a `durationMs`, it also reproduces OS key-repeat the way a real physical hold does — a synthetic key-down does not auto-repeat on its own, so without this a "hold to spam a key" step would only ever type one character. Without a `durationMs`, it just holds indefinitely, leaving the matching release to the caller (e.g. a movement hold paired with a later `ms.release`).
+Presses and holds a key. With a `durationMs`, it also reproduces OS key-repeat the way a real physical hold does, a synthetic key-down does not auto-repeat on its own, so without this a "hold to spam a key" step would only ever type one character. Without a `durationMs`, it just holds indefinitely, leaving the matching release to the caller (e.g. a movement hold paired with a later `ms.release`).
 
 ```lua
 ms.hold("w", nil, 500)         -- hold W for 500ms, with repeat events, then release
-ms.hold("space", nil)          -- hold space indefinitely — call ms.release("space") later
+ms.hold("space", nil)          -- hold space indefinitely, call ms.release("space") later
 ```
 
 The first repeat begins after a 250 ms initial delay (macOS's default), then repeats every ~33 ms (~30/s), matching the default OS repeat rate.
@@ -105,13 +105,13 @@ end)
 handle:delete()
 ```
 
-Macro binds registered through `ms.bind.define` use this internally; you rarely need to call it directly.
+Macro binds registered through `ms.bind.define` use this internally. You rarely need to call it directly.
 
 ---
 
 ### `ms.keyCombo(mods, keys, swallow, pressFn)`
 
-Registers a chord: fires when the **last** key of `keys` goes down while every other key in the chord (and any required `mods`) is already held. Order-independent — whichever key completes the chord is the one that fires. Returns a handle with a `delete()` method.
+Registers a chord: fires when the **last** key of `keys` goes down while every other key in the chord (and any required `mods`) is already held. Order-independent, whichever key completes the chord is the one that fires. Returns a handle with a `delete()` method.
 
 ```lua
 local handle = ms.keyCombo(nil, {"v", "k"}, true, function()
@@ -121,7 +121,7 @@ end)
 handle:delete()
 ```
 
-`hs.hotkey` can't express a two-normal-key chord like V+K; `ms.keyCombo` bypasses it entirely by matching off the same live key-tracking table `ms.keystate` and the SOCD/trackpad holds read. A `keys` table with fewer than two entries falls back to a plain `ms.key` bind.
+`hs.hotkey` can't express a two-normal-key chord like V+K. `ms.keyCombo` bypasses it entirely by matching off the same live key-tracking table `ms.keystate` and the SOCD/trackpad holds read. A `keys` table with fewer than two entries falls back to a plain `ms.key` bind.
 
 ---
 
@@ -136,7 +136,7 @@ ms.type("v", {"cmd"})   -- paste
 
 ### `ms.toggle(key [, mods])`
 
-Toggles a key: if the key is currently held, releases it; if not held, presses it. Useful for toggle-style actions (e.g. crouch toggle).
+Toggles a key: if the key is currently held, releases it. If not held, it presses it. Useful for toggle-style actions (e.g. crouch toggle).
 
 ```lua
 ms.toggle("c")          -- toggle crouch
@@ -159,7 +159,7 @@ ms.multiPress({"a", "b"}, 100, {"shift"}) -- Shift+A, Shift+B
 
 ### `ms.Mouse(operation, button, reference [, Unscaled,] x1, y1 [, x2, y2])`
 
-Unified, named-constant mouse API. All arguments are validated at call time — typos error immediately.
+Unified, named-constant mouse API. All arguments are validated at call time, typos error immediately.
 
 #### Operations (first argument)
 
@@ -194,11 +194,11 @@ Unified, named-constant mouse API. All arguments are validated at call time — 
 | `ScreenBR` | Offset from screen bottom-right. |
 | `ScreenCenter` | Offset from screen center. |
 
-`Window*` references scale `(x, y)` through the 1680×1044 → actual window size transform by default. Pass the `Unscaled` flag to use raw pixel offsets instead (see below).
+`Window*` references scale `(x, y)` through the 1680x1044 to actual window size transform by default. Pass the `Unscaled` flag to use raw pixel offsets instead (see below).
 
 #### `Unscaled` flag (optional, between reference and coordinates)
 
-Pass the global constant `Unscaled` between the reference and the first coordinate to treat `(x, y)` as raw pixel offsets from the reference origin rather than REF-space scaled values. Only affects `Window*` references; ignored for `Absolute`, `Mouse`, and `Screen*`.
+Pass the global constant `Unscaled` between the reference and the first coordinate to treat `(x, y)` as raw pixel offsets from the reference origin rather than REF-space scaled values. Only affects `Window*` references, and ignored for `Absolute`, `Mouse`, and `Screen*`.
 
 ```lua
 ms.Mouse(Click, Left, WindowTL, 900, 660)             -- REF-space (scaled to window)
@@ -300,7 +300,7 @@ ms.restoreCursor()           -- move cursor back
 
 ### `ms.scrollBind(direction, fn)`
 
-Registers a callback that fires whenever the scroll wheel moves in the given `direction` (`"up"` or `"down"`). Returns a handle with a `delete()` method. Only one callback can be registered per direction at a time — binding the same direction again replaces the previous callback.
+Registers a callback that fires whenever the scroll wheel moves in the given `direction` (`"up"` or `"down"`). Returns a handle with a `delete()` method. Only one callback can be registered per direction at a time, binding the same direction again replaces the previous callback.
 
 ```lua
 local handle = ms.scrollBind("up", function()
@@ -314,7 +314,7 @@ Each callback runs in its own coroutine, so it can safely call `ms.wait` and oth
 
 ---
 
-### Gamepad — `ms.gamepadStart()` / `ms.gamepadStop()` / `ms.gamepadBind(button, fn)`
+### Gamepad, `ms.gamepadStart()` / `ms.gamepadStop()` / `ms.gamepadBind(button, fn)`
 
 Reads gamepad input via a background helper process (`ms_gc_read`) and dispatches button presses to registered callbacks.
 
@@ -331,62 +331,72 @@ handle:delete()
 
 - **`ms.gamepadStart()`** launches the reader task if it isn't already running. It parses each JSON line the helper emits, tracking connect/disconnect events (`ms._gamepadConnected`) and routing `press` events to the callback registered for that button.
 - **`ms.gamepadStop()`** terminates the reader task and clears all registered callbacks and connection state.
-- **`ms.gamepadBind(button, fn)`** registers a callback for a named button. Requires `ms.gamepadEnabled` to be set — returns an inert handle (`delete()` is a no-op) otherwise. Automatically calls `ms.gamepadStart()` on first use if the reader isn't already running. Returns a handle with a `delete()` method that unregisters just that button's callback.
+- **`ms.gamepadBind(button, fn)`** registers a callback for a named button. Requires `ms.gamepadEnabled` to be set, returns an inert handle (`delete()` is a no-op) otherwise. Automatically calls `ms.gamepadStart()` on first use if the reader isn't already running. Returns a handle with a `delete()` method that unregisters just that button's callback.
 
 Each button callback runs in its own coroutine, same as `ms.scrollBind`. While a rebind capture is active, button-press events are routed to the capture instead of any bound callback.
 
 ---
 
-## Camera Engine — `ms.cam`
+## Camera Engine, `ms.cam`
 
 The camera engine drives Roblox's camera using synthetic button-5 drag events, bypassing the user's mouse entirely. All macros that move the camera use this.
 
-### `ms.cam.move(dy, dx)`
+### `ms.cam(dx, dy)`
 
-Post a single camera drag delta. Both values are in Roblox sensitivity units; the engine scales them by `cachedMult` to compensate for the user's configured sensitivity.
+`ms.cam` is a callable table. Calling it posts a single camera drag delta: `dx` is the horizontal delta, `dy` the vertical delta, both in Roblox sensitivity units. The engine scales them by the current sensitivity ratio so the same numbers produce the same on-screen movement regardless of the user's configured sensitivity. Values are rounded to whole deltas, and the running total is accumulated for `ms.cam.rebalance`.
 
 ```lua
-ms.cam.move(0,    -3145)   -- pan up sharply
-ms.cam.move(-60,  0)       -- pan left
-ms.cam.move(0,    8)       -- nudge down
+ms.cam(-3145, 0)   -- large horizontal delta
+ms.cam(0, -60)     -- vertical delta
+ms.cam(8, 0)       -- small horizontal nudge
 ```
 
-Note: parameters are `(dy, dx)` — **vertical first, horizontal second**.
+The horizontal delta comes first. There is no `ms.cam.move`.
 
 ---
 
-### `ms.cam.enable()` / `ms.cam.disable()`
+### `ms.cam.reset()`
 
-Start or stop the camera engine. Called automatically by the app watcher when Roblox is focused/unfocused. You should not need to call these manually.
-
----
-
-### `ms.cam.updateAnchor()`
-
-Re-reads the Roblox window frame and recalculates the anchor point (window center) and the sensitivity multiplier. Called automatically on window move/resize. Can be called manually if camera moves are going to the wrong position.
+Clears the accumulated `(dx, dy)` total without moving the camera. Use it when you have moved the view by other means and want `rebalance` to treat the current position as the new zero.
 
 ---
 
-### `ms.cam.updateMultiplier()`
+### `ms.cam.rebalance(granularity)`
 
-Recalculates `ms.cam.cachedMult` from `CUR_CAM_SENS` and `REF_SENS`. Called automatically after sensitivity changes.
+Walks the camera back to its accumulated-zero position by emitting the inverse of the running total in `granularity * 2` steps (`granularity` defaults to `4`), with a short `ms.wait` between steps, then clears the total. Yields, so it must run inside an `ms.fn`-wrapped function.
 
 ---
 
-### `ms.cam.scheduleUpdate()`
+### `ms.cam.sweep(dx, dy, durationMs)`
 
-Debounced `updateAnchor` — waits 0.5 s before calling it. Used by the UI watcher to avoid rapid recalculation during window resize animations.
+Queues a smooth camera pan of `(dx, dy)` spread across `durationMs`, driven by a shared 120 Hz timer. Non-blocking: it returns immediately and the pan plays out on the timer. Multiple sweeps queue and run in order. The deltas are split so they sum to exactly `(dx, dy)`.
+
+```lua
+ms.cam.sweep(1200, 0, 250)   -- pan 1200 horizontal over 250 ms
+```
+
+---
+
+### `ms.cam.sweepBlocking(dx, dy, durationMs)`
+
+Same as `ms.cam.sweep`, then `ms.wait(durationMs)` so the calling coroutine resumes only after the pan's nominal duration. Must run inside an `ms.fn`-wrapped function.
+
+---
+
+### `ms.cam.sweepCancel()`
+
+Drops every queued and in-progress sweep and stops the sweep timer. Deltas already posted are not undone.
 
 ---
 
 ### `ms.flick(dx, dy, opts)`
 
-Posts a deterministic, tightly-bunched burst of camera deltas that sum exactly to `(dx, dy)` — a synchronous alternative to `ms.cam.sweep` for snap-turns and flicks where you want the whole movement to land in one uninterrupted burst rather than spread across an async pump.
+Posts a deterministic, tightly-bunched burst of camera deltas that sum exactly to `(dx, dy)`, a synchronous alternative to `ms.cam.sweep` for snap-turns and flicks where you want the whole movement to land in one uninterrupted burst rather than spread across an async pump.
 
 ```lua
 ms.flick(1200, 0)                       -- flick right, delta count auto-derived from dx
-ms.flick(-800, 40, { count = 12 })      -- flick left+down over exactly 12 deltas
-ms.flick(600, 0,  { gapUs = 500 })      -- tighter spacing between deltas (500 µs)
+ms.flick(-800, 40, { count = 12 })      -- flick left and down over exactly 12 deltas
+ms.flick(600, 0,  { gapUs = 500 })      -- tighter spacing between deltas (500 us)
 ```
 
 Options (`opts`, all optional):
@@ -396,7 +406,7 @@ Options (`opts`, all optional):
 | `count` | `max(1, round(\|dx\| / 100))` | Number of individual `ms.cam` deltas to split the movement into |
 | `gapUs` | `ms._flickGapUs` or `1000` | Microseconds to sleep between each delta |
 
-The total is split Bresenham-style so the emitted deltas sum to exactly `dx`/`dy` — no rounding drift even with an odd `count`. Unlike `ms.wait`, this runs synchronously via `hs.timer.usleep` and does **not** yield, so it blocks the calling coroutine for the full duration of the burst; it does not need to run inside an `ms.fn`-wrapped function the way `ms.wait` does.
+The total is split Bresenham-style so the emitted deltas sum to exactly `dx`/`dy`, with no rounding drift even on an odd `count`. Unlike `ms.wait`, this runs synchronously via `hs.timer.usleep` and does **not** yield, so it blocks the calling coroutine for the full duration of the burst. It does not need to run inside an `ms.fn`-wrapped function the way `ms.wait` does.
 
 ---
 

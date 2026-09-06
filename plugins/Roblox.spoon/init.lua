@@ -253,7 +253,7 @@ function obj:init()
     -- END Anti-Timeout --
 
     -- Camera Sensitivity --
-        -- Manual camera-sensitivity slider, driven by the Sensitivity Tether below
+        -- Manual camera-sensitivity slider
         ms.settings.define({
             type    = "slider",
             key     = "cameraSensitivity",

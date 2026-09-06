@@ -47,7 +47,7 @@
                     and val.__toolRef:match("^[%a_][%w_]*$") then
                     return 'ms.settings.get("' .. val.__toolRef .. '")'
                 end
-                -- Value->Tool wired to a declared shared helper var, read live
+                -- Value->Tool wired to a declared shared helper var
                 if type(val.__varRef) == "string"
                     and val.__varRef:match("^[%a_][%w_]*$") then
                     return 'ms.vars.get("' .. val.__varRef .. '")'
@@ -55,7 +55,7 @@
                 return nil
             end
 
-            -- Expands {name} tokens in a string literal into live helper-var reads
+            -- Expands {name} tokens in a string literal into helper-var reads
             local function interpString(s)
                 if not s:match("{[%a_][%w_]*}") then
                     return string.format("%q", s)
@@ -100,7 +100,6 @@
 
             local function serialize(val)
                 local ref = toolRef(val)
-                -- A wired value used as text may embed {name} tokens, expanded at runtime
                 if ref then return "ms.interp(" .. ref .. ")" end
                 local t = type(val)
                 if t == "string"  then return interpString(val) end
@@ -297,14 +296,13 @@
             emitters["var_set"] = function(step, lvl)
                 local p = step.params or {}
                 local value = serialize(p.value)
-                -- Assign to the hoisted var when the name is a valid identifier, else declare a local
                 if type(p.name) == "string" and p.name:match("^[%a_][%w_]*$") then
                     return indent(lvl) .. p.name .. " = " .. value
                 end
                 return indent(lvl) .. "local " .. ident(p.name, "v") .. " = " .. value
             end
 
-            -- Call a function tool by validated name, or emit an inert comment
+            -- Call a function tool by validated name
             emitters["call_fn"] = function(step, lvl)
                 local p = step.params or {}
                 local name = type(p.name) == "string"
@@ -315,7 +313,7 @@
                 return indent(lvl) .. 'ms.callFn("' .. name .. '")'
             end
 
-            -- Write a declared helper var, the explicit counterpart to a Value->Tool read
+            -- Write a declared helper var
             emitters["hvar_set"] = function(step, lvl)
                 local p = step.params or {}
                 local name = type(p.name) == "string"
@@ -374,7 +372,7 @@
                 ["repeat"] = true,
             }
 
-            -- Expands {name} tokens in a condition into bare ms.vars.get reads
+            -- Expands {name} tokens in a condition into ms.vars.get reads
             local function interpExpr(s)
                 return (s:gsub("{([%a_][%w_]*)}", 'ms.vars.get("%1")'))
             end
@@ -382,7 +380,6 @@
             local function stepCond(step)
                 local c = step.condition
                 if c == nil then c = step.params and step.params.condition end
-                -- A condition wired to a tool/var resolves to its live read expression
                 local ref = toolRef(c)
                 if ref then return ref end
                 if type(c) == "table" then c = nil end
@@ -393,7 +390,7 @@
             local function thenSteps(step) return step["then"] or step.then_steps end
             local function elseSteps(step) return step["else"] or step.else_steps end
 
-            -- Collects every temp-var name so the compiler can hoist one function-scoped decl
+            -- Actions that declare a temp var
             local VAR_ACTIONS = {
                 var_set = true,
                 var_add = true,
@@ -417,7 +414,7 @@
                 end
             end
 
-            -- The hoisted declaration line seeding every temp var at 0, or nil when none
+            -- Hoisted temp-var declaration line
             local function tempVarDecl(steps)
                 local seen, order = {}, {}
                 collectTempVars(steps, seen, order)
@@ -560,7 +557,7 @@
                 return indent(lvl) .. action .. "(" .. serialize(p) .. ")"
             end
 
-            -- Sets _actionDelay and emits only a marker comment.
+            -- Sets _actionDelay and emits a marker comment
             emitters["action_delay"] = function(step, lvl)
                 local p = step.params or {}
                 local n = tonumber(p.delayMs) or 0
@@ -576,7 +573,6 @@
                 if not action then return indent(lvl) .. "-- [empty step]" end
                 local emitter = emitters[action]
                 local line = emitter and emitter(step, lvl) or genericEmitter(step, lvl)
-                -- Append the ongoing action delay after leaf steps.
                 if _actionDelay > 0 and action ~= "action_delay"
                     and not _CONTAINER[action] then
                     line = line .. "\n" .. indent(lvl)
@@ -616,7 +612,6 @@
                 lines[#lines + 1] = indent(1) .. "local t = 100"
                 local tvDecl = tempVarDecl(steps)
                 if tvDecl then lines[#lines + 1] = tvDecl end
-                -- Never leak a delay between macros
                 _actionDelay = 0
                 for _, step in ipairs(steps) do
                     lines[#lines + 1] = emitStep(step, 1)
@@ -653,7 +648,7 @@
                 return table.concat(lines, "\n")
             end
 
-            -- Compile a named, reusable ms.fn any macro can invoke with ms.callFn("id")
+            -- Compile a named, reusable ms.fn tool
             ms.compiler.compileFunction = function(fnDef)
                 assert(type(fnDef) == "table", "ms.compiler.compileFunction: fnDef must be a table")
                 assert(type(fnDef.id) == "string", "ms.compiler.compileFunction: fnDef.id must be a string")
@@ -666,7 +661,6 @@
                 local fnName = id .. "Tool"
                 local lines = {}
 
-                -- coroutine=false runs the tool inline in its caller, else it is wrapped async
                 local asCoroutine = fnDef.coroutine ~= false
                 local secondArg = asCoroutine
                     and ('"' .. label:gsub('[\r\n"]', " ") .. '"')
@@ -697,10 +691,9 @@
                 return string.format("%q", v)
             end
 
-            -- Parses one macro's emitted source alone so a bad macro can't sink the file
+            -- Checks one macro's emitted source for syntax errors
             local function syntaxError(src)
                 if type(src) ~= "string" then return "compiler returned non-string" end
-                -- Prefer loadstring (LuaJIT), falling back to 5.2+ load
                 local chunk, err
                 if loadstring then
                     chunk, err = loadstring(src, "ms_macro_check")
@@ -749,7 +742,7 @@
                 lines[#lines + 1] = "-- END Creator Credits --"
                 lines[#lines + 1] = ""
 
-                -- Indent the body one level inside its fold markers so it collapses in Zed
+                -- Indent the body one level
                 local function indentBlock(src)
                     local out = {}
                     for line in (src .. "\n"):gmatch("([^\n]*)\n") do
@@ -794,7 +787,7 @@
                     error("ms.compiler.rebuild: invalid JSON in " .. jsonPath .. ": " .. tostring(data))
                 end
 
-                -- Compile errors from this pass, keyed by macro id, read by saveMacro
+                -- Compile errors from this pass, keyed by macro id
                 ms.compiler._errors = {}
 
                 local macros = data.macros or {}
@@ -804,7 +797,6 @@
                 for id, macroDef in pairs(macros) do
                     macroDef.id = id
                     local srcOk, src = pcall(ms.compiler.compile, macroDef)
-                    -- Quarantine on either failure mode: the emitter throws, or its text won't parse
                     local errMsg
                     if not srcOk then
                         errMsg = tostring(src)
@@ -823,7 +815,7 @@
                     count = count + 1
                 end
 
-                -- Function tools compile ahead of macros so a caller finds one already defined
+                -- Function tools compile ahead of macros
                 local functions = data.functions or {}
                 local fnSources = {}
                 local fnCount = 0
@@ -839,7 +831,6 @@
                     if fnErr then
                         print("ms.compiler: function compile error for '" .. id .. "': " .. fnErr)
                         ms.compiler._errors["fn:" .. id] = fnErr
-                        -- Emit a comment so the file stays loadable and callers hit an isolated nil
                         srcF = "-- [FUNCTION COMPILE ERROR for " .. id .. "]\n"
                             .. "-- " .. fnErr:gsub("\n", "\n-- ") .. "\n"
                     end
@@ -882,7 +873,7 @@
                     ms.compiler._registeredIds = nil
                 end
 
-                -- Clear the previous function-tool batch from ms.fn.registry too
+                -- Clear the previous function-tool batch
                 local prevFn = ms.compiler._registeredFnIds
                 if prevFn and ms.fn and ms.fn.registry then
                     for id in pairs(prevFn) do
@@ -959,7 +950,7 @@
                 for _, id in ipairs(ms.compiler.list()) do reg[id] = true end
                 ms.compiler._registeredIds = reg
 
-                -- Remember ms.fn ids that appeared this load so the next load can clear them
+                -- Remember ms.fn ids that appeared this load
                 local fnReg = {}
                 if ms.fn and ms.fn.registry then
                     for _, id in ipairs(ms.fn.registry._defList) do
@@ -1049,7 +1040,7 @@
                     end
                 end
 
-                -- Preserve the macro's key bind across a save, falling back to live bindConfig then JSON
+                -- Preserve the macro's key bind across a save
                 local bind = macroDef.bind
                 if bind == nil then
                     local cfg = ms.bindConfig and ms.bindConfig[macroId]

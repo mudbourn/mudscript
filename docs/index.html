@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>mudscript — Documentation</title>
+        <title>mudscript Documentation</title>
 
         <!-- Markdown renderer -->
         <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
@@ -622,7 +622,7 @@
                 <input
                     id="search-input"
                     type="search"
-                    placeholder="Search… ( / )"
+                    placeholder="Search ( / )"
                     autocomplete="off"
                     spellcheck="false"
                 />
@@ -741,7 +741,7 @@
             function fetchMarkdown(slug) {
                 const page = PAGES[slug];
                 return fetch(DOCS_BASE + "/" + page.file).then((r) => {
-                    if (!r.ok) throw new Error("HTTP " + r.status + " — " + r.url);
+                    if (!r.ok) throw new Error("HTTP " + r.status + " - " + r.url);
                     return r.text();
                 });
             }
@@ -1008,7 +1008,7 @@
                 if (!results.length) {
                     box.innerHTML =
                         '<div class="sr-empty">' +
-                        (searchReady ? "No results" : "Indexing…") +
+                        (searchReady ? "No results" : "Indexing...") +
                         "</div>";
                     box.classList.add("open");
                     return;

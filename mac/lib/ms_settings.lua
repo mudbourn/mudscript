@@ -3019,8 +3019,7 @@ return function(ms)
                 end
             end
 
-            -- Carry the active-profile marker to the new name if this was the
-            -- profile the live setup is on, so it stays "Active" after a rename.
+            -- Carry the active-profile marker to the new name
             if ms.package and ms.package.getActiveProfile and ms.package.setActiveProfile then
                 local cur = ms.package.getActiveProfile()
                 if cur and sanitizeName(cur) == oldFolder then
@@ -3067,8 +3066,7 @@ return function(ms)
             if hs.fs.attributes(themePath) then
                 hs.execute("/bin/cp " .. sq(themePath) .. " " .. sq(tmpDir .. "ms_theme.json"))
             end
-            -- Visual macros, authored tools, and helper vars travel with the
-            -- profile package too, matching ms.package.collect.
+            -- Visual macros, authored tools, and helper vars travel with the profile
             for _, cf in ipairs(profileContentFiles()) do
                 if hs.fs.attributes(cf.live) then
                     hs.execute("/bin/cp " .. sq(cf.live) .. " " .. sq(tmpDir .. cf.name))
@@ -3532,14 +3530,7 @@ return function(ms)
             end
         end
 
-        -- The profile the live setup is "on". Read from the explicit marker a
-        -- profile switch records (ms.package.setActiveProfile), NOT inferred from
-        -- the three pack markers — those are named per-pack and rarely share the
-        -- profile's slug, so the old all-three-must-match rule left every profile
-        -- reading as unaligned. A manual single-pack hotswap clears the marker
-        -- (the live state is then a custom mix, no profile). Validated against
-        -- the profiles that still exist so a stale marker can't claim a deleted
-        -- profile. Returns the profile folder name, or "" when nothing is active.
+        -- The profile the live setup is "on", from the explicit active marker
         local function alignedProfile()
             if not (ms.package and ms.package.getActiveProfile) then return "" end
             local active = ms.package.getActiveProfile()
@@ -3817,14 +3808,7 @@ return function(ms)
             end
             if not topDir:match("/$") then topDir = topDir .. "/" end
 
-            -- Wholesale-replaceable install artifacts. These MUST mirror what a
-            -- fresh install.sh lays down: install copies the entire bundle, so an
-            -- update that omits any of these leaves a stale copy against the new
-            -- ms_core.lua. `lib` was missing here — an update shipped the new core
-            -- against the OLD lib/ (e.g. ms_core calling _loadAuthoredMenus() that
-            -- only the new ms_settings.lua defines), crashing on reload. `templates`
-            -- had the same latent gap. User data (ms_macros.lua, profiles) stays in
-            -- templateList so it is never clobbered.
+            -- Wholesale-replaceable install artifacts, mirroring a fresh install
             local replaceList = {
                 "ms_core.lua",
                 "init.lua",
@@ -4548,16 +4532,9 @@ return function(ms)
         -- END Check For Update Beta --
 
         -- Check For Content Updates [installed packages & plugins] --
-        -- Compares the version of every installed plugin / content item against
-        -- the registry catalog and returns the ones the registry now advertises
-        -- a newer version for. Forces a registry refresh first (bypassing the
-        -- CACHE_TTL) so a freshly published bump is actually seen -- a non-forced
-        -- refresh returns the up-to-6h-old cache and would silently miss the new
-        -- version, dropping no alert. Then reuses the same _remoteIsNewer
-        -- comparator the app-update check uses.
         ms.integrity.checkContentUpdates = function(callback)
             local function scan()
-                local installed = {}   -- id -> { version, type, name }
+                local installed = {}
                 if ms.package and ms.package.listPlugins then
                     local okP, plugins = pcall(ms.package.listPlugins)
                     if okP and type(plugins) == "table" then
@@ -4693,12 +4670,7 @@ return function(ms)
             end)
         end
 
-        -- A trackpad has left (1) and right/two-finger (2) clicks but none of
-        -- the extra mouse buttons, so a resolved trigger on Mouse 3+ can never
-        -- fire there. When trackpad mode is on, swap such a trigger for the
-        -- owning bind's declared fallback key (opts.trackpad on ms.bind.define).
-        -- If no fallback is declared the trigger is left as-is: the bind simply
-        -- can't fire on a trackpad, rather than being silently hijacked.
+        -- Swap a Mouse 3+ trigger for its declared fallback key in trackpad mode
         local TRACKPAD_MAX_BUTTON = 2
         local function trackpadFallback(bind, rootId)
             if not ms.trackpadMode or type(bind) ~= "table" then return bind end
@@ -4708,8 +4680,7 @@ return function(ms)
             local rootDef = ms.registry._defs and ms.registry._defs[rootId]
             local fb = rootDef and rootDef.trackpad
             if type(fb) ~= "table" or not fb.key then return bind end
-            -- Keep the resolved bind's own modifiers (so V+Mouse3 -> V+key),
-            -- unless the fallback explicitly overrides them.
+            -- Keep the resolved bind's own modifiers unless the fallback overrides them
             return { type = "key", key = fb.key, mods = fb.mods or bind.mods or {} }
         end
 

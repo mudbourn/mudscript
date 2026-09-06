@@ -1,14 +1,9 @@
--- Creator Credits (CREDIT YOURSELF!) --
+-- Creator Credits --
     ms.macroMeta = {
         name    = "Default",
         author  = "User"
     }
 -- END Creator Credits --
-
--- Target App (optional) --
-    -- ms.setTargetApp("Roblox")
--- END Target App --
-
 
 local NewMacro1Function = ms.fn(function()
     local t = 100

@@ -3,9 +3,7 @@
 (function() {
         "use strict";
 
-        /* -- Enum option sets (mirror the constants ms_core.lua asserts on;
-           keep these in exact sync with ms.Mouse's OPS/BTNS/REFS, ms.scroll's
-           directions, and ms.window's ops, or the compiled call will error) -- */
+        // Enum option sets
         var MOUSE_OPS = ["Move", "Click", "DoubleClick", "TripleClick", "Drag", "Press", "Release"];
         var MOUSE_BTNS = ["Left", "Right", "Center", "Button4", "Button5"];
         var MOUSE_REFS = [
@@ -25,9 +23,9 @@
         var SCROLL_DIRS = ["up", "down", "left", "right"];
         var WINDOW_OPS = ["Move", "Resize", "Frame"];
 
-        /* -- Function Registry -- */
+        // Function Registry
         var REGISTRY = [
-            /* -- input -- */
+            // input
             {
                 id: "ms.type",
                 name: "ms.type",
@@ -94,7 +92,7 @@
                 ]
             },
 
-            /* -- clipboard -- */
+            // clipboard
             {
                 id: "ms.copy",
                 name: "ms.copy",
@@ -114,7 +112,7 @@
                 params: []
             },
 
-            /* -- timing -- */
+            // timing
             {
                 id: "ms.wait",
                 name: "ms.wait",
@@ -126,7 +124,7 @@
                 ]
             },
             {
-                // Compiler construct, value must be a literal.
+                // Compiler construct
                 id: "action_delay",
                 name: "action_delay",
                 sig: "set action delay (ms)",
@@ -181,7 +179,7 @@
                 ]
             },
 
-            /* -- mouse -- */
+            // mouse
             {
                 id: "ms.Mouse",
                 name: "ms.Mouse",
@@ -253,7 +251,7 @@
                 params: []
             },
 
-            /* -- window -- */
+            // window
             {
                 id: "ms.window",
                 name: "ms.window",
@@ -279,7 +277,7 @@
                 ]
             },
 
-            /* -- camera -- */
+            // camera
             {
                 id: "ms.cam",
                 name: "ms.cam",
@@ -308,7 +306,7 @@
                 params: []
             },
 
-            /* -- pixel -- */
+            // pixel
             {
                 id: "ms.pixelColor",
                 name: "ms.pixelColor",
@@ -372,7 +370,7 @@
                 ]
             },
 
-            /* -- ocr (screen text) -- */
+            // ocr
             {
                 id: "ms.ocr",
                 name: "ms.ocr",
@@ -429,7 +427,7 @@
                 ]
             },
 
-            /* -- state -- */
+            // state
             {
                 id: "ms.app",
                 name: "ms.app",
@@ -497,7 +495,7 @@
                 ]
             },
 
-            /* -- audio -- */
+            // audio
             {
                 id: "ms.sound",
                 name: "ms.sound",
@@ -546,7 +544,7 @@
                 params: []
             },
 
-            /* -- utility -- */
+            // utility
             {
                 id: "ms.alert",
                 name: "ms.alert",
@@ -581,7 +579,7 @@
                 ]
             },
 
-            /* -- flow -- */
+            // flow
             {
                 id: "ms.setMacros",
                 name: "ms.setMacros",
@@ -646,7 +644,7 @@
                 ]
             },
 
-            /* -- logic -- */
+            // logic
             {
                 id: "if",
                 name: "if",
@@ -779,32 +777,26 @@
 
         var MOD_LIST = ["ctrl", "alt", "shift", "cmd"];
 
-        // Parameter types that can be wired to a tool.
+        // Parameter types that can be wired to a tool
         var BINDABLE = { number: true, string: true };
 
-        /* -- State -- */
+        // State
         var _selectedId  = null;
-        var _paramValues = {};   // { paramName: value }
-        var _paramBind   = {};   // { paramName: toolKey }, params wired to a tool
-        var _modState    = {};   // { ctrl: false, alt: false, ... }
-        var _keyCapture  = null; // param name currently capturing
+        var _paramValues = {};
+        var _paramBind   = {};
+        var _modState    = {};
+        var _keyCapture  = null;
         var _toastTimer  = null;
-        var _tools       = [];   // current tools (authored settings + pack settings)
-        var _fnList      = [];   // callable function tools (authored / pack / plugin)
-        var _view        = "module"; // "module" | "tool"
+        var _tools       = [];
+        var _fnList      = [];
+        var _view        = "module";
 
-        // Live lists for "choice" params (switch-profile / switch-pack). Filled
-        // by the shell clients and kept fresh; _choiceSelects tracks the
-        // currently mounted selects so a late push (or a kind change) can refill
-        // their options in place. Subscribed once, below the DOM build.
-        var _profilesData = [];                        // [{ name, active }]
-        var _packData     = { macro: [], theme: [], sound: [] }; // [{ name, slug, active }]
-        var _choiceSelects = [];  // [{ sel, param }] for the open detail
+        // Live lists for "choice" params
+        var _profilesData = [];
+        var _packData     = { macro: [], theme: [], sound: [] };
+        var _choiceSelects = [];
 
-        // Subscribe once to the shell clients; a push refreshes local data and
-        // refills any mounted choice selects in place. subscribe() fires with
-        // the cache immediately when present, so opening the panel after the
-        // data has landed is populated at once.
+        // Subscribe once to the shell clients
         if (window.msProfilesClient) {
             window.msProfilesClient.subscribe(function(entries) {
                 _profilesData = entries || [];
@@ -820,9 +812,7 @@
             });
         }
 
-        // Kick a fresh request for whatever a just-opened module needs, so its
-        // dropdowns reflect the current profiles/packs even if they changed
-        // since the last push.
+        // Kick a fresh request for whatever a just-opened module needs
         function requestChoiceData(fn) {
             var wantProfiles = false, wantKinds = {};
             for (var i = 0; i < fn.params.length; i++) {
@@ -830,8 +820,7 @@
                 if (p.type !== "choice") continue;
                 if (p.source === "profiles") wantProfiles = true;
                 else if (p.source === "pack") {
-                    // Request every kind the param could switch to, not just the
-                    // current one, so changing the kind enum is instant.
+                    // Request every kind the param could switch
                     ["macro", "theme", "sound"].forEach(function(k) { wantKinds[k] = true; });
                 }
             }
@@ -841,7 +830,7 @@
             }
         }
 
-        /* -- Build DOM -- */
+        // Build DOM
         var slot = document.getElementById("slot-macros");
         if (!slot) return;
 
@@ -882,8 +871,8 @@
         toast.className = "fn-toast";
         document.body.appendChild(toast);
 
-        /* -- Render Function List -- */
-        var _catCollapsed = {};   // category -> true when folded shut
+        // Render Function List
+        var _catCollapsed = {};
 
         function makeEntryRow(fn) {
             var row = document.createElement("div");
@@ -895,7 +884,7 @@
             sigSpan.textContent = fn.name;
             row.appendChild(sigSpan);
 
-            // Draggable onto the canvas as a new module (default params).
+            // Draggable onto the canvas as a new module
             row.setAttribute("draggable", "true");
             row.addEventListener("dragstart", function(e) {
                 e.dataTransfer.effectAllowed = "copy";
@@ -913,7 +902,7 @@
             return row;
         }
 
-        // Build one draggable tool row (a shared-setting reference).
+        // Build one draggable tool row
         function makeToolRow(t) {
             var row = document.createElement("div");
             row.className = "fn-entry fn-tool-entry"
@@ -930,7 +919,7 @@
             tag.textContent = t.type;
             row.appendChild(tag);
 
-            // Draggable onto the canvas as a shared-setting reference block.
+            // Draggable onto the canvas as a shared-setting reference block
             row.setAttribute("draggable", "true");
             row.addEventListener("dragstart", function(e) {
                 e.dataTransfer.effectAllowed = "copy";
@@ -947,9 +936,7 @@
             return row;
         }
 
-        // Build one draggable function row. Dropping (or clicking) it drops a
-        // "Call function" step preset to this function's id, so authored/pack/
-        // plugin functions are usable from the builder, not just the Tools panel.
+        // Build one draggable function row
         function makeFnCallRow(fn) {
             var id  = fn.id || fn.name;
             var row = document.createElement("div");
@@ -984,9 +971,7 @@
             return row;
         }
 
-        // Group tools by their section into collapsible headings. Functions are
-        // tools too, so they ride in the default "tools" section alongside
-        // settings and helper vars rather than in their own group.
+        // Group tools by their section into collapsible headings
         function renderToolsGroup(filter, searching) {
             var q = (filter || "").toLowerCase();
             var matches = _tools.filter(function(t) {
@@ -1004,15 +989,14 @@
             var searchingTools = q && "tool".indexOf(q) === -1
                 && "function".indexOf(q) === -1;
 
-            // With nothing to show, keep the default header and a hint so tools
-            // stay discoverable.
+            // Empty state
             if (matches.length === 0 && fnMatches.length === 0) {
                 if (searchingTools) return;
                 renderToolSection("tools", [], [], filter, searching, true);
                 return;
             }
 
-            // Group by section in first-seen order, default "tools" group leads.
+            // Group by section in first-seen order
             var order = [];
             var groups = {};
             matches.forEach(function(t) {
@@ -1020,7 +1004,7 @@
                 if (!groups[s]) { groups[s] = []; order.push(s); }
                 groups[s].push(t);
             });
-            // Functions always live in the default "tools" section.
+            // Functions always live in the default "tools" section
             if (fnMatches.length && !groups["tools"]) { groups["tools"] = []; order.push("tools"); }
             if (groups["tools"]) {
                 order = ["tools"].concat(order.filter(function(s) { return s !== "tools"; }));
@@ -1031,7 +1015,6 @@
         }
 
         // Render one Tools sub-section: a category-style header keyed by section
-        // name, with its own independent collapse state, then its tool rows.
         function renderToolSection(section, rows, fns, filter, searching, emptyHint) {
             fns = fns || [];
             var key = "__tools:" + section;
@@ -1074,7 +1057,7 @@
             rows.forEach(function(t) { entriesDiv.appendChild(makeToolRow(t)); });
             fns.forEach(function(f) { entriesDiv.appendChild(makeFnCallRow(f)); });
 
-            // A hint points at the Tools panel when none exist yet.
+            // A hint points at the Tools panel when none exist yet
             if (emptyHint && rows.length === 0 && fns.length === 0) {
                 var hint = document.createElement("div");
                 hint.className = "fn-entry fn-tool-hint";
@@ -1090,7 +1073,7 @@
 
             renderToolsGroup(filter, searching);
 
-            // Group visible entries by category, preserving REGISTRY order.
+            // Group visible entries by category
             var order = [];
             var groups = {};
             for (var i = 0; i < REGISTRY.length; i++) {
@@ -1131,7 +1114,7 @@
                 head.addEventListener("mouseenter", function() {
                     if (window.playSlot) playSlot("hover");
                 });
-                // While searching, sections are forced open so the header is inert.
+                // Sections forced open while searching
                 if (!searching) {
                     head.addEventListener("click", function() {
                         if (window.playSlot) playSlot("interact");
@@ -1149,7 +1132,7 @@
             });
         }
 
-        /* -- Select Function -- */
+        // Select Function
         function selectFunction(id) {
             _selectedId = id;
             _view = "module";
@@ -1191,7 +1174,7 @@
             renderDetail(fn);
         }
 
-        /* -- Tools -- */
+        // Tools
         function findTool(key) {
             for (var i = 0; i < _tools.length; i++) {
                 if (_tools[i].key === key) return _tools[i];
@@ -1199,7 +1182,7 @@
             return null;
         }
 
-        // Canvas step for a tool reference, keeps only key/label/type.
+        // Canvas step for a tool reference
         function settingDefFor(t) {
             return {
                 action: "setting",
@@ -1251,7 +1234,7 @@
             html += '</div></div>';
 
             html += '<div class="fn-detail-footer">';
-            // Add the tool to the macro as a shared-setting reference block.
+            // Add the tool to the macro as a shared-setting reference block
             html += '<button class="fn-add-btn" id="fn-tool-add">Add to Macro</button>';
             if (t.source === "builder") {
                 html += '<button class="fn-add-btn fn-tool-delete" id="fn-tool-delete">Delete Tool</button>';
@@ -1293,7 +1276,7 @@
                 + esc(String(value)) + '</div></div>';
         }
 
-        /* -- Render Detail Panel -- */
+        // Render Detail Panel
         function renderDetail(fn) {
             var html = '';
 
@@ -1303,7 +1286,7 @@
             html += '<div class="fn-detail-desc">' + esc(fn.desc) + '</div>';
             html += '</div>';
 
-            // Body (params)
+            // Body
             html += '<div class="fn-detail-body">';
             if (fn.params.length === 0) {
                 html += '<div class="fn-no-params">This function takes no parameters.</div>';
@@ -1343,8 +1326,7 @@
             updatePreview(fn);
         }
 
-        /* -- Render a single parameter field -- */
-        // Option list for the tool picker, the empty row is the placeholder.
+        // Render a single parameter field
         function toolSelectOptions() {
             if (_tools.length === 0) {
                 return [{ value: "", label: "No tools, create one first" }];
@@ -1356,11 +1338,10 @@
             return opts;
         }
 
-        // Live createSelect nodes for the currently rendered param fields, keyed
-        // by param name, so setToolList can refresh their options in place.
+        // Live createSelect nodes for the currently rendered param fields
         var _toolSelects = {};
 
-        // Header line above the bound tool's value editor, names the tool type.
+        // Header line above the bound tool's value editor
         function setToolInfo(name, key) {
             var el = detailPane.querySelector('[data-toolinfo="' + name + '"]');
             if (!el) return;
@@ -1368,14 +1349,13 @@
             el.innerHTML = t ? ("Sets the <b>" + esc(t.type) + "</b> tool's value:") : "";
         }
 
-        // The tool's live value, falling back to its authored default.
+        // The tool's live value
         function currentToolValue(t) {
             if (t.value !== undefined && t.value !== null) return t.value;
             return (t.default !== undefined) ? t.default : null;
         }
 
-        // Persist a tool value to the host (the same setting the Tools panel
-        // edits) and keep the local copy in sync so the control stays live.
+        // Persist a tool value to the host
         function commitToolValue(t, value, name) {
             t.value = value;
             if (window.shellPost) {
@@ -1387,8 +1367,7 @@
             }
         }
 
-        // Inline value editor under the tool picker, one control per tool type
-        // (toggle / seg / slider), so a bound tool can be set here directly.
+        // Inline value editor under the tool picker
         function mountToolValue(name, key) {
             var wrap = detailPane.querySelector('[data-toolval="' + name + '"]');
             if (!wrap) return;
@@ -1453,8 +1432,7 @@
                 read.className = "fn-tool-slider-val";
                 var fmt = function(v) { return String(v) + (t.unit ? (" " + t.unit) : ""); };
                 read.textContent = fmt(num);
-                // Live read-out on drag, commit to the host on release, so a drag
-                // does not flood the host with a set per frame.
+                // Live read-out on drag
                 range.addEventListener("input", function() {
                     read.textContent = fmt(parseFloat(range.value));
                 });
@@ -1467,14 +1445,13 @@
             }
         }
 
-        // Refresh both the header and the value editor for a param's tool pick.
+        // Refresh both the header and the value editor for a param's tool pick
         function refreshToolBind(name, key) {
             setToolInfo(name, key);
             mountToolValue(name, key);
         }
 
-        // Replace each tool-select mount point with a themed createSelect. Falls
-        // back to a native <select> only if createSelect isn't loaded.
+        // Replace each tool-select mount point with a themed createSelect
         function mountToolSelects(fn) {
             _toolSelects = {};
             if (typeof window.createSelect !== "function") return;
@@ -1494,7 +1471,7 @@
                             updatePreview(fn);
                         },
                     });
-                    // The Value/Tool switch reads the current pick via this attr.
+                    // The Value/Tool switch reads the current pick via this attr
                     sel.setAttribute("data-toolsel", name);
                     mount.appendChild(sel);
                     _toolSelects[name] = sel;
@@ -1503,8 +1480,7 @@
             }
         }
 
-        // First option's value for an enum param (options are strings or
-        // {value,label} objects). Used to seed a valid default.
+        // First option's value for an enum param
         function enumDefault(p) {
             var o = (p.options || [])[0];
             if (o == null) return "";
@@ -1541,16 +1517,12 @@
                     break;
 
                 case "enum":
-                    // A fixed constant set (mouse button, reference, etc.).
-                    // Rendered as a themed createSelect, mounted after the HTML
-                    // lands, so an invalid value can't be typed in the first place.
+                    // A fixed constant set
                     html += '<div class="fn-enum-select-mount" data-enummount="' + esc(p.name) + '"></div>';
                     break;
 
                 case "choice":
-                    // A live-sourced dropdown (profiles / packs). Options are
-                    // fetched from the shell clients when mounted and refreshed
-                    // as pushes land; see mountChoiceSelects.
+                    // A live-sourced dropdown
                     html += '<div class="fn-choice-select-mount" data-choicemount="' + esc(p.name)
                         + '" data-choicesrc="' + esc(p.source || "")
                         + '" data-choicekind="' + esc(p.kind || "")
@@ -1558,8 +1530,7 @@
                     break;
 
                 case "boolean":
-                    // Shared .toggle markup (hidden checkbox behind track/thumb),
-                    // same styling as the settings/macro toggles.
+                    // Shared .toggle markup
                     html += '<label class="toggle fn-param-toggle">'
                         + '<input type="checkbox" data-param="' + esc(p.name) + '">'
                         + '<span class="toggle-track"></span>'
@@ -1594,7 +1565,7 @@
             if (bindable) {
                 html += '<div class="fn-param-tool" data-toolwrap="' + esc(p.name) + '"'
                     + (bound ? '' : ' style="display:none"') + '>';
-                // Themed createSelect mounted after the HTML lands.
+                // Themed createSelect mounted after the HTML lands
                 html += '<div class="fn-tool-select-mount" data-toolmount="' + esc(p.name) + '"></div>';
                 html += '<div class="fn-tool-info" data-toolinfo="' + esc(p.name) + '"></div>';
                 html += '<div class="fn-tool-value" data-toolval="' + esc(p.name) + '"></div>';
@@ -1605,14 +1576,14 @@
             return html;
         }
 
-        /* -- Wire up input events -- */
+        // Wire up input events
         function wireParamInputs(fn) {
-            // Text and number inputs, plus condition/code textareas.
+            // Text and number inputs
             var inputs = detailPane.querySelectorAll("input[data-param], textarea[data-param]");
             for (var i = 0; i < inputs.length; i++) {
                 (function(inp) {
                     var name = inp.getAttribute("data-param");
-                    // Checkboxes commit their state on "change", not "input".
+                    // Checkboxes commit their state on "change"
                     var evt = (inp.type === "checkbox") ? "change" : "input";
                     inp.addEventListener(evt, function() {
                         if (inp.type === "checkbox") {
@@ -1625,8 +1596,7 @@
                         }
                         updatePreview(fn);
                     });
-                    // Textareas capture typing that would otherwise reach the
-                    // canvas/key-capture handlers.
+                    // Textareas capture typing
                     if (inp.tagName === "TEXTAREA") {
                         inp.addEventListener("keydown", function(e) { e.stopPropagation(); });
                     }
@@ -1678,7 +1648,7 @@
                 })(modChips[k]);
             }
 
-            // Value/Tool switch: flips a parameter between a literal and a tool binding.
+            // Value/Tool switch: flips a parameter between a literal and a tool binding
             var switches = detailPane.querySelectorAll(".fn-bind-opt");
             for (var s = 0; s < switches.length; s++) {
                 (function(btn) {
@@ -1722,24 +1692,19 @@
                 })(switches[s]);
             }
 
-            // Enum selects, a fixed constant set per param.
+            // Enum selects
             mountEnumSelects(fn);
 
-            // Choice selects (profiles / packs), sourced from the live shell
-            // lists. Reset the tracker first so it only holds this detail's
-            // selects. A request is kicked so the lists are fresh on open.
+            // Choice selects
             _choiceSelects = [];
             mountChoiceSelects(fn);
             requestChoiceData(fn);
 
-            // Tool selects, pick which tool a bound parameter reads from.
-            // Mounted as themed createSelect nodes (each wires its own onChange).
+            // Tool selects
             mountToolSelects(fn);
         }
 
-        // Replace each enum mount point with a themed createSelect. The value is
-        // seeded from _paramValues (set to the first option in selectFunction),
-        // so a required enum is always valid without any user interaction.
+        // Replace each enum mount point with a themed createSelect
         function mountEnumSelects(fn) {
             if (typeof window.createSelect !== "function") return;
             var byName = {};
@@ -1758,7 +1723,6 @@
                             if (window.playSlot) playSlot("interact");
                             _paramValues[name] = v;
                             // A choice param may key its options off this enum
-                            // (switch-pack's slug depends on kind); refresh them.
                             refillChoiceSelects();
                             updatePreview(fn);
                         },
@@ -1768,10 +1732,7 @@
             }
         }
 
-        // Options for a "choice" param, built from the live shell lists. An
-        // "active" entry is tagged so the user can see the current selection;
-        // the stored value that isn't in the list any more (a removed pack /
-        // renamed profile) is preserved as its own row so editing never drops it.
+        // Options for a "choice" param
         function choiceOptions(p) {
             var opts = [];
             var seen = {};
@@ -1799,9 +1760,7 @@
             return opts;
         }
 
-        // Replace each choice mount point with a live-sourced createSelect. The
-        // select is tracked in _choiceSelects so refillChoiceSelects can update
-        // its options in place when a push lands or a dependency changes.
+        // Replace each choice mount point with a live-sourced createSelect
         function mountChoiceSelects(fn) {
             if (typeof window.createSelect !== "function") return;
             var byName = {};
@@ -1813,8 +1772,7 @@
                     var p = byName[name];
                     if (!p) return;
                     var opts = choiceOptions(p);
-                    // Seed a valid value: keep the stored one if present, else
-                    // adopt the first real option so a required choice is valid.
+                    // Seed a valid value: keep the stored one if present
                     if (!_paramValues[name] && opts.length && opts[0].value) {
                         _paramValues[name] = opts[0].value;
                     }
@@ -1835,8 +1793,7 @@
             }
         }
 
-        // Refresh the options of every mounted choice select from current data,
-        // preserving each select's value where it still exists.
+        // Refresh the options of every mounted choice select from current data
         function refillChoiceSelects() {
             for (var i = 0; i < _choiceSelects.length; i++) {
                 var c = _choiceSelects[i];
@@ -1851,7 +1808,7 @@
             }
         }
 
-        /* -- Key Capture -- */
+        // Key Capture
         function startKeyCapture(paramName, btn, fn) {
             // Cancel any existing capture
             if (_keyCapture) {
@@ -1907,7 +1864,7 @@
             return e.key.toLowerCase();
         }
 
-        /* -- Step Preview -- */
+        // Step Preview
         function updatePreview(fn) {
             var el = document.getElementById("fn-tool-preview");
             if (!el) return;
@@ -1917,7 +1874,7 @@
                 var p = fn.params[i];
                 var val = _paramValues[p.name];
                 if (val && typeof val === "object" && val.__toolRef) {
-                    // A bound parameter previews as the call it compiles to.
+                    // A bound parameter previews as the call it compiles
                     parts.push(p.name + ':ms.settings.get("' + val.__toolRef + '")');
                 } else if (p.type === "mods") {
                     parts.push(p.name + ":[" + (val || []).join(",") + "]");
@@ -1930,13 +1887,13 @@
             el.textContent = fn.name + "(" + parts.join(", ") + ")";
         }
 
-        /* -- Add to Macro -- */
+        // Add to Macro
         function addToMacro(fn) {
             var params = {};
             for (var i = 0; i < fn.params.length; i++) {
                 var p = fn.params[i];
                 var val = _paramValues[p.name];
-                // A parameter switched to Tool but never given one is unfinished.
+                // A parameter switched to Tool but never given one is unfinished
                 if (_paramBind[p.name] !== undefined && !_paramBind[p.name]) {
                     showToast("Pick a tool for: " + p.label);
                     return;
@@ -1973,7 +1930,7 @@
             showToast("Added: " + fn.name);
         }
 
-        /* -- Toast -- */
+        // Toast
         function showToast(msg) {
             toast.textContent = msg;
             toast.classList.add("show");
@@ -1984,14 +1941,14 @@
             }, 1800);
         }
 
-        /* -- Escape HTML -- */
+        // Escape HTML
         function esc(s) {
             var d = document.createElement("div");
             d.appendChild(document.createTextNode(s));
             return d.innerHTML;
         }
 
-        /* -- Search Input Handler -- */
+        // Search Input Handler
         searchInput.addEventListener("input", function() {
             renderList(searchInput.value);
         });
@@ -2001,13 +1958,13 @@
             e.stopPropagation();
         });
 
-        // Refresh the callable-function list pushed from Lua (setFunctionList).
+        // Refresh the callable-function list pushed from Lua
         function setFunctionList(list) {
             _fnList = Array.isArray(list) ? list : [];
             renderList(searchInput.value);
         }
 
-        /* -- Panel handler (called by consolidated registerPanel below) -- */
+        // Panel handler
         function _fnPickerHandler(action, body) {
             if (action === "functions" && Array.isArray(body)) {
                 setFunctionList(body);
@@ -2017,7 +1974,7 @@
             }
         }
 
-        // Refresh the tool list pushed from Lua.
+        // Refresh the tool list pushed from Lua
         function setToolList(list) {
             _tools = Array.isArray(list) ? list : [];
             window.msMacroTools = _tools;
@@ -2035,7 +1992,7 @@
             }
         }
 
-        /* -- External API: allow ms.shell.eval to call in -- */
+        // External API: allow ms.shell.eval to call in
         window.fnPicker = {
             select: selectFunction,
             registry: REGISTRY,
@@ -2046,7 +2003,7 @@
             handler: _fnPickerHandler
         };
 
-        /* -- Initial Render -- */
+        // Initial Render
         renderList("");
 
     })();
@@ -2121,7 +2078,7 @@
         }
     // END //
 
-    /* -- Param summary -- */
+    // Param summary
     function paramSummary(action, params) {
         if (!params) return "";
         var keys = Object.keys(params);
@@ -2157,28 +2114,27 @@
         return parts.join(", ");
     }
 
-    /* -- Step ID generator -- */
+    // Step ID generator
     var _toolIdCounter = 0;
     function nextToolId() { return "_s" + (++_toolIdCounter) + "_" + Date.now().toString(36); }
 
     function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
 
-    /* -- ToolCanvas class (IIFE version) -- */
+    // ToolCanvas class
     function ToolCanvas(container, opts) {
         this._el = container;
         this._onChange = (opts && opts.onChange) || function(){};
         this._onSelect = (opts && opts.onSelect) || function(){};
-        // The parameter editor opens on right-click, not on selection.
+        // The parameter editor opens on right-click
         this._onContext = (opts && opts.onContext) || function(){};
         this._tools = [];
         this._map = {};
-        // Selection model: _selSet (all selected), _anchorId (shift pivot),
-        // _selId (primary, non-null only for one block).
+        // Selection model: _selSet
         this._selSet   = {};
         this._anchorId = null;
         this._selId    = null;
         this._dragId = null;
-        this._dragGroup = null;  // sids being dragged together (doc order)
+        this._dragGroup = null;
         this._root = document.createElement("div");
         this._root.className = "tool-canvas";
         this._el.appendChild(this._root);
@@ -2206,9 +2162,7 @@
         this._root.gpDuplicateSelection = function() { return self.duplicateSelected(); };
         this._root.gpDeleteSelection = function() { return self.removeSelected(); };
 
-        // The canvas often renders while the Builder tab is hidden (Binds is the
-        // landing tab), so widths measure as zero and the marquee never arms.
-        // Re-measure whenever the canvas gains or changes size.
+        // The canvas often renders while the Builder tab is hidden
         if (window.ResizeObserver) {
             this._ro = new ResizeObserver(function() { self._updateParamMarquee(); });
             this._ro.observe(this._root);
@@ -2242,9 +2196,7 @@
         this._render();
     };
 
-    // Container actions carry nested child lists. Seed them on insert so the
-    // block renders its droppable "then/else/body" nests immediately, even
-    // before anything is dropped in.
+    // Container actions carry nested child lists
     function seedContainer(step) {
         if (step.action === "if") {
             if (!step.then) step.then = [];
@@ -2271,10 +2223,7 @@
         return step._sid;
     };
 
-    // Insert a new top-level module before `beforeSid` (or at the end when
-    // null), selecting it. Used by the picker->canvas drag; keeps insertion at
-    // the top level so an external drop can never land inside a container it
-    // has no context for.
+    // Insert a new top-level module before `beforeSid`
     ToolCanvas.prototype.insertDefAt = function(def, beforeSid) {
         var step = deepClone(def);
         step._sid = nextToolId();
@@ -2334,7 +2283,7 @@
         this._fireChange();
     };
 
-    // Locate the list a sid lives in and its index within that list.
+    // Locate the list a sid lives in and its index within that list
     ToolCanvas.prototype._locate = function(sid, list) {
         list = list || this._tools;
         for (var i = 0; i < list.length; i++) {
@@ -2348,13 +2297,11 @@
         return null;
     };
 
-    // Move a group of blocks (given in document order) to a target, keeping
-    // their relative order. A single-element group behaves exactly like
-    // moveTool, so both drag paths share this code.
+    // Move a group of blocks
     ToolCanvas.prototype.moveTools = function(dragIds, targetId, pos) {
         if (!dragIds || !dragIds.length) return;
-        if (dragIds.indexOf(targetId) !== -1) return;   // never drop onto self
-        // Collect the step objects, then detach them all from the tree.
+        if (dragIds.indexOf(targetId) !== -1) return;
+        // Collect the step objects
         var steps = [];
         for (var i = 0; i < dragIds.length; i++) {
             var s = this._map[dragIds[i]];
@@ -2371,7 +2318,7 @@
                 for (var j = 0; j < steps.length; j++) branch.push(steps[j]);
             }
         } else {
-            // Re-locate the target AFTER detaching, since indices shifted.
+            // Re-locate the target AFTER detaching
             var loc = this._locate(targetId);
             if (loc) {
                 var at = pos === "above" ? loc.idx : loc.idx + 1;
@@ -2380,7 +2327,7 @@
                 for (var k = 0; k < steps.length; k++) this._tools.push(steps[k]);
             }
         }
-        // The moved blocks stay selected so the group can be nudged again.
+        // The moved blocks stay selected so the group can be nudged again
         this._setSelection(dragIds);
         this._render();
         this._applySelectionClasses();
@@ -2467,9 +2414,7 @@
         el.className = "tool-block" + (this._isSelected(step._sid)?" selected":"")
             + (isSetting ? " tool-block-setting" : "");
         el.setAttribute("data-sid", step._sid);
-        // No draggable="true": reordering is pointer-based (see _wireDrag). The
-        // HTML5 DnD API dropped drops in this WKWebView, so blocks are dragged
-        // with plain mouse events instead.
+        // No draggable="true": reordering is pointer-based
 
         var h = document.createElement("div");
         h.className = "tool-drag-handle";
@@ -2483,8 +2428,7 @@
 
         var nm = document.createElement("span");
         nm.className = "tool-action-name";
-        // A setting block is a reference to a shared tool, not a code action, so
-        // it reads "Setting - <label>" rather than the bare "setting" action.
+        // A setting block is a reference to a shared tool
         nm.textContent = isSetting
             ? ("Setting - " + ((step.params && (step.params.label || step.params.key)) || "?"))
             : step.action;
@@ -2506,8 +2450,7 @@
             if (window.playSlot) playSlot("interact");
             self._clickSelect(step._sid, e);
         });
-        // Right-click opens the parameter editor for just this module. Select
-        // it first so the editor and the highlight agree.
+        // Right-click opens the parameter editor for just this module
         el.addEventListener("contextmenu", function(e) {
             e.preventDefault();
             if (window.playSlot) playSlot("interact");
@@ -2519,9 +2462,7 @@
         return el;
     };
 
-    // Copy / paste / delete controls shared by leaf and container blocks.
-    // Copy loads this module onto the clipboard; Paste (revealed only once
-    // the clipboard holds a module) drops a copy directly after this one.
+    // Copy / paste / delete controls shared by leaf and container blocks
     ToolCanvas.prototype._buildToolActions = function(step) {
         var self = this;
         var acts = document.createElement("div");
@@ -2575,7 +2516,7 @@
         var header = document.createElement("div");
         header.className = "tool-block" + (this._isSelected(step._sid)?" selected":"");
         header.setAttribute("data-sid", step._sid);
-        // Pointer-based drag; no native draggable (see _wireDrag / _renderLeaf).
+        // Pointer-based drag
 
         var h = document.createElement("div");
         h.className = "tool-drag-handle";
@@ -2590,11 +2531,7 @@
             e.stopPropagation();
             if (window.playSlot) playSlot("interact");
             var collapsed = tg.classList.toggle("collapsed");
-            // Collapse every branch of THIS container, an `if` has both a
-            // "then" and an "else" nest, each with its own label. A plain
-            // querySelector(".tool-nest-body") stopped at "then" and left the
-            // "else" nest (and both labels) showing. Only direct children are
-            // touched, so a nested block keeps its own collapse state.
+            // Collapse every branch of THIS container
             for (var ci = 0; ci < wrap.children.length; ci++) {
                 var child = wrap.children[ci];
                 if (child.classList.contains("tool-nest-body")
@@ -2631,7 +2568,7 @@
             if (window.playSlot) playSlot("interact");
             self._clickSelect(step._sid, e);
         });
-        // Right-click opens the parameter editor for this container.
+        // Right-click opens the parameter editor for this container
         header.addEventListener("contextmenu", function(e) {
             e.preventDefault();
             if (window.playSlot) playSlot("interact");
@@ -2670,13 +2607,10 @@
         }
 
         // Dropping a block INTO this branch is handled by the pointer-drag
-        // hit-test (see _beginPointerDrag / _commitNest), which targets this
-        // element via its data-nest-parent / data-nest-branch attributes. No
-        // HTML5 drop wiring here, that API is unreliable in this WKWebView.
         return body;
     };
 
-    /* -- Selection engine -- */
+    // Selection engine
 
     ToolCanvas.prototype._isSelected = function(sid) {
         return !!this._selSet[sid];
@@ -2684,8 +2618,7 @@
     ToolCanvas.prototype._selCount = function() {
         return Object.keys(this._selSet).length;
     };
-    // Selected sids in document (visual) order, the order the user sees, and
-    // the order a group keeps when dragged or copied.
+    // Selected sids in document
     ToolCanvas.prototype._selList = function() {
         var self = this, out = [];
         if (this._root) {
@@ -2694,12 +2627,11 @@
                 if (self._selSet[sid] && out.indexOf(sid) === -1) out.push(sid);
             });
         }
-        // Fall back to insertion order for any selected id not currently in the
-        // DOM (shouldn't happen, but keeps the set from silently dropping ids).
+        // Fall back to insertion order for missing ids
         for (var sid in this._selSet) { if (out.indexOf(sid) === -1) out.push(sid); }
         return out;
     };
-    // All sids in document order, the flat visual sequence shift-range walks.
+    // All sids in document order
     ToolCanvas.prototype._docOrder = function() {
         var out = [];
         if (this._root) {
@@ -2711,8 +2643,7 @@
         return out;
     };
 
-    // Update state only (no DOM, no emit). Primary/_selId is set iff exactly
-    // one block is selected.
+    // Update state
     ToolCanvas.prototype._setSelection = function(ids) {
         this._selSet = {};
         for (var i = 0; i < ids.length; i++) { if (ids[i]) this._selSet[ids[i]] = true; }
@@ -2732,7 +2663,7 @@
         this._selId = keys.length === 1 ? keys[0] : null;
     };
 
-    // Repaint .selected on every block from _selSet without a full re-render.
+    // Repaint .selected on every block from _selSet without a full re-render
     ToolCanvas.prototype._applySelectionClasses = function() {
         var self = this;
         if (!this._root) return;
@@ -2742,24 +2673,23 @@
         });
     };
 
-    // Tell the host what the primary (single) selection is. null ⇒ hide params
-    // (nothing selected, or a multi-selection).
+    // Tell the host the primary selection
     ToolCanvas.prototype._emitSelection = function() {
         this._onSelect(this._selId, this._selId ? this._map[this._selId] : null);
     };
 
-    // Click routing: plain / ⌘(⌃)-toggle / ⇧-range, text-editor semantics.
+    // Click routing: plain / ⌘(⌃)-toggle / ⇧-range
     ToolCanvas.prototype._clickSelect = function(sid, e) {
         var meta  = e && (e.metaKey || e.ctrlKey);
         var shift = e && e.shiftKey;
 
         if (meta) {
-            // Toggle this block in/out of the selection.
+            // Toggle this block in/out of the selection
             if (this._selSet[sid]) this._deselectOne(sid);
             else { this._selSet[sid] = true; this._anchorId = sid;
                    var k = Object.keys(this._selSet); this._selId = k.length === 1 ? k[0] : null; }
         } else if (shift && this._anchorId && this._anchorId !== sid) {
-            // Select the contiguous visual range between the anchor and here.
+            // Select the contiguous visual range between the anchor and here
             var order = this._docOrder();
             var a = order.indexOf(this._anchorId), b = order.indexOf(sid);
             if (a === -1 || b === -1) { this._setSelection([sid]); }
@@ -2771,8 +2701,7 @@
                 // keep _anchorId where it was so the range can be re-dragged
             }
         } else {
-            // Plain click: if this block is already the sole selection, toggle
-            // it off (clears the params); otherwise select just this one.
+            // Plain click: if this block is already the sole selection
             if (this._selId === sid && this._selCount() === 1) this._clearSelection();
             else this._setSelection([sid]);
         }
@@ -2781,7 +2710,7 @@
         this._emitSelection();
     };
 
-    // Public: select exactly these ids and refresh the view + editor.
+    // Public: select exactly these ids and refresh the view + editor
     ToolCanvas.prototype.select = function(ids) {
         this._setSelection(ids || []);
         this._applySelectionClasses();
@@ -2803,20 +2732,20 @@
         return false;
     };
 
-    // Pointer-based reorder (mousedown -> mousemove -> mouseup).
+    // Pointer-based reorder
     ToolCanvas.prototype._wireDrag = function(el, step) {
         var self = this;
         el.addEventListener("mousedown", function(e) {
-            if (e.button !== 0) return;                          // left button only
-            if (e.target.closest(".tool-action-btn")) return;    // copy/paste/delete
-            if (e.target.closest(".tool-nest-toggle")) return;   // collapse arrow
-            // Suppress the native text-selection drag.
+            if (e.button !== 0) return;
+            if (e.target.closest(".tool-action-btn")) return;
+            if (e.target.closest(".tool-nest-toggle")) return;
+            // Suppress the native text-selection drag
             e.preventDefault();
             self._beginPointerDrag(el, step, e);
         });
     };
 
-    // Runs a single reorder gesture (drag begins past a small threshold).
+    // Runs a single reorder gesture
     ToolCanvas.prototype._beginPointerDrag = function(el, step, downEvt) {
         var self = this;
         var startX = downEvt.clientX, startY = downEvt.clientY;
@@ -2824,12 +2753,12 @@
         var started = false;
         var ghost = null, offX = 0, offY = 0;
         var group = null;
-        var target = null;   // { kind:"block", sid, pos } | { kind:"nest", parent, branch }
+        var target = null;
         var scroller = self._el;
 
         function begin() {
             started = true;
-            // Single block, or the whole multi-selection when the grabbed block is part of one.
+            // Single block
             if (self._isSelected(step._sid) && self._selCount() > 1) {
                 group = self._selList();
             } else {
@@ -2863,8 +2792,7 @@
             if (ghost) { ghost.style.left = (x - offX) + "px"; ghost.style.top = (y - offY) + "px"; }
         }
 
-        // Figure out where a drop at (x,y) would land and paint the marker.
-        // The ghost is pointer-events:none, so elementFromPoint sees through it.
+        // Figure out where a drop lands
         function hitTest(x, y) {
             self._clearDrops();
             target = null;
@@ -2873,7 +2801,7 @@
 
             var blockEl = under.closest(".tool-block[data-sid]");
             if (blockEl && group.indexOf(blockEl.getAttribute("data-sid")) !== -1) {
-                blockEl = null;   // a block in the drag group is not a target
+                blockEl = null;
             }
             if (blockEl) {
                 var tid = blockEl.getAttribute("data-sid");
@@ -2895,7 +2823,7 @@
                 return;
             }
 
-            // Not over any block, maybe over an (empty) container branch.
+            // Not over any block
             var nestEl = under.closest(".tool-nest-body");
             if (nestEl) {
                 var psid = nestEl.getAttribute("data-nest-parent");
@@ -2949,8 +2877,7 @@
             if (started) {
                 e.preventDefault(); e.stopPropagation();
                 commit();
-                // Swallow the click that a mouseup would otherwise synthesise,
-                // so a drag never doubles as a select.
+                // Swallow the click that a mouseup would otherwise synthesise
                 var swallow = function(ev) {
                     ev.stopPropagation(); ev.preventDefault();
                     document.removeEventListener("click", swallow, true);
@@ -2966,7 +2893,7 @@
         document.addEventListener("keydown", onKey, true);
     };
 
-    // Drop a group into a container branch (then/else/body), keeping the explicit branch.
+    // Drop a group into a container branch
     ToolCanvas.prototype._commitNest = function(group, parentSid, branch) {
         var parent = this._map[parentSid];
         if (!parent) return;
@@ -2997,7 +2924,7 @@
     ToolCanvas.prototype.updateTool = function(sid, params, opts) {
         var s = this._map[sid]; if (!s) return;
         for (var k in params) { if (params.hasOwnProperty(k)) s.params[k] = params[k]; }
-        // Live typing passes { quiet:true } to patch the summary without re-rendering.
+        // Live typing passes { quiet:true } to patch the summary without re-rendering
         if (opts && opts.quiet) {
             this._patchSummary(sid);
             this._fireChange();
@@ -3006,9 +2933,7 @@
         this._render(); this._fireChange();
     };
 
-    // Update just the on-canvas parameter summary for one block, without
-    // re-rendering. Direct-child selector so a container's summary isn't
-    // confused with a nested child's.
+    // Update just the on-canvas parameter summary for one block
     ToolCanvas.prototype._patchSummary = function(sid) {
         var s = this._map[sid]; if (!s || !this._root) return;
         var block = this._root.querySelector('.tool-block[data-sid="' + sid + '"]');
@@ -3021,16 +2946,13 @@
     ToolCanvas.prototype.getSelectedTool = function() { return this._selId ? this._map[this._selId] : null; };
     ToolCanvas.prototype.hasSelection = function() { return this._selCount() > 0; };
     ToolCanvas.prototype.getSelectedIds = function() { return this._selList(); };
-    // Select every top-level block (⌘A). Nested blocks come along visually via
-    // their containers, so a select-all of the top level is the useful default.
+    // Select every top-level block
     ToolCanvas.prototype.selectAll = function() {
         var ids = this._tools.map(function(s) { return s._sid; });
         this.select(ids);
     };
 
-    /* -- Clipboard (copy / cut / paste) -- */
-    // Copy a module onto the clipboard (an array of stripped defs). The
-    // .has-clip class on the root reveals every paste button.
+    // Clipboard
     ToolCanvas.prototype._setClipboard = function(steps) {
         var clones = deepClone(steps);
         this._strip(clones);
@@ -3057,8 +2979,7 @@
         this.removeSelected();
         return true;
     };
-    // Remove every selected block (a grouped delete). Detaches all, then
-    // clears the selection and repaints once.
+    // Remove every selected block
     ToolCanvas.prototype.removeSelected = function() {
         var ids = this._selList();
         if (!ids.length) return false;
@@ -3071,15 +2992,14 @@
         this._fireChange();
         return true;
     };
-    // Paste the clipboard modules after `afterId` (or at the end when null),
-    // preserving their order and selecting the pasted block(s).
+    // Paste the clipboard modules after `afterId`
     ToolCanvas.prototype.pasteAfterId = function(afterId) {
         if (!this._clipboard) return false;
         var entries = Array.isArray(this._clipboard) ? this._clipboard : [this._clipboard];
         if (!entries.length) return false;
         var newIds = [];
         var insertAt = afterId ? this._findIdx(this._tools, afterId) : -1;
-        // No anchor pastes at the top, with an anchor directly after it.
+        // No anchor pastes at the top
         var atTop = (insertAt === -1);
         for (var i = 0; i < entries.length; i++) {
             var clone = deepClone(entries[i]);
@@ -3101,12 +3021,11 @@
         return true;
     };
     ToolCanvas.prototype.pasteAfter = function() {
-        // Paste after the last selected block so a group paste lands in order.
+        // Paste after the last selected block so a group paste lands in order
         var ids = this._selList();
         return this.pasteAfterId(ids.length ? ids[ids.length - 1] : null);
     };
-    // Clone the selected blocks in place, directly after the last one, without
-    // touching the clipboard. The copies become the new selection.
+    // Clone the selected blocks in place
     ToolCanvas.prototype.duplicateSelected = function() {
         var ids = this._selList();
         if (!ids.length) return false;
@@ -3137,19 +3056,18 @@
         return newIds[newIds.length - 1];
     };
 
-    /* -- Macro Management State -- */
+    // Macro Management State
     var _currentMacroId = null;
     var _currentMacroDef = null;
     var _macroDirty = false;
     var _canvas = null;
     var _mtabs = null;
 
-    /* -- Layout Setup -- */
+    // Layout Setup
     var slot = document.getElementById("slot-macros");
     if (!slot) return;
 
-    // The existing function picker is already in slot-macros as a .fn-picker child.
-    // We restructure: wrap it in a layout with toolbar + step canvas + overlay.
+    // The existing function picker is already in slot-macros as a .fn-picker child
 
     var existingPicker = slot.querySelector(".fn-picker");
 
@@ -3157,7 +3075,7 @@
     var layout = document.createElement("div");
     layout.className = "macros-layout";
 
-    // -- Toolbar --
+    // Toolbar
     var toolbar = document.createElement("div");
     toolbar.className = "macro-toolbar";
 
@@ -3166,7 +3084,7 @@
     macroLabel.textContent = "Macro";
     toolbar.appendChild(macroLabel);
 
-    // Custom dropdown rather than <select>, exposing .value + "change".
+    // Custom dropdown rather than <select>
     var macroSelect = (function() {
         var root = document.createElement("div");
         root.className = "macro-select";
@@ -3178,7 +3096,7 @@
 
         var arrow = document.createElement("span");
         arrow.className = "macro-select-arrow";
-        // chevdown from the shell's ICONS rather than a typographic arrow.
+        // chevdown from the shell's ICONS rather than a typographic arrow
         arrow.innerHTML = (typeof window.icon === "function" && window.ICONS
             && window.ICONS.chevdown)
             ? window.icon("chevdown")
@@ -3191,7 +3109,7 @@
 
         var _opts = [];
         var _value = "";
-        // Shown on the closed button when nothing is selected, never a menu row.
+        // Shown on the closed button when nothing is selected
         var PLACEHOLDER = "Select";
 
         function labelFor(v) {
@@ -3202,18 +3120,14 @@
         }
         function close() { root.classList.remove("open"); }
         function render() {
-            // Empty value -> the button reads "Select"; the menu never carries a
-            // "Select" row (it's a placeholder, not a real choice).
+            // Empty value -> the button reads "Select"
             var lbl = _value ? labelFor(_value) : "";
             label.textContent = lbl || PLACEHOLDER;
             menu.innerHTML = "";
-            // Real, selectable options only, anything with an empty value is a
-            // placeholder and is dropped from the list.
+            // Real selectable options only
             var choices = _opts.filter(function(o) { return o.value !== ""; });
             if (choices.length === 0) {
-                // Nothing created yet: a single, non-selecting "None" row so the
-                // open menu isn't blank. It's replaced by the first real entry
-                // as soon as one exists.
+                // Placeholder row when nothing exists yet
                 var none = document.createElement("div");
                 none.className = "macro-select-item macro-select-empty";
                 none.textContent = "None";
@@ -3292,8 +3206,7 @@
         };
         root.gpClose = function() { _gpIndex = -1; close(); };
 
-        // No options until the macro list arrives from Lua. The button reads
-        // "Select" on its own, and the open menu shows "None".
+        // No options until the macro list arrives from Lua
         root.setOptions([]);
         return root;
     })();
@@ -3307,8 +3220,7 @@
     nameInput.setAttribute("autocomplete", "off");
     nameInput.setAttribute("autocorrect", "off");
     nameInput.setAttribute("autocapitalize", "off");
-    // Shell sounds: hover on enter, interact on focus (a click into the field).
-    // Guarded on playSlot so it no-ops in a bus-less context.
+    // Shell sounds: hover on enter
     nameInput.addEventListener("mouseenter", function() {
         if (window.playSlot) playSlot("hover");
     });
@@ -3317,7 +3229,7 @@
     });
     toolbar.appendChild(nameInput);
 
-    // Bind field, sets macroDef.bind for the compiler.
+    // Bind field
     var bindLabel = document.createElement("span");
     bindLabel.style.cssText = "font-family:inherit;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-left:8px;margin-right:4px";
     bindLabel.textContent = "Bind";
@@ -3329,8 +3241,8 @@
     bindBtn.title = "Click to capture a bind for this macro";
     toolbar.appendChild(bindBtn);
 
-    // Class field: marks the macro MAIN or OPTIONAL, driving its bind group.
-    var _currentMacroClass = "main";   // "main" | "optional"
+    // Class field: marks the macro MAIN or OPTIONAL
+    var _currentMacroClass = "main";
     var _currentMacroCooldown = null;
     var _currentMacroShared = "";
 
@@ -3339,7 +3251,7 @@
     classLabel.textContent = "Class";
     toolbar.appendChild(classLabel);
 
-    // Two-button segmented control, reusing the param Value/Tool switch styling.
+    // Two-button segmented control
     var classSeg = document.createElement("span");
     classSeg.className = "fn-bind-switch macro-class-seg";
     function buildClassOpt(value, text) {
@@ -3364,7 +3276,7 @@
     classSeg.appendChild(buildClassOpt("optional", "Optional"));
     toolbar.appendChild(classSeg);
 
-    // Reflect the current class onto the segmented control.
+    // Reflect the current class onto the segmented control
     function setMacroClass(value) {
         _currentMacroClass = (value === "optional") ? "optional" : "main";
         var opts = classSeg.querySelectorAll(".fn-bind-opt");
@@ -3372,12 +3284,12 @@
             o.classList.toggle("on", o.getAttribute("data-class") === _currentMacroClass);
         });
     }
-    // Derive the class from a stored macro group string ("visual - optional").
+    // Derive the class from a stored macro group string
     function classFromGroup(group) {
         return (typeof group === "string" && /optional/i.test(group)) ? "optional" : "main";
     }
 
-    // Right-side action cluster, margin-left:auto pins it right.
+    // Right-side action cluster
     var actions = document.createElement("div");
     actions.className = "macro-toolbar-actions";
 
@@ -3393,12 +3305,12 @@
     saveBtn.textContent = "Save";
     actions.appendChild(saveBtn);
 
-    // Secondary actions live under an overflow menu so the toolbar never clips them. New/Save/Bind stay inline.
+    // Secondary actions live under an overflow menu so the toolbar never clips them
     var overflowWrap = document.createElement("div");
     overflowWrap.className = "macro-overflow";
     var overflowBtn = document.createElement("button");
     overflowBtn.className = "macro-toolbar-btn macro-overflow-btn";
-    overflowBtn.textContent = "⋯"; // ⋯
+    overflowBtn.textContent = "⋯";
     overflowBtn.title = "More actions";
     var overflowMenu = document.createElement("div");
     overflowMenu.className = "macro-overflow-menu";
@@ -3414,11 +3326,11 @@
         if (!overflowWrap.classList.contains("open") && window.playSlot) playSlot("interact");
         overflowWrap.classList.toggle("open");
     });
-    // A menu item's own handler still runs; close the menu after any click in it.
+    // A menu item's own handler still runs
     overflowMenu.addEventListener("click", function() { closeOverflow(); });
     document.addEventListener("click", closeOverflow);
 
-    // Every overflow item is icon + label so the menu reads as one consistent list.
+    // Every overflow item is icon + label so the menu reads as one consistent list
     function menuLabel(name, text) {
         return (window.icon ? window.icon(name) : "") + '<span>' + text + '</span>';
     }
@@ -3483,7 +3395,7 @@
     testBtn.title = "Test Run current macro";
     overflowMenu.appendChild(testBtn);
 
-    // Record button, with a paired menu button for recording settings.
+    // Record button
     var recordRow = document.createElement("div");
     recordRow.className = "macro-record-row";
     var recordBtn = document.createElement("button");
@@ -3494,7 +3406,7 @@
 
     var recSettingsBtn = document.createElement("button");
     recSettingsBtn.className = "macro-toolbar-btn macro-record-settings-btn";
-    recSettingsBtn.textContent = "⋯"; // ⋯
+    recSettingsBtn.textContent = "⋯";
     recSettingsBtn.title = "Recording settings";
     recSettingsBtn.setAttribute("aria-label", "Recording settings");
     recordRow.appendChild(recSettingsBtn);
@@ -3508,14 +3420,14 @@
     delMacroBtn.title = "Delete macro";
     overflowMenu.appendChild(delMacroBtn);
 
-    // Edit raw macro file, the escape hatch for anything the builder doesn't cover.
+    // Edit raw macro file
     var editFileBtn = document.createElement("button");
     editFileBtn.className = "macro-toolbar-btn";
     editFileBtn.innerHTML = menuLabel("edit", "Edit File");
     editFileBtn.title = "Open ms_macros.lua in your editor";
     overflowMenu.appendChild(editFileBtn);
 
-    // Change the app "Edit File" opens in.
+    // Change the app "Edit File" opens in
     var editorBtn = document.createElement("button");
     editorBtn.className = "macro-toolbar-btn";
     editorBtn.innerHTML = menuLabel("settings", "Change Editor");
@@ -3525,16 +3437,16 @@
     actions.appendChild(overflowWrap);
     toolbar.appendChild(actions);
 
-    // -- Main area --
+    // Main area
     var mainArea = document.createElement("div");
     mainArea.className = "macros-main";
 
     // Tool canvas area
     var toolArea = document.createElement("div");
     toolArea.className = "macros-tool-area";
-    // Canvas container (ToolCanvas will be mounted here)
+    // Canvas container
     var canvasContainer = document.createElement("div");
-    // overflow-y:auto so the module list scrolls.
+    // overflow-y:auto so the module list scrolls
     canvasContainer.className = "macros-canvas-scroll";
     canvasContainer.style.cssText = "flex:1;overflow-y:auto;overflow-x:hidden;position:relative";
     toolArea.appendChild(canvasContainer);
@@ -3552,7 +3464,7 @@
     testToast.className = "macro-test-toast";
     toolArea.appendChild(testToast);
 
-    // Fn-picker overlay (the existing picker, restructured)
+    // Fn-picker overlay
     var overlay = document.createElement("div");
     overlay.className = "fn-picker-overlay";
 
@@ -3582,12 +3494,11 @@
     }
     mainArea.appendChild(overlay);
 
-    // -- Tab strip: Builder | Binds --
-    // Rebinding lives here, this panel owns every macro.
+    // Tab strip: Builder | Binds
     var mtabs = document.createElement("div");
     mtabs.className = "mtabs";
 
-    // Binds is the landing tab.
+    // Binds is the landing tab
     var builderSection = document.createElement("div");
     builderSection.className = "mtab-section";
     builderSection.setAttribute("data-msec", "builder");
@@ -3600,14 +3511,14 @@
     bindsScroll.className = "binds-scroll";
     bindsSection.appendChild(bindsScroll);
 
-    // Rebuilt by renderBindList; the cards inserted above it persist.
+    // Rebuilt by renderBindList
     var bindList = document.createElement("div");
     bindsScroll.appendChild(bindList);
 
-    /* -- Pack Info (ms.macroMeta) editor -- */
-    var _metaLoaded  = false;   // suppress dirty-marking during programmatic fill
+    // Pack Info
+    var _metaLoaded  = false;
     var _metaDirty   = false;
-    var _metaOwned   = false;   // true when handwritten ms_macros.lua owns the meta
+    var _metaOwned   = false;
 
     function metaField(labelText, placeholder) {
         var wrap = document.createElement("label");
@@ -3619,7 +3530,7 @@
         inp.type = "text";
         inp.className = "meta-input";
         inp.placeholder = placeholder || "";
-        // Keydown must not bubble to the canvas shortcut handler (⌘A/Delete etc.)
+        // Keydown must not bubble to the canvas shortcut handler
         inp.addEventListener("keydown", function(e) { e.stopPropagation(); });
         inp.addEventListener("input", function() {
             if (_metaLoaded) { _metaDirty = true; updateMetaSaveBtn(); }
@@ -3629,7 +3540,7 @@
         return { wrap: wrap, input: inp };
     }
 
-    // Pack Info: credits editor, standard always-open section (msUI kit).
+    // Pack Info: credits editor
     var _kit = window.msUI;
     var _metaName    = metaField("Name",    "My Macros");
     var _metaVersion = metaField("Version", "1.0.0");
@@ -3663,14 +3574,11 @@
     var metaDesc = metaCard.querySelector(".section-desc");
     bindsScroll.insertBefore(metaCard, bindList);
 
-    // Installed Macro Packs: hotswap library, mirrors the theme/sound managers.
-    // Full parity with the profiles panel: ⋯ menu per pack, plus a single
-    // Manage sub-section (Create New / Save current / Import / Export).
+    // Installed Macro Packs: hotswap library
     var _macroLib = [];
     var packList;
 
-    // Per-pack actions, matching libMenuItems in panel-theme and the profiles
-    // panel's profileMenuItems so all three surfaces share one menu shape.
+    // Per-pack actions
     function macroMenuItems(e) {
         var items = [];
         if (!e.active) items.push({
@@ -3711,8 +3619,7 @@
 
     var packCreateBtn = _kit.actionBtn("Create New macro pack", "", async function() {
         if (!window.openModal || !window.msLibraryClient) return;
-        // Name the pack, then choose seed-or-blank — the mirror of Create New
-        // Profile. Macro packs seed their whole slice, ms_macros.lua included.
+        // Name the pack
         var r = await window.openModal(
             "Create New macro pack",
             "Name a fresh macro pack.",
@@ -3734,8 +3641,7 @@
         if (r.confirmed) window.msLibraryClient.capture("macro", (r.value || "").trim());
     });
 
-    // Import routes by the package's manifest; Export here is the live pack
-    // (per-pack export lives in each row's ⋯ menu).
+    // Import routes by the package's manifest
     var packImportBtn = _kit.actionBtn("Import macro pack...", "", function() {
         if (window.sendToHost) window.sendToHost({ action: "importPackage" });
     });
@@ -3747,9 +3653,7 @@
         packList = _kit.h("div", { id: "library-list-macro", cls: "library-list" });
         body.appendChild(packList);
     }, "Hotswap a saved macro set");
-    // Clear every stored pack except the active one, mirroring the profiles
-    // panel. Always rendered (manage section is not repainted per push); the
-    // host clears only non-active entries.
+    // Clear every stored pack except the active one
     var packClearBtn = _kit.actionBtn("Clear Saved macro packs", "danger", async function() {
         if (!window.openModal || !window.msLibraryClient) return;
         var r = await window.openModal(
@@ -3764,7 +3668,7 @@
         body.appendChild(_kit.btnRow(packImportBtn, packExportBtn));
         body.appendChild(_kit.btnRow(packClearBtn));
     }, "Creating, saving and moving macro packs");
-    // Managers sit at the bottom, matching the theme/sound panels' order.
+    // Managers sit at the bottom
     bindsScroll.appendChild(packCard);
     bindsScroll.appendChild(packManageCard);
 
@@ -3846,7 +3750,7 @@
         _metaLoaded = true;
         _metaDirty  = false;
 
-        // Handwritten ms_macros.lua credits are shown read-only.
+        // Handwritten ms_macros.lua credits are shown read-only
         _metaOwned = meta.owned === true;
         [_metaName, _metaVersion, _metaAuthor, _metaWebsite].forEach(function(f) {
             f.input.readOnly = _metaOwned;
@@ -3881,7 +3785,7 @@
     layout.appendChild(bindsSection);
     slot.appendChild(layout);
 
-    // Shared tab model, same switch/sound behaviour as every other panel.
+    // Shared tab model
     _mtabs = window.createTabs && window.createTabs({
         root: layout,
         tabSelector: ".mtab",
@@ -3895,8 +3799,6 @@
                 refreshBindList();
                 refreshMeta();
                 // Re-fetch the library each time the tab is shown so a request
-                // dropped at boot (host bridge not ready yet) self-heals rather
-                // than leaving Installed Macro Packs permanently empty.
                 if (window.msLibraryClient) window.msLibraryClient.request("macro");
             } else if (tab === "builder" && _canvas) {
                 requestAnimationFrame(function() {
@@ -3906,7 +3808,7 @@
         },
     });
 
-    // -- Tool Canvas instance --
+    // Tool Canvas instance
     _canvas = new ToolCanvas(canvasContainer, {
         onChange: function(steps) {
             _macroDirty = true;
@@ -3914,14 +3816,14 @@
         },
         onSelect: function(sid, step) {
             if (!_toolEditor) return;
-            // Selecting only closes a stale editor when the block is no longer the sole selection. Opening is the right-click gesture.
+            // Selecting only closes a stale editor when the block is no longer the sole selection
             if (_toolEditor._open && (!sid || _toolEditor._toolSid !== sid)) {
                 _toolEditor.close();
             }
         },
         onContext: function(sid) {
             if (!_toolEditor || !sid) return;
-            // Right-click toggles the parameter editor open or closed for this module.
+            // Right-click toggles the parameter editor open or closed for this module
             if (_toolEditor._open && _toolEditor._toolSid === sid) {
                 _toolEditor.close();
             } else {
@@ -3930,8 +3832,7 @@
         }
     });
 
-    // -- Picker -> canvas drag-drop --
-    // Dropping a picker module onto the canvas inserts a new top-level module.
+    // Picker -> canvas drag-drop
     (function() {
         var FN_MIME     = "application/x-ms-fn";
         var TOOL_MIME   = "application/x-ms-tool";
@@ -3942,12 +3843,12 @@
             return Array.prototype.indexOf.call(types, mime) !== -1;
         }
         function hasFn(e)   { return hasType(e, FN_MIME) || hasType(e, TOOL_MIME) || hasType(e, CALLFN_MIME); }
-        // Build a "Call function" step preset to a dragged function id.
+        // Build a "Call function" step preset to a dragged function id
         function buildCallFnDef(id) {
             if (!id) return null;
             return { action: "call_fn", params: { name: id } };
         }
-        // Build a shared-setting reference step for a dragged tool key.
+        // Build a shared-setting reference step for a dragged tool key
         function buildToolDef(key) {
             var tools = window.msMacroTools || [];
             for (var i = 0; i < tools.length; i++) {
@@ -3959,7 +3860,7 @@
             }
             return null;
         }
-        // Build a module def with default params from the shared registry.
+        // Build a module def with default params from the shared registry
         function buildDefaultDef(fnId) {
             var reg = window.fnPicker && window.fnPicker.registry;
             if (!reg) return null;
@@ -3977,8 +3878,7 @@
             });
             return { action: fn.name, params: params };
         }
-        // Which existing top-level block should the new one land before? The
-        // first whose vertical midpoint is below the cursor; else append.
+        // Which existing top-level block should the new one land before?
         function beforeSidAt(clientY) {
             var root = _canvas._root;
             var blocks = root.children;
@@ -4006,8 +3906,7 @@
         }, true);
         canvasContainer.addEventListener("dragleave", function(e) {
             if (!hasFn(e)) return;
-            // Only clear when the pointer actually leaves the container, not on
-            // every crossing between child blocks.
+            // Only clear when the pointer actually leaves the container
             if (e.target === canvasContainer || !canvasContainer.contains(e.relatedTarget)) {
                 _canvas._root.classList.remove("fn-drop-target");
             }
@@ -4034,14 +3933,13 @@
         }, true);
     })();
 
-    // -- Tool keyboard shortcuts (copy/cut/paste/delete) --
-    // Bound on document, gated on the builder being visible and a module selected.
+    // Tool keyboard shortcuts
     document.addEventListener("keydown", function(e) {
         if (!builderSection.classList.contains("active")) return;
         var t = e.target;
         if (t && t.closest && t.closest("input, textarea, [contenteditable='true']")) return;
         var mod = e.metaKey || e.ctrlKey;
-        // Cmd-A selects all top-level blocks. Paste works with nothing selected, everything else needs a selection.
+        // Cmd-A selects all top-level blocks
         if (mod && (e.key === "a" || e.key === "A")) {
             e.preventDefault();
             _canvas.selectAll();
@@ -4084,7 +3982,7 @@
         console.warn("[macros] ToolEditor not loaded, inline editing disabled");
     }
 
-    /* -- Preload add icon -- */
+    // Preload add icon
     _fetchSVG("add").then(function(svg) {
         if (svg) addToolBtn.innerHTML = svg + " Add Module";
     });
@@ -4092,13 +3990,12 @@
         if (svg) overlayClose.innerHTML = svg;
     });
 
-    /* -- Fn-picker overlay toggle -- */
-    // Closed by default, slid off-screen and marked inert so it leaves the tab order.
+    // Fn-picker overlay toggle
     overlay.inert = true;
     function openFnOverlay() {
         overlay.classList.add("open");
         overlay.inert = false;
-        // Pull the current tool list every time it opens.
+        // Pull the current tool list every time it opens
         refreshToolList();
     }
     function closeFnOverlay() {
@@ -4117,7 +4014,7 @@
         if (window.shellPost) shellPost("macros", "listTools", {});
     }
 
-    /* -- Macro select / management -- */
+    // Macro select / management
     function refreshMacroList() {
         // Ask Lua for the list of macros
         if (window.shellPost) {
@@ -4125,14 +4022,14 @@
         }
     }
 
-    /* -- Binds tab -- */
+    // Binds tab
     var _bindList = [];
 
     function refreshBindList() {
         if (window.shellPost) shellPost("macros", "listBinds", {});
     }
 
-    // Themed delete confirmation -> Promise<boolean>, using the shell modal.
+    // Themed delete confirmation -> Promise<boolean>
     function confirmDelete(name) {
         var msg = 'Delete "' + name + '"? This cannot be undone.';
         if (typeof window.openModal === "function") {
@@ -4160,9 +4057,7 @@
         return b;
     }
 
-    // Candidate macros this one can be tethered to: every real, non-system
-    // bind except itself and its own descendants (which would loop). The host
-    // re-checks for cycles, this just keeps obviously-bad picks out of the menu.
+    // Candidate macros this one can be tethered to: every real
     function linkTargets(m) {
         var exclude = {};
         exclude[m.id] = true;
@@ -4183,8 +4078,7 @@
     }
 
 
-    // Builds the target list for the "Link to another macro" submenu, mapping
-    // each candidate to a bindToMacro action. A ✓ marks the current parent.
+    // Builds the target list for the "Link to another macro" submenu
     function linkMenuItems(m) {
         return linkTargets(m).map(function(o) {
             return {
@@ -4201,17 +4095,13 @@
         });
     }
 
-    // Opens the per-bind "⋯" options menu at (x, y). `mode` is the sub-bind's
-    // shared rebind-mode closure so the menu can flip it and the inline chord
-    // pill reads the same value on its next click.
+    // Opens the per-bind "⋯" options menu
     function openBindMenu(m, isSub, mode, x, y) {
         var kit = window.msUI;
         if (!kit || typeof kit.showCtxMenu !== "function") return;
         var items = [];
 
-        // Enable / disable (was the inline toggle). System binds are always live.
-        // The host guards the "no bind set" case with its own alert, so we can
-        // always post and let it decide.
+        // Enable / disable
         if (m.group !== "system" && !m.systemBind) {
             items.push({
                 icon:  "",
@@ -4227,8 +4117,7 @@
             });
         }
 
-        // Reset / clear (was the inline refresh icon). A sub drops its modifier
-        // and re-attaches to its parent; everything else resets to its default.
+        // Reset / clear
         if (isSub) {
             items.push({
                 icon:  "",
@@ -4254,8 +4143,7 @@
             });
         }
 
-        // Sub-bind rebind mode (was the inline "Mod/Full" toggle). Governs what
-        // clicking the chord pill captures: just a modifier, or a full trigger.
+        // Sub-bind rebind mode
         if (isSub) {
             items.push({
                 icon:  "",
@@ -4264,9 +4152,7 @@
             });
         }
 
-        // Ignore extra modifiers (subset match). Only meaningful for key/combo
-        // triggers: device binds already tolerate extras and mods-only binds
-        // have no base key.
+        // Ignore extra modifiers
         if (m.group !== "system" && !m.systemBind
             && (m.bindType === "key" || m.bindType === "combo")) {
             items.push({
@@ -4282,7 +4168,7 @@
             });
         }
 
-        // Link this macro to follow another macro's trigger.
+        // Link this macro to follow another macro's trigger
         if (m.group !== "system" && !m.systemBind) {
             var targets = linkMenuItems(m);
             if (targets.length) {
@@ -4294,7 +4180,7 @@
             }
         }
 
-        // Delete. Only user-authored macros can be removed.
+        // Delete
         if (m.group !== "system" && !m.systemBind) {
             items.push({
                 icon:  "",
@@ -4320,9 +4206,7 @@
     function bindRow(m, isSub) {
         var r = document.createElement("div");
         r.className = "bind-row" + (isSub ? " bind-row-sub" : "");
-        // Row-level hover, matching the log-panel list rows. mouseenter does not
-        // bubble, so moving onto a pill/toggle inside the row fires only that
-        // child's hover, no double-trigger.
+        // Row-level hover
         r.addEventListener("mouseenter", function() {
             if (window.playSlot) playSlot("hover");
         });
@@ -4335,9 +4219,7 @@
         var acts = document.createElement("div");
         acts.className = "bind-acts";
 
-        // Inline is just the two the user asked for: the chord pill (click to
-        // rebind) and the ⋯ button. Enable/disable, reset, rebind mode, link,
-        // ignore-modifiers and delete all live in the ⋯ menu.
+        // Inline is just the two the user asked for: the chord pill
         var mode = { full: false };
         acts.appendChild(bindPill(m.bind, function() {
             if (isSub && !mode.full) {
@@ -4356,8 +4238,7 @@
             ? "Click to rebind - capture mode is set in the ⋯ menu"
             : "Click to rebind"));
 
-        // The ⋯ options menu. Rendered for every row — even system binds, whose
-        // only option is Reset — so the row layout stays uniform.
+        // The ⋯ options menu
         var moreBtn = document.createElement("button");
         moreBtn.className = "bind-act bind-more";
         moreBtn.textContent = "⋯";
@@ -4388,7 +4269,7 @@
             return;
         }
 
-        // Group in registration order, same grouping the macro list uses.
+        // Group in registration order
         var order = [];
         var groups = {};
         _bindList.forEach(function(m) {
@@ -4397,7 +4278,7 @@
             groups[g].push(m);
         });
 
-        // A group is a settings section: a sticky heading and its binds in a card.
+        // A group is a settings section: a sticky heading and its binds in a card
         order.forEach(function(g) {
             var rows = [];
             groups[g].forEach(function(m) {
@@ -4425,15 +4306,14 @@
         }, 90);
     }
 
-    // Title-case each word of a group key so compound groups read cleanly:
-    // "visual - main" -> "Visual - Main", "system" -> "System".
+    // Title-case each word of a group key so compound groups read cleanly
     function titleCaseGroup(g) {
         return String(g).replace(/[A-Za-z]+/g, function(w) {
             return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
         });
     }
 
-    // Same markup as msUI.section(), built from a row array.
+    // Same markup as msUI.section()
     function bindSection(title, desc, rows) {
         var wrap = document.createElement("div");
         wrap.className = "section";
@@ -4464,8 +4344,7 @@
     }
 
     function setMacroList(ids) {
-        // Real macro ids only, the "Select" placeholder lives on the button,
-        // not as a menu row, and an empty list renders as "None".
+        // Real macro ids
         var opts = [];
         for (var i = 0; i < ids.length; i++) {
             opts.push({ value: ids[i], label: ids[i] });
@@ -4515,8 +4394,7 @@
         updateBindBtn();
     }
 
-    // Show the macro's effective bind, preferring the live value from the
-    // binds tab (which reflects user overrides) over the compiled default.
+    // Show the macro's effective bind
     function updateBindBtn() {
         var text = "";
         for (var i = 0; i < _bindList.length; i++) {
@@ -4537,8 +4415,7 @@
     });
     bindBtn.addEventListener("click", function() {
         if (window.playSlot) playSlot("interact");
-        // Capture targets a registered bind id, which only exists once the
-        // macro has been compiled, so it must be saved first.
+        // Capture targets a registered bind id
         if (!_currentMacroId || _macroDirty) {
             showTestToast("Save the macro before binding it", "error");
             return;
@@ -4566,12 +4443,10 @@
             name: name,
             author: "User",
             // Group the compiled bind under VISUAL - MAIN / VISUAL - OPTIONAL
-            // per the toolbar Class control.
             group: "visual - " + _currentMacroClass,
             steps: _canvas.serialize()
         };
-        // Carry the compiled default bind through a save, the compiler reads
-        // macroDef.bind, so dropping it here would silently unbind the macro.
+        // Carry the compiled default bind through a save
         if (_currentMacroDef && _currentMacroDef.bind) {
             def.bind = _currentMacroDef.bind;
         }
@@ -4586,10 +4461,7 @@
         if (window.shellPost) {
             shellPost("macros", "saveMacro", { id: _currentMacroId, def: def });
         }
-        // Do NOT optimistically mark clean here. The host acks with either
-        // "macroSaved" (clears dirty) or "saveError" (keeps it dirty and shows
-        // the compile error). Clearing now would strand the builder looking
-        // "saved" while the macro actually failed to compile.
+        // Do NOT optimistically mark clean here
         updateSaveBtnState();
     }
 
@@ -4616,7 +4488,7 @@
         saveBtn.style.opacity = _macroDirty ? "1" : "0.5";
     }
 
-    /* -- Wire toolbar buttons -- */
+    // Wire toolbar buttons
     newBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
     newBtn.addEventListener("click", function() {
         if (window.playSlot) playSlot("interact");
@@ -4645,7 +4517,7 @@
     editFileBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
     editFileBtn.addEventListener("click", function() {
         if (window.playSlot) playSlot("interact");
-        // The action router keys on body.action, so include it.
+        // The action router keys on body.action
         if (window.shellPost) shellPost("macros", "editMacros", { action: "editMacros" });
     });
 
@@ -4655,13 +4527,12 @@
         if (window.shellPost) shellPost("macros", "chooseMacroEditor", { action: "chooseMacroEditor" });
     });
 
-    /* -- Test Run -- */
+    // Test Run
     var _testRunning = false;
     var _testToastTimer = null;
 
     function showTestToast(msg, type, iconName) {
-        // Icon path builds via DOM so msg stays inert text (some callers pass
-        // interpolated error strings) while the leading glyph becomes real SVG.
+        // Icon path builds via DOM so msg stays inert text
         if (iconName && window.icon) {
             testToast.innerHTML = window.icon(iconName);
             testToast.appendChild(document.createTextNode(" " + msg));
@@ -4715,7 +4586,7 @@
             shellPost("macros", "testRun", macroDef);
         }
 
-        // Safety timeout, reset after 30s if no response
+        // Safety timeout
         setTimeout(function() {
             if (_testRunning) {
                 _resetTestBtn();
@@ -4724,22 +4595,22 @@
         }, 30000);
     });
 
-    /* -- Record Mode -- */
+    // Record Mode
     var _isRecording = false;
 
-    // Recording options, persisted so a chosen style survives a reload.
+    // Recording options
     var _REC_OPTS_KEY = "ms.macroRecordOpts";
     var _recOptDefaults = {
-        recordDelays:       true,   // emit ms.wait for idle gaps
-        pressMode:          "type", // "type" | "press" | "pressRelease"
-        recordDrags:        true,   // capture mouse drags as Drag ops
-        dragGranularity:    5,      // 1 (coarse) ... 10 (near 1:1) path fidelity
-        recordMouseMoves:   false,  // capture free cursor motion as moveMouse steps
-        moveGranularity:    5,      // 1 (coarse) ... 10 (near 1:1) move-path fidelity
-        recordMouseButtons: true,   // capture mouse-button clicks
-        recordWindowMove:   false,  // capture focused-window moves
-        recordWindowResize: false,  // capture focused-window resizes
-        waitThreshold:      50      // ms, gaps shorter than this are noise
+        recordDelays:       true,
+        pressMode:          "type",
+        recordDrags:        true,
+        dragGranularity:    5,
+        recordMouseMoves:   false,
+        moveGranularity:    5,
+        recordMouseButtons: true,
+        recordWindowMove:   false,
+        recordWindowResize: false,
+        waitThreshold:      50
     };
     var _recOpts = (function() {
         var o = {};
@@ -4747,14 +4618,14 @@
         try {
             var saved = JSON.parse(localStorage.getItem(_REC_OPTS_KEY) || "{}");
             for (var k2 in saved) if (k2 in o) o[k2] = saved[k2];
-            // Fold any stored down-only value into the press+release mode.
+            // Fold any stored down-only value into the press+release mode
             if (o.pressMode === "press") o.pressMode = "pressRelease";
-        } catch (e) { /* corrupt/absent, fall back to defaults */ }
+        } catch (e) {}
         return o;
     })();
     function _saveRecOpts() {
         try { localStorage.setItem(_REC_OPTS_KEY, JSON.stringify(_recOpts)); }
-        catch (e) { /* private mode / quota, options just won't persist */ }
+        catch (e) {}
     }
 
     function _setRecordingState(on) {
@@ -4775,8 +4646,7 @@
     recordBtn.addEventListener("click", function() {
         if (window.playSlot) playSlot("interact");
         if (!_isRecording) {
-            // Start recording, carry the current options through so the Lua
-            // recorder captures exactly what the user asked for.
+            // Start recording
             if (window.shellPost) {
                 shellPost("macros", "startRecording", {
                     waitThreshold: _recOpts.waitThreshold,
@@ -4794,10 +4664,7 @@
         }
     });
 
-    /* -- Recording settings menu --
-       A small modal in the same visual language as the rebind / warning
-       prompts: an accent-topped card over a dimmed backdrop. Built lazily
-       on first open, then reused. */
+    // Recording settings menu
     var _recModal = null;
 
     function _buildRecModal() {
@@ -4826,7 +4693,7 @@
         sub.textContent = "Choose what a recording captures. Applied to the next recording you start.";
         card.appendChild(sub);
 
-        // Row scaffold shared by toggle + segmented rows.
+        // Row scaffold shared by toggle + segmented rows
         function row(label, hint, control) {
             var r = document.createElement("div");
             r.style.cssText =
@@ -4867,7 +4734,7 @@
             return wrap;
         }
 
-        // Integer slider for drag fidelity (RDP retention steps).
+        // Integer slider for drag fidelity
         function slider(key, min, max) {
             var wrap = document.createElement("div");
             wrap.style.cssText = "display:flex;align-items:center;gap:10px;";
@@ -4958,7 +4825,7 @@
             for (var k in _recOptDefaults) _recOpts[k] = _recOptDefaults[k];
             _saveRecOpts();
             if (window.playSlot) playSlot("back");
-            // Rebuild reflects the reset values cleanly.
+            // Rebuild reflects the reset values cleanly
             _recModal = null;
             card.remove(); overlayEl.remove();
             _openRecModal();
@@ -4976,7 +4843,7 @@
 
     function _openRecModal() {
         var m = _recModal || _buildRecModal();
-        // Force reflow so the opening transition runs from the closed state.
+        // Force reflow so the opening transition runs from the closed state
         m.overlay.getBoundingClientRect();
         m.overlay.style.opacity = "1";
         m.overlay.style.pointerEvents = "all";
@@ -4985,7 +4852,7 @@
 
     recSettingsBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
     recSettingsBtn.addEventListener("click", function() {
-        // Let the click bubble so the overflow menu closes behind the modal.
+        // Let the click bubble so the overflow menu closes behind the modal
         if (window.playSlot) playSlot("interact");
         _openRecModal();
     });
@@ -5009,15 +4876,10 @@
         updateSaveBtnState();
     });
 
-    /* -- Panel handler (consolidated Lua -> JS dispatch) -- */
+    // Panel handler
     var _libSelfHealed = false;
     window.registerPanel("macros", function(action, body) {
         // The Installed Macro Packs list is filled by a request() fired during
-        // eager panel build, which can beat the host's library subscription and
-        // be dropped, leaving the shelf empty until a reload. The first host
-        // push to this panel proves the bridge is live, so re-request once then
-        // — a boot-race self-heal that does not depend on the early request or
-        // the host's own ready-time re-push landing.
         if (!_libSelfHealed && window.msLibraryClient) {
             _libSelfHealed = true;
             window.msLibraryClient.request("macro");
@@ -5045,19 +4907,15 @@
             _macroDirty = false;
             updateSaveBtnState();
             refreshMacroList();
-            // A saved macro may have gained or changed its bind.
+            // A saved macro may have gained or changed its bind
             refreshBindList();
             return;
         }
         if (action === "saveError") {
-            // The JSON store was written, but the macro failed to compile and
-            // was quarantined host-side. Keep the editor dirty and selected so
-            // the user can fix and re-save, and surface the compile error the
-            // same way Test does — it's no longer the only signal.
+            // The JSON store was written
             _macroDirty = true;
             updateSaveBtnState();
-            // Binds/list still refresh: the macro survives (quarantined) so it
-            // stays listed and keeps its bind instead of vanishing.
+            // Binds/list still refresh: the macro survives
             refreshMacroList();
             refreshBindList();
             showTestToast("\u2717 Save failed to compile: "
@@ -5103,7 +4961,7 @@
         }
     });
 
-    /* -- External API -- */
+    // External API
     window.macroLab = {
         canvas: _canvas,
         editor: _toolEditor,
@@ -5118,23 +4976,20 @@
         setMeta: setMeta,
         refreshMeta: refreshMeta,
         addTool: function(def) { _canvas.addTool(def); closeFnOverlay(); },
-        // Tools list is pushed from Lua, create/delete round-trip through the host.
+        // Tools list is pushed from Lua
         setToolList: function(list) {
             if (window.fnPicker && window.fnPicker.setToolList) {
                 window.fnPicker.setToolList(list);
             }
-            // The Tools panel's Variable tab renders from the same list.
+            // The Tools panel's Variable tab renders from the same list
             if (typeof window.renderToolVariablesTab === "function") {
                 window.renderToolVariablesTab();
             }
         },
-        // Function tools (authored on the step canvas in the Tools panel).
-        // Stored globally so both the "Call function" picker block and the
-        // Tools panel's Function tab read one source.
+        // Function tools
         setFunctionList: function(list) {
             window.msMacroFunctions = Array.isArray(list) ? list : [];
-            // Surface them in the builder's picker (Functions group) too, not
-            // just the Tools panel's Function tab.
+            // Surface them in the builder's picker
             if (window.fnPicker && window.fnPicker.setFunctionList) {
                 window.fnPicker.setFunctionList(window.msMacroFunctions);
             }
@@ -5145,8 +5000,7 @@
         createTool: function(def) {
             if (!window.shellPost) return;
             shellPost("macros", "addUserSetting", { action: "addUserSetting", def: def });
-            // The host has no create-ack, so re-pull the list shortly after so
-            // the new tool appears in the picker.
+            // The host has no create-ack
             setTimeout(refreshToolList, 250);
         },
         deleteTool: function(key) {
@@ -5161,17 +5015,12 @@
         isRecording: function() { return _isRecording; },
     };
 
-    /* -- Close panel (called by header pop-out button) -- */
+    // Close panel
     window.closePanel = function() {
         if (window.shellPost) shellPost("macros", "close", {});
     };
 
-    /* -- Macro-engine (bind validity) header toggle -- */
-    // Mirrors the enable/disable hotkey: flips BindValidity via the same
-    // setMacros host action the Settings master switch uses. The lit state is
-    // driven only by the real macrosEnabled the host reports, so it stays
-    // correct when the state is changed elsewhere — the hotkey, the Settings
-    // toggle, or target focus/blur — not just by this button.
+    // Macro-engine
     window._macrosEnabled = window._macrosEnabled || false;
     window.updateMacrosToggleBtn = function(enabled) {
         window._macrosEnabled = !!enabled;
@@ -5189,13 +5038,13 @@
         }
     };
 
-    /* -- Initial state -- */
+    // Initial state
     updateSaveBtnState();
     refreshMacroList();
     refreshBindList();
     refreshMeta();
 
-    /* -- Header drag -- */
+    // Header drag
     (function() {
         let _drag = null;
         const panel = document.querySelector(".panel-macros");

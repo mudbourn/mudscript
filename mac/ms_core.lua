@@ -1,4 +1,4 @@
--- Core System (PLEASE EDIT CAREFULLY) --
+-- Core System --
     -- Hammerspoon mudscript Utility Library --
         -- 0. Bootstrap & Spoons --
             if _G.__ms_core_running then
@@ -35,9 +35,6 @@
                 package.loaded["lib.ms_loading"] = nil
                 require("lib.ms_loading")(ms)
             -- END Loading Screen --
-
-            -- Guardian (lives in lib/ms_guardian.lua, runs before this file) --
-            -- END Guardian --
 
             -- One-time migration (move settings/hash to data/) --
                 do
@@ -275,8 +272,6 @@
                     print("MsAlert: running without toast system (module not loaded)")
                 end
             -- END MsAlert (toast notifications) --
-
-            -- MsCamera removed (ms.cam uses CGEvent directly) --
 
             -- MsSettings (settings menu & profiles) --
                 ms.loading.update(15, "Configuring Settings\u{2026}")
@@ -1072,8 +1067,7 @@
                 cmd = false,
             }
 
-            -- Keycodes that are themselves modifiers, so a modifier-only bind can
-            -- tell "just Option held" from "Option + a real key held".
+            -- Keycodes that are themselves modifiers
             local _MOD_CODES = {
                 [54] = true, [55] = true,             -- cmd
                 [56] = true, [60] = true, [62] = true, -- shift
@@ -1509,9 +1503,7 @@
                 ev:post()
             end
 
-            -- Button number (0 = left, 1 = right, 2 = middle) -> keytrack code.
-            -- These magic codes let ms.keystate / ms.mousestate read live button
-            -- state the same way keyboard keys are tracked.
+            -- Mouse button number to keytrack code
             local _MOUSE_TRACK_CODE = {
                 [0] = 997,  -- left
                 [1] = 999,  -- right
@@ -1595,8 +1587,7 @@
                 }
             end
 
-            -- Live mouse button state, mirroring ms.keystate for the keyboard.
-            -- Accepts "left"/"right"/"middle", 0/1/2, or the click aliases.
+            -- Live mouse button state
             local _MOUSE_NAME_CODE = {
                 left    = 997,
                 l       = 997,
@@ -1664,17 +1655,13 @@
             ms._gamepadTask = nil
             ms._gamepadCallbacks = {}
             ms._gamepadConnected = false
-            -- List of currently-attached controllers, {type=, player=}, mirrored
-            -- to the shell so the Settings panel can show what's detected live.
+            -- List of currently-attached controllers
             ms._gamepadControllers = {}
-            -- Currently-held buttons ({name=true}) and registered chord bindings,
-            -- each { set={name=true}, list={names}, n=count, fn=fn }.
+            -- Currently-held buttons and registered chord bindings
             ms._gamepadHeld = {}
             ms._gamepadBinds = {}
 
-            -- Normalize a gamepad bind config to a plain list of button names.
-            -- Accepts the combo shape {buttons={...}} or the legacy single
-            -- {button="x"}; anything else yields an empty list.
+            -- Normalize a gamepad bind config to a list of button names
             ms.gpButtons = function(c)
                 if type(c) ~= "table" then return {} end
                 if type(c.buttons) == "table" and #c.buttons > 0 then
@@ -1702,8 +1689,7 @@
                 return table.concat(l, "+")
             end
 
-            -- Push the current controller roster to the Settings panel. Called on
-            -- connect/disconnect, which are rare, so a full refresh is cheap here.
+            -- Push the current controller roster to the Settings panel
             local function _gamepadStatusChanged()
                 ms._gamepadConnected = (#ms._gamepadControllers > 0)
                 if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
@@ -1728,11 +1714,7 @@
 
             ms.gamepadStart = function()
                 if ms._gamepadTask then return end
-                -- The reader is a native binary per platform: ms_gc_read (Swift,
-                -- GameController) on macOS, ms_gc_read.exe (SDL2) on Windows. Both
-                -- emit the identical JSON-line protocol. On Windows the host
-                -- (mudspoon) shims os.getenv("HOME") to the tree that contains
-                -- .hammerspoon, so the same $HOME/.local/bin anchor resolves there.
+                -- Native gamepad reader binary path
                 local _isWin = package.config:sub(1, 1) == "\\"
                 local bin = os.getenv("HOME") .. "/.local/bin/ms_gc_read" .. (_isWin and ".exe" or "")
                 ms._gamepadCallbacks = {}
@@ -1740,9 +1722,7 @@
                 ms._gamepadHeld = {}
                 ms._gamepadTask = hs.task.new(bin, function() end, function(task, stdOut, stdErr)
                     if not stdOut or stdOut == "" then return true end
-                    -- The task hands us stdout in chunks that may batch several
-                    -- newline-delimited JSON events (or none); decode line by line
-                    -- so a multi-event chunk is not dropped as invalid JSON.
+                    -- Decode stdout line by line
                     for line in stdOut:gmatch("[^\r\n]+") do
                         local ok, ev = pcall(function() return hs.json.decode(line) end)
                         if ok and ev and ev.e then
@@ -1761,9 +1741,7 @@
                                 if rebindCb then
                                     rebindCb(ev.b, "press", ms._gamepadHeld)
                                 else
-                                    -- The nav layer (shell console navigation) claims
-                                    -- events by returning true, so a face button used
-                                    -- to steer the shell never also fires a macro bind.
+                                    -- Nav layer claims the event by returning true
                                     local navCb = ms._gamepadCallbacks._nav
                                     local consumed = false
                                     if navCb then
@@ -1771,13 +1749,7 @@
                                         consumed = okN and res == true
                                     end
                                     if not consumed then
-                                        -- Fire the most specific chord whose buttons
-                                        -- are all currently held and that includes the
-                                        -- button just pressed. Requiring membership of
-                                        -- the just-pressed button means a chord fires
-                                        -- when its final button lands (hold L1, then X),
-                                        -- and picking the largest matching set lets
-                                        -- L1+X win over a bare X bound to the same key.
+                                        -- Fire the largest held chord including the just-pressed button
                                         local best, bestN = nil, -1
                                         for _, bnd in ipairs(ms._gamepadBinds) do
                                             if bnd.set[ev.b] then
@@ -1827,9 +1799,7 @@
                 end
             end
 
-            -- Reconcile the reader daemon with the persisted enable flag. Called
-            -- at boot/reload so a controller enabled in a previous session is
-            -- detected without waiting for a fresh toggle.
+            -- Reconcile the reader daemon with the persisted enable flag
             ms.gamepadSync = function()
                 if ms.gamepadEnabled then
                     if not ms._gamepadTask then ms.gamepadStart() end
@@ -1840,8 +1810,7 @@
                 end
             end
 
-            -- Register a controller binding. `spec` is a single button name or a
-            -- list of names (a chord). Returns a handle with :delete().
+            -- Register a controller binding
             ms.gamepadBind = function(spec, fn)
                 if not ms.gamepadEnabled then
                     return { delete = function() end }
@@ -2483,10 +2452,7 @@
             end)
 
             ms.octane = ms.octane or {}
-            -- A visible pulse whenever octane flips, so a bind toggle (easy to
-            -- hit by accident) never silently changes behaviour. Styled to match
-            -- the macro bind-state alert (same id-replace + system source), with
-            -- the toggle sounds.
+            -- Visible pulse whenever octane flips
             ms.octane._notify = function(on)
                 if ms.playSlot then pcall(ms.playSlot, on and "toggleOn" or "toggleOff") end
                 if not ms.alert then return end
@@ -2939,10 +2905,7 @@
                 return nil
             end
 
-            -- ms.callFn(id) — invoke a named function tool (an authored ms.fn)
-            -- from inside a macro. Compiled macros call this via emitStep's
-            -- "call_fn". Runs the tool's body inline in the current coroutine so
-            -- its ms.wait calls yield just like the caller's.
+            -- ms.callFn(id) invokes a named function tool inline
             ms.callFn = function(id)
                 if type(id) ~= "string" then return end
                 local function callable(f)
@@ -2953,25 +2916,16 @@
                 -- First a registered function tool (builder-authored).
                 local def = ms.fn and ms.fn.registry and ms.fn.registry._defs[id]
                 if def and callable(def.fn) then return def.fn() end
-                -- Then any bound macro from the pack, by its bind id. This is
-                -- what lets a macro call the pack's own functions (which are
-                -- authored as `local X = ms.fn(...)` and bound, not registered).
+                -- Then any bound macro from the pack, by its bind id
                 local wired = ms.bind and ms.bind._wires and ms.bind._wires[id]
                 if callable(wired) then return wired() end
-                -- Then a tool registered via ms.tools.define (e.g. a plugin's
-                -- open-folder/open-file action). These surface in the Functions
-                -- list, so a Call-function block can invoke them by id.
+                -- Then a tool registered via ms.tools.define
                 local tool = ms._toolIndex and ms._toolIndex[id]
                 if tool and callable(tool.run) then return tool.run() end
                 print("ms.callFn: no function tool or macro named '" .. tostring(id) .. "'")
             end
 
-            -- ms.vars — disk-persistent, explicitly-declared shared variables.
-            -- Unlike a macro's `local` (function-scoped) variables, a helper var
-            -- is intentionally visible to every macro and survives reloads, so
-            -- sharing state across macros is a deliberate act, never an accident
-            -- of a name colliding. Declarations + values live together in
-            -- data/ms_helpervars.json, written at runtime like ms_authored.json.
+            -- ms.vars, disk-persistent shared helper variables
             do
                 local varsPath = os.getenv("HOME")
                     .. "/.hammerspoon/data/ms_helpervars.json"
@@ -3015,8 +2969,7 @@
 
                 ms.vars = {}
 
-                -- Read a helper var live. Falls back to the declared default,
-                -- then nil for an undeclared name.
+                -- Read a helper var live
                 ms.vars.get = function(name)
                     ensureLoaded()
                     if type(name) ~= "string" then return nil end
@@ -3028,9 +2981,7 @@
                     return v
                 end
 
-                -- Write a helper var and persist. Auto-declares an untyped var
-                -- on first write so a macro can use one without a prior def,
-                -- but coerces to the declared type when one exists.
+                -- Write a helper var and persist
                 ms.vars.set = function(name, value)
                     ensureLoaded()
                     if type(name) ~= "string"
@@ -3057,9 +3008,7 @@
                         default = def.default,
                         label   = type(def.label) == "string" and def.label or name,
                         hint    = type(def.hint) == "string" and def.hint or nil,
-                        -- Where the declaration came from, for the Tools filter:
-                        -- "pack" while ms_macros.lua runs, "plugin" during a
-                        -- plugin load, else the user's own builder.
+                        -- Where the declaration came from, for the Tools filter
                         origin  = def.origin or ms._defineOrigin or "user",
                     }
                     if store.vals[name] == nil then
@@ -3219,12 +3168,7 @@
                 ms.type("v", { ms.windowsMode and "ctrl" or "cmd" })
             end
 
-            -- Expand {name} tokens in a string at runtime against helper vars.
-            -- Literal builder fields are interpolated at compile time (their
-            -- braces are gone by the time they run), but a value read out of a
-            -- helper var or setting still carries raw {name} tokens — this is
-            -- what resolves those. Non-strings pass through untouched; bounded
-            -- passes let a var reference another var without looping forever.
+            -- Expand {name} tokens in a string at runtime against helper vars
             ms.interp = function(s)
                 if type(s) ~= "string" then return s end
                 if not s:find("{", 1, true) then return s end
@@ -3424,13 +3368,7 @@
                     end
                 end
 
-                -- Health catch: if the active-sound folder was emptied or
-                -- misplaced (e.g. a broken pack switch loses the custom sound
-                -- library), assignments point at samples that no longer resolve.
-                -- Surface ONE clear, de-duplicated warning instead of leaving
-                -- playSlot to print a quiet per-file "could not load sound" line
-                -- forever. _resolveSlot already falls back to the default sample
-                -- so playback keeps working — this just tells the user why.
+                -- Warn once when slot assignments no longer resolve
                 local missing = 0
                 for _, name in pairs(ms.soundAssign or {}) do
                     if type(name) == "string" and name ~= ""
@@ -3534,13 +3472,7 @@
                 return s
             end
 
-            -- Only accept a resolved path that still exists on disk. The map
-            -- ms.sounds is built at discovery time; if the active-sound folder
-            -- is later emptied or misplaced (e.g. a broken pack switch), its
-            -- entries point at files that are now gone. Verifying here lets
-            -- resolution fall through to the built-in default sample instead of
-            -- handing ms.sound a dead path (which only printed a per-sound
-            -- "could not load sound" line, once per file, forever).
+            -- Only accept a resolved path that still exists on disk
             local function _slotPathExists(p)
                 return type(p) == "string" and hs.fs.attributes(p) ~= nil
             end
@@ -3575,15 +3507,7 @@
                 if ms._octaneMode and ms._octaneMuteSounds then return false end
                 if not ms._startupSoundDone and slotId ~= "load" and slotId ~= "themeLoaded" and slotId ~= "updateAvailable" and slotId ~= "settingsOpen" and slotId ~= "settingsClose" then return false end
                 ms._slotHandles = ms._slotHandles or {}
-                -- Do NOT stop the slot's previous play before starting the new one.
-                -- The Windows backend gives every sound its own short-lived child
-                -- process that the OS mixes, so letting a prior play finish while the
-                -- next begins is exactly the smooth overlap macOS has. Stopping it
-                -- instead (TerminateProcess) cut the previous sound mid-play AND paid
-                -- the helper's ~20-40ms respawn gap -- audible as choppy cutting when
-                -- hovering quickly through menu items (each "hover" killed the last).
-                -- We still overwrite the tracked handle below so _slotStartedAt /
-                -- duration timing follows the most recent play.
+                -- Do not stop the slot's previous play before starting the new one
                 local path
                 for _, id in ipairs(ms.soundSlotChain(slotId)) do
                     path = _resolveSlot(id)
@@ -3677,11 +3601,7 @@
                 return relX, relY
             end
 
-            -- Single source of truth for reading one screen pixel.
-            -- Mirrors the window-monitor inspect sampler exactly: snapshot a
-            -- 1x1 rect at absolute (ax, ay) and read colorAt(0, 0). Reading the
-            -- top-left subpixel (not scale/2) keeps macro samples identical to
-            -- what the inspect eyedropper reports on Retina displays.
+            -- Read one screen pixel
             ms.screen = ms.screen or {}
             ms.screen.sampleAt = function(ax, ay)
                 if not ax or not ay then return nil end
@@ -3793,17 +3713,10 @@
                 return false
             end
 
-            -- ── Screen text (OCR) ────────────────────────────────────
-            -- Backed by the Vision helper binary (~/.local/bin/ms_ocr_read,
-            -- compiled from mac/bin/ms_ocr_read.swift at deploy). Each call
-            -- captures the region, hands the PNG to the helper, and maps the
-            -- returned image-pixel boxes back to absolute screen points.
-            -- Synchronous (~100ms) — same spirit as screen:snapshot.
+            -- Screen text OCR via the Vision helper binary
             ms.screen._ocrBin = os.getenv("HOME") .. "/.local/bin/ms_ocr_read"
 
-            -- Normalise a region arg into an absolute {x,y,w,h} in screen
-            -- points. nil -> whole main screen. A region may carry `ref` to
-            -- resolve its origin the way pixelColor does (e.g. "WindowTL").
+            -- Normalise a region arg into an absolute {x,y,w,h} in screen points
             local function _resolveRegion(region)
                 local f = hs.screen.mainScreen():frame()
                 if type(region) ~= "table" then
@@ -3820,12 +3733,11 @@
                 }
             end
 
-            -- Capture a region to a temp PNG. Returns path, resolvedRegion
-            -- or nil on failure.
+            -- Capture a region to a temp PNG
             ms.screen.capture = function(region)
                 local rg = _resolveRegion(region)
                 if not rg.w or not rg.h or rg.w < 1 or rg.h < 1 then return nil end
-                -- Pick the screen the region originates on (multi-monitor).
+                -- Pick the screen the region originates on
                 local scr = hs.screen.mainScreen()
                 for _, s in ipairs(hs.screen.allScreens()) do
                     local f = s:frame()
@@ -3837,8 +3749,7 @@
                 end
                 local snap = scr:snapshot(hs.geometry.rect(rg.x, rg.y, rg.w, rg.h))
                 if not snap then return nil end
-                -- os.tmpname() creates the base file; we want the .png sibling,
-                -- so drop the empty base to avoid leaking one per call.
+                -- Drop the empty base file, keeping the .png sibling
                 local base = os.tmpname()
                 os.remove(base)
                 local path = base .. ".png"
@@ -3846,10 +3757,7 @@
                 return path, rg
             end
 
-            -- OCR a region. Returns { text = "line\nline", blocks = { ... } }
-            -- where each block carries text, conf, an absolute-screen center
-            -- {x, y} ready to click, corner {left, top}, and {w, h} — all in
-            -- screen points. Returns nil if OCR is unavailable or failed.
+            -- OCR a region, returning text and blocks
             ms.screen.ocr = function(region, opts)
                 opts = opts or {}
                 local path, rg = ms.screen.capture(region)
@@ -3871,9 +3779,7 @@
                     return nil
                 end
 
-                -- Pixels-per-point: helper's reported pixel width over the
-                -- region's point width folds out the Retina backing scale
-                -- without us having to query it.
+                -- Pixels-per-point from the helper's reported pixel width
                 local sx = (data.w or rg.w) / rg.w
                 local sy = (data.h or rg.h) / rg.h
                 if sx == 0 then sx = 1 end
@@ -3897,9 +3803,7 @@
                 return { text = table.concat(texts, "\n"), blocks = blocks }
             end
 
-            -- OCR a region and pull the first number out of it. Drops commas
-            -- and any non-numeric decoration (currency glyphs, "HP", etc.).
-            -- Returns a Lua number or nil.
+            -- OCR a region and pull the first number out of it
             ms.screen.readNumber = function(region, opts)
                 local res = ms.screen.ocr(region, opts)
                 if not res then return nil end
@@ -3908,9 +3812,7 @@
                 return match and tonumber(match) or nil
             end
 
-            -- Find on-screen text (case-insensitive substring). Returns the
-            -- center {x, y} of the first matching block (and the block), or
-            -- nil.
+            -- Find on-screen text and return its center
             ms.screen.findText = function(text, region, opts)
                 if not text or text == "" then return nil end
                 local res = ms.screen.ocr(region, opts)
@@ -3924,9 +3826,7 @@
                 return nil
             end
 
-            -- Poll until `text` appears in the region (or disappears, with
-            -- opts.gone). Returns the match coords {x, y} on success — false
-            -- on timeout.
+            -- Poll until text appears in the region
             ms.screen.waitText = function(text, region, timeout, opts)
                 opts = opts or {}
                 timeout = timeout or 5000
@@ -3943,19 +3843,13 @@
                 return false
             end
 
-            -- Pixel scanning is also exposed under ms.screen.* as its
-            -- canonical home; the bare ms.pixelColor/etc. names stay as
-            -- back-compat aliases (the macro registry and existing packs
-            -- still call them).
+            -- Pixel scanning aliases under ms.screen.*
             ms.screen.pixelColor   = ms.pixelColor
             ms.screen.pixelMatch   = ms.pixelMatch
             ms.screen.waitPixel    = ms.waitPixel
             ms.screen.waitNotPixel = ms.waitNotPixel
 
-            -- Flat positional wrappers for the visual builder, whose step
-            -- params are individual numbers rather than a region table. A
-            -- zero/omitted w or h means "whole screen". Handwritten macros
-            -- use the richer ms.screen.* region-table API directly.
+            -- Flat positional wrappers for the visual builder
             local function _regionFromArgs(x, y, w, h)
                 if not w or w <= 0 or not h or h <= 0 then return nil end
                 return { x = x or 0, y = y or 0, w = w, h = h }
@@ -4083,16 +3977,12 @@
                 local startX, startY = startPos.x, startPos.y
                 local dx = targetX - startX
                 local dy = targetY - startY
-                -- Zero-distance or near-instant move: jump and return. Recorded
-                -- move steps use a tiny durationMs (~8), so they land here.
+                -- Zero-distance or near-instant move: jump and return
                 if durationMs <= 16 or (dx == 0 and dy == 0) then
                     hs.mouse.absolutePosition({ x = targetX, y = targetY })
                     return
                 end
-                -- Animate synchronously: block this coroutine (via ms.wait)
-                -- frame-by-frame so playback stays ordered. The old async
-                -- timer returned immediately, so a macro's move steps all
-                -- fired at once (teleport at start, replay-fast at the end).
+                -- Animate synchronously, frame by frame
                 local frameMs = 16
                 local steps = math.max(1, math.floor(durationMs / frameMs + 0.5))
                 for step = 1, steps do
@@ -4443,8 +4333,7 @@
                     return "Scroll " .. d:sub(1,1):upper() .. d:sub(2)
                 end
                 if c.type == "gamepad" then return "Pad " .. ms.gpLabel(c) end
-                -- c.mods may be the "any" string sentinel (system binds), not a list
-                -- -- iterate only a real table, render "any" as an "Any" token.
+                -- c.mods may be the "any" string sentinel, not a list
                 local parts = {}
                 if type(c.mods) == "table" then
                     for _, m in ipairs(c.mods) do table.insert(parts, m:sub(1, 1):upper() .. m:sub(2)) end
@@ -5587,9 +5476,6 @@
             end
         -- END 9. Bind System & Settings Panel --
 
-        -- 10. Event Bus (ms.bus) --
-        -- END 10. Event Bus (ms.bus) --
-
         -- 11. Documentation Accessor (ms.docs) --
             do
                 local _docsCache = nil
@@ -5726,11 +5612,7 @@
                         end
                         local ok, err = pcall(ms.compiler.write, body.id, body.def)
                         if ok then
-                            -- write() preserves the JSON store even when a macro
-                            -- fails to compile — rebuild quarantines the broken
-                            -- one rather than dropping it. Surface that compile
-                            -- error to the builder so the save isn't silently
-                            -- "successful" while the macro can't actually run.
+                            -- Surface a compile error to the builder
                             local compileErr = ms.compiler._errors
                                 and ms.compiler._errors[body.id]
                             _registerAndNotify()
@@ -5899,8 +5781,7 @@
                             })
                         end
 
-                        -- Emit any buffered free-cursor movement as a run of
-                        -- moveMouse steps, resampled by moveGranularity.
+                        -- Emit buffered free-cursor movement as moveMouse steps
                         flushMoves = function()
                             if rec._moveFlushTimer then
                                 rec._moveFlushTimer:stop()
@@ -6073,9 +5954,7 @@
                                                 pt.y,
                                             }
                                         end
-                                        -- Commit a movement run once the cursor
-                                        -- goes idle, so pure movement streams into
-                                        -- steps instead of waiting for a button.
+                                        -- Commit a movement run once the cursor goes idle
                                         if rec._moveFlushTimer then
                                             rec._moveFlushTimer:stop()
                                         end
@@ -6092,9 +5971,7 @@
                                         if inShell(pt) then return end
                                         local button = buttonOf(t, et)
                                         if rec.opts.recordDrags then
-                                            -- Commit any free movement leading up
-                                            -- to the press so the drag doesn't
-                                            -- absorb or reorder it.
+                                            -- Commit free movement before the press
                                             flushMoves()
                                             rec.drag = {
                                                 button = button, moved = false,
@@ -6408,9 +6285,7 @@
                         if ok then
                             print("ms.vars.define: '" .. tostring(body.def.name) .. "' saved")
                             if ms.bus and ms.bus.emit then pcall(ms.bus.emit, "ui:macros:listTools") end
-                            -- Rebuild + push UI state so S.userVariables (the source
-                            -- the Variable list renders from) includes the new var;
-                            -- without this the list re-renders from stale state.
+                            -- Rebuild and push UI state so the Variable list includes the new var
                             if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
                             if ms.ui and ms.ui.refresh then pcall(ms.ui.refresh) end
                             _macroShellEval("if(window.shellReceive)shellReceive('tools','helperVarSaved',{})")
@@ -6941,8 +6816,7 @@
                             theirBoot = tonumber(userInfo.boot)
                         end
                         if not theirPid or theirPid == myPid then return end
-                        -- Only the strictly-older instance evicts; a boot-time
-                        -- tie (near-simultaneous launch) breaks on the lower pid.
+                        -- Only the strictly-older instance evicts, ties break on lower pid
                         local iAmOlder
                         if theirBoot and theirBoot ~= myBoot then
                             iAmOlder = myBoot < theirBoot
@@ -7146,8 +7020,7 @@
             end
             end
 
-            -- Arm the sequence once, on the first anchor to fire (choreography start or
-            -- the CAP backstop). Idempotent: whichever wins, later calls no-op.
+            -- Arm the sequence once, on the first anchor to fire
             local function _armInitSequence()
                 if _initSeqArmed then return end
                 _initSeqArmed = true

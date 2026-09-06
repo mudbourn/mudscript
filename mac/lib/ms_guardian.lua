@@ -1,4 +1,4 @@
--- MsGuardian (pre-load integrity check) --
+-- MsGuardian pre-load integrity check
 return function()
 
 local _obj = {
@@ -26,12 +26,12 @@ YQIDAQAB
 -- END Paths --
 
 -- Helpers --
-    -- Forward-slash and shell-quote a path so coreutils tools never escape it
+    -- Shell-quote a path
     local function _shq(p)
         return "'" .. tostring(p):gsub("\\", "/"):gsub("'", "'\\''") .. "'"
     end
 
-    -- Probe once for whichever hash tool exists, preferring shasum
+    -- Probe for the available hash tool
     local _hashCmd
     local function _hashTool()
         if _hashCmd ~= nil then return _hashCmd end
@@ -44,7 +44,7 @@ YQIDAQAB
         return _hashCmd
     end
 
-    -- Drop a possible coreutils escape prefix, then take the leading 64 hex.
+    -- Parse the leading 64 hex from a hash line
     local function _parseHash(s)
         if type(s) ~= "string" then return nil end
         local h = s:gsub("^\\", ""):match("^(%x+)")
@@ -63,7 +63,6 @@ YQIDAQAB
         if not paths or #paths == 0 then return out end
         local tool = _hashTool()
         if not tool then return out end
-        -- Map the forward-slashed form back to the original path for lookups
         local norm2orig, quoted = {}, {}
         for i = 1, #paths do
             norm2orig[tostring(paths[i]):gsub("\\", "/")] = paths[i]
@@ -82,7 +81,7 @@ YQIDAQAB
         return out
     end
 
-    -- Canonical JSON identical to `jq -c -S` byte-for-byte
+    -- Canonical JSON matching jq -c -S
     local function _canonEscape(s)
         return (s:gsub('[%z\1-\31\\"]', function(c)
             local b = string.byte(c)
@@ -130,7 +129,7 @@ YQIDAQAB
         hs.execute("mkdir -p " .. _shq(_dataPath))
     end
 
-    -- Write bare bytes, keeping \n unrewritten on every platform
+    -- Write bare bytes
     local function _writeBin(path, body)
         local f = io.open(path, "wb")
         if not f then return false end
@@ -337,7 +336,6 @@ YQIDAQAB
             generated = fm.generated,
             files     = fm.files,
         }
-        -- Canonicalise in pure Lua (jq -c -S equivalent)
         local okEnc, minified = pcall(_canonJSON, signPayload)
         if not okEnc or type(minified) ~= "string" or minified == "" then
             return false
@@ -401,7 +399,6 @@ YQIDAQAB
     local function _hashSpoonTree(absDir)
         local tool = _hashTool()
         if not tool then return nil end
-        -- find emits './relpath' so per-file hashes never trip coreutils escaping
         local out, ok = hs.execute(
             "cd " .. _shq(absDir) .. " && find . -type f ! -name '.DS_Store' " ..
             "! -name '._*' ! -path './__MACOSX/*' " ..
@@ -584,7 +581,7 @@ YQIDAQAB
 
             if onProgress then pcall(onProgress, "Downloading signed bundle...") end
 
-            -- Download with curl, which writes exact bytes unlike hs.http.asyncGet
+            -- Download with curl
             local tmpArchive = _archivePath .. "ms_bundle_update.zip"
             local _dlTask = hs.task.new("/usr/bin/curl", function(fCode)
                 if fCode ~= 0 then
@@ -742,7 +739,6 @@ YQIDAQAB
         end)
 
         local _guardianView = nil
-        -- Tracked in Lua, not read back from frame(), to survive drag
         local _guardianPos   = nil
 
         local _ucGuardian = hs.webview.usercontent.new("guardian")
@@ -764,7 +760,6 @@ YQIDAQAB
                 end)
 
             elseif body == "revealSpoons" then
-                -- Reveal the folder in the OS file manager
                 if package.config:sub(1, 1) == "\\" then
                     os.execute('explorer "' .. _spoonsDir:gsub("/", "\\") .. '"')
                 else
@@ -772,7 +767,6 @@ YQIDAQAB
                 end
 
             else
-                -- JSON move delta from the drag handler
                 local ok, data = pcall(hs.json.decode, body)
 
                 if ok and data and data.action == "repair" then
@@ -901,7 +895,6 @@ YQIDAQAB
                             _fadeStep = _fadeStep + 1
                             local _a = math.min(_fadeStep / _fadeSteps, 1.0)
                             pcall(function() _guardianView:alpha(_a) end)
-                            -- Stop via the captured handle; doEvery passes no timer arg
                             if _a >= 1.0 and _fadeTimer then _fadeTimer:stop() end
                         end)
                     end
@@ -1016,37 +1009,18 @@ YQIDAQAB
             print("Guardian: could not hash " .. (_failedFile or "unknown") .. ", skipping check.")
 
         elseif _checkResult == "mismatch" then
-            -- A tracked file differs from the (deploy-written) trusted manifest.
-            -- We do NOT reseed on _signedManifestConfirms() here: that check
-            -- covers ms_core.lua alone, but _seedTrustedFromDisk() would re-bless
-            -- EVERY on-disk file -- so a non-core tamper (lib/ui/bin) would pass
-            -- whenever core still matched the shipped signed hash. Legacy mode has
-            -- no signed per-file coverage to fall back on, so the safe action is
-            -- to block. A genuine signed core+files update arrives through the
-            -- install/repair flow with .ms_file_manifest.json restored, landing on
-            -- the per-file "ok" path above rather than as a legacy mismatch; a
-            -- local edit is fixed by re-running deploy, which re-seeds the manifest.
             _blocked = true
             local _exp = _manifest and _manifest[_failedFile or "ms_core.lua"] or nil
             local _got = _hashFile(_home .. "/.hammerspoon/" .. (_failedFile or "ms_core.lua"))
             _showGuardianBlock(_exp, _got)
             print("Guardian: legacy hash mismatch for " .. (_failedFile or "unknown") .. ", blocking.")
-        end -- if _checkResult
+        end
     elseif _fmResult == "tampered" then
         _blocked = true
         _showGuardianBlock(nil, nil)
         print("Guardian: per-file manifest signature verification failed, blocking.")
 
     elseif _fmResult == "mismatch" then
-        -- Reached only after the per-file manifest's OWN signature already
-        -- verified (_checkFileManifest returns "mismatch" past that gate), so a
-        -- file differing from a validly-signed manifest is unambiguous tamper.
-        -- A legitimate update ships a fresh matching signed manifest and lands
-        -- as "ok", never "mismatch" -- so there is no update to confirm here.
-        -- We must NOT fall back to _signedManifestConfirms()/_seedTrustedFromDisk():
-        -- that escape validates ms_core.lua ALONE and would then re-bless every
-        -- other on-disk file, letting a non-core tamper (lib/ui/bin) pass as long
-        -- as core matched a signed hash. Block instead.
         _blocked = true
         local _exp, _got = nil, nil
         if _fmFailedFile then

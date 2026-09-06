@@ -1,12 +1,12 @@
 # Timing, State & Control
 
-## Timing — `ms.wait`
+## Timing, `ms.wait`
 
 ```lua
 ms.wait(milliseconds)
 ```
 
-Yields the current coroutine for the given duration, then resumes. Non-blocking — the Hammerspoon event loop continues running while waiting.
+Yields the current coroutine for the given duration, then resumes. Non-blocking, the Hammerspoon event loop continues running while waiting.
 
 ```lua
 ms.wait(50)    -- 50 ms
@@ -21,14 +21,14 @@ Must be called from a coroutine context (i.e. inside an `ms.fn`-wrapped function
 
 ### `ms.after(milliseconds, fn)`
 
-Runs `fn` once after the given delay and returns the timer handle. Does not yield, so unlike `ms.wait` it is safe outside a coroutine — use it for background loops and deferred cleanup.
+Runs `fn` once after the given delay and returns the timer handle. Does not yield, so unlike `ms.wait` it is safe outside a coroutine, use it for background loops and deferred cleanup.
 
 ```lua
 local t = ms.after(300, function() ms.release("w") end)
 t:stop()   -- cancel before it fires
 ```
 
-> **Units.** `ms.after` takes **milliseconds**, matching `ms.wait`. `hs.timer.doAfter` underneath it takes seconds, so a value copied from Hammerspoon examples is off by a factor of 1000. `ms.after(0.3, fn)` is not "300 ms" — it is a third of a millisecond, and in a self-rearming loop that means thousands of timers a second.
+> **Units.** `ms.after` takes **milliseconds**, matching `ms.wait`. `hs.timer.doAfter` underneath it takes seconds, so a value copied from Hammerspoon examples is off by a factor of 1000. `ms.after(0.3, fn)` is not "300 ms", it is a third of a millisecond, and in a self-rearming loop that means thousands of timers a second.
 
 ### Background loops
 
@@ -56,7 +56,7 @@ local function start()
             return
         end
 
-        if BindValidity ~= 1 or not ms._robloxActive then
+        if BindValidity ~= 1 or not ms._targetActive then
             Loop.running = false
             Loop.timer   = nil
             stop()
@@ -92,8 +92,8 @@ ms.randWait(100, 300)  -- wait between 100 and 300 ms
 Waits `base` milliseconds plus or minus a random offset of `jitterMs`. More predictable than `randWait` while still adding variation.
 
 ```lua
-ms.jitter(100, 20)   -- wait 80–120 ms (100 ± 20)
-ms.jitter(500, 50)   -- wait 450–550 ms (500 ± 50)
+ms.jitter(100, 20)   -- wait 80-120 ms (100 +/- 20)
+ms.jitter(500, 50)   -- wait 450-550 ms (500 +/- 50)
 ```
 
 ### `ms.waitApp(appName [, timeout])`
@@ -133,7 +133,7 @@ Pass `true` as the second argument to treat the first argument as a raw keycode:
 ms.keystate(56, true)   -- checks shift by keycode
 ```
 
-Mouse buttons are tracked in the same table and can be queried here by name: `leftclick`/`mouse1`, `rightclick`/`mouse2`, `middleclick`/`mouse3`, `mouse4`/`mouseback`, `mouse5`/`mouseforward`. For clearer intent, prefer `ms.mousestate` (below) — it accepts friendlier names and covers the same buttons.
+Mouse buttons are tracked in the same table and can be queried here by name: `leftclick`/`mouse1`, `rightclick`/`mouse2`, `middleclick`/`mouse3`, `mouse4`/`mouseback`, `mouse5`/`mouseforward`. For clearer intent, prefer `ms.mousestate` (below), it accepts friendlier names and covers the same buttons.
 
 ---
 
@@ -159,7 +159,7 @@ Accepted names (case-insensitive), with the button number in parentheses:
 | Thumb forward (4) | `forward`, `thumb2`, `4` |
 
 ```lua
-if ms.mousestate("back") then ms.type("z") end   -- thumb button → undo
+if ms.mousestate("back") then ms.type("z") end   -- thumb button to undo
 ```
 
 > Thumb buttons only register if macOS delivers them as button 3/4. Vendor mouse software (Logitech Options, Razer Synapse, SteelSeries GG) that remaps the thumb buttons to keystrokes intercepts them before the event tap sees them, so they won't be tracked while that remapping is active.
@@ -168,7 +168,7 @@ if ms.mousestate("back") then ms.type("z") end   -- thumb button → undo
 
 ### `ms.held(id)`
 
-Returns `true` only if **every** identifier modifier of the bind `id` is currently held — used to route a shared trigger among multiple binds that claim it. A bind with no identifier modifiers (the fallback bind) always returns `false`.
+Returns `true` only if **every** identifier modifier of the bind `id` is currently held, used to route a shared trigger among multiple binds that claim it. A bind with no identifier modifiers (the fallback bind) always returns `false`.
 
 ```lua
 if ms.held("sprint") then
@@ -233,7 +233,7 @@ end
 
 ### `ms.mousePos()`
 
-Returns the cursor position in 1680×1044 reference-space coordinates relative to the Roblox window. Returns raw screen coordinates if Roblox is not found.
+Returns the cursor position in 1680x1044 reference-space coordinates relative to the Roblox window. Returns raw screen coordinates if Roblox is not found.
 
 ```lua
 local x, y = ms.mousePos()
@@ -242,42 +242,9 @@ ms.alert(string.format("Mouse: %.0f, %.0f", x, y), 3)
 
 ---
 
-### `ms.modHeld(id)`
+### `ms.getTargetWin()`
 
-Returns `true` if the modifier key configured for sub-item `id` is currently held.
-
-```lua
-if ms.modHeld("superThrow") then ThrowTrickFunction() end
-```
-
----
-
-### `ms.isSub(id)`
-
-Returns `true` if sub-item `id` is the active variant for this invocation — either because it was fired by an independent bind, or because its modifier key is held. Self-clears on match.
-
-```lua
-if ms.isSub("jumpHigh") then
-    -- high jump path
-    return true
-end
-```
-
----
-
-### `ms.getMod(id)`
-
-Returns the active modifier key string for sub-item `id`, or `nil` if none is configured.
-
-```lua
-local mod = ms.getMod("superThrow")  -- e.g. "alt"
-```
-
----
-
-### `ms.getRobloxWin()`
-
-Returns the main Roblox `hs.window` object, or `nil` if Roblox is not running.
+Returns the main `hs.window` object of the target app (see `ms.setTargetApp`), or `nil` if it is not running.
 
 ---
 
@@ -289,7 +256,7 @@ Returns `(x, y)` screen coordinates of the center of the Roblox window (falls ba
 
 ### `ms.getScaled(targetX, targetY)`
 
-Converts a 1680×1044 reference-space coordinate to absolute screen pixels, accounting for the actual Roblox window size and position.
+Converts a 1680x1044 reference-space coordinate to absolute screen pixels, accounting for the actual Roblox window size and position.
 
 ```lua
 local sx, sy = ms.getScaled(900, 660)
@@ -317,7 +284,7 @@ local c = ms.pixelColor(1200, 400)
 
 ### `ms.pixelMatch(x, y, reference, r, g, b [, tolerance])`
 
-Returns `true` if the pixel at `(x, y)` is within `tolerance` of the target colour on every channel. `tolerance` defaults to `10`; all values are `[0, 255]`.
+Returns `true` if the pixel at `(x, y)` is within `tolerance` of the target colour on every channel. `tolerance` defaults to `10`. All values are `[0, 255]`.
 
 ```lua
 -- Is the pixel at WindowTL (900, 540) roughly orange?
@@ -356,7 +323,7 @@ ms.waitNotPixel(960, 540, "Absolute", 255, 255, 255, 10, 10000)
 
 ### `BindValidity`
 
-Global integer. `1` = macros active; `0` = macros disabled. All bind handlers check this before firing.
+Global integer. `1` means macros active, `0` means macros disabled. All bind handlers check this before firing.
 
 ---
 
@@ -386,14 +353,14 @@ ms.cancelMacros()
 
 ### App watcher behavior
 
-The app watcher monitors focus changes and enables/disables macros based on the **target application** set via `ms.setTargetApp()`. By default this is `"Roblox"`. Pass `nil` for global mode — macros stay enabled regardless of the focused app.
+The app watcher monitors focus changes and enables/disables macros based on the **target application** set via `ms.setTargetApp()`. By default this is `"Roblox"`. Pass `nil` for global mode, macros stay enabled regardless of the focused app.
 
 | Event | Action |
 |-------|--------|
 | Target app activated | `BindValidity = 1`, camera enabled (Roblox only), enable notification queued |
 | Target app activated (returning from a settings dialog) | `BindValidity = 1`, notification suppressed |
-| Any other app activated | `ms.setMacros(0)` — disables and notifies |
-| Hammerspoon activated while target was in front | `ms.setMacros(0, true)` — disables silently (settings dialog cycle) |
+| Any other app activated | `ms.setMacros(0)`, disables and notifies |
+| Hammerspoon activated while target was in front | `ms.setMacros(0, true)`, disables silently (settings dialog cycle) |
 | Target app launched | Camera watcher set up (Roblox only) |
 
 The in-game keys `/` (disable) and `Enter` (enable) toggle macros while the target app is focused (Roblox mode only).
@@ -404,20 +371,20 @@ The in-game keys `/` (disable) and `Enter` (enable) toggle macros while the targ
 
 ### `ms.bind.group(id)`
 
-Returns the cooldown group key for `id`. All macros in the same group share a single cooldown timer — firing any one of them locks out all others for the cooldown duration.
+Returns the cooldown group key for `id`. All macros in the same group share a single cooldown timer, firing any one of them locks out all others for the cooldown duration.
 
 - If `opts.shared` is set on `id` or its root, that value is used directly.
 - Otherwise auto-derives `"G_<rootId>"` by walking the `sub` chain.
 
 ```lua
-local g = ms.bind.group("superThrow")  -- → "G_superJump"
+local g = ms.bind.group("superThrow")  -- to "G_superJump"
 ```
 
 ---
 
 ### `ms.pause([id])` / `ms.resume([id])`
 
-Pauses and resumes a running macro by id (the first argument to `ms.bind.define`). When paused, the macro's current `ms.wait()` expires but does not resume until `ms.resume()` is called. Any already-expired wait time is consumed — the macro picks up immediately from the next instruction.
+Pauses and resumes a running macro by id (the first argument to `ms.bind.define`). When paused, the macro's current `ms.wait()` expires but does not resume until `ms.resume()` is called. Any already-expired wait time is consumed, the macro picks up immediately from the next instruction.
 
 Pass no argument to pause or resume all running macros.
 

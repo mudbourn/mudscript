@@ -18,9 +18,6 @@
       "ms.release":       { key: "key" },
       "ms.wait":          { ms: "number" },
       "ms.cam":           { dx: "number", dy: "number" },
-      // NOTE: these option sets must match ms_core.lua's OPS/BTNS/REFS. They are
-      // normally shadowed by the shared registry (see _getParamDefs); kept here
-      // only as a correct fallback.
       "ms.Mouse":         { operation: { type: "select", options: ["Move","Click","DoubleClick","TripleClick","Drag","Press","Release"] },
                             button:    { type: "select", options: ["Left","Right","Center","Button4","Button5"] },
                             reference: { type: "select", options: ["Absolute","Mouse","WindowTL","WindowTR","WindowBL","WindowBR","WindowCenter","ScreenTL","ScreenTR","ScreenBL","ScreenBR","ScreenCenter"] },
@@ -103,7 +100,7 @@
       const style = document.createElement("style");
       style.id = "tool-editor-css";
       style.textContent = `
-        /* // Step Inline Editor // */
+        // Step Inline Editor
         .tool-editor-panel {
             background: var(--surface);
             border: 1px solid var(--border);
@@ -154,7 +151,7 @@
         .tool-editor-close svg { width: 12px; height: 12px; }
         .tool-editor-close svg path { stroke: var(--text); fill: none; }
 
-        /* // Form Grid // */
+        // Form Grid
         .tool-editor-form {
             display: flex;
             flex-direction: column;
@@ -184,7 +181,7 @@
             gap: 4px;
         }
 
-        /* // Text Input // */
+        // Text Input
         .tool-ed-text {
             width: 100%;
             background: var(--surface2);
@@ -202,7 +199,7 @@
         }
         .tool-ed-text:focus { border-color: var(--accent); }
 
-        /* // Value / Tool bind switch // */
+        // Value / Tool bind switch
         .tool-editor-control.tool-ed-bindable { flex-wrap: wrap; }
         .tool-ed-bind-switch { display: inline-flex; border: 1px solid var(--border-dim); border-radius: var(--radius-s); overflow: hidden; }
         .tool-ed-bind-opt { background: var(--surface2); border: none; color: var(--text3); font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; padding: 2px 6px; cursor: pointer; transition: all 0.1s; }
@@ -212,7 +209,7 @@
         .tool-ed-tool-select { width: 100%; background: var(--surface2); border: 1px solid var(--border-dim); border-radius: var(--radius); color: var(--text); font-family: var(--font-mono); font-size: 11px; padding: 4px 7px; outline: none; cursor: pointer; box-sizing: border-box; }
         .tool-ed-tool-select:focus { border-color: var(--accent); }
 
-        /* // Number Input // */
+        // Number Input
         .tool-ed-number-wrap {
             display: flex;
             align-items: center;
@@ -265,7 +262,7 @@
         .tool-ed-num-btn:last-child  { border-radius: 0 var(--radius) var(--radius) 0; border-left: none; }
         .tool-ed-num-btn:only-child  { border-radius: var(--radius); }
 
-        /* // Key Capture Button // */
+        // Key Capture Button
         .tool-ed-key-btn {
             display: inline-flex;
             align-items: center;
@@ -302,7 +299,7 @@
             font-style: italic;
         }
 
-        /* // Modifier Chips // */
+        // Modifier Chips
         .tool-ed-mods {
             display: flex;
             gap: 3px;
@@ -336,7 +333,7 @@
             color: var(--accent-hi);
         }
 
-        /* // Select Dropdown // */
+        // Select Dropdown
         .tool-ed-select {
             width: 100%;
             background: var(--surface2);
@@ -357,7 +354,7 @@
         .tool-ed-select:focus { border-color: var(--accent); }
         .tool-ed-select option { background: var(--surface); color: var(--text); }
 
-        /* // Condition / Expression Editor // */
+        // Condition / Expression Editor
         .tool-ed-condition {
             width: 100%;
             background: var(--surface2);
@@ -380,7 +377,7 @@
         .tool-ed-condition:focus { border-color: var(--accent); }
         .tool-ed-condition::placeholder { color: var(--text3); opacity: 1; }
 
-        /* // Live condition truth note // */
+        // Live condition truth note
         .tool-ed-cond-live {
             margin-top: 6px;
             font-family: var(--font-mono);
@@ -393,7 +390,7 @@
         .tool-ed-cond-live.cond-false   { color: var(--text3); }
         .tool-ed-cond-live.cond-missing { color: var(--warning); }
 
-        /* // Array Editor // */
+        // Array Editor
         .tool-ed-array {
             display: flex;
             flex-direction: column;
@@ -440,7 +437,7 @@
         }
         .tool-ed-array-add:hover { border-color: var(--accent); color: var(--text); }
 
-        /* // No-params // */
+        // No-params
         .tool-ed-no-params {
             color: var(--text3);
             font-size: 11px;
@@ -455,7 +452,7 @@
         `;
       document.head.appendChild(style);
   }
-// END CSS//
+// END CSS //
 
 // ToolEditor Class //
   class ToolEditor {
@@ -506,13 +503,11 @@
       static _toolList() {
           return Array.isArray(window.msMacroTools) ? window.msMacroTools : [];
       }
-      // Evaluate a Lua-style truthiness for a tool/var's current value: only
-      // nil and false are falsey (0 and "" are true), matching the runtime.
+      // Evaluate a Lua-style truthiness for a tool/var's current value:
       static _luaTruthy(v) {
           return !(v === null || v === undefined || v === false);
       }
-      // Paint the live-truth note for a condition wired to a tool/var. Reads
-      // the tool's current value from the same list the picker shows.
+      // Paint the live-truth note for a condition wired to a tool/var
       static _renderCondLive(el, value) {
           el.className = "tool-ed-cond-live";
           el.textContent = "";
@@ -732,10 +727,7 @@
         _getParamDefs(tool) {
             const action = tool.action;
 
-            // Prefer the shared Add-Module registry (window.fnPicker.registry) so
-            // the inline editor and the add panel agree on param types and — for
-            // enums — the exact constant sets ms_core.lua asserts on. An `enum`
-            // param maps to this editor's `select` control.
+            // Prefer the shared Add-Module registry
             const reg = window.fnPicker && window.fnPicker.registry;
             if (reg) {
                 for (let i = 0; i < reg.length; i++) {
@@ -746,10 +738,7 @@
                         if (p.type === "enum") {
                             defs[p.name] = { type: "select", options: p.options || [] };
                         } else if (p.type === "choice") {
-                            // Live-sourced (profiles / packs): resolve current
-                            // options from the shell clients and render as a
-                            // select. Best-effort — if the data hasn't landed a
-                            // request is kicked so reopening is populated.
+                            // Live-sourced
                             defs[p.name] = { type: "select", options: self._choiceOptions(p, tool) };
                         } else {
                             defs[p.name] = { type: p.type };
@@ -780,9 +769,7 @@
             return defs;
         }
 
-        // Options for a "choice" param, resolved from the shell clients. Mirrors
-        // panel-macros' choiceOptions. The stored value is preserved as its own
-        // row if it's no longer installed, so editing never silently drops it.
+        // Options for a "choice" param
         _choiceOptions(p, tool) {
             const opts = [];
             const seen = {};
@@ -855,8 +842,7 @@
                 control.appendChild(sw);
                 control.appendChild(holder);
 
-                // For a condition wired to a tool/var, show how it evaluates
-                // right now, so the branch's live truth is visible at a glance.
+                // For a condition wired to a tool/var
                 const note = (def.type === "condition")
                     ? document.createElement("div") : null;
                 if (note) { note.className = "tool-ed-cond-live"; control.appendChild(note); }
@@ -934,10 +920,7 @@
                 });
             }
 
-            // createSelect is a shell global and should always be present; the
-            // fallback is a themed, non-interactive placeholder (never a native
-            // <select>, which would ignore the theme) so a missing global fails
-            // visibly instead of rendering OS chrome.
+            // createSelect is a shell global and should always be present
             const ph = document.createElement("div");
             ph.className = "tool-ed-tool-select";
             const chosen = options.find((o) => o.value === current);
@@ -1219,11 +1202,7 @@
 if (typeof window !== "undefined") {
     window.ToolEditor = ToolEditor;
 
-    // Remember the last-focused Value field so the Variable tab can insert a
-    // {name} token straight into it. Both string values (.tool-ed-text) and
-    // condition/expression fields (.tool-ed-condition) qualify: the compiler
-    // expands {name} in each context (a quoted concat in strings, a bare
-    // ms.vars.get in expressions), so the token is uniformly valid.
+    // Remember the last-focused Value field so the Variable tab can insert
     document.addEventListener("focusin", function(e) {
         var t = e.target;
         if (t && t.classList &&
@@ -1233,9 +1212,7 @@ if (typeof window !== "undefined") {
         }
     }, true);
 
-    // Insert `token` at the caret of the last-focused Value field. Returns true
-    // when it landed in a field; false (caller falls back to clipboard) when no
-    // live field is focused — e.g. it was popped out or the editor closed.
+    // Insert `token` at the caret of the last-focused Value field
     window.msInsertValueToken = function(token) {
         var el = window._msLastValueField;
         if (!el || !el.isConnected || el.offsetParent === null) return false;
@@ -1245,7 +1222,7 @@ if (typeof window !== "undefined") {
         var caret = start + token.length;
         el.focus();
         try { el.setSelectionRange(caret, caret); } catch (err) {}
-        // Fire input so ToolEditor persists the edited value live.
+        // Fire input so ToolEditor persists the edited value live
         el.dispatchEvent(new Event("input", { bubbles: true }));
         return true;
     };

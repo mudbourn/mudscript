@@ -1,4 +1,4 @@
--- ms_loading (Startup Loading Screen) --
+-- Startup loading screen
 return function(ms)
 
     local _lWebView, _lFadingOut
@@ -58,7 +58,6 @@ return function(ms)
         ms.loading.create = function()
             local _startBootChoreography
 
-            -- Reset the ready-handshake guard so this create() owns a fresh boot
             _G._bootChoreographyStarted = false
 
             local sf  = hs.screen.mainScreen():frame()
@@ -66,18 +65,15 @@ return function(ms)
             local lx  = sf.x + math.floor((sf.w - lw) / 2)
             local ly  = sf.y + math.floor((sf.h - lh) / 2)
 
-            -- Handler name must match the one the page posts to in ms_loading.html
             local _ucLoad = hs.webview.usercontent.new("loading")
             _ucLoad:setCallback(function(message)
                 local ok, data = pcall(hs.json.decode, message.body)
                 if not ok or type(data) ~= "table" then return end
                 if data.action == "ready" then
                     if _G._bootChoreographyStarted then
-                        -- Re-assert the brand now that the page has handshaked
                         if _lWebView then
                             pcall(function() _lWebView:evaluateJavaScript("showBrand()") end)
                         end
-                        -- Re-assert profile/creator text now the page is proven ready
                         ms.loading.pushMeta()
                     else
                         _startBootChoreography()
@@ -117,7 +113,6 @@ return function(ms)
                 if _G._bootChoreographyStarted then return end
                 _G._bootChoreographyStarted = true
 
-                -- Anchor ms_core's progress/announce sequence to the brand intro start
                 if type(ms._onBootAnchor) == "function" then
                     pcall(ms._onBootAnchor)
                 end
@@ -125,7 +120,6 @@ return function(ms)
                 _G._loadTimers = {}
 
                 pcall(function() ms.loadTheme() end)
-                -- The theme is pushed later at the "Applying theme..." step, not here
 
                 if ms.macroMeta and ms.macroMeta.name then
                     js("setProfileName('" .. ms.macroMeta.name:gsub("'", "\\'") .. "')")
@@ -198,4 +192,3 @@ return function(ms)
     -- END Fade Out --
 
 end
--- END ms_loading --

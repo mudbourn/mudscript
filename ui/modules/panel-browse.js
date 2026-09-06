@@ -1,7 +1,7 @@
 (function() {
     "use strict";
 
-    // State //
+    // State
     let S = {
         entries:    null,
         loading:    false,
@@ -29,7 +29,7 @@
     ];
 
 
-    // Data //
+    // Data
     function requestCatalog(opts) {
         S.loading = true;
         S.error   = null;
@@ -43,7 +43,7 @@
         requestCatalog({ force: true });
     }
 
-    // Filtering //
+    // Filtering
     function visible() {
         const all = expandForBrowse(S.entries);
         const q = S.query.trim().toLowerCase();
@@ -98,7 +98,7 @@
         return null;
     }
 
-    // Card //
+    // Card
     function packageCard(e) {
         const { h, actionBtn } = ui();
         const card = h("div", {
@@ -107,7 +107,7 @@
         });
 
         const typeLabel = String((TYPES.find((x) => x.value === e.type) || {}).label
-            || e.type).replace(/s$/, ""); // "Themes" -> "Theme"
+            || e.type).replace(/s$/, "");
         const baseName = (e.name || e.id)
             .replace(/\s*[,–-]\s*(Theme|Sound|Macro|Profile|Plugin)\s*$/i, "")
             .replace(/\s+(profile|theme|sound|macro|plugin)$/i, "")
@@ -173,7 +173,7 @@
         return card;
     }
 
-    // Toolbar //
+    // Toolbar
     function toolbar() {
         const { h, seg, actionBtn } = ui();
         const bar = h("div", { cls: "browse-toolbar" });
@@ -196,7 +196,7 @@
         return bar;
     }
 
-    // Results region //
+    // Results region
     function results() {
         const { h, groupLabel } = ui();
         const wrap = h("div", { cls: "browse-results" });
@@ -242,20 +242,12 @@
         return wrap;
     }
 
-    // Style //
+    // Style
     function ensureStyle() {
         if (document.getElementById("browse-style")) return;
         const css = `
-        /* Fill the stage so the results box below can own a bounded height and
-           actually scroll. Without min-height:0 a flex child refuses to shrink
-           and the overflow never engages. */
         #browse-root { display:flex; flex-direction:column; gap:0;
             height:100%; min-height:0; }
-        /* Give the scroll its own thin bar. Unstyled, each webview engine falls
-           back to its OWN default: WKWebView (mac) draws a thin overlay bar, but
-           WebView2/Chromium (Windows) draws the fat classic bar -- same CSS, two
-           engines. scrollbar-width covers WKWebView + Chromium>=121; the
-           ::-webkit-scrollbar rules cover every WebView2 build. Matches #scroll. */
         #browse-results-box { flex:1 1 auto; min-height:0; overflow-y:auto;
             scrollbar-width:thin; scrollbar-color:var(--surface2) transparent; }
         #browse-results-box::-webkit-scrollbar { width:4px; }
@@ -284,16 +276,13 @@
         .browse-actions { display:flex; gap:8px; }
         .browse-bonus { display:flex; align-items:center; gap:6px;
             color:var(--text2); font-size:11px; cursor:pointer; user-select:none; }
-        /* Custom checkbox, the native macOS control ignores our theme, so we
-           strip its appearance and draw a themed box + check ourselves. */
+        /* Custom checkbox */
         .browse-bonus input[type="checkbox"] { -webkit-appearance:none;
             appearance:none; margin:0; width:14px; height:14px; flex:0 0 14px;
             border:1px solid var(--border); border-radius:3px;
             background:var(--surface); cursor:pointer; position:relative;
             transition:background 0.12s, border-color 0.12s; }
         .browse-bonus input[type="checkbox"]:hover { border-color:var(--accent); }
-        /* The global input:focus-visible rule strips the outline, so a keyboard
-           tab to this checkbox showed nothing, restore a themed focus ring. */
         .browse-bonus input[type="checkbox"]:focus-visible { box-shadow:0 0 0 2px var(--accent-hi); }
         .browse-bonus input[type="checkbox"]:checked { background:var(--accent);
             border-color:var(--accent); }
@@ -313,7 +302,7 @@
         document.head.appendChild(el);
     }
 
-    // Render //
+    // Render
     function render() {
         if (!ui()) return;
         const root = document.getElementById("browse-root");
@@ -335,7 +324,7 @@
         box.appendChild(results());
     }
 
-    // Bridge //
+    // Bridge
     if (window.registerPanel) {
         window.registerPanel("browse", function(action, body) {
             if (action === "catalog") {

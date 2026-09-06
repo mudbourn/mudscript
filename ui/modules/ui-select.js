@@ -68,9 +68,7 @@
           let _gpIndex = -1;
           let _connCheck = null;
 
-          // Optional structure: a sticky search box that filters the list, and
-          // per-item group headers. Both are opt-in (opts.searchable / an option
-          // carrying a `group`), so existing flat call sites are unaffected.
+          // Optional structure: a sticky search box that filters the list
           let searchInput = null;
           let entriesWrap = menu;
           if (opts.searchable) {
@@ -87,8 +85,7 @@
               menu.appendChild(searchWrap);
               entriesWrap = doc.createElement("div");
               menu.appendChild(entriesWrap);
-              // Typing filters; keep clicks/keys inside the control so the menu
-              // stays open and global shortcuts don't fire.
+              // Typing filters
               searchInput.addEventListener("input", () => { _filter = searchInput.value; renderEntries(); });
               searchInput.addEventListener("click", (e) => e.stopPropagation());
               searchInput.addEventListener("keydown", (e) => { if (e.key !== "Escape") e.stopPropagation(); });
@@ -106,15 +103,13 @@
           }
 
           function labelFor(v) {
-              // Action selects (e.g. "+ Add step...") are menus, not a persistent
-              // choice — always show the placeholder.
+              // Action selects
               if (opts.action) return opts.placeholder || "";
               for (const o of _opts) if (o.value === v) return o.label;
               return _opts.length ? _opts[0].label : (opts.placeholder || "");
           }
 
-          // Controller highlight: the mouse uses :hover, but a gamepad has no
-          // pointer, so a moved highlight (.gp-hi) marks the item A will pick.
+          // Controller highlight: the mouse uses :hover
           function gpItems() {
               return Array.prototype.slice.call(
                   entriesWrap.querySelectorAll(".macro-select-item"));
@@ -135,8 +130,7 @@
               if (_connCheck) { clearInterval(_connCheck); _connCheck = null; }
               root.classList.remove("open");
               gpClear();
-              // Return the menu from the body portal to the control, and drop
-              // every inline style so the base .macro-select-menu rule hides it.
+              // Return the menu from the body portal to the control
               if (menu.parentNode !== root) root.appendChild(menu);
               menu.style.display = "";
               menu.style.position = "";
@@ -152,14 +146,7 @@
               const vh  = doc.documentElement.clientHeight;
               const gap = 3;
 
-              // Anchor the menu with position:fixed, but a transformed ancestor
-              // (the sliding fn-picker overlay sets transform: translateX(...))
-              // becomes the containing block for fixed descendants — so fixed
-              // coords resolve against that box, not the viewport, and the menu
-              // lands off-screen. Measure the containing-block origin by parking
-              // the menu at 0,0 first, then cancel it from every coordinate. Use
-              // top for both anchors (no bottom, whose reference edge would also
-              // be shifted) so the correction stays a simple subtraction.
+              // Anchor the menu with position:fixed
               menu.style.position  = "fixed";
               menu.style.bottom    = "auto";
               menu.style.maxHeight = "none";
@@ -170,9 +157,7 @@
 
               const below = vh - r.bottom - gap;
               const above = r.top - gap;
-              // Prefer opening downward. Only flip up when the space below is
-              // genuinely cramped (can't show a usable, scrollable slice) and
-              // there's more room above — otherwise let the menu scroll in place.
+              // Prefer opening downward
               const flip  = below < 140 && above > below;
               const maxH  = Math.max(80, Math.min(260, flip ? above : below));
               const menuH = Math.min(menu.scrollHeight, maxH);
@@ -215,8 +200,7 @@
                       e.stopPropagation();
                       play("interact");
                       close();
-                      // Action menus fire every pick (including a repeat); plain
-                      // selects ignore re-picking the current value.
+                      // Action menus fire every pick
                       if (!opts.action && o.value === _value) return;
                       _value = o.value;
                       render();
@@ -255,15 +239,9 @@
               root.classList.add("open");
               _gpIndex = -1;
               // Portal the menu to <body> so it escapes the fn-picker overlay's
-              // overflow:hidden (and any other clipping ancestor). It's a fixed,
-              // viewport-anchored layer, so body is the safe parent; place()
-              // still positions it against the control. close() restores it.
               (doc.body || doc.documentElement).appendChild(menu);
               menu.style.display = "block";
-              // The menu now lives on <body>, so it survives its owning control
-              // being torn out by a panel re-render — which would strand it open,
-              // floating and detached. Watch the control and close if it leaves
-              // the document.
+              // The menu now lives on <body>
               _connCheck = setInterval(function() { if (!root.isConnected) close(); }, 150);
               if (searchInput) {
                   _filter = "";
@@ -282,20 +260,14 @@
               if (e.key === "Escape") close();
               e.stopPropagation();
           });
-          // Close on any outside press. Capture phase so it still fires even
-          // when a handler in between (the builder canvas) stops propagation on
-          // the bubbling click. Presses on the control or its (now portaled)
-          // menu are handled by their own listeners.
+          // Close on any outside press
           doc.addEventListener("pointerdown", function(e) {
               if (!root.classList.contains("open")) return;
               if (root.contains(e.target) || menu.contains(e.target)) return;
               close();
           }, true);
 
-          // Gamepad API, mirrored by gp-nav while this select is open: move the
-          // highlight, pick the highlighted item (its click handler commits and
-          // closes), or dismiss. Starting from the active item keeps the first
-          // press landing where the eye already is.
+          // Gamepad API
           root.gpIsOpen = () => root.classList.contains("open");
           root.gpMove = (dir) => {
               const items = gpItems();

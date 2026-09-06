@@ -167,7 +167,7 @@ ms.mouse(1, true, function() print("right click") end)  -- right
 ms.mouse(2, true, function() print("middle click") end) -- middle
 ```
 
-To poll whether a button is currently held (rather than react to a click), use `ms.mousestate` — it takes the same button numbers plus friendly names (`left`, `right`, `middle`, `back`, `forward`):
+To poll whether a button is currently held (rather than react to a click), use `ms.mousestate`. It takes the same button numbers plus friendly names (`left`, `right`, `middle`, `back`, `forward`):
 ```lua
 if ms.mousestate("back") then ... end   -- thumb button held
 ```
