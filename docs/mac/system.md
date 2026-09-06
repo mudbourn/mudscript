@@ -308,9 +308,3 @@ ms.features.hide("independentBinds")  -- Independent Binds row in Tools
 
 ---
 
-### `ms.setClickLevel(n)` *(internal)*
-
-> **Internal API.** `ms.setClickLevel` was a legacy bridge function and is not part of the public API. Do not call it from macro packs. To expose a click-level setting, use `ms.settings.define` with a `seg` type and manage the value in your own `onChange` callback.
-
----
-

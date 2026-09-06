@@ -453,7 +453,7 @@
 
         // Advanced / derived colour overrides
         sec(root, "colours-adv", "Derived colours",
-            "Normally computed from the colours above — set to override, blank to derive",
+            "Normally computed from the colours above. Set to override, blank to derive",
             (body) => {
                 for (const c of ADVANCED_KEYS) {
                     const value = theme[c.key] || "";

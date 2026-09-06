@@ -517,14 +517,14 @@
           if (!t) {
               el.style.display = "";
               el.classList.add("cond-missing");
-              el.textContent = "⚠ unknown tool “" + key + "” — branch will run the else path";
+              el.textContent = "⚠ unknown tool '" + key + "', branch will run the else path";
               return;
           }
           const truthy = ToolEditor._luaTruthy(t.value);
           el.style.display = "";
           el.classList.add(truthy ? "cond-true" : "cond-false");
           el.textContent = (truthy ? "● true" : "○ false")
-              + " → runs the " + (truthy ? "then" : "else") + " branch";
+              + " runs the " + (truthy ? "then" : "else") + " branch";
       }
 
       _hookCanvasRender() {

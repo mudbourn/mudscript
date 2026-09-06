@@ -657,7 +657,7 @@ return function(ms)
             local INSTRUCTIONS =
                 "Press a key, or hold a combo. Modifiers on their own\n"
                 .. "(Option, Option+Shift), mouse buttons, scroll, and\n"
-                .. "controller buttons work too — hold several pad\n"
+                .. "controller buttons work too, hold several pad\n"
                 .. "buttons at once for a controller combo.\n"
                 .. "Release to set  -  Escape to cancel."
 

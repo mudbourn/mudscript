@@ -827,7 +827,7 @@
                         let statusText;
                         if (ctrls.length === 0) {
                             statusText =
-                                "No controller detected — pair one over "
+                                "No controller detected. Pair one over "
                                 + "Bluetooth, then it will appear here.";
                         } else {
                             statusText =
@@ -952,7 +952,7 @@
                 body.appendChild(
                     row(
                         "Accessibility Hotkeys",
-                        "Rebind Octane, zoom, and other system shortcuts in Macros → Binds",
+                        "Rebind Octane, zoom, and other system shortcuts in Macros > Binds",
                         actionBtn("Open Binds", "", () => {
                             if (window.showPanel) window.showPanel("macros");
                             setTimeout(() => {
@@ -1506,7 +1506,7 @@
                                         playSlot("interact");
                                         const r = await openModal(
                                             "Create New Profile",
-                                            "Start it from your current macros, theme, settings, and sounds — or blank?",
+                                            "Start it from your current macros, theme, settings, and sounds, or blank?",
                                             "Seed from current",
                                             "Start blank",
                                         );
@@ -2312,7 +2312,7 @@
                 + 'stroke-linejoin="round"/></svg>';
 
             function arrangeRowLabel(it) {
-                if (it.type === "divider") return "— Divider —";
+                if (it.type === "divider") return "Divider";
                 if (it.type === "groupLabel")
                     return "“" + (it.label || "") + "” label";
                 const name = it.label || it.key || "(setting)";
@@ -2943,7 +2943,7 @@
                         "A shared value macros can read and write, saved to disk"));
                     scroll.appendChild(section("var-list", "Your variables",
                         buildVariableList,
-                        "Insert appends a {name} token into the Default field above — "
+                        "Insert appends a {name} token into the Default field above. "
                         + "it resolves to the variable's value when the macro runs"));
                 } else {
                     const listBody = document.getElementById("tool-var-list-body");
