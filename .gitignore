@@ -1,19 +1,9 @@
-# Runtime files
 data/*
 !data/ms_settings_default.json
-
-# Backup archives
 backups/
-
-# Development artifacts
 ignore/
-
-# macOS
 .DS_Store
-
-# Key files
 *.pem
-
 /*.log
 /*.txt
 /*.md
