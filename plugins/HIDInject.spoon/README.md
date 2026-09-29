@@ -1,6 +1,6 @@
 # HIDInject
 
-Opt-in HID injection for mudscript. **Not part of base mudscript** — the core
+Opt-in HID injection for mudscript. **Not part of base mudscript** - the core
 input API always posts to the global event stream. This plugin adds a parallel
 `ms.hid.*` namespace that posts input **directly to the target app process**
 (`event:post(app)` / `CGEventPostToPSN`), for games that ignore global posts.
@@ -38,7 +38,7 @@ ms.hid.press("w")
 ms.hid.type("e")
 ```
 
-Non-injected calls are unchanged — keep using `ms.press`, `ms.type`, `ms.Mouse`.
+Non-injected calls are unchanged - keep using `ms.press`, `ms.type`, `ms.Mouse`.
 
 ## A note on intent
 

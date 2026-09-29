@@ -2,23 +2,6 @@ import Foundation
 import Vision
 import AppKit
 
-// ms_ocr_read — On-device OCR for mudscript, via Apple's Vision framework.
-// Reads text (with bounding boxes) from an image and prints one JSON blob.
-//
-// Usage:
-//   ms_ocr_read <imagePath>          — OCR the image, print JSON, exit
-//   ms_ocr_read <imagePath> fast     — use the fast recognition level
-//
-// Output (single JSON object on stdout):
-//   {"w":1280,"h":720,"blocks":[
-//     {"text":"Wave 12","conf":0.98,"x":40,"y":30,"w":110,"h":22}, ...]}
-//
-// Coordinates are in IMAGE PIXELS with a TOP-LEFT origin (Vision's native
-// boundingBox is normalized and bottom-left, so we flip Y and scale here).
-// The Lua caller maps these back to absolute screen points using the capture
-// region's origin and the pixels-per-point ratio (w / region.w), which also
-// absorbs the Retina backing scale without us having to know it.
-
 func fail(_ msg: String) -> Never {
     let obj: [String: Any] = ["error": msg, "blocks": []]
     if let data = try? JSONSerialization.data(withJSONObject: obj) {

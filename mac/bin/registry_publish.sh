@@ -1,40 +1,4 @@
 #!/usr/bin/env bash
-# bin/registry_publish.sh
-# ─────────────────────────────────────────────────────────────────────────────
-# Publishes a .mspkg to the registry: uploads it as a GitHub release asset and
-# writes its entry into registry/index.json. This is steps 1–2 of registry/
-# README.md's "Publishing" — signing (step 3) stays with the Sign Registry
-# workflow, or `registry_sign.sh --sign` for key holders.
-#
-#   bash mac/bin/registry_publish.sh aurora.mspkg
-#   bash mac/bin/registry_publish.sh aurora.mspkg --id aurora-theme --release v1.2.0
-#   bash mac/bin/registry_publish.sh aurora.mspkg --dry-run      # print the row, touch nothing
-#   bash mac/bin/registry_publish.sh aurora.mspkg --no-upload    # asset already uploaded
-#
-# A .spoon plugin bundle can be published directly. The script packs it into a
-# temporary plugin .mspkg (type "plugin", files under Spoons/) and publishes
-# that. Metadata is sniffed from the Spoon's init.lua (version/name/author/
-# homepage) and can be overridden per field:
-#
-#   bash mac/bin/registry_publish.sh MyPlugin.spoon --id my-plugin
-#   bash mac/bin/registry_publish.sh MyPlugin.spoon --id my-plugin --version 1.2.0 --author you
-#
-# Re-running on a package whose id is already listed UPDATES that entry —
-# re-uploads the asset and refreshes sha256/size/version/… from the new bytes.
-# That is the normal way to ship a new version; no flag is needed.
-#   bash mac/bin/registry_publish.sh aurora.mspkg --sign --key k.pem   # publish + sign locally
-#
-# Most fields come from the package's own mspkg.json manifest, so the row can
-# never disagree with the bytes it points at. The one field the manifest does
-# not carry is `id` (the registry's stable handle): it defaults to a
-# type-name slug and can be pinned with --id.
-#
-# The index is left UNSIGNED. Adding a row invalidates the old signature, and
-# an unsigned index serves zero entries until re-signed — so publishing is not
-# live until the Sign Registry workflow (or --sign here) runs. This script
-# validates the result with registry_sign.sh before it finishes, so a row the
-# client would reject fails here rather than after a commit.
-# ─────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
 
@@ -83,7 +47,6 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-# ── Preconditions ────────────────────────────────────────────────────────────
 command -v jq     >/dev/null || { echo "ERROR: jq is required.";     exit 1; }
 command -v unzip  >/dev/null || { echo "ERROR: unzip is required.";  exit 1; }
 command -v shasum >/dev/null || { echo "ERROR: shasum is required."; exit 1; }
@@ -92,11 +55,6 @@ command -v shasum >/dev/null || { echo "ERROR: shasum is required."; exit 1; }
 [ "$TRUST" = "trusted" ] || [ "$TRUST" = "community" ] \
     || { echo "ERROR: --trust must be 'trusted' or 'community'."; exit 1; }
 
-# ── Accept a .spoon: pack it into a temporary plugin .mspkg ───────────────────
-# A .spoon is a Spoon bundle *directory*, not a typed package, so there is no
-# mspkg.json to read. Build one here (type "plugin", files staged under Spoons/,
-# each hashed into the contents map) exactly as ms.package.pack would, then let
-# the rest of the script publish that .mspkg. A real .mspkg skips all of this.
 case "$PKG" in
     *.spoon)
         [ -d "$PKG" ]              || { echo "ERROR: a .spoon must be a Spoon bundle directory: $PKG"; exit 1; }
@@ -153,7 +111,7 @@ case "$PKG" in
         MSPKG="$TMPROOT/$SPOON_BASE.mspkg"
         ( cd "$STAGE" && zip -qq -r -X "$MSPKG" . )
         [ -f "$MSPKG" ] || { echo "ERROR: could not build .mspkg from $SPOON_NAME."; exit 1; }
-        echo "Packed $SPOON_NAME → plugin .mspkg (v$PK_VERSION)."
+        echo "Packed $SPOON_NAME -> plugin .mspkg (v$PK_VERSION)."
         PKG="$MSPKG"
         ;;
     *.mspkg)
@@ -163,15 +121,9 @@ case "$PKG" in
         echo "ERROR: not a .mspkg or .spoon: $PKG"; exit 1 ;;
 esac
 
-# GitHub rewrites spaces (and some other characters) in an uploaded asset's
-# name, which silently desyncs the download URL from the real asset — a URL
-# with a space 404s. Normalise the name ourselves so it is deterministic and
-# URL-safe: any run of characters outside [A-Za-z0-9._-] collapses to a dot.
-# The bytes (and therefore the sha256) are untouched; only the filename changes.
 ASSET_SRC="$(basename "$PKG")"
 ASSET="$(printf '%s' "$ASSET_SRC" | LC_ALL=C sed -E 's/[^A-Za-z0-9._-]+/./g')"
 
-# ── Read the manifest out of the package ─────────────────────────────────────
 MANIFEST="$(unzip -p "$PKG" mspkg.json 2>/dev/null || true)"
 [ -n "$MANIFEST" ] || { echo "ERROR: $ASSET has no mspkg.json manifest (is it a typed package?)."; exit 1; }
 echo "$MANIFEST" | jq empty 2>/dev/null || { echo "ERROR: $ASSET manifest is not valid JSON."; exit 1; }
@@ -189,16 +141,6 @@ MANIFEST_ID="$(field id)"
 [ -n "$TYPE" ] || { echo "ERROR: manifest has no type."; exit 1; }
 [ -n "$NAME" ] || NAME="$ASSET"
 
-# ── Component summary (profiles only) ────────────────────────────────────────
-# A profile carries a `components` map (theme / sound / macro slices). Surface a
-# LIGHTWEIGHT summary in the index row — which shareable slices exist, plus the
-# theme's optional-sounds flag — so Browse can offer the install choices without
-# downloading first. The authoritative file map stays inside the package
-# manifest, which the client reads when it actually installs a slice.
-# Every value here MUST be a non-empty object. hs.json (the client) encodes an
-# empty Lua table as `[]`, not `{}`, so an empty component value would make the
-# client's re-canonicalization differ from the signed bytes and the whole index
-# would fail signature verification. Hence `{present:true}` rather than `{}`.
 COMPONENTS="$(printf '%s' "$MANIFEST" | jq -c '
     (.components // {}) as $c
     | reduce (["theme","sound","macro"][]) as $k ({};
@@ -210,23 +152,15 @@ COMPONENTS="$(printf '%s' "$MANIFEST" | jq -c '
 ' 2>/dev/null || echo '{}')"
 [ -n "$COMPONENTS" ] || COMPONENTS='{}'
 
-# ── id: manifest.id, else --id, else a slug of type-name ─────────────────────
 slug() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'; }
 if [ -z "$ID" ]; then
     if [ -n "$MANIFEST_ID" ]; then ID="$MANIFEST_ID"; else ID="$(slug "$TYPE-$NAME")"; fi
 fi
 [ -n "$ID" ] || { echo "ERROR: could not derive an id; pass --id."; exit 1; }
 
-# ── Hash + size ──────────────────────────────────────────────────────────────
 SHA="$(shasum -a 256 "$PKG" | cut -c1-64 | tr '[:upper:]' '[:lower:]')"
 SIZE="$(wc -c < "$PKG" | tr -d ' ')"
 
-# ── Resolve OWNER/REPO for the asset URL ─────────────────────────────────────
-# The registry index and its release assets live in mudbourn/mudscript (this is
-# the repo registry_sign_ci.sh signs and the client fetches from). Do NOT derive
-# it from the local git origin: mudscript is checked out inside ms-utils, so the
-# origin is mudbourn/ms-utils and every asset URL would point at the wrong repo.
-# Default to the canonical repo. --repo still overrides for a one-off.
 REPO="${REPO:-mudbourn/mudscript}"
 case "$REPO" in
     */*) ;;
@@ -235,7 +169,6 @@ esac
 
 ASSET_URL="https://github.com/$REPO/releases/download/$TAG/$ASSET"
 
-# ── Build the entry (omit empty optionals; the client reads absent as "") ────
 ENTRY="$(jq -n \
     --arg id "$ID" --arg type "$TYPE" --arg name "$NAME" --arg version "$VERSION" \
     --arg author "$AUTHOR" --arg description "$DESCRIPTION" --arg website "$WEBSITE" \
@@ -252,21 +185,17 @@ ENTRY="$(jq -n \
     + {trust: $trust}
 ')"
 
-echo "── Entry ─────────────────────────────────────────"
+echo "-- Entry -----------------------------------------"
 printf '%s\n' "$ENTRY" | jq .
 echo "  asset : $ASSET  ($SIZE bytes)"
 echo "  url   : $ASSET_URL"
-echo "──────────────────────────────────────────────────"
+echo "--------------------------------------------------"
 
-# ── Add vs update ────────────────────────────────────────────────────────────
-# An id already in the index is an update, not a collision: re-running with a
-# newer .mspkg is how a version ships. Show the transition so it is never a
-# silent overwrite. Only a sha reused under a *different* id is a real mistake.
 ID_HITS="$(jq --arg id "$ID" '[.entries[] | select(.id == $id)] | length' "$INDEX")"
 if [ "$ID_HITS" != "0" ]; then
     OLD_VER="$(jq -r --arg id "$ID" 'first(.entries[] | select(.id == $id) | .version) // ""' "$INDEX")"
     OLD_SHA="$(jq -r --arg id "$ID" 'first(.entries[] | select(.id == $id) | .sha256) // ""' "$INDEX")"
-    echo "Updating existing entry '$ID' (v${OLD_VER:-?} → v${VERSION:-?})."
+    echo "Updating existing entry '$ID' (v${OLD_VER:-?} -> v${VERSION:-?})."
     [ "$OLD_SHA" = "$SHA" ] && echo "  note: the package bytes are unchanged (same sha256)."
 fi
 SHA_OTHER="$(jq -r --arg id "$ID" --arg sha "$SHA" \
@@ -278,9 +207,8 @@ if [ "$DRY_RUN" = true ]; then
     exit 0
 fi
 
-# ── Upload the asset ─────────────────────────────────────────────────────────
 if [ "$DO_UPLOAD" = true ]; then
-    command -v gh >/dev/null || { echo "ERROR: gh (GitHub CLI) is required to upload — or pass --no-upload if the asset already exists."; exit 1; }
+    command -v gh >/dev/null || { echo "ERROR: gh (GitHub CLI) is required to upload - or pass --no-upload if the asset already exists."; exit 1; }
     if ! gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
         echo "Release '$TAG' does not exist; creating it."
         gh release create "$TAG" --repo "$REPO" \
@@ -297,14 +225,13 @@ if [ "$DO_UPLOAD" = true ]; then
         cp "$PKG" "$STAGE/$ASSET"
         UP="$STAGE/$ASSET"
     fi
-    echo "Uploading $ASSET to release '$TAG'…"
+    echo "Uploading $ASSET to release '$TAG'..."
     gh release upload "$TAG" "$UP" --repo "$REPO" --clobber
     [ -n "$STAGE" ] && rm -rf "$STAGE"
 else
     echo "Skipping upload (--no-upload). Assuming $ASSET_URL already exists."
 fi
 
-# ── Write the row (replace-by-id, then append) ───────────────────────────────
 TMP="$(mktemp)"
 jq --argjson entry "$ENTRY" '
     .entries = ((.entries // []) | map(select(.id != $entry.id)) + [$entry])
@@ -312,8 +239,7 @@ jq --argjson entry "$ENTRY" '
 mv "$TMP" "$INDEX"
 echo "Wrote entry '$ID' into $INDEX ($(jq '.entries | length' "$INDEX") total)."
 
-# ── Validate (and optionally sign) via the single source of truth ────────────
-echo "── Validating index ──────────────────────────────"
+echo "-- Validating index ------------------------------"
 if [ "$DO_SIGN" = true ]; then
     if [ -n "$KEY_FILE" ]; then
         bash "$SIGN_SH" --sign --key "$KEY_FILE"
@@ -323,7 +249,7 @@ if [ "$DO_SIGN" = true ]; then
 else
     bash "$SIGN_SH"
     echo
-    echo "Index updated but UNSIGNED — it serves zero entries until re-signed."
+    echo "Index updated but UNSIGNED - it serves zero entries until re-signed."
     echo "Commit registry/index.json and run the Sign Registry workflow, or"
     echo "re-run with --sign --key <file> if you hold the signing key."
 fi

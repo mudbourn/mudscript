@@ -1,0 +1,265 @@
+{
+  "bin/ui-lint.mjs": {
+    "comment": 109,
+    "non-ascii": 42
+  },
+  "docs/index.html": {
+    "comment": 16,
+    "marker-unclosed": 26
+  },
+  "docs/mac/system.md": {
+    "non-ascii": 1
+  },
+  "mac/bin/deploy.sh": {
+    "comment": 33
+  },
+  "mac/bin/make_release.sh": {
+    "comment": 1
+  },
+  "mac/bin/ms_gc_read.swift": {
+    "comment": 5
+  },
+  "mac/bin/ms_guardian_agent.sh": {
+    "comment": 5
+  },
+  "mac/bin/ms_ocr_read.swift": {
+    "comment": 2
+  },
+  "mac/bin/registry_golive.sh": {
+    "comment": 37
+  },
+  "mac/bin/registry_publish.sh": {
+    "comment": 12
+  },
+  "mac/bin/registry_sign.sh": {
+    "comment": 7
+  },
+  "mac/bin/registry_sign_ci.sh": {
+    "comment": 29
+  },
+  "mac/init.lua": {
+    "comment": 2
+  },
+  "mac/install.sh": {
+    "comment": 10
+  },
+  "mac/lib/ms_alert.lua": {
+    "comment": 5
+  },
+  "mac/lib/ms_compiler.lua": {
+    "comment": 22,
+    "lua-inline-table": 1
+  },
+  "mac/lib/ms_devtools.lua": {
+    "comment": 21,
+    "file-length": 2599,
+    "marker-blank-after-open": 1,
+    "marker-unclosed": 1
+  },
+  "mac/lib/ms_guardian.lua": {
+    "comment": 8,
+    "lua-inline-table": 1,
+    "marker-body-indent": 2
+  },
+  "mac/lib/ms_loading.lua": {
+    "comment": 1
+  },
+  "mac/lib/ms_package.lua": {
+    "comment": 54,
+    "lua-inline-table": 2,
+    "marker-blank-after-open": 1,
+    "marker-unclosed": 1
+  },
+  "mac/lib/ms_plugins.lua": {
+    "comment": 2
+  },
+  "mac/lib/ms_registry.lua": {
+    "comment": 6,
+    "marker-label": 3
+  },
+  "mac/lib/ms_settings.lua": {
+    "comment": 2,
+    "lua-inline-table": 7,
+    "marker-unclosed": 1
+  },
+  "mac/lib/ms_shell.lua": {
+    "comment": 28,
+    "lua-inline-table": 3
+  },
+  "mac/lib/ms_ui.lua": {
+    "lua-inline-table": 7,
+    "semicolon": 4
+  },
+  "mac/lib/settings/api.lua": {
+    "comment": 1,
+    "marker-label": 1
+  },
+  "mac/lib/settings/integrity.lua": {
+    "comment": 3,
+    "lua-inline-table": 1,
+    "marker-body-indent": 8
+  },
+  "mac/lib/settings/menu.lua": {
+    "marker-blank-before-end": 1
+  },
+  "mac/lib/settings/profiles.lua": {
+    "comment": 31,
+    "lua-inline-table": 11,
+    "marker-blank-before-end": 3,
+    "marker-indent": 1,
+    "marker-label": 1,
+    "marker-orphan-end": 1,
+    "semicolon": 2
+  },
+  "mac/lib/settings/validation.lua": {
+    "comment": 20,
+    "marker-body-indent": 1
+  },
+  "mac/lib/ui/actions_library.lua": {
+    "lua-inline-table": 14
+  },
+  "mac/lib/ui/actions_shell.lua": {
+    "lua-inline-table": 1
+  },
+  "mac/ms_core.lua": {
+    "comment": 93,
+    "file-length": 7037,
+    "lua-inline-table": 31,
+    "marker-blank-after-open": 2,
+    "marker-blank-before-end": 5,
+    "marker-body-indent": 4,
+    "marker-indent": 6,
+    "marker-label": 7,
+    "marker-orphan-end": 2,
+    "non-ascii": 4
+  },
+  "plugins/HIDInject.spoon/README.md": {
+    "semicolon": 1
+  },
+  "plugins/HIDInject.spoon/init.lua": {
+    "comment": 2,
+    "lua-inline-table": 1
+  },
+  "plugins/Minecraft.spoon/README.md": {
+    "semicolon": 2
+  },
+  "plugins/Minecraft.spoon/init.lua": {
+    "comment": 2
+  },
+  "plugins/README.md": {
+    "semicolon": 6
+  },
+  "plugins/Roblox.spoon/README.md": {
+    "semicolon": 3
+  },
+  "plugins/Roblox.spoon/init.lua": {
+    "comment": 4
+  },
+  "registry/README.md": {
+    "semicolon": 5
+  },
+  "ui/modules/gp-map.js": {
+    "comment": 2,
+    "non-ascii": 1
+  },
+  "ui/modules/gp-nav.js": {
+    "comment": 69
+  },
+  "ui/modules/log-panel.js": {
+    "comment": 38,
+    "marker-unclosed": 16,
+    "non-ascii": 4
+  },
+  "ui/modules/osk.js": {
+    "comment": 22,
+    "non-ascii": 4
+  },
+  "ui/modules/panel-browse.js": {
+    "comment": 9
+  },
+  "ui/modules/panel-console.js": {
+    "non-ascii": 2
+  },
+  "ui/modules/panel-keys.js": {
+    "comment": 28,
+    "non-ascii": 5
+  },
+  "ui/modules/panel-macros.js": {
+    "comment": 287,
+    "file-length": 5115,
+    "non-ascii": 10
+  },
+  "ui/modules/panel-settings.js": {
+    "comment": 35,
+    "file-length": 3291,
+    "non-ascii": 5
+  },
+  "ui/modules/panel-theme.js": {
+    "comment": 28,
+    "non-ascii": 7
+  },
+  "ui/modules/panel-watcher.js": {
+    "non-ascii": 1
+  },
+  "ui/modules/tool-block.js": {
+    "comment": 31,
+    "marker-orphan-end": 1,
+    "non-ascii": 6
+  },
+  "ui/modules/tool-editor.js": {
+    "comment": 11,
+    "marker-unclosed": 1,
+    "non-ascii": 3
+  },
+  "ui/modules/ui-glyphs.js": {
+    "comment": 4
+  },
+  "ui/modules/ui-select.js": {
+    "comment": 12,
+    "non-ascii": 1
+  },
+  "ui/ms_console.html": {
+    "comment": 21,
+    "marker-unclosed": 4,
+    "non-ascii": 2
+  },
+  "ui/ms_curtain.html": {
+    "comment": 30,
+    "font-reset-missing": 1,
+    "marker-unclosed": 3
+  },
+  "ui/ms_guardian.html": {
+    "comment": 31,
+    "marker-unclosed": 2
+  },
+  "ui/ms_keys.html": {
+    "comment": 29,
+    "marker-unclosed": 2,
+    "non-ascii": 6
+  },
+  "ui/ms_loading.html": {
+    "comment": 41,
+    "font-reset-missing": 1
+  },
+  "ui/ms_osk.html": {
+    "comment": 10,
+    "font-reset-missing": 1
+  },
+  "ui/ms_shell.html": {
+    "comment": 69,
+    "file-length": 2517,
+    "marker-unclosed": 20,
+    "non-ascii": 4
+  },
+  "ui/ms_watcher.html": {
+    "comment": 19,
+    "non-ascii": 2
+  },
+  "ui/ms_window.html": {
+    "comment": 25,
+    "marker-unclosed": 5
+  },
+  "win/bin/README.md": {
+    "semicolon": 1
+  }
+}

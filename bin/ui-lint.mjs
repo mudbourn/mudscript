@@ -395,6 +395,26 @@ for (const file of files) {
     }
 }
 
+for (const file of files) {
+    const src = readFileSync(file, "utf8");
+    const blocks = [];
+    if (file.endsWith(".html")) {
+        for (const m of src.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)) blocks.push([m.index + m[0].indexOf(m[1]), m[1]]);
+    }
+    for (const m of src.matchAll(/`([^`]*)`/g)) {
+        if (/[.#][\w-]+\s*\{[^}]*:[^}]*;/.test(m[1])) blocks.push([m.index + 1, m[1]]);
+    }
+    for (const [off, css] of blocks) {
+        const clean = css.replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, " "));
+        const base = src.slice(0, off).split("\n").length;
+        clean.split("\n").forEach((line, i) => {
+            if (!/^\s*\/\/|[;{}]\s*\/\/(?!\S*:\/\/)/.test(line)) return;
+            report(file, base + i, "css-line-comment", line,
+                "`//` is not a CSS comment. The browser glues it onto the next selector and silently drops that whole rule. Delete the line.");
+        });
+    }
+}
+
 // ── Report ──────────────────────────────────────────────────────────────────
 if (findings.length === 0) {
     console.log("ui-lint: clean — no hardcoded theme values or native controls found.");

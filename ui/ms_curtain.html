@@ -5,6 +5,13 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>mudscript :// Exit</title>
         <style>
+            button,
+            input,
+            textarea,
+            select {
+                font: inherit;
+            }
+
             /* -- Font -- */
             @font-face {
                 font-family: "Almendra";
@@ -36,7 +43,7 @@
                 --text: #d4cfb6;
                 --radius: 8px;
                 --ms-window-radius: 8px;
-                --font: Arial, "Almendra", sans-serif;
+                --font: Arial, Helvetica, sans-serif;
             }
 
             /* -- Reset -- */
@@ -285,7 +292,7 @@
                 if (t.font)
                     r.setProperty(
                         "--font",
-                        t.font + ', "Almendra", Arial, sans-serif',
+                        '"' + t.font + '", Arial, Helvetica, sans-serif',
                     );
             }
 

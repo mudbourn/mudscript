@@ -559,7 +559,7 @@ function paramSummary(action, params) {
           acts.className = "step-actions";
           const del = document.createElement("div");
           del.className = "step-action-btn del";
-          del.innerHTML = _svgCache["trash"] || "×";
+          del.innerHTML = _svgCache["trash"] || "x";
           _sfx(del, "back");
           del.addEventListener("click", e => { e.stopPropagation(); this.removeTool(tool._sid); });
           acts.appendChild(del);
@@ -634,7 +634,7 @@ function paramSummary(action, params) {
           acts.className = "step-actions";
           const del = document.createElement("div");
           del.className = "step-action-btn del";
-          del.innerHTML = _svgCache["trash"] || "×";
+          del.innerHTML = _svgCache["trash"] || "x";
           _sfx(del, "back");
           del.addEventListener("click", e => { e.stopPropagation(); this.removeTool(tool._sid); });
           acts.appendChild(del);

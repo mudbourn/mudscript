@@ -1,7 +1,7 @@
 # Package Registry Index
 
 `index.json` is the registry: one in-tree, signed document listing every
-publishable package. Binaries are **not** kept here — each entry points at a
+publishable package. Binaries are **not** kept here - each entry points at a
 release asset. The index stays small enough to review in a diff.
 
 The client is `mac/lib/ms_registry.lua`. It fetches this file from the default
@@ -28,7 +28,7 @@ paths to `ms.package.install`.
 ```
 
 Rules the client enforces when reading an entry. **A row failing any of these
-rejects the entire index**, exactly as a bad signature does — a skipped row
+rejects the entire index**, exactly as a bad signature does - a skipped row
 would fail invisibly, leaving a package missing from the library with no way to
 tell whether that was intended. Validate before signing:
 
@@ -58,12 +58,12 @@ handed to the plugin. That `ms` is a per-plugin proxy (`mac/lib/ms_plugins.lua`)
 that records how to undo every registration it sees, which is what lets the
 panel switch a plugin off without a reload. A plugin calling `hs.hotkey.bind`,
 `hs.timer.new` or `hs.eventtap.new` directly registers with Hammerspoon instead,
-where nothing can reach it — it will keep firing after the user switches it off,
+where nothing can reach it - it will keep firing after the user switches it off,
 and the off switch will have lied. Nothing in-process can detect this; review is
 the only gate.
 
-**2. Implement `:stop()`.** Anything a plugin holds that mudscript never saw —
-its own state, tasks, watchers, anything created before it reached `ms` — is
+**2. Implement `:stop()`.** Anything a plugin holds that mudscript never saw -
+its own state, tasks, watchers, anything created before it reached `ms` - is
 only reachable through the Spoon's own teardown. `unload` calls `:stop()` first,
 before replaying the recorded undo list, precisely because it is the only step
 that knows about the parts this system does not.
@@ -79,9 +79,9 @@ carries the previous signature, which no longer covers it, so the client
 discards it whole and every install falls back to zero entries. **An edit is
 live only once it has been re-signed.**
 
-Steps 1–2 are automated by `mac/bin/registry_publish.sh`, which uploads the
+Steps 1-2 are automated by `mac/bin/registry_publish.sh`, which uploads the
 asset, derives the row from the package's own `mspkg.json`, and validates the
-result — so a row cannot disagree with the bytes it points at:
+result - so a row cannot disagree with the bytes it points at:
 
 ```bash
 bash mac/bin/registry_publish.sh path/to/aurora.mspkg
@@ -90,17 +90,17 @@ bash mac/bin/registry_publish.sh path/to/aurora.mspkg
 # --dry-run         print the row and touch nothing
 ```
 
-Re-running on a package whose id is already listed **updates** that entry —
+Re-running on a package whose id is already listed **updates** that entry -
 re-uploads the asset and refreshes `sha256`/`size`/`version` from the new
 bytes. That is how a version bump ships; no flag is needed. The command prints
-the `v… → v…` transition so an update is never a silent overwrite.
+the `v... -> v...` transition so an update is never a silent overwrite.
 
 It leaves the index **unsigned** on purpose; step 3 still signs. Doing it by
 hand instead:
 
 1. Upload the `.mspkg` as a release asset and note its `sha256` and size.
 2. Add the row to `entries` and commit. Push validation runs on every change
-   to this file — check it before assuming the edit is good.
+   to this file - check it before assuming the edit is good.
 3. Run the **Sign Registry** workflow from the Actions tab with *sign*
    checked. It validates, signs, verifies its own signature against the key
    the client carries, and commits the result back.
@@ -108,7 +108,7 @@ hand instead:
 Key holders can collapse all three with
 `registry_publish.sh path/to/pkg.mspkg --sign --key <file>`.
 
-Validate locally before committing — no key needed:
+Validate locally before committing - no key needed:
 
 ```bash
 bash mac/bin/registry_sign.sh
@@ -121,7 +121,7 @@ normal path: `MS_SIGNING_KEY` lives in repository secrets.
 ### What the signature covers
 
 The minified, key-sorted JSON of the document **without** the signature field,
-signed with `MS_SIGNING_KEY` — the same RSA-2048 key Guardian verifies
+signed with `MS_SIGNING_KEY` - the same RSA-2048 key Guardian verifies
 `MANIFEST.json` against:
 
 ```bash
@@ -132,7 +132,7 @@ jq -c -S '{formatVersion, generated, entries}' registry/index.json
 `hs.json.encode` alone does not sort keys.
 
 `generated` is stamped by the signer, not by hand. It is inside the signed
-payload, so an empty or missing value is not merely untidy — `hs.json.encode`
+payload, so an empty or missing value is not merely untidy - `hs.json.encode`
 omits an absent key where `jq -c -S` writes an explicit `null`, and the two
 byte sequences will not match. The validator rejects a signed document whose
 `generated` is empty for that reason.
@@ -140,7 +140,7 @@ byte sequences will not match. The validator rejects a signed document whose
 ## Where the index comes from at runtime
 
 `ms_registry.lua` tries three sources in order, and **signature-checks all
-three** — a local copy is not trusted for being local:
+three** - a local copy is not trusted for being local:
 
 | Source | Path | Notes |
 | --- | --- | --- |
@@ -151,7 +151,7 @@ three** — a local copy is not trusted for being local:
 The bundled copy is what a fresh install with no network reads. It is the
 signed index as of build time, so it goes stale rather than wrong.
 
-An index whose signature does not verify is discarded whole — not served with
+An index whose signature does not verify is discarded whole - not served with
 its trust downgraded. A forged document does not get to choose which of its own
 claims are believed. The client then reports zero entries and answers
 `"unsigned"` for every hash, which is the same behaviour as no index at all.

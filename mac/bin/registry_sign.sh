@@ -1,22 +1,4 @@
 #!/usr/bin/env bash
-# bin/registry_sign.sh
-# ─────────────────────────────────────────────────────────────────────────────
-# Validates registry/index.json against the rules the client enforces, and
-# optionally signs it with MS_SIGNING_KEY.
-#
-#   bash mac/bin/registry_sign.sh                 # validate only
-#   bash mac/bin/registry_sign.sh --sign          # validate, then sign
-#   bash mac/bin/registry_sign.sh --sign --key k.pem
-#
-# Validation is the point of this script. The client rejects a malformed index
-# *whole* — one bad row leaves every package unlisted — so a row that would be
-# refused must never reach a signature. Running with no arguments is safe and
-# needs no key; use it before committing an index edit.
-#
-# The signing key normally lives only in the MS_SIGNING_KEY repository secret,
-# so --sign is what the Sign Registry workflow runs. Signing locally is for
-# holders of the key.
-# ─────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
 
@@ -42,35 +24,19 @@ command -v jq >/dev/null || { echo "ERROR: jq is required."; exit 1; }
 [ -f "$INDEX" ] || { echo "ERROR: index not found at $INDEX"; exit 1; }
 jq empty "$INDEX" 2>/dev/null || { echo "ERROR: $INDEX is not valid JSON."; exit 1; }
 
-# ── Validate ─────────────────────────────────────────────────────────────────
-# Mirrors `normalise` and `adopt` in mac/lib/ms_registry.lua. Keep the two in
-# step: a rule that only exists here lets a bad index ship, and a rule that only
-# exists there turns a publish into a silent outage.
-
 fail() { echo "INVALID: $1"; exit 1; }
 
 FMT=$(jq -r '.formatVersion // empty' "$INDEX")
 [ "$FMT" = "$FORMAT_VERSION" ] || fail "formatVersion must be $FORMAT_VERSION (got '${FMT:-absent}')."
 
-# `generated` is the publish timestamp, so --sign stamps it below rather than
-# asking the editor to keep it current. It matters beyond being informative:
-# the client rebuilds the signed payload as {formatVersion, generated, entries},
-# and if the key were absent hs.json.encode would omit it while `jq -c -S`
-# emits an explicit null — two different byte sequences. A signature taken over
-# an empty or missing `generated` therefore never verifies, so a document that
-# already claims a signature must carry one.
 GEN=$(jq -r 'if (.generated | type) == "string" and (.generated != "") then .generated else empty end' "$INDEX")
 SIG_PRESENT=$(jq -r 'if (.signature | type) == "string" and (.signature != "") then "yes" else empty end' "$INDEX")
 if [ -n "$SIG_PRESENT" ] && [ -z "$GEN" ]; then
-    fail "document is signed but generated is empty — that signature cannot verify."
+    fail "document is signed but generated is empty - that signature cannot verify."
 fi
 
 ENTRY_COUNT=$(jq '.entries | length' "$INDEX")
 
-# Package types are read out of ms_package.lua, not restated here. The client
-# checks `type` with ms.package.spec(), so a hardcoded list would quietly go
-# stale the day a sixth type is added — and it would fail in the safe-looking
-# direction, rejecting a valid new type only after it was already published.
 PKG_LUA="$ROOT/mac/lib/ms_package.lua"
 TYPES_JSON=""
 if [ -f "$PKG_LUA" ]; then
@@ -86,7 +52,7 @@ if [ -f "$PKG_LUA" ]; then
         | jq -R . | jq -s '.' 2>/dev/null || echo "")
 fi
 if [ -z "$TYPES_JSON" ] || [ "$(printf '%s' "$TYPES_JSON" | jq 'length')" = "0" ]; then
-    fail "could not read ms.package.TYPES from $PKG_LUA — refusing to validate against a guessed type list."
+    fail "could not read ms.package.TYPES from $PKG_LUA - refusing to validate against a guessed type list."
 fi
 echo "Types (from ms_package.lua): $(printf '%s' "$TYPES_JSON" | jq -r 'join(", ")')"
 
@@ -127,8 +93,6 @@ DUP_HASH=$(jq -r '[.entries[].sha256 | ascii_downcase] | group_by(.)
 
 echo "Index valid: $ENTRY_COUNT entr$([ "$ENTRY_COUNT" = 1 ] && echo y || echo ies)${GEN:+, generated $GEN}"
 
-# ── Sign ─────────────────────────────────────────────────────────────────────
-
 if [ "$DO_SIGN" != true ]; then
     echo "Validate-only. Pass --sign to sign."
     exit 0
@@ -150,8 +114,6 @@ else
     exit 1
 fi
 
-# Stamp the publish time, then sign. Order matters — `generated` is inside the
-# signed payload, so stamping after signing would invalidate the signature.
 STAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 jq --arg g "$STAMP" '.generated = $g' "$INDEX" > "$INDEX.tmp"
 mv "$INDEX.tmp" "$INDEX"

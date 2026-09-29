@@ -1,20 +1,4 @@
 #!/usr/bin/env bash
-# install.sh — mudscript one-shot installer (macOS)
-#
-# Usage:
-#   curl -L https://raw.githubusercontent.com/mudbourn/mudscript/main/mac/install.sh | bash
-#   # or download and:
-#   bash install.sh
-#
-# Works whether you have the full repo or just this file.
-# Downloads the latest release from GitHub if the repo isn't local.
-#
-# To uninstall:
-#   launchctl unload ~/Library/LaunchAgents/com.mudscript.guardian.plist 2>/dev/null
-#   rm -f ~/Library/LaunchAgents/com.mudscript.guardian.plist
-#   launchctl unload ~/Library/LaunchAgents/com.mudscript.cache-cleaner.plist 2>/dev/null
-#   rm -f ~/Library/LaunchAgents/com.mudscript.cache-cleaner.plist
-#   rm -rf ~/.hammerspoon/
 
 set -euo pipefail
 
@@ -23,24 +7,22 @@ HS="$HOME/.hammerspoon"
 SCRIPT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd || pwd)"
 
 echo ""
-echo "╔══════════════════════════════════════════════╗"
-echo "║        mudscript :// macOS Installer           ║"
-echo "╚══════════════════════════════════════════════╝"
+echo "+==============================================+"
+echo "|        mudscript :// macOS Installer           |"
+echo "+==============================================+"
 echo ""
 
-# ── Step 1: Ensure Hammerspoon is installed ───────────────────────────────────
-
 if [ -d "/Applications/Hammerspoon.app" ]; then
-    echo "❶  Hammerspoon is already installed."
+    echo "1. Hammerspoon is already installed."
 else
-    echo "❶  Hammerspoon not found — downloading latest release …"
+    echo "1. Hammerspoon not found - downloading latest release ..."
     HS_API="https://api.github.com/repos/Hammerspoon/hammerspoon/releases/latest"
     HS_ZIP_URL=$(curl -sf "$HS_API" \
         | grep -o '"browser_download_url": *"[^"]*\.zip"' \
         | head -1 | sed 's/.*": *"//; s/"//')
 
     if [ -z "$HS_ZIP_URL" ]; then
-        echo "   ✗ Could not determine Hammerspoon download URL."
+        echo "   FAIL Could not determine Hammerspoon download URL."
         echo "     Please install manually: https://www.hammerspoon.org"
         exit 1
     fi
@@ -52,29 +34,23 @@ else
     # The zip contains Hammerspoon.app at the top level
     cp -R "$HS_TMP/Hammerspoon.app" /Applications/
     rm -rf "$HS_TMP"
-    echo "   ✓ Hammerspoon installed to /Applications/."
+    echo "   OK   Hammerspoon installed to /Applications/."
 fi
-
-# ── Step 2: Ensure jq (registry signature verification) ───────────────────────
-# The Browse/registry client rebuilds the signer's canonical bytes with `jq -c -S`
-# to verify the index signature. macOS 26+ ships /usr/bin/jq, but older systems
-# don't — without jq the registry reads as "signature did not verify" and Browse
-# looks broken. Install it up front so the registry just works.
 
 echo ""
 if command -v jq >/dev/null 2>&1 || [ -x /usr/bin/jq ] || [ -x /opt/homebrew/bin/jq ] || [ -x /usr/local/bin/jq ]; then
-    echo "❷  jq is already installed."
+    echo "2. jq is already installed."
 else
-    echo "❷  jq not found — needed to verify the registry signature …"
+    echo "2. jq not found - needed to verify the registry signature ..."
     if command -v brew >/dev/null 2>&1; then
-        echo "   Installing jq via Homebrew …"
+        echo "   Installing jq via Homebrew ..."
         if brew install jq; then
-            echo "   ✓ jq installed."
+            echo "   OK   jq installed."
         else
-            echo "   ⚠  'brew install jq' failed — install it manually later: brew install jq"
+            echo "   WARN 'brew install jq' failed - install it manually later: brew install jq"
         fi
     else
-        echo "   ⚠  Homebrew not found, so jq can't be auto-installed."
+        echo "   WARN Homebrew not found, so jq can't be auto-installed."
         echo "     The registry (Browse) will not work until jq is present."
         echo "     Install Homebrew, then jq:"
         echo "       /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
@@ -82,11 +58,8 @@ else
     fi
 fi
 
-# ── Step 3: Source the files ──────────────────────────────────────────────────
-
 if [ -f "$SCRIPT_DIR/ms_core.lua" ] && [ -f "$SCRIPT_DIR/init.lua" ]; then
-    # Full repo detected — copy directly
-    echo "❸  Copying local repo to ~/.hammerspoon/ …"
+    echo "3. Copying local repo to ~/.hammerspoon/ ..."
     mkdir -p "$HS"
     cp -R "$SCRIPT_DIR"/* "$HS/"
     # MANIFEST.json lives at the repo root (one level up from mac/)
@@ -110,10 +83,9 @@ if [ -f "$SCRIPT_DIR/ms_core.lua" ] && [ -f "$SCRIPT_DIR/init.lua" ]; then
         [ -f "$pkg" ] && cp "$pkg" "$HS/"
     done
     rm -f "$HS/install.sh"
-    echo "   ✓ Files copied from $SCRIPT_DIR"
+    echo "   OK   Files copied from $SCRIPT_DIR"
 else
-    # Standalone script — download latest release
-    echo "❸  Downloading latest release from GitHub …"
+    echo "3. Downloading latest release from GitHub ..."
     mkdir -p "$HS"
 
     # Try to get the latest release download URL via the GitHub API
@@ -138,10 +110,9 @@ else
             tar xzf "$TMP_FILE" -C "$HS" --strip-components=1
         fi
         rm -f "$TMP_FILE"
-        echo "   ✓ Release downloaded and extracted."
+        echo "   OK   Release downloaded and extracted."
     else
-        # No release yet — download the repo archive directly
-        echo "   No release found — downloading main branch..."
+        echo "   No release found - downloading main branch..."
         ZIP_URL="https://github.com/$REPO/archive/refs/heads/main.tar.gz"
         TMP_FILE=$(mktemp)
         curl -sfL "$ZIP_URL" -o "$TMP_FILE"
@@ -152,46 +123,38 @@ else
         rm -rf "$HS-tmp" "$TMP_FILE"
         rm -f "$HS/install.bat" "$HS"/*.ahk
         rm -rf "$HS/bin"/*.bat "$HS/bin"/*.ps1
-        echo "   ✓ Repository downloaded and macOS files extracted."
+        echo "   OK   Repository downloaded and macOS files extracted."
     fi
 
     # Remove the downloaded install script from the target
     rm -f "$HS/install.sh" 2>/dev/null || true
 fi
 
-# ── Step 4: Install Guardian Launch Agent ────────────────────────────────────
-
 echo ""
-echo "❹  Installing OS-level Guardian …"
+echo "4. Installing OS-level Guardian ..."
 if [ -f "$HS/bin/install_guardian_agent.sh" ]; then
     bash "$HS/bin/install_guardian_agent.sh"
-    echo "   ✓ Guardian installed."
+    echo "   OK   Guardian installed."
 else
-    echo "   ⚠  install_guardian_agent.sh not found — skipping."
+    echo "   WARN install_guardian_agent.sh not found - skipping."
 fi
 
-# ── Step 5: Lock init.lua ────────────────────────────────────────────────────
+echo ""
+echo "5. Locking bootstrap stub (chmod 444) ..."
+chmod 444 "$HS/init.lua" 2>/dev/null && echo "   OK   init.lua locked." || echo "   WARN Could not chmod init.lua."
 
 echo ""
-echo "❺  Locking bootstrap stub (chmod 444) …"
-chmod 444 "$HS/init.lua" 2>/dev/null && echo "   ✓ init.lua locked." || echo "   ⚠  Could not chmod init.lua."
-
-# ── Step 6: Reload Hammerspoon ────────────────────────────────────────────────
-
-echo ""
-echo "❻  Reloading Hammerspoon …"
+echo "6. Reloading Hammerspoon ..."
 if command -v open &>/dev/null; then
-    open -g "hammerspoon://reload" 2>/dev/null && echo "   ✓ Hammerspoon reloaded." || echo "   ⚠  Reload manually (menubar icon → Reload)."
+    open -g "hammerspoon://reload" 2>/dev/null && echo "   OK   Hammerspoon reloaded." || echo "   WARN Reload manually (menubar icon -> Reload)."
 else
-    echo "   ⚠  Reload manually (menubar icon → Reload)."
+    echo "   WARN Reload manually (menubar icon -> Reload)."
 fi
 
-# ── Done ─────────────────────────────────────────────────────────────────────
-
 echo ""
-echo "╔══════════════════════════════════════════════╗"
-echo "║          Installation complete               ║"
-echo "╚══════════════════════════════════════════════╝"
+echo "+==============================================+"
+echo "|          Installation complete               |"
+echo "+==============================================+"
 echo ""
 echo "   Directory:  $HS"
 echo "   Guardian:   ~/Library/LaunchAgents/com.mudscript.guardian.plist"
@@ -199,10 +162,10 @@ echo ""
 echo "   The trusted hash is auto-seeded from MANIFEST.json on first load."
 echo ""
 echo "   Keybindings (target app focused):"
-echo "     ⌥P      Toggle settings"
-echo "     ⌥[      Reload script"
-echo "     ⌥]      Reload settings"
-echo "     ⌥F10    Panic (disable macros)"
+echo "     Opt+P      Toggle settings"
+echo "     Opt+[      Reload script"
+echo "     Opt+]      Reload settings"
+echo "     Opt+F10    Panic (disable macros)"
 echo "     /       Disable macros"
 echo "     Return  Enable macros"
 echo ""

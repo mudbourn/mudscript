@@ -17,7 +17,7 @@
         "--success-state:#7aa63c;--success-text:#8db84e;--success-bg:rgba(122,166,60,0.15);" +
         "--error-state:#c0492e;--error-text:#c0492e;--error-bg:rgba(192,73,46,0.15);" +
         "--radius:2px;--radius-s:1px;" +
-        '--font:Arial,"Almendra",sans-serif;' +
+        '--font:Arial,Helvetica,sans-serif;' +
         '--font-mono:"JetBrains Mono","SF Mono","Menlo",monospace;' +
         "--transition:120ms ease;" +
         "--rail-w:140px;" +

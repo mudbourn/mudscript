@@ -10,13 +10,13 @@ Requires the `ms-mc-bridge` mod running in the client. Registers through the
 proxied `ms`; `:stop()` closes the socket, clears the target, and drops the
 `ms.mc` namespace.
 
-## Freshness — two modes
+## Freshness - two modes
 
 Macros have two needs, so there are two paths:
 
 - **Point-of-use** (`ms.mc.health()` and friends): sends a request and waits for
   the reply, so the value is the one true for that instant. Valid only inside a
-  running macro — it yields the coroutine.
+  running macro - it yields the coroutine.
 - **Non-blocking** (`ms.mc.cached(topic)`): returns the last value pushed by the
   mod's per-tick subscription (~50 ms old at worst). Safe anywhere, including
   outside a macro.

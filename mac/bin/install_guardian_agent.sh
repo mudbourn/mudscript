@@ -1,15 +1,4 @@
 #!/usr/bin/env bash
-# install_guardian_agent.sh — installs the mudscript OS-level Guardian as a
-# macOS Launch Agent.
-#
-# Run once after cloning / updating mudscript:
-#   bash ~/.hammerspoon/bin/install_guardian_agent.sh
-#
-# To uninstall:
-#   launchctl unload ~/Library/LaunchAgents/com.mudscript.guardian.plist
-#   rm ~/Library/LaunchAgents/com.mudscript.guardian.plist
-#   launchctl unload ~/Library/LaunchAgents/com.mudscript.cache-cleaner.plist
-#   rm ~/Library/LaunchAgents/com.mudscript.cache-cleaner.plist
 
 set -euo pipefail
 
@@ -18,7 +7,6 @@ PLIST_TEMPLATE="$HS/bin/com.mudscript.guardian.plist"
 AGENT_SCRIPT="$HS/bin/ms_guardian_agent.sh"
 PLIST_DST="$HOME/Library/LaunchAgents/com.mudscript.guardian.plist"
 
-# ── Preflight checks ──────────────────────────────────────────────────────────
 if [ ! -f "$PLIST_TEMPLATE" ]; then
     echo "ERROR: plist template not found at $PLIST_TEMPLATE"
     echo "       Make sure mudscript is installed to ~/.hammerspoon/"
@@ -30,11 +18,9 @@ if [ ! -f "$AGENT_SCRIPT" ]; then
     exit 1
 fi
 
-# ── Make the agent script executable ─────────────────────────────────────────
 chmod 755 "$AGENT_SCRIPT"
 echo "Agent script: $AGENT_SCRIPT"
 
-# ── Expand placeholders and write the plist ───────────────────────────────────
 mkdir -p "$HOME/Library/LaunchAgents"
 
 sed \
@@ -48,7 +34,6 @@ sed \
 
 echo "Plist written:  $PLIST_DST"
 
-# ── Load (reload if already registered) ──────────────────────────────────────
 launchctl unload "$PLIST_DST" 2>/dev/null || true
 launchctl load "$PLIST_DST"
 

@@ -3,7 +3,15 @@
     <head>
         <meta charset="UTF-8" />
         <script src="./modules/ui-tokens.js"></script>
+        <script src="./modules/ui-probe.js"></script>
         <style>
+            button,
+            input,
+            textarea,
+            select {
+                font: inherit;
+            }
+
             /* -- Fonts -- */
             @font-face {
                 font-family: "Almendra";
@@ -50,7 +58,7 @@
                 background: transparent;
             }
             body {
-                font-family: var(--font), "Almendra", Palatino, Georgia, serif;
+                font-family: var(--font);
                 font-size: 13px;
                 color: var(--text);
                 -webkit-font-smoothing: antialiased;

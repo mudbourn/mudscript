@@ -1,9 +1,9 @@
-# ms_gc_read — Windows gamepad reader
+# ms_gc_read - Windows gamepad reader
 
 Cross-platform SDL2 port of `mac/bin/ms_gc_read.swift`. It detects connected
 controllers and streams button / stick / connect / disconnect events as
-newline-delimited JSON on stdout. The host (`ms_core.lua` → `ms.gamepadStart`)
-consumes these lines the same way on every platform — **the wire protocol is
+newline-delimited JSON on stdout. The host (`ms_core.lua` -> `ms.gamepadStart`)
+consumes these lines the same way on every platform - **the wire protocol is
 identical to the macOS reader**, so all binding, chord, and conflict-detection
 logic in Lua/JS is unchanged.
 
@@ -32,7 +32,7 @@ beats a bare `x`), exactly as on macOS.
 ## Modes
 
 ```
-ms_gc_read            daemon mode — stream events (one JSON line each)
+ms_gc_read            daemon mode - stream events (one JSON line each)
 ms_gc_read --list     list connected controllers, then exit
 ```
 
@@ -48,7 +48,7 @@ build.bat
 
 `build.bat` auto-detects `cl.exe` (Developer Command Prompt) or `gcc.exe`,
 produces `ms_gc_read.exe`, and copies `SDL2.dll` alongside it. Ship
-`ms_gc_read.exe` **and** `SDL2.dll` together on the host's PATH — the host
+`ms_gc_read.exe` **and** `SDL2.dll` together on the host's PATH - the host
 launches the bare name `ms_gc_read`.
 
 The same source also builds on macOS/Linux for testing:

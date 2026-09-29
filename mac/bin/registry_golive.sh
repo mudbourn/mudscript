@@ -51,19 +51,16 @@ remote_canon() {
         -q '.content' 2>/dev/null | base64 -D 2>/dev/null | canon 2>/dev/null || true
 }
 
-# ── Non-shipping invocations delegate straight to publish and stop ────────────
 for a in "$@"; do
     case "$a" in
         --dry-run|-h|--help) exec bash "$PUBLISH_SH" "$@" ;;
     esac
 done
 
-# ── 1. Publish (edits index.json, uploads the asset, leaves it UNSIGNED) ──────
 bash "$PUBLISH_SH" "$@"
 
 cd "$ROOT"
 
-# ── 2. Auto-commit registry/index.json (commit only; the push is yours) ───────
 if git diff --quiet -- registry/index.json && git diff --cached --quiet -- registry/index.json; then
     echo
     echo "index.json has no uncommitted change - assuming it is already committed."
@@ -86,7 +83,6 @@ WANT="$(canon < "$INDEX")"
 if [ "$(remote_canon)" = "$WANT" ]; then
     echo "The committed index is already on $SIGN_REPO $SIGN_BRANCH - skipping the push wait."
 else
-    # ── 3. Wait for the push ──────────────────────────────────────────────────
     echo
     echo "================================================================"
     echo "  PUSH registry/index.json from Zed now."
@@ -108,11 +104,9 @@ else
     done
 fi
 
-# ── 4. Sign (dispatch CI, watch, verify the live signature) ───────────────────
 echo
 bash "$SIGN_SH"
 
-# ── 5. Pull CI's signature commit ─────────────────────────────────────────────
 echo
 echo "-> Pulling CI's signature commit ..."
 git pull --ff-only

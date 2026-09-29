@@ -645,7 +645,7 @@
                         "display:flex;align-items:center;gap:8px;";
                     const send = (data) =>
                         sendToHost(Object.assign({ action: "setUiZoom" }, data));
-                    const minus = actionBtn("−", "", () =>
+                    const minus = actionBtn("-", "", () =>
                         send({ delta: -0.1 }));
                     const plus = actionBtn("+", "", () =>
                         send({ delta: 0.1 }));
@@ -2314,7 +2314,7 @@
             function arrangeRowLabel(it) {
                 if (it.type === "divider") return "Divider";
                 if (it.type === "groupLabel")
-                    return "“" + (it.label || "") + "” label";
+                    return "'" + (it.label || "") + "' label";
                 const name = it.label || it.key || "(setting)";
                 return name + "  -  " + it.type;
             }
@@ -2904,8 +2904,8 @@
                     const callOnly = isPack || isPlugin;
                     const r = h("div", { cls: "row row-sub" });
                     const lbl = h("div", { cls: "row-label" }, fn.name || fn.id);
-                    if (isPack) lbl.appendChild(h("small", {}, "from pack - call by id “" + fn.id + "”"));
-                    else if (isPlugin) lbl.appendChild(h("small", {}, "from plugin - call by id “" + fn.id + "”"));
+                    if (isPack) lbl.appendChild(h("small", {}, "from pack - call by id '" + fn.id + "'"));
+                    else if (isPlugin) lbl.appendChild(h("small", {}, "from plugin - call by id '" + fn.id + "'"));
                     r.appendChild(lbl);
                     const controls = h("div", { style: "display:flex;gap:6px" });
                     if (callOnly) {
@@ -3160,7 +3160,7 @@
                     }
                     el.textContent = `@font-face { font-family: "${font}"; src: url("${fontURL}"); }`;
                 }
-                document.body.style.fontFamily = `"${font}", Almendra, Palatino, Georgia, serif`;
+                document.documentElement.style.setProperty("--font", `"${font}", Arial, Helvetica, sans-serif`);
             }
 
             function hexToRgb(hex) {

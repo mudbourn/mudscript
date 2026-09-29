@@ -11,10 +11,6 @@ function hexToRgb(hex) {
     return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255, a: a };
 }
 
-// Global UI zoom. WebKit's CSS `zoom` scales all content (fonts, padding,
-// controls, canvas) in one property, so the shell and every popout share this
-// one applier — same seam as applyTheme. Called from the pushed state and from
-// the Lua-side zoom broadcast (ms.dev:rezoom / ms.shell.applyZoom).
 function applyZoom(z) {
     var v = parseFloat(z);
     if (!isFinite(v) || v <= 0) v = 1;
@@ -101,7 +97,7 @@ function applyTheme(t) {
             }
             el.textContent = `@font-face { font-family: "${t.font}"; src: url("${t.fontURL}"); }`;
         }
-        document.body.style.fontFamily = `"${t.font}", Almendra, Palatino, Georgia, serif`;
+        document.documentElement.style.setProperty("--font", `"${t.font}", Arial, Helvetica, sans-serif`);
     }
 }
 
@@ -474,7 +470,6 @@ function createLogPanel(config) {
     }
 
     function _holdKey(entry) {
-        // Extract key name from "[label] ↓ W" -> "W"
         const m = (entry.msg || '').match(/\] [↓↑]\s+(.+)$/);
         return m ? m[1] : null;
     }
@@ -486,7 +481,6 @@ function createLogPanel(config) {
         const atBottom = _isNearBottom(log, scrollThresh);
         const label = _entryLabel(entry);
 
-        // Key hold tracking: ↓ stores pending, ↑ replaces with hold entry
         if (_isKeyDown(entry)) {
             const keyName = _holdKey(entry);
             if (keyName) {
@@ -509,7 +503,6 @@ function createLogPanel(config) {
                 const holdId = label + ':' + keyName;
                 const pending = _pendingHolds[holdId];
                 if (pending && pending.row && pending.row.parentNode) {
-                    // Replace the ↓ row with a hold row
                     const holdRow = document.createElement('div');
                     holdRow.className = 'step';
                     holdRow.dataset.cat = 'keys';

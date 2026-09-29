@@ -109,7 +109,7 @@
         const typeLabel = String((TYPES.find((x) => x.value === e.type) || {}).label
             || e.type).replace(/s$/, "");
         const baseName = (e.name || e.id)
-            .replace(/\s*[,–-]\s*(Theme|Sound|Macro|Profile|Plugin)\s*$/i, "")
+            .replace(/\s*[,--]\s*(Theme|Sound|Macro|Profile|Plugin)\s*$/i, "")
             .replace(/\s+(profile|theme|sound|macro|plugin)$/i, "")
             .trim() || (e.name || e.id);
         const displayName = baseName;

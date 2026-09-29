@@ -377,6 +377,14 @@
                 return (s:gsub("{([%a_][%w_]*)}", 'ms.vars.get("%1")'))
             end
 
+            local function hasWait(steps)
+                for _, st in ipairs(steps or {}) do
+                    if st.action == "ms.wait" then return true end
+                    if hasWait(st.body) or hasWait(st["then"]) or hasWait(st["else"]) then return true end
+                end
+                return false
+            end
+
             local function stepCond(step)
                 local c = step.condition
                 if c == nil then c = step.params and step.params.condition end
@@ -485,8 +493,9 @@
                         lines[#lines + 1] = emitStep(s, lvl + 1)
                     end
                 end
+                if not hasWait(step.body) then lines[#lines + 1] = indent(lvl + 1) .. "ms.wait(0)" end
                 lines[#lines + 1] = indent(lvl) .. "end"
-                lines[#lines + 1] = indent(lvl) .. "ms.log('while', '" .. cond:gsub("'", "\\'") .. "', " .. fc .. ")"
+                lines[#lines + 1] = indent(lvl) .. "ms.log('while', " .. string.format("%q", cond) .. ", " .. fc .. ")"
                 return table.concat(lines, "\n")
             end
 
@@ -503,14 +512,19 @@
                         lines[#lines + 1] = emitStep(s, lvl + 1)
                     end
                 end
+                if not hasWait(step.body) then lines[#lines + 1] = indent(lvl + 1) .. "ms.wait(0)" end
                 lines[#lines + 1] = indent(lvl) .. "until " .. cond
-                lines[#lines + 1] = indent(lvl) .. "ms.log('repeat', '" .. cond:gsub("'", "\\'") .. "', " .. fc .. ")"
+                lines[#lines + 1] = indent(lvl) .. "ms.log('repeat', " .. string.format("%q", cond) .. ", " .. fc .. ")"
                 return table.concat(lines, "\n")
             end
 
             emitters["comment"] = function(step, lvl)
-                local text = (step.params and step.params.text) or ""
-                return indent(lvl) .. "-- " .. text
+                local text = tostring((step.params and step.params.text) or "")
+                local out = {}
+                for line in (text .. "\n"):gmatch("([^\n]*)\n") do
+                    out[#out + 1] = indent(lvl) .. "-- " .. line:gsub("\r", "")
+                end
+                return table.concat(out, "\n")
             end
 
             emitters["code"] = function(step, lvl)
@@ -616,12 +630,12 @@
                 for _, step in ipairs(steps) do
                     lines[#lines + 1] = emitStep(step, 1)
                 end
-                lines[#lines + 1] = 'end, "' .. name .. '")'
+                lines[#lines + 1] = "end, " .. string.format("%q", name) .. ")"
                 lines[#lines + 1] = ""
 
                 lines[#lines + 1] = 'ms.bind.define("' .. id .. '", ' .. fnName .. ", {"
-                lines[#lines + 1] = indent(1) .. 'group   = "' .. group .. '",'
-                lines[#lines + 1] = indent(1) .. 'label   = "' .. name .. '",'
+                lines[#lines + 1] = indent(1) .. "group   = " .. string.format("%q", group) .. ","
+                lines[#lines + 1] = indent(1) .. "label   = " .. string.format("%q", name) .. ","
                 if cooldown then
                     lines[#lines + 1] = indent(1) .. "cooldown = " .. tostring(cooldown) .. ","
                 end
@@ -630,16 +644,16 @@
                 end
                 if bind.type or bind.key then
                     lines[#lines + 1] = indent(1) .. "default = {"
-                    lines[#lines + 1] = indent(2) .. 'type = "' .. (bind.type or "key") .. '",'
+                    lines[#lines + 1] = indent(2) .. "type = " .. string.format("%q", bind.type or "key") .. ","
                     if bind.mods and #bind.mods > 0 then
                         local modParts = {}
-                        for _, m in ipairs(bind.mods) do modParts[#modParts + 1] = '"' .. m .. '"' end
+                        for _, m in ipairs(bind.mods) do modParts[#modParts + 1] = string.format("%q", m) end
                         lines[#lines + 1] = indent(2) .. "mods = {" .. table.concat(modParts, ", ") .. "},"
                     else
                         lines[#lines + 1] = indent(2) .. "mods = {},"
                     end
                     if bind.key then
-                        lines[#lines + 1] = indent(2) .. 'key  = "' .. bind.key .. '",'
+                        lines[#lines + 1] = indent(2) .. "key  = " .. string.format("%q", bind.key) .. ","
                     end
                     lines[#lines + 1] = indent(1) .. "},"
                 end

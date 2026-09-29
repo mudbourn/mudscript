@@ -5,6 +5,13 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>mudscript :// Loading</title>
         <style>
+            button,
+            input,
+            textarea,
+            select {
+                font: inherit;
+            }
+
             /* -- Font -- */
             @font-face {
                 font-family: "Almendra";
@@ -47,7 +54,7 @@
                 --text: #d4cfb6;
                 --radius: 8px;
                 --ms-window-radius: 8px;
-                --font: Arial, "Almendra", sans-serif;
+                --font: Arial, Helvetica, sans-serif;
             }
 
             /* -- Reset -- */
@@ -105,8 +112,8 @@
             }
             #brand.shifted {
                 /* Pure transform dock: hardcoded offset from panel-center to
-                   top-left dock.  Panel 360×140, title ~140×34 at 28px.
-                   dx = 18 − (180+70) = −187,  dy = 14 − (70+17) = −62. */
+                   top-left dock.  Panel 360x140, title ~140x34 at 28px.
+                   dx = 18 - (180+70) = -187,  dy = 14 - (70+17) = -62. */
                 transform: translate(-187px, -62px) scale(0.643);
             }
 
@@ -124,7 +131,7 @@
                 left: 18px;
                 /* Themed like the rest of the screen. var(--font) already ends
                    in an Arial/sans-serif fallback (see applyTheme), so this
-                   still renders even if the themed web font failed to load —
+                   still renders even if the themed web font failed to load -
                    keeping the fallback's whole purpose intact while theming. */
                 font-family: var(--font);
                 font-size: 18px;
@@ -312,7 +319,7 @@
                 if (t.radius !== undefined) r.setProperty("--radius", t.radius + "px");
                 var wr = t.windowRadius !== undefined ? t.windowRadius : t.radius;
                 if (wr !== undefined) r.setProperty("--ms-window-radius", wr + "px");
-                if (t.font) r.setProperty("--font", t.font + ', "Almendra", Arial, sans-serif');
+                if (t.font) r.setProperty("--font", '"' + t.font + '", Arial, Helvetica, sans-serif');
             }
 
             /* -- Animation controls -- */

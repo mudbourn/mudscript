@@ -1,4 +1,4 @@
--- Creator Credits — CREDIT YOURSELF! --
+-- Creator Credits - CREDIT YOURSELF! --
     ms.macroMeta = {
         name    = "Default",
         author  = "User"

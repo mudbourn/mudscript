@@ -125,10 +125,6 @@
             });
         }
 
-        // The confirm/prompt modal is a fixed overlay parented to <body>, outside
-        // any panel scope, so find it at the document root and treat it as the
-        // active overlay while it is open — that scopes navigation to its own
-        // buttons and input.
         function modalOverlay() {
             var md = document.getElementById('modal-overlay');
             return (md && md.classList.contains('open')) ? md : null;
@@ -176,10 +172,6 @@
             var remembered = gpLastFocus[panelKey()];
             if (remembered && list.indexOf(remembered) !== -1) return remembered;
             if (inLogPanel()) {
-                // A log panel with a text entry (the console) lands on that field
-                // so the user can type straight away. Focus alone does not raise
-                // the on-screen keyboard — that waits for A — so the field is
-                // highlighted, not opened.
                 var tf = window.MSOsk && window.MSOsk.isTextField;
                 if (tf) {
                     for (var t = 0; t < list.length; t++) {
@@ -202,14 +194,6 @@
             return best;
         }
 
-        // Spatial move: from the focused element, pick the nearest focusable in
-        // the pressed direction. A target whose cross-axis extent overlaps the
-        // current element (i.e. it shares the row for a horizontal move, or the
-        // column for a vertical one) always wins over a merely-nearby diagonal
-        // one — so pressing Right from the console input lands on the Run button
-        // beside it, not the log line sitting just above. Only when nothing lines
-        // up does it fall back to the weighted-diagonal score, which still allows
-        // a fall-through (e.g. Down from a toolbar reaching the content below).
         function reanchor() {
             if (!gpFocusEl || document.contains(gpFocusEl)) return;
             var sid = gpFocusEl.getAttribute && gpFocusEl.getAttribute('data-sid');
@@ -351,11 +335,6 @@
             return (el && el.gpIsOpen && el.gpIsOpen()) ? el : null;
         }
 
-        // A focus stop is often the .row wrapper, not the control inside it — a
-        // .toggle switch hides its checkbox at 0x0 so only the row is reachable,
-        // and clicking the row does nothing. Forward the press to the real
-        // control: the switch (its label click flips the checkbox and fires its
-        // change handler + sound) or a lone button standing in for the row.
         function activate(el) {
             if (!el) return;
             var ctrl = null;
@@ -364,10 +343,6 @@
             (ctrl || el).click();
         }
 
-        // Left/Right nudge a focused slider by one step, the way the arrow keys
-        // would for a keyboard user — range inputs otherwise swallow the stop but
-        // can't be driven, so the controller could never change a slider. Returns
-        // true when it handled the press, false to let it fall back to a move.
         function adjustRange(dir) {
             var el = gpFocusEl;
             if (!el || !el.matches || !el.matches('input[type="range"]')) return false;
@@ -512,9 +487,6 @@
                     default: return;
                 }
             }
-            // While a dropdown is open the stick/dpad walks its items, A picks the
-            // highlighted one, B dismisses — everything else is held so presses
-            // don't leak to the panel behind the open menu.
             var sel = openSelect();
             if (sel) {
                 switch (cmd) {

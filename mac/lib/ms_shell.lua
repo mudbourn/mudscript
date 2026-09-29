@@ -214,6 +214,29 @@
             end
         -- END --
 
+        -- probe --
+            ms.shell.probe = function(expr, cb)
+                local out = os.getenv("HOME") .. "/.hammerspoon/data/probe.txt"
+                local js = "(function(){try{var r=(" .. tostring(expr) .. ");"
+                    .. "return typeof r==='string'?r:JSON.stringify(r,null,1);}"
+                    .. "catch(e){return 'probe error: '+e;}})()"
+                if not (_shellView and _shellReady) then
+                    if cb then cb("probe: shell not ready") end
+                    return
+                end
+                _shellView:evaluateJavaScript(js, function(result, err)
+                    local text = tostring(result or (err and err.NSLocalizedDescription) or err or "")
+                    local f = io.open(out, "w")
+                    if f then
+                        f:write(text, "\n")
+                        f:close()
+                    end
+                    print("[probe] " .. text:sub(1, 2000))
+                    if cb then cb(text) end
+                end)
+            end
+        -- END --
+
         -- isReady --
             ms.shell.isReady = function() return _shellReady end
             ms.shell.webview = function() return _shellView end
@@ -727,6 +750,7 @@
         -- show --
             ms.shell.show = function()
                 print("[shell] TRACE show() ENTER visible=" .. tostring(ms._shellState and ms._shellState.visible))
+                if ms._restarting or ms._shuttingDown then return end
                 if not (ms._shellState and ms._shellState.visible) then
                     local front = hs.application.frontmostApplication()
                     if front and front:bundleID() ~= hs.processInfo.bundleID then
@@ -1470,7 +1494,7 @@
                 parts[#parts + 1] = "--radius-s:" .. math.max(0, radius - 1) .. "px"
                 local font = v("font")
                 if font then
-                    parts[#parts + 1] = "--font:\"" .. font .. "\",Almendra,Palatino,Georgia,serif"
+                    parts[#parts + 1] = "--font:\"" .. font .. "\",Arial,Helvetica,sans-serif"
                 end
                 return ":root{" .. table.concat(parts, ";") .. "}"
             end

@@ -3,7 +3,15 @@
     <head>
         <meta charset="UTF-8" />
         <script src="./modules/ui-tokens.js"></script>
+        <script src="./modules/ui-probe.js"></script>
         <style>
+            button,
+            input,
+            textarea,
+            select {
+                font: inherit;
+            }
+
             /* -- Fonts -- */
             @font-face { font-family: "Almendra"; src: url("./fonts/Almendra-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; }
             @font-face { font-family: "Almendra"; src: url("./fonts/Almendra-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; }
@@ -14,7 +22,7 @@
             *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
             html, body { height: 100%; overflow: hidden; background: transparent; }
             body {
-                font-family: var(--font), "Almendra", Palatino, Georgia, serif;
+                font-family: var(--font);
                 font-size: 13px; color: var(--text); -webkit-font-smoothing: antialiased;
                 display: flex; flex-direction: column; position: relative;
                 background: var(--bg); border-radius: var(--ms-window-radius, 3px); overflow: hidden;
@@ -307,7 +315,7 @@
                 const txt = on ? FLAG_ON_LABEL[id] : FLAG_OFF_LABEL[id];
                 if (txt) el.textContent = txt;
             }
-            function frameStr(f) { return f ? `${f.x}, ${f.y}  ·  ${f.w} × ${f.h}` : ""; }
+            function frameStr(f) { return f ? `${f.x}, ${f.y}  -  ${f.w} x ${f.h}` : ""; }
 
             // -- Event log row builder --
             const BADGE = { focus: "badge-focus", move: "badge-move", resize: "badge-resize",
@@ -325,19 +333,19 @@
 
                 if (t === "focus") {
                     row.appendChild(mkSpan("ename", entry.app || "?"));
-                    if (entry.title) row.appendChild(mkSpan("edetail", "· " + entry.title));
+                    if (entry.title) row.appendChild(mkSpan("edetail", "- " + entry.title));
                 } else if (t === "move") {
                     row.appendChild(mkSpan("edetail", (entry.x ?? "?") + ", " + (entry.y ?? "?")));
-                    if (entry.count > 1) row.appendChild(mkSpan("ecount", "×" + entry.count));
+                    if (entry.count > 1) row.appendChild(mkSpan("ecount", "x" + entry.count));
                 } else if (t === "resize") {
-                    row.appendChild(mkSpan("edetail", (entry.w ?? "?") + " × " + (entry.h ?? "?")));
-                    if (entry.count > 1) row.appendChild(mkSpan("ecount", "×" + entry.count));
+                    row.appendChild(mkSpan("edetail", (entry.w ?? "?") + " x " + (entry.h ?? "?")));
+                    if (entry.count > 1) row.appendChild(mkSpan("ecount", "x" + entry.count));
                 } else if (t === "fullscreen") {
                     row.appendChild(mkSpan("ename", entry.on ? "entered" : "exited"));
-                    if (entry.app) row.appendChild(mkSpan("edetail", "· " + entry.app));
+                    if (entry.app) row.appendChild(mkSpan("edetail", "- " + entry.app));
                 } else {
                     if (entry.app) row.appendChild(mkSpan("ename", entry.app));
-                    if (entry.title) row.appendChild(mkSpan("edetail", "· " + entry.title));
+                    if (entry.title) row.appendChild(mkSpan("edetail", "- " + entry.title));
                 }
                 row.onmouseenter = function () { lp.playSlot("hover"); };
                 row.onclick = lp._handleEntryClick;
@@ -427,7 +435,7 @@
                 let detail = "";
                 if (entry.type === "focus") detail = entry.app || "";
                 else if (entry.type === "move") detail = (entry.x ?? "") + ", " + (entry.y ?? "");
-                else if (entry.type === "resize") detail = (entry.w ?? "") + " × " + (entry.h ?? "");
+                else if (entry.type === "resize") detail = (entry.w ?? "") + " x " + (entry.h ?? "");
                 else detail = entry.app || "";
                 document.getElementById("flag-event-detail").textContent = detail;
                 pill.classList.add("flag-recent");

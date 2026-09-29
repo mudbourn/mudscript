@@ -1,25 +1,6 @@
 import Foundation
 import GameController
 
-// ms_gc_read — Gamepad input reader for mudscript.
-// Monitors connected controllers and outputs button/stick events as JSON lines.
-//
-// Usage:
-//   ms_gc_read              — daemon mode (events to stdout, one per line)
-//   ms_gc_read --list       — list connected controllers, exit
-//
-// Output format (one JSON object per line):
-//   {"e":"press","b":"x","c":"ds4","p":0}
-//   {"e":"release","b":"x","c":"ds4","p":0}
-//   {"e":"move","b":"left","x":0.5,"y":-0.3,"c":"ds4","p":0}
-//   {"e":"move","b":"right","x":0.0,"y":0.0,"c":"xbox","p":0}
-//   {"e":"connect","c":"ds4","p":0}
-//   {"e":"disconnect","c":"ds4","p":0}
-//
-// Button names: a,b,x,y,l1,r1,l2,r2,l3,r3,up,down,left,right,menu,options,home
-
-// ── Helpers ──────────────────────────────────────────────────────────
-
 func controllerType(_ controller: GCController) -> String {
     let v = (controller.vendorName ?? "").lowercased()
     if v.contains("dualshock") || v.contains("dualsense") || v.contains("sony") { return "ds4" }
@@ -68,8 +49,6 @@ struct ButtonTracker {
     }
 }
 
-// ── Output ───────────────────────────────────────────────────────────
-
 var outputLock = NSLock()
 
 func emit(_ dict: [String: Any]) {
@@ -80,8 +59,6 @@ func emit(_ dict: [String: Any]) {
     fflush(stdout)
     outputLock.unlock()
 }
-
-// ── Controller setup ─────────────────────────────────────────────────
 
 var trackers: [ObjectIdentifier: ButtonTracker] = [:]
 
@@ -153,8 +130,6 @@ func removeController(_ controller: GCController) {
     emit(["e": "disconnect", "c": ctype, "p": p])
 }
 
-// ── Entry point ──────────────────────────────────────────────────────
-
 let args = CommandLine.arguments
 
 if args.contains("--list") {
@@ -172,7 +147,6 @@ if args.contains("--list") {
     exit(0)
 }
 
-// Daemon mode — monitor controllers and emit events.
 fputs("ms_gc_read: ready\n", stderr)
 
 // Set up notifications for controller connect/disconnect.

@@ -100,7 +100,6 @@
       const style = document.createElement("style");
       style.id = "tool-editor-css";
       style.textContent = `
-        // Step Inline Editor
         .tool-editor-panel {
             background: var(--surface);
             border: 1px solid var(--border);
@@ -151,7 +150,6 @@
         .tool-editor-close svg { width: 12px; height: 12px; }
         .tool-editor-close svg path { stroke: var(--text); fill: none; }
 
-        // Form Grid
         .tool-editor-form {
             display: flex;
             flex-direction: column;
@@ -181,7 +179,6 @@
             gap: 4px;
         }
 
-        // Text Input
         .tool-ed-text {
             width: 100%;
             background: var(--surface2);
@@ -199,7 +196,6 @@
         }
         .tool-ed-text:focus { border-color: var(--accent); }
 
-        // Value / Tool bind switch
         .tool-editor-control.tool-ed-bindable { flex-wrap: wrap; }
         .tool-ed-bind-switch { display: inline-flex; border: 1px solid var(--border-dim); border-radius: var(--radius-s); overflow: hidden; }
         .tool-ed-bind-opt { background: var(--surface2); border: none; color: var(--text3); font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; padding: 2px 6px; cursor: pointer; transition: all 0.1s; }
@@ -209,7 +205,6 @@
         .tool-ed-tool-select { width: 100%; background: var(--surface2); border: 1px solid var(--border-dim); border-radius: var(--radius); color: var(--text); font-family: var(--font-mono); font-size: 11px; padding: 4px 7px; outline: none; cursor: pointer; box-sizing: border-box; }
         .tool-ed-tool-select:focus { border-color: var(--accent); }
 
-        // Number Input
         .tool-ed-number-wrap {
             display: flex;
             align-items: center;
@@ -262,7 +257,6 @@
         .tool-ed-num-btn:last-child  { border-radius: 0 var(--radius) var(--radius) 0; border-left: none; }
         .tool-ed-num-btn:only-child  { border-radius: var(--radius); }
 
-        // Key Capture Button
         .tool-ed-key-btn {
             display: inline-flex;
             align-items: center;
@@ -299,7 +293,6 @@
             font-style: italic;
         }
 
-        // Modifier Chips
         .tool-ed-mods {
             display: flex;
             gap: 3px;
@@ -333,7 +326,6 @@
             color: var(--accent-hi);
         }
 
-        // Select Dropdown
         .tool-ed-select {
             width: 100%;
             background: var(--surface2);
@@ -354,7 +346,6 @@
         .tool-ed-select:focus { border-color: var(--accent); }
         .tool-ed-select option { background: var(--surface); color: var(--text); }
 
-        // Condition / Expression Editor
         .tool-ed-condition {
             width: 100%;
             background: var(--surface2);
@@ -377,7 +368,6 @@
         .tool-ed-condition:focus { border-color: var(--accent); }
         .tool-ed-condition::placeholder { color: var(--text3); opacity: 1; }
 
-        // Live condition truth note
         .tool-ed-cond-live {
             margin-top: 6px;
             font-family: var(--font-mono);
@@ -390,7 +380,6 @@
         .tool-ed-cond-live.cond-false   { color: var(--text3); }
         .tool-ed-cond-live.cond-missing { color: var(--warning); }
 
-        // Array Editor
         .tool-ed-array {
             display: flex;
             flex-direction: column;
@@ -437,7 +426,6 @@
         }
         .tool-ed-array-add:hover { border-color: var(--accent); color: var(--text); }
 
-        // No-params
         .tool-ed-no-params {
             color: var(--text3);
             font-size: 11px;
@@ -591,9 +579,8 @@
 
             stepEl.parentNode.insertBefore(this._panelEl, stepEl.nextSibling);
 
-            requestAnimationFrame(() => {
-                if (this._panelEl) this._panelEl.classList.add("open");
-            });
+            void this._panelEl.offsetHeight;
+            this._panelEl.classList.add("open");
 
             setTimeout(() => {
                 document.addEventListener("click", this._onClickOutside = (e) => {

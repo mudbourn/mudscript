@@ -1,0 +1,103 @@
+{
+    "macros": {
+        "Auto_Clicker": {
+            "name": "Auto Clicker",
+            "group": "probe",
+            "author": "Probe",
+            "bind": {
+                "key": "f6",
+                "mods": [],
+                "type": "key"
+            },
+            "steps": [
+                {
+                    "action": "while",
+                    "params": {
+                        "condition": "true"
+                    },
+                    "body": [
+                        {
+                            "action": "ms.Mouse",
+                            "params": {
+                                "reference": "Mouse",
+                                "button": "Left",
+                                "operation": "Click",
+                                "unscaled": false,
+                                "x1": 0,
+                                "y1": 0,
+                                "x2": 0,
+                                "y2": 0
+                            }
+                        },
+                        {
+                            "action": "ms.wait",
+                            "params": {
+                                "ms": 50
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "Nested_Branches": {
+            "name": "Nested Branches",
+            "group": "probe",
+            "author": "Probe",
+            "steps": [
+                {
+                    "action": "if",
+                    "params": {
+                        "condition": "ms.mousestate(4)"
+                    },
+                    "then": [
+                        {
+                            "action": "repeat",
+                            "params": {
+                                "condition": "3"
+                            },
+                            "body": [
+                                {
+                                    "action": "ms.press",
+                                    "params": {
+                                        "key": "5",
+                                        "mods": []
+                                    }
+                                },
+                                {
+                                    "action": "ms.wait",
+                                    "params": {
+                                        "ms": 15
+                                    }
+                                },
+                                {
+                                    "action": "ms.release",
+                                    "params": {
+                                        "key": "5"
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    "else": [
+                        {
+                            "action": "for",
+                            "params": {
+                                "var": "i",
+                                "from": 1,
+                                "to": 4
+                            },
+                            "body": [
+                                {
+                                    "action": "comment",
+                                    "params": {
+                                        "text": "a long comment step whose text should truncate instead of pushing the action buttons out of the row"
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

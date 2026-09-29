@@ -105,7 +105,7 @@
                         mkSpan(
                             "scroll-name",
                             entry.direction +
-                                (entry.amount > 1 ? " ×" + entry.amount : ""),
+                                (entry.amount > 1 ? " x" + entry.amount : ""),
                         ),
                     );
                 }
@@ -299,7 +299,7 @@
             var _refDims = { w: 1680, h: 1044 };
 
             function refLabel() {
-                return 'REF ' + _refDims.w + '×' + _refDims.h;
+                return 'REF ' + _refDims.w + 'x' + _refDims.h;
             }
 
             function coordLabels() {

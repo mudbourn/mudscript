@@ -9,10 +9,10 @@ Everything registers through the proxied `ms`, so `ms.plugins.unload` can take i
 back out; `:stop()` handles the state the proxy never saw (target app, the
 anti-timeout timer) and drops the `ms.roblox` namespace.
 
-## Live reader — `ms.roblox`
+## Live reader - `ms.roblox`
 
 Reads `~/Library/Roblox/GlobalBasicSettings_13.xml` (a flat
-`<TYPE name="KEY">VALUE</TYPE>` dump) **fresh on every call** — no caching, so a
+`<TYPE name="KEY">VALUE</TYPE>` dump) **fresh on every call** - no caching, so a
 macro never acts on last session's numbers.
 
 | Function | Returns |

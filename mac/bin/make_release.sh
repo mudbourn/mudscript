@@ -1,17 +1,4 @@
 #!/usr/bin/env bash
-# bin/make_release.sh
-# ─────────────────────────────────────────────────────────────────────────────
-# Stamps the SHA-256 of ms_core.lua into MANIFEST.json locally.
-# Signing and release creation are handled by GitHub Actions when you trigger
-# the "Release" workflow manually from the Actions tab with a version number.
-#
-# Use this script when you want to verify the hash locally before pushing,
-# or to preview what MANIFEST.json will look like:
-#   bash bin/make_release.sh [version]
-#
-# NOTE: This only updates the local file. To create an official release,
-# push your changes and trigger the Release workflow from GitHub Actions.
-# ─────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
 
@@ -20,8 +7,6 @@ ROOT="$SCRIPT_DIR/.."
 CORE="$ROOT/mac/ms_core.lua"
 MANIFEST="$ROOT/MANIFEST.json"
 URL="https://raw.githubusercontent.com/mudbourn/mudscript/main/mac/ms_core.lua"
-
-# ── Preflight ─────────────────────────────────────────────────────────────────
 
 if [ ! -f "$CORE" ]; then
     echo "ERROR: ms_core.lua not found at $CORE"
@@ -33,12 +18,8 @@ if [ ! -f "$MANIFEST" ]; then
     exit 1
 fi
 
-# ── Hash ──────────────────────────────────────────────────────────────────────
-
 HASH=$(shasum -a 256 "$CORE" | awk '{print $1}')
 echo "ms_core.lua  SHA-256: $HASH"
-
-# ── Version ───────────────────────────────────────────────────────────────────
 
 # Read current version from MANIFEST, fall back to 1.0.0 if unreadable.
 CURRENT_VERSION=$(python3 -c "
@@ -51,8 +32,6 @@ except:
 " 2>/dev/null || echo "1.0.0")
 
 NEW_VERSION="${1:-$CURRENT_VERSION}"
-
-# ── Write MANIFEST.json ───────────────────────────────────────────────────────
 
 cat > "$MANIFEST" <<EOF
 {

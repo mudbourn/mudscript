@@ -3,7 +3,15 @@
     <head>
         <meta charset="UTF-8" />
         <script src="./modules/ui-tokens.js"></script>
+        <script src="./modules/ui-probe.js"></script>
         <style>
+            button,
+            input,
+            textarea,
+            select {
+                font: inherit;
+            }
+
             /* -- Fonts -- */
             @font-face {
                 font-family: "Almendra";
@@ -47,7 +55,7 @@
                 background: transparent;
             }
             body {
-                font-family: var(--font), "Almendra", Palatino, Georgia, serif;
+                font-family: var(--font);
                 font-size: 13px;
                 color: var(--text);
                 -webkit-font-smoothing: antialiased;
@@ -305,8 +313,8 @@
                 border-color: color-mix(in srgb, var(--warning) 45%, transparent);
             }
             .badge-scroll {
-                background: color-mix(in srgb, var(--scroll) 20%, transparent);
-                color: var(--scroll);
+                background: color-mix(in srgb, var(--scroll, var(--warning)) 20%, transparent);
+                color: var(--scroll, var(--warning));
             }
 
             /* -- Arrows -- */

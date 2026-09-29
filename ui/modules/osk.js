@@ -1,19 +1,6 @@
 (function() {
 "use strict";
 
-    // On-screen keyboard driver for controller users. Opened by the gamepad nav
-    // layer when A is pressed on a text field; driven entirely by the controller
-    // (dpad picks a key, A presses it, B closes). It dismisses itself the moment
-    // a real keyboard or mouse is used, so it never gets in the way of someone
-    // who reaches for either.
-    //
-    // The visible keys live in a separate host-owned window (ui/ms_osk.html) that
-    // can be dragged anywhere on screen, free of this window's frame. This module
-    // stays the brain: it owns the layout, the cursor, and the text edits against
-    // the focused field, and streams a serialisable board to the host — which
-    // paints it into that window and moves it on request. Everything that touches
-    // the field runs here, next to the field.
-
     var LETTERS = [
         ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
         ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
@@ -54,9 +41,6 @@
 
     function playSlot(slot) { if (window.playSlot) window.playSlot(slot); }
 
-    // Reach the host over whichever window this module is running in — the shell
-    // and every pop-out expose the same post helper. The host forwards a "_osk"
-    // message to the keyboard window.
     function emit(op, extra) {
         var payload = { op: op };
         if (extra) { for (var k in extra) payload[k] = extra[k]; }
@@ -106,9 +90,6 @@
 
     var WIDE = { '{shift}': 1, '{back}': 1, '{enter}': 1, '{done}': 1, '{sym}': 1, '{abc}': 1 };
 
-    // Serialise the current board into faces the keyboard window can paint
-    // without any keyboard knowledge of its own — plain text or inline SVG per
-    // key, plus a width class and the shift key's on-state.
     function faceOf(k) {
         var lbl = keyLabel(k);
         var f = {};
@@ -164,9 +145,6 @@
         try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
     }
 
-    // number and email inputs throw on selectionStart / setRangeText in WebKit —
-    // the selection API only covers these types — so anything else edits by whole
-    // value (append / trim the tail) instead of by caret range.
     function canSelect(el) {
         if (el.tagName === 'TEXTAREA') return true;
         var type = (el.getAttribute('type') || 'text').toLowerCase();
@@ -311,7 +289,6 @@
         playSlot('interact');
     }
 
-    // Direct button shortcuts driven from the nav layer (Y = space, X = ⌫).
     function typeSpace() { if (_open) { insert(' '); playSlot('interact'); } }
     function doBackspace() { if (_open) { backspace(); playSlot('interact'); } }
 

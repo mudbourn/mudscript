@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Shell Probe Harness</title>
+    <style>
+        html, body { margin: 0; height: 100%; background: #111; }
+        #frame { width: 100%; height: 100%; border: 0; display: block; }
+    </style>
+</head>
+<body>
+    <iframe id="frame"></iframe>
+    <script>
+    (async function() {
+        "use strict";
+
+        // Fixtures //
+            var params = new URLSearchParams(location.search);
+            var fixtureUrl = params.get("macros") || "/bin/probe/fixtures/macros.json";
+            var fixture = { macros: {} };
+            try {
+                fixture = await (await fetch(fixtureUrl)).json();
+            } catch (e) {
+                console.warn("probe harness: no macro fixture at " + fixtureUrl);
+            }
+            window.harnessFixture = fixture;
+        // END Fixtures //
+
+        // Mock Bridge //
+            var MOCK = [
+                "<script>",
+                "window.__harnessSent = [];",
+                "window.webkit = { messageHandlers: { msShell: { postMessage: function(raw) {",
+                "    var m; try { m = JSON.parse(raw); } catch (e) { return; }",
+                "    window.__harnessSent.push(m);",
+                "    if (parent.harnessReply) setTimeout(function() { parent.harnessReply(window, m); }, 0);",
+                "} } } };",
+                "<\/script>"
+            ].join("\n");
+
+            window.harnessReply = function(win, m) {
+                var macros = fixture.macros || {};
+                var lab = win.macroLab;
+                if (m.panel === "macros" && m.action === "listMacros" && lab) {
+                    lab.setMacroList(Object.keys(macros).sort());
+                }
+                if (m.panel === "macros" && m.action === "getMacro" && lab && m.body && macros[m.body.id]) {
+                    var def = JSON.parse(JSON.stringify(macros[m.body.id]));
+                    def.id = m.body.id;
+                    lab.setMacroDef(def);
+                }
+                if (m.panel === "macros" && m.action === "saveMacro" && m.body && m.body.id) {
+                    macros[m.body.id] = m.body.def;
+                    win.shellReceive("macros", "macroSaved", {});
+                }
+            };
+        // END Mock Bridge //
+
+        // Boot //
+            var html = await (await fetch("/ui/ms_shell.html")).text();
+            var bust = "?v=" + Date.now();
+            html = html.replace(/(src="\.\/modules\/[\w-]+\.js)"/g, "$1" + bust + "\"");
+            html = html.replace(/<head>/i,"<head>\n<base href=\"/ui/\">\n" + MOCK);
+            var doc = document.getElementById("frame").contentDocument;
+            doc.open();
+            doc.write(html);
+            doc.close();
+            window.shell = function() {
+                return document.getElementById("frame").contentWindow;
+            };
+            window.probe = function() {
+                return window.shell().msProbe;
+            };
+        // END Boot //
+    })();
+    </script>
+</body>
+</html>

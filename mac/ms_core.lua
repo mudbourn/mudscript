@@ -5569,7 +5569,7 @@
             require("lib.ms_compiler")(ms)
         -- END 13. Visual Macro Compiler --
 
-        -- 13a. Macro Lab Shell ↔ Compiler bridge --
+        -- 13a. Macro Lab Shell <-> Compiler bridge --
             do
                 local function _macroShellEval(js)
                     if ms.shell and ms.shell.eval then
@@ -6306,7 +6306,7 @@
                     end)
                 end
             end
-        -- END 13a. Macro Lab Shell ↔ Compiler bridge --
+        -- END 13a. Macro Lab Shell <-> Compiler bridge --
 
         -- 13b. Install Version (ms.version) --
             do

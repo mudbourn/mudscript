@@ -3,6 +3,13 @@
     <head>
         <meta charset="UTF-8" />
         <style>
+            button,
+            input,
+            textarea,
+            select {
+                font: inherit;
+            }
+
             :root {
                 --bg: #0d0f09;
                 --surface: #141810;
@@ -29,7 +36,7 @@
                 height: 100%;
                 background: transparent;
                 color: var(--text);
-                font-family: Arial, "Almendra", sans-serif;
+                font-family: Arial, Helvetica, sans-serif;
                 font-size: 13px;
                 line-height: 1.6;
                 overflow: hidden;
@@ -378,7 +385,7 @@
                 if (typeof t.radius === "number")
                     r.setProperty("--radius", t.radius + "px");
                 if (t.font && !/[\/\\]/.test(t.font))
-                    document.body.style.fontFamily = `"${t.font}", Almendra, Palatino, Georgia, serif`;
+                    document.body.style.fontFamily = `"${t.font}", Arial, Helvetica, sans-serif`;
             }
 
             // Suppress native right-click context menu.

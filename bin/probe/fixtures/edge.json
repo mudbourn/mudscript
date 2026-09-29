@@ -1,0 +1,76 @@
+{
+    "macros": {
+        "Quote_Name": {
+            "name": "My \"Fast\" Clicker",
+            "steps": [
+                {
+                    "action": "ms.wait",
+                    "params": {
+                        "ms": 10
+                    }
+                }
+            ]
+        },
+        "Backslash_Key": {
+            "name": "Backslash",
+            "bind": {
+                "key": "\\",
+                "mods": [],
+                "type": "key"
+            },
+            "steps": []
+        },
+        "Newline_Group": {
+            "name": "Group",
+            "group": "a\"b",
+            "steps": []
+        },
+        "Comment_Quote": {
+            "name": "Comment",
+            "steps": [
+                {
+                    "action": "comment",
+                    "params": {
+                        "text": "it's ]] a \"test\"\nsecond line"
+                    }
+                },
+                {
+                    "action": "ms.type",
+                    "params": {
+                        "key": "'",
+                        "mods": []
+                    }
+                },
+                {
+                    "action": "while",
+                    "params": {
+                        "condition": ""
+                    },
+                    "body": []
+                },
+                {
+                    "action": "ms.wait",
+                    "params": {
+                        "ms": ""
+                    }
+                },
+                {
+                    "action": "var_set",
+                    "params": {
+                        "name": "x",
+                        "value": "hello world"
+                    }
+                }
+            ]
+        },
+        "Empty_For": {
+            "name": "For",
+            "steps": [
+                {
+                    "action": "for",
+                    "params": {}
+                }
+            ]
+        }
+    }
+}

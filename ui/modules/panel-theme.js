@@ -720,7 +720,7 @@
         const b = h("button", {
             cls: "slot-btn slot-btn-danger",
             title: themeLocked() ? LOCK_HINT
-                 : can ? "Remove “" + name + "”"
+                 : can ? "Remove '" + name + "'"
                        : (name ? "Default sounds cannot be removed"
                                : "Nothing assigned to remove"),
             onmouseenter: () => { if (can) playSlot("hover"); },
@@ -942,7 +942,7 @@
             const btns = h("div", { cls: "slot-btns" });
             const play = h("button", {
                 cls: "slot-btn",
-                title: "Preview “" + e.name + "”",
+                title: "Preview '" + e.name + "'",
                 onmouseenter: () => playSlot("hover"),
                 onclick: (ev) => {
                     ev.stopPropagation();

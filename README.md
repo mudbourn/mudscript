@@ -118,13 +118,13 @@ Plugins are opt-in bundles that extend mudscript for a specific game. A plugin d
 - **Minecraft**: targets Minecraft, exposes live client data (health, item durability, inventory) over a loopback bridge.
 - **HIDInject**: opt-in direct-to-process input for games that ignore global event posts (see the note below).
 
-Every plugin is written or personally reviewed before it can be published, and it registers only through mudscript's own API, so turning one **off** in Settings → **Plugins** cleanly removes everything it added, and uninstalling it removes the capability entirely. Nothing in base mudscript depends on any plugin.
+Every plugin is written or personally reviewed before it can be published, and it registers only through mudscript's own API, so turning one **off** in Settings -> **Plugins** cleanly removes everything it added, and uninstalling it removes the capability entirely. Nothing in base mudscript depends on any plugin.
 
 ---
 
 ## Browse
 
-Browse is the in-app package library. Open it with `Alt+P` → **Browse**.
+Browse is the in-app package library. Open it with `Alt+P` -> **Browse**.
 
 - **Install by type**: profiles, themes, sounds, macros, and plugins, each in its own section
 - **Whole or by the slice**: install a full profile, or pull just its theme, sounds, or macros without duplicating anything
@@ -164,7 +164,7 @@ mudscript checks for updates automatically:
 - **Stable channel**: tested releases with signed manifests
 - **Testing channel**: latest builds from the development branch
 
-Switch channels from Settings → Developer → Update Channel.
+Switch channels from Settings -> Developer -> Update Channel.
 
 ---
 

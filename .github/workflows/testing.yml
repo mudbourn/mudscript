@@ -10,6 +10,9 @@ on:
       - ui/*.html
       - ui/modules/*.js
       - bin/ui-lint.mjs
+      - bin/lint.mjs
+      - bin/lint-baseline.json
+      - mac/lib/**/*.lua
       - win/ms_core_v2.ahk
   workflow_dispatch:
 
@@ -63,12 +66,12 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: main
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - name: Lint UI (fonts, colors, native controls)
-        run: node bin/ui-lint.mjs
+      - name: Lint (style, markers, theme, native controls)
+        run: node bin/lint.mjs --base ${{ github.event.before || 'HEAD~1' }}
 
   # ────────────────────────────────────────────────────────────────────────────
   # Build macOS
