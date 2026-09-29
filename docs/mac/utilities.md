@@ -89,12 +89,10 @@ The toggle state (`ms._octaneMode`) persists across reloads via settings, so it'
 
 ## Global Constants
 
-### Camera / scaling
+### Camera
 
 | Constant | Value | Description |
 |----------|-------|-------------|
-| `REF_W` | `1680` | Reference resolution width used for coordinate scaling |
-| `REF_H` | `1044` | Reference resolution height |
 | `REF_SENS` | `1.5` | Reference camera sensitivity (used to derive `cachedMult`) |
 | `CUR_CAM_SENS` | *(user setting)* | Current in-game sensitivity. Set via Settings > Camera Sensitivity |
 
@@ -121,8 +119,6 @@ These are plain globals available from `ms_macros.lua`.
 **Buttons:** `Left`, `Right`, `Center`, `Button4`, `Button5`
 
 **References:** `Absolute`, `Mouse`, `WindowTL`, `WindowTR`, `WindowBL`, `WindowBR`, `WindowCenter`, `ScreenTL`, `ScreenTR`, `ScreenBL`, `ScreenBR`, `ScreenCenter`
-
-**Flag:** `Unscaled` (`true`), pass between the reference and the first coordinate in `ms.Mouse` to use raw pixel window offsets instead of REF-space scaled values.
 
 ---
 

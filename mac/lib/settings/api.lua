@@ -30,10 +30,10 @@ return function(ms, ctx)
                             local st = subDef.type
                             if st ~= "action" and st ~= "soundSlot"
                                 and st ~= "divider" and st ~= "groupLabel" then
-                                ms._userSettingVals[subDef.key] = subDef.default
-                                if subDef.default ~= nil
-                                    and type(subDef.onChange) == "function" then
-                                    pcall(subDef.onChange, subDef.default)
+                                local v = ms._adoptUserSetting(subDef.key, subDef)
+                                ms._userSettingVals[subDef.key] = v
+                                if v ~= nil and type(subDef.onChange) == "function" then
+                                    pcall(subDef.onChange, v)
                                 end
                             end
                         end
@@ -67,21 +67,10 @@ return function(ms, ctx)
                 ms._userSettingIndex[key] = def
                 table.insert(ms._userSettingDefs, def)
                 if t == "action" then return end
-                local savedVal = ms._pendingUserSettings and ms._pendingUserSettings[key]
-                if savedVal ~= nil then
-                    local validated = _validateUserValue(def, savedVal)
-                    if validated ~= nil then
-                        ms._userSettingVals[key] = validated
-                        ms._pendingUserSettings[key] = nil
-                        if type(def.onChange) == "function" then
-                            pcall(def.onChange, validated)
-                        end
-                        return
-                    end
-                end
-                ms._userSettingVals[key] = def.default
-                if def.default ~= nil and type(def.onChange) == "function" then
-                    pcall(def.onChange, def.default)
+                local v = ms._adoptUserSetting(key, def)
+                ms._userSettingVals[key] = v
+                if v ~= nil and type(def.onChange) == "function" then
+                    pcall(def.onChange, v)
                 end
             end
         -- END ms.settings.define --
@@ -155,9 +144,10 @@ return function(ms, ctx)
                         end
                         ms._userSettingIndex[item.key] = item
                         if item.type ~= "action" then
-                            ms._userSettingVals[item.key] = item.default
-                            if item.default ~= nil and type(item.onChange) == "function" then
-                                pcall(item.onChange, item.default)
+                            local v = ms._adoptUserSetting(item.key, item)
+                            ms._userSettingVals[item.key] = v
+                            if v ~= nil and type(item.onChange) == "function" then
+                                pcall(item.onChange, v)
                             end
                         end
                     end
@@ -205,20 +195,8 @@ return function(ms, ctx)
                         item._toolId = def.id
                         ms._userSettingIndex[nsKey] = item
                         if item.type ~= "action" then
-                            local savedVal = ms._pendingUserSettings
-                                and ms._pendingUserSettings[nsKey]
-                            if savedVal ~= nil then
-                                local validated = _validateUserValue(item, savedVal)
-                                if validated ~= nil then
-                                    ms._userSettingVals[nsKey] = validated
-                                    ms._pendingUserSettings[nsKey] = nil
-                                else
-                                    ms._userSettingVals[nsKey] = item.default
-                                end
-                            else
-                                ms._userSettingVals[nsKey] = item.default
-                            end
-                            local v = ms._userSettingVals[nsKey]
+                            local v = ms._adoptUserSetting(nsKey, item)
+                            ms._userSettingVals[nsKey] = v
                             if v ~= nil and type(item.onChange) == "function" then
                                 pcall(item.onChange, v)
                             end

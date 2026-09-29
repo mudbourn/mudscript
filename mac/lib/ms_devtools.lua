@@ -624,17 +624,6 @@ return function(ms)
                 end
             end)
 
-            local function _pushRefDims()
-                if not (_keysPanel or _shellActive()) then return end
-                local w = ms._refW or 1680
-                local h = ms._refH or 1044
-                pcall(function()
-                    _pushToPanel(_keysPanel, "keys",
-                        "setRefDims({\"w\":" .. w .. ",\"h\":" .. h .. "})")
-                end)
-            end
-            ms.dev.pushRefDims = _pushRefDims
-
             ms.bus.on("ui:keys:*", function(topic, body)
                 if not body or type(body) ~= "table" then return end
                 local action = body.action
@@ -657,7 +646,6 @@ return function(ms)
                         }
                     end
                     _loadDevHistory(nil, {"input"}, "keys")
-                    _pushRefDims()
                 elseif action == "setCoordMode" then
                     _coordMode = body.mode or "screen"
                 end
@@ -1456,7 +1444,7 @@ return function(ms)
         local tx, ty = _x, _y
 
         if mode == "window" or mode == "windowTR" or mode == "windowBL"
-            or mode == "windowBR" or mode == "windowCenter" or mode == "ref" then
+            or mode == "windowBR" or mode == "windowCenter" then
 
             local win = ms.getTargetWin()
 
@@ -1483,11 +1471,6 @@ return function(ms)
                     tx = _x - (f.x + f.w / 2)
                     ty = _y - (f.y + f.h / 2)
 
-                elseif mode == "ref" then
-                    tx = _x - f.x
-                    ty = _y - f.y
-                    tx = math.floor(tx * (1680 / f.w) + 0.5)
-                    ty = math.floor(ty * (1044 / f.h) + 0.5)
                 end
             end
 

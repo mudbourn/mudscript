@@ -507,6 +507,10 @@
                 local front = hs.application.frontmostApplication()
                 return front and ms._safeApps[front:name()] or false
             end
+            ms._ownUiFocused = function()
+                local front = hs.application.frontmostApplication()
+                return front ~= nil and front:bundleID() == hs.processInfo.bundleID
+            end
             ms._menuOpen     = false
             ms._menuVisible  = false
             ms._menuFnFired  = false
@@ -554,12 +558,7 @@
             end
             notice = 0
             loadfinish = 0
-            REF_W = REF_W or 1680
-            REF_H = REF_H or 1044
             REF_SENS = REF_SENS or 1.5
-            ms._refW       = ms._refW or REF_W
-            ms._refH       = ms._refH or REF_H
-            if ms._refScaling == nil then ms._refScaling = true end
             Move        = "Move"
             Click       = "Click"
             DoubleClick = "DoubleClick"
@@ -1865,13 +1864,11 @@
                 assert(BTNS[button] ~= nil, "ms.Mouse: unknown button '"      .. tostring(button)     .. "'")
                 assert(REFS[reference],    "ms.Mouse: unknown reference '"   .. tostring(reference)  .. "'")
 
-                local unscaled, x1, y1, x2, y2
+                local x1, y1, x2, y2
                 local _a, _b, _c, _d, _e = ...
                 if type(_a) == "boolean" then
-                    unscaled        = _a
                     x1, y1, x2, y2 = _b, _c, _d, _e
                 else
-                    unscaled        = false
                     x1, y1, x2, y2 = _a, _b, _c, _d
                 end
 
@@ -1897,7 +1894,7 @@
 
                 local btn  = BTNS[button]
 
-                local function resolve(x, y) return ms.resolvePoint(x, y, reference, unscaled) end
+                local function resolve(x, y) return ms.resolvePoint(x, y, reference) end
 
                 local ax1, ay1 = resolve(x1, y1)
                 local ax2, ay2
@@ -2246,65 +2243,36 @@
                 return f.x + (f.w / 2), f.y + (f.h / 2)
             end
 
-            ms.setReferenceResolution = function(w, h)
-                if type(w) == "number" and w > 0 then ms._refW = w
-                REF_W = w end
-                if type(h) == "number" and h > 0 then ms._refH = h
-                REF_H = h end
-                if ms.dev and ms.dev.pushRefDims then
-                    pcall(ms.dev.pushRefDims)
-                end
-            end
-
-            ms.setReferenceScaling = function(on)
-                ms._refScaling = (on ~= false)
-            end
-
             ms.getScaled = function(targetX, targetY)
-                local RW, RH = ms._refW or REF_W, ms._refH or REF_H
                 local win = ms.getTargetWin() or hs.window.focusedWindow()
-                if not win then
-                    if ms._refScaling == false then return targetX, targetY end
-                    local screen = hs.screen.mainScreen():frame()
-                    return targetX * (screen.w / RW), targetY * (screen.h / RH)
-                end
+                if not win then return targetX, targetY end
                 local f = win:frame()
-                if ms._refScaling == false then return f.x + targetX, f.y + targetY end
-                local finalX = f.x + (targetX * (f.w / RW))
-                local finalY = f.y + (targetY * (f.h / RH))
-                return finalX, finalY
+                return f.x + targetX, f.y + targetY
             end
 
-            ms.resolvePoint = function(x, y, reference, unscaled)
+            ms.resolvePoint = function(x, y, reference)
                 local win = ms.getTargetWin() or hs.window.focusedWindow()
                 local f   = win and win:frame()
                 local s   = hs.screen.mainScreen():frame()
-                local RW, RH = ms._refW or REF_W, ms._refH or REF_H
-                local scaled = (ms._refScaling ~= false) and not unscaled
                 if     reference == "Absolute"     then return x, y
                 elseif reference == "Mouse"        then
                     local p = hs.mouse.absolutePosition()
                     return p.x + x, p.y + y
                 elseif reference == "WindowTL"     then
                     if not f then return x, y end
-                    if not scaled then return f.x + x,         f.y + y         end
-                    return f.x + (x * f.w / RW), f.y + (y * f.h / RH)
+                    return f.x + x,         f.y + y
                 elseif reference == "WindowTR"     then
                     if not f then return x, y end
-                    if not scaled then return f.x + f.w + x,   f.y + y         end
-                    return f.x + f.w + (x * f.w / RW), f.y + (y * f.h / RH)
+                    return f.x + f.w + x,   f.y + y
                 elseif reference == "WindowBL"     then
                     if not f then return x, y end
-                    if not scaled then return f.x + x,         f.y + f.h + y   end
-                    return f.x + (x * f.w / RW), f.y + f.h + (y * f.h / RH)
+                    return f.x + x,         f.y + f.h + y
                 elseif reference == "WindowBR"     then
                     if not f then return x, y end
-                    if not scaled then return f.x + f.w + x,   f.y + f.h + y   end
-                    return f.x + f.w + (x * f.w / RW), f.y + f.h + (y * f.h / RH)
+                    return f.x + f.w + x,   f.y + f.h + y
                 elseif reference == "WindowCenter" then
                     if not f then return x, y end
-                    if not scaled then return f.x + f.w/2 + x, f.y + f.h/2 + y end
-                    return f.x + f.w/2 + (x * f.w / RW), f.y + f.h/2 + (y * f.h / RH)
+                    return f.x + f.w/2 + x, f.y + f.h/2 + y
                 elseif reference == "ScreenTL"     then return s.x + x,         s.y + y
                 elseif reference == "ScreenTR"     then return s.x + s.w + x,   s.y + y
                 elseif reference == "ScreenBL"     then return s.x + x,         s.y + s.h + y
@@ -2330,10 +2298,6 @@
                         string.format("Full Screen: %s", tostring(win:isFullScreen())),
                         "-------------------------",
                         string.format("Monitor Size: %.0f x %.0f", screen.w, screen.h),
-                        string.format("Reference Target: %d x %d (scaling %s)",
-                            ms._refW or REF_W or 1680, ms._refH or REF_H or 1044,
-                            (ms._refScaling ~= false) and "on" or "off"),
-                        "-------------------------",
                         string.format("Aspect Ratio: %.2f", currentRatio),
                         string.format("Camera Sensitivity: %.2f", currentSens),
                         "-------------------------"
@@ -2606,8 +2570,9 @@
                                 _hotkeyDownAt[id] = hs.timer.secondsSinceEpoch()
                                 hs.timer.doAfter(0, onDown)
                             end
+                            return ms._swallowHotkeys and true or false
                         end
-                        return ms._swallowHotkeys and true or false
+                        return false
                     end
                     if type == hs.eventtap.event.types.keyUp then
                         if kc == keyCode then
@@ -3596,9 +3561,7 @@
                 local pos = hs.mouse.absolutePosition()
                 if not win then return pos.x, pos.y end
                 local f = win:frame()
-                local relX = (pos.x - f.x) * (REF_W / f.w)
-                local relY = (pos.y - f.y) * (REF_H / f.h)
-                return relX, relY
+                return pos.x - f.x, pos.y - f.y
             end
 
             -- Read one screen pixel
@@ -4356,6 +4319,7 @@
                     local ungated = ms.systemBinds._defs[id] and ms.systemBinds._defs[id].ungated
                     local function fire()
                         if not ungated and not ms._targetActive and not ms._isSafeZone() then return end
+                        if c.type == "key" and not ungated and ms._ownUiFocused() then return end
                         local co = coroutine.create(action)
                         local ok, err = coroutine.resume(co)
                         if not ok then print("ms.systemBind error: " .. tostring(err)) end

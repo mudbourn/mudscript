@@ -807,10 +807,6 @@
             }
 
             // -- Coordinate-mode dropdown --
-            var _refDims = { w: 1680, h: 1044 };
-            function refLabel() {
-                return "REF " + _refDims.w + "×" + _refDims.h;
-            }
             function coordOptions() {
                 return [
                     { value: "screen",       label: "Screen" },
@@ -819,7 +815,6 @@
                     { value: "windowBL",     label: "Window BL" },
                     { value: "windowBR",     label: "Window BR" },
                     { value: "windowCenter", label: "Window Center" },
-                    { value: "ref",          label: refLabel() },
                     { value: "screenCenter", label: "Screen center" },
                 ];
             }
@@ -829,15 +824,6 @@
                 onChange: onCoordModeChange,
             });
             document.getElementById("coord-select-mount").appendChild(coordSelect);
-
-            function setRefDims(body) {
-                if (!body) return;
-                var w = parseInt(body.w, 10), h = parseInt(body.h, 10);
-                if (w > 0) _refDims.w = w;
-                if (h > 0) _refDims.h = h;
-                coordSelect.setOptions(coordOptions());
-            }
-            window.setRefDims = setRefDims;
 
             // -- Expose for Lua evaluateJavaScript --
             window.appendEntry      = appendEntry;
@@ -854,7 +840,6 @@
                         else if (action === "loadHistory" && body) window.loadHistory(body);
                         else if (action === "updateActiveKeys" && body) window.updateActiveKeys(body);
                         else if (action === "updateMouseState" && body) window.updateMouseState(body);
-                        else if (action === "setRefDims" && body) window.setRefDims(body);
                     });
                 }
                 if (window.shellPost) {

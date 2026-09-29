@@ -190,7 +190,6 @@
                     { name: "operation", type: "enum", options: MOUSE_OPS,  label: "Operation", required: true },
                     { name: "button",    type: "enum", options: MOUSE_BTNS, label: "Button",    required: true },
                     { name: "reference", type: "enum", options: MOUSE_REFS, label: "Reference", required: true },
-                    { name: "unscaled",  type: "boolean", label: "Unscaled (bypass scaling)", required: false },
                     { name: "x1",        type: "number",  label: "X1",                          required: true },
                     { name: "y1",        type: "number",  label: "Y1",                          required: true },
                     { name: "x2",        type: "number",  label: "X2",                          required: false },

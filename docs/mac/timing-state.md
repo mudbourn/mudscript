@@ -233,7 +233,7 @@ end
 
 ### `ms.mousePos()`
 
-Returns the cursor position in 1680x1044 reference-space coordinates relative to the Roblox window. Returns raw screen coordinates if Roblox is not found.
+Returns the cursor position in pixels relative to the target window. Returns raw screen coordinates if no window is found.
 
 ```lua
 local x, y = ms.mousePos()
@@ -256,7 +256,7 @@ Returns `(x, y)` screen coordinates of the center of the Roblox window (falls ba
 
 ### `ms.getScaled(targetX, targetY)`
 
-Converts a 1680x1044 reference-space coordinate to absolute screen pixels, accounting for the actual Roblox window size and position.
+Converts a pixel offset from the target window top-left to absolute screen pixels.
 
 ```lua
 local sx, sy = ms.getScaled(900, 660)

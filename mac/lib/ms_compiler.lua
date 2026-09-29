@@ -258,9 +258,6 @@
                 parts[#parts + 1] = serialize(p.operation or "Click")
                 parts[#parts + 1] = serialize(p.button or "Left")
                 parts[#parts + 1] = serialize(p.reference or "Mouse")
-                if p.unscaled == true then
-                    parts[#parts + 1] = "true"
-                end
                 local x1 = p.x1 ~= nil and p.x1 or p.x
                 local y1 = p.y1 ~= nil and p.y1 or p.y
                 parts[#parts + 1] = numArg(x1, 0)

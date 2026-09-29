@@ -52,7 +52,7 @@
   },
   "mac/lib/ms_devtools.lua": {
     "comment": 21,
-    "file-length": 2599,
+    "file-length": 2582,
     "marker-blank-after-open": 1,
     "marker-unclosed": 1
   },
@@ -123,7 +123,7 @@
   },
   "mac/ms_core.lua": {
     "comment": 93,
-    "file-length": 7037,
+    "file-length": 7001,
     "lua-inline-table": 31,
     "marker-blank-after-open": 2,
     "marker-blank-before-end": 5,
@@ -181,16 +181,16 @@
     "non-ascii": 2
   },
   "ui/modules/panel-keys.js": {
-    "comment": 28,
-    "non-ascii": 5
+    "comment": 19,
+    "non-ascii": 4
   },
   "ui/modules/panel-macros.js": {
     "comment": 286,
-    "file-length": 5081,
+    "file-length": 5080,
     "non-ascii": 10
   },
   "ui/modules/panel-settings.js": {
-    "comment": 35,
+    "comment": 34,
     "file-length": 3291,
     "non-ascii": 5
   },
@@ -235,7 +235,7 @@
   "ui/ms_keys.html": {
     "comment": 29,
     "marker-unclosed": 2,
-    "non-ascii": 6
+    "non-ascii": 5
   },
   "ui/ms_loading.html": {
     "comment": 41,
@@ -249,7 +249,7 @@
     "comment": 61,
     "file-length": 2503,
     "marker-unclosed": 20,
-    "non-ascii": 4
+    "non-ascii": 3
   },
   "ui/ms_watcher.html": {
     "comment": 19,

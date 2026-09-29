@@ -223,7 +223,6 @@ A 360x640 floating panel with three sections:
   |--------|--------|
   | Screen | Absolute screen pixels |
   | Window | Pixels from the Roblox window's top-left corner |
-  | REF 1680x1044 | Scaled into the 1680x1044 reference space used by `ms.Mouse(WindowTL, ...)` |
   | Screen center | Offset from the screen centre (negative = left/up) |
 
 Mouse button events are logged regardless of whether macros are enabled (`BindValidity`), so the monitor works even when macros are off.

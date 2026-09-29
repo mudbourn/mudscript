@@ -533,7 +533,7 @@
                     step: String(step || 1),
                 });
                 slider.value = val;
-                const decimals = step && step < 1 ? 2 : 0;
+                const decimals = (String(step || 1).split(".")[1] || "").length;
                 slider.addEventListener("input", () => {
                     numInput.value = parseFloat(slider.value).toFixed(decimals);
                 });
@@ -541,10 +541,9 @@
                     onChange(parseFloat(slider.value)),
                 );
                 numInput.addEventListener("change", () => {
-                    const v = Math.max(
-                        min,
-                        Math.min(max, parseFloat(numInput.value) || min),
-                    );
+                    const raw = parseFloat(numInput.value);
+                    const v = Math.max(min, Math.min(max, isNaN(raw) ? min : raw));
+                    numInput.value = v;
                     slider.value = v;
                     onChange(v);
                 });
@@ -3251,8 +3250,9 @@
                 applyFont(t.font, t.fontURL);
             }
 
-            // receiveState
-            function receiveState(state) {
+            const receiveState = (window.msEditGuard || ((_, f) => f))("#scroll, #tools-scroll", applyState);
+
+            function applyState(state) {
                 S = state;
                 applyTheme(S.theme);
                 if (typeof applyZoom === "function" && S.uiZoom !== undefined) {

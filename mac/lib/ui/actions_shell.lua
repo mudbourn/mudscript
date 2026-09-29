@@ -68,7 +68,7 @@ return function(ms, ctx)
                     ms.macroMeta       = nil
                     ms._userSettingDefs  = {}
                     ms._userSettingIndex = {}
-                    ms._userSettingVals  = {}
+                    ms._stashUserSettings()
 
                     ms._defineOrigin = "pack"
                     local ok, runErr = xpcall(chunk, debug.traceback)

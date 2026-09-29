@@ -291,47 +291,17 @@
                 lp.sendToHost({ action: "clear" });
             }
 
-            // The reference resolution the "REF" coord mode scales against is
-            // configurable (ms.setReferenceResolution / the refWidth/refHeight
-            // pack settings), so its label can't be hardcoded. Lua pushes the
-            // live dims via setRefDims; until then, fall back to the built-in
-            // default so the dropdown reads sensibly before the first push.
-            var _refDims = { w: 1680, h: 1044 };
-
-            function refLabel() {
-                return 'REF ' + _refDims.w + 'x' + _refDims.h;
-            }
-
             function coordLabels() {
                 return {
                     screen: 'Screen', window: 'Window TL', windowTR: 'Window TR',
                     windowBL: 'Window BL', windowBR: 'Window BR',
-                    windowCenter: 'Window Center', ref: refLabel(),
+                    windowCenter: 'Window Center',
                     screenCenter: 'Screen center',
                 };
             }
 
-            // Push from Lua on panel-ready and whenever the ref resolution
-            // changes. Rewrites the dropdown item and, if REF is the active
-            // mode, the dropdown button so both reflect the real numbers.
-            function setRefDims(body) {
-                if (!body) return;
-                var w = parseInt(body.w, 10), h = parseInt(body.h, 10);
-                if (w > 0) _refDims.w = w;
-                if (h > 0) _refDims.h = h;
-                var item = document.querySelector('.coord-dd-item[data-value="ref"]');
-                if (item) item.textContent = refLabel();
-                var btn = document.getElementById('coord-dd-btn');
-                var active = document.querySelector('.coord-dd-item.active');
-                if (btn && active && active.dataset.value === 'ref') {
-                    btn.textContent = refLabel() + ' ▾';
-                }
-            }
-            window.setRefDims = setRefDims;
-
             function onCoordModeChange(mode) {
                 lp.sendToHost({ action: "setCoordMode", mode: mode });
-                // Update custom dropdown active state
                 var items = document.querySelectorAll('.coord-dd-item');
                 var labels = coordLabels();
                 items.forEach(function(el) {
@@ -354,7 +324,6 @@
                         else if (action === "loadHistory" && body) loadHistory(body);
                         else if (action === "updateActiveKeys" && body) updateActiveKeys(body);
                         else if (action === "updateMouseState" && body) updateMouseState(body);
-                        else if (action === "setRefDims" && body) setRefDims(body);
                     });
                 }
                 if (window.shellPost) {

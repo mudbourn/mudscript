@@ -157,7 +157,7 @@ ms.multiPress({"a", "b"}, 100, {"shift"}) -- Shift+A, Shift+B
 
 ## Mouse Actions
 
-### `ms.Mouse(operation, button, reference [, Unscaled,] x1, y1 [, x2, y2])`
+### `ms.Mouse(operation, button, reference, x1, y1 [, x2, y2])`
 
 Unified, named-constant mouse API. All arguments are validated at call time, typos error immediately.
 
@@ -194,16 +194,7 @@ Unified, named-constant mouse API. All arguments are validated at call time, typ
 | `ScreenBR` | Offset from screen bottom-right. |
 | `ScreenCenter` | Offset from screen center. |
 
-`Window*` references scale `(x, y)` through the 1680x1044 to actual window size transform by default. Pass the `Unscaled` flag to use raw pixel offsets instead (see below).
-
-#### `Unscaled` flag (optional, between reference and coordinates)
-
-Pass the global constant `Unscaled` between the reference and the first coordinate to treat `(x, y)` as raw pixel offsets from the reference origin rather than REF-space scaled values. Only affects `Window*` references, and ignored for `Absolute`, `Mouse`, and `Screen*`.
-
-```lua
-ms.Mouse(Click, Left, WindowTL, 900, 660)             -- REF-space (scaled to window)
-ms.Mouse(Click, Left, WindowTL, Unscaled, 445, 37)    -- raw pixels from window TL
-```
+Coordinates are raw pixel offsets from the reference origin. To fit a macro to your display, tune the positions with the Tools panel rather than scaling them.
 
 #### Examples
 
@@ -211,7 +202,7 @@ ms.Mouse(Click, Left, WindowTL, Unscaled, 445, 37)    -- raw pixels from window 
 ms.Mouse(Click,   Left,  WindowTL, 900, 660)
 ms.Mouse(Move,    Left,  Mouse,    0,   0)
 ms.Mouse(Drag,    Left,  Absolute, 100, 100, 300, 300)
-ms.Mouse(Press,   Left,  WindowTL, Unscaled, 467, 52)
+ms.Mouse(Press,   Left,  WindowTL, 467, 52)
 ms.Mouse(Release, Right, WindowCenter, 0, 0)
 ```
 
@@ -252,13 +243,12 @@ ms.scroll("right", 5)
 
 ---
 
-### `ms.resolvePoint(x, y, reference [, unscaled])`
+### `ms.resolvePoint(x, y, reference)`
 
 Converts `(x, y)` in the given reference space to absolute screen coordinates. Used internally by `ms.Mouse` and `ms.pixelColor`. Useful when you need the resolved position for other purposes.
 
 ```lua
-local ax, ay = ms.resolvePoint(900, 660, WindowTL)
-local ax, ay = ms.resolvePoint(445, 37,  WindowTL, true)   -- unscaled
+local ax, ay = ms.resolvePoint(445, 37, WindowTL)
 ```
 
 ### `ms.moveMouse(x, y, ref [, durationMs])`

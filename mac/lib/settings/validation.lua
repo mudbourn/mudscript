@@ -29,7 +29,14 @@ return function(ms, ctx)
                 if value == true or value == false then return value end
             elseif def.type == "slider" then
                 local n = tonumber(value)
-                if n then return math.max(def.min or 0, math.min(def.max or 100, n)) end
+                if not n or n ~= n then return nil end
+                local lo, hi = def.min or 0, def.max or 100
+                local step = tonumber(def.step)
+                if step and step > 0 then
+                    n = lo + math.floor((n - lo) / step + 0.5) * step
+                    n = tonumber(string.format("%.6g", n))
+                end
+                return math.max(lo, math.min(hi, n))
             elseif def.type == "seg" then
                 if type(def.options) == "table" then
                     for _, opt in ipairs(def.options) do
@@ -38,6 +45,33 @@ return function(ms, ctx)
                 end
             end
             return nil
+        end
+
+        ms._stashUserSettings = function()
+            ms._pendingUserSettings = ms._pendingUserSettings or {}
+            for k, v in pairs(ms._userSettingVals or {}) do
+                ms._pendingUserSettings[k] = v
+            end
+            ms._userSettingVals = {}
+        end
+
+        ms._adoptUserSetting = function(key, def)
+            local saved = ms._pendingUserSettings and ms._pendingUserSettings[key]
+            if saved ~= nil then
+                local validated = _validateUserValue(def, saved)
+                if validated ~= nil then
+                    ms._pendingUserSettings[key] = nil
+                    return validated
+                end
+            end
+            return def.default
+        end
+
+        local function _userSnapshot()
+            local out = {}
+            for k, v in pairs(ms._pendingUserSettings or {}) do out[k] = v end
+            for k, v in pairs(ms._userSettingVals or {}) do out[k] = v end
+            return out
         end
 
         ms._applySettings = function(data)
@@ -318,7 +352,7 @@ return function(ms, ctx)
                     settings = true,
                     ui       = true,
                 },
-                user             = ms._userSettingVals or {},
+                user             = _userSnapshot(),
                 systemBinds      = {},
                 macros = {},
             }
@@ -565,6 +599,7 @@ return function(ms, ctx)
 
             if ms._userSettingIndex then ms._userSettingIndex[key] = nil end
             if ms._userSettingVals  then ms._userSettingVals[key]  = nil end
+            if ms._pendingUserSettings then ms._pendingUserSettings[key] = nil end
             if ms._userSettingDefs then
                 for i = #ms._userSettingDefs, 1, -1 do
                     local d = ms._userSettingDefs[i]
@@ -998,8 +1033,7 @@ return function(ms, ctx)
             ms.macroMeta       = nil
             ms._userSettingDefs  = {}
             ms._userSettingIndex = {}
-            ms._userSettingVals  = {}
-            ms._pendingUserSettings = {}
+            ms._stashUserSettings()
 
             local macrosPath = os.getenv("HOME") .. "/.hammerspoon/ms_macros.lua"
             local af = io.open(macrosPath, "r")

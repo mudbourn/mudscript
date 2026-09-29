@@ -116,7 +116,11 @@
                             end
                             for _, k in ipairs(keys) do
                                 if ms._userSettingIndex then ms._userSettingIndex[k] = nil end
-                                if ms._userSettingVals  then ms._userSettingVals[k]  = nil end
+                                if ms._userSettingVals and ms._userSettingVals[k] ~= nil then
+                                    ms._pendingUserSettings = ms._pendingUserSettings or {}
+                                    ms._pendingUserSettings[k] = ms._userSettingVals[k]
+                                    ms._userSettingVals[k] = nil
+                                end
                             end
                         end)
                         return out
