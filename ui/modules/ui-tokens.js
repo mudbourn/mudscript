@@ -9,7 +9,7 @@
         "--danger-bg:#1c130f;--danger:#c0492e;--warning:#c4a030;" +
         "--text:#d4cfb6;--text2:rgba(212,207,182,0.85);--text3:rgba(212,207,182,0.55);" +
         "--border:rgba(141,184,78,0.30);--border-dim:rgba(141,184,78,0.14);" +
-        "--border-faint:rgba(141,184,78,0.07);" +
+        "--border-faint:color-mix(in srgb,var(--border-dim) 50%,transparent);" +
         "--accent-glow:rgba(107,140,58,0.4);--accent-glow-faint:rgba(107,140,58,0.12);" +
         "--danger-glow:rgba(192,73,46,0.6);--danger-border:rgba(192,73,46,0.3);" +
         "--recording:#dc3232;--recording-text:#ff6b6b;--recording-bg:rgba(220,50,50,0.2);" +

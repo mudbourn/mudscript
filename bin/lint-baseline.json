@@ -185,8 +185,8 @@
     "non-ascii": 5
   },
   "ui/modules/panel-macros.js": {
-    "comment": 287,
-    "file-length": 5115,
+    "comment": 286,
+    "file-length": 5081,
     "non-ascii": 10
   },
   "ui/modules/panel-settings.js": {
@@ -246,8 +246,8 @@
     "font-reset-missing": 1
   },
   "ui/ms_shell.html": {
-    "comment": 69,
-    "file-length": 2517,
+    "comment": 61,
+    "file-length": 2503,
     "marker-unclosed": 20,
     "non-ascii": 4
   },

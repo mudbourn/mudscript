@@ -627,9 +627,9 @@
         #modal-title { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
         #modal-msg { font-size: 12px; color: var(--text2); line-height: 1.5; white-space: pre-line; }
         #modal-keys { display: none; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; margin: 16px 0 4px; }
-        .modal-key { min-width: 20px; padding: 7px 11px; border-radius: var(--radius); background: var(--surface3); border: 1px solid var(--accent); border-bottom-width: 2px; box-shadow: 0 0 0 3px var(--accent-glow-faint), 0 2px 5px rgba(0,0,0,0.35); color: var(--accent-hi); font: 600 13px/1 var(--font-mono); text-align: center; }
+        .modal-key { min-width: 20px; padding: 7px 11px; border-radius: var(--radius); background: var(--surface3); border: 1px solid var(--accent); border-bottom-width: 2px; box-shadow: 0 0 0 3px var(--accent-glow-faint), 0 2px 5px rgba(0,0,0,0.35); color: var(--accent-hi); font: 600 13px/1 var(--font); text-align: center; }
         .modal-key.placeholder { background: var(--surface2); border-color: var(--border); border-bottom-width: 1px; color: var(--text3); box-shadow: none; letter-spacing: 3px; padding-left: 14px; }
-        .modal-key-plus { color: var(--text3); font: 600 12px/1 var(--font-mono); }
+        .modal-key-plus { color: var(--text3); font: 600 12px/1 var(--font); }
         #modal-input { margin-top: 10px; width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-s); padding: 7px 10px; font-size: 13px; color: var(--text); display: none; }
         #modal-input.show { display: block; }
         .modal-btns { display: flex; gap: 8px; margin-top: 16px; }
@@ -803,7 +803,7 @@
         .macro-test-toast.success-toast { border-color: var(--success-state); color: var(--success-text); }
         .macro-toolbar-spacer { flex: 1; }
         .macro-toolbar-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-shrink: 0; }
-        .macro-name-input { background: transparent; border: 1px solid transparent; border-radius: var(--radius); color: var(--text); font-size: 12px; font-weight: 700; padding: 3px 6px; outline: none; flex: 1 1 120px; min-width: 90px; max-width: 200px; font-family: inherit; user-select: text; -webkit-user-select: text; }
+        .macro-name-input { background: transparent; border: 1px solid transparent; border-radius: var(--radius); color: var(--text); font-size: 12px; font-weight: 700; padding: 3px 6px; outline: none; flex: 1 1 120px; min-width: 90px; font-family: inherit; user-select: text; -webkit-user-select: text; }
         .macro-name-input::placeholder { color: var(--text2); opacity: 0.55; }
         .macro-name-input:hover { border-color: var(--border-dim); }
         .macro-name-input:focus { border-color: var(--accent); background: var(--surface2); }
@@ -2139,7 +2139,7 @@
             r.setProperty('--surface3', theme.surface3);
         } else if (theme.surface2 && theme.hover) {
             var _hx = function(h) {
-                h = String(h).replace('#', '');
+                h = String(h).replace('#', '').replace(/^(.)(.)(.)$/, '$1$1$2$2$3$3').slice(0, 6);
                 if (h.length !== 6) return null;
                 var n = parseInt(h, 16);
                 if (isNaN(n)) return null;
@@ -2412,29 +2412,15 @@
     })();
     </script>
 
-    <!-- -- Panel: console -- -->
     <script src="./modules/panel-console.js"></script>
-
-    <!-- -- Panel: watcher -- -->
     <script src="./modules/panel-watcher.js"></script>
-
-    <!-- -- Panel: keys -- -->
     <script src="./modules/panel-keys.js"></script>
-
-    <!-- -- Panel: window -- -->
     <script src="./modules/panel-window.js"></script>
-
-    <!-- -- Panel: settings -- -->
     <script src="./modules/panel-settings.js"></script>
-
-    <!-- -- Panel: theme & sound -- -->
     <script src="./modules/panel-theme.js"></script>
-
-    <!-- -- Panel: plugins -- -->
     <script src="./modules/panel-plugins.js"></script>
     <script src="./modules/panel-browse.js"></script>
-
-    <!-- -- Panel: macros -- -->
+    <script src="./modules/ui-motion.js"></script>
     <script src="./modules/panel-macros.js"></script>
 
     <!-- -- Global themed tooltips -- -->

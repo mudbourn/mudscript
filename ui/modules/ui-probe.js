@@ -258,6 +258,7 @@
             var cs = getComputedStyle(el);
             var tag = el.tagName.toLowerCase();
             if (tag === "input" || tag === "textarea" || tag === "select") return;
+            if (el.closest("[aria-hidden='true']")) return;
             var overX = el.scrollWidth - el.clientWidth;
             var overY = el.scrollHeight - el.clientHeight;
             var flowOver = el.children.length ? inFlowRight(el) - el.getBoundingClientRect().right : overX;
@@ -270,6 +271,7 @@
         }
 
         function auditStack(el, push) {
+            if (el.closest("svg")) return;
             var kids = Array.prototype.slice.call(el.children).filter(shown);
             if (kids.length < 2 || kids.length > 6) return;
             var small = kids.every(function(k) {
@@ -526,7 +528,7 @@
                 for (var i = 0; i <= steps; i++) {
                     a.currentTime = total * i / steps;
                     var r = node.getBoundingClientRect();
-                    row.push(Math.round(100 * i / steps) + "%:" + r1(r.height) + "h/" + getComputedStyle(node).opacity);
+                    row.push(Math.round(100 * i / steps) + "%:" + r1(r.left) + "x," + r1(r.top) + "y " + r1(r.width) + "w " + r1(r.height) + "h/" + getComputedStyle(node).opacity);
                 }
                 a.play();
                 out.push("  " + label(node) + " " + name + " " + total + "ms  " + row.join("  "));

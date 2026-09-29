@@ -2078,41 +2078,6 @@
         }
     // END //
 
-    function _animateNest(el, collapse) {
-        if (el._nestAnim) el._nestAnim.cancel();
-        if (!collapse) el.classList.remove("collapsed");
-        var full = el.scrollHeight;
-        if (!el.animate || !full) {
-            el.classList.toggle("collapsed", collapse);
-            return;
-        }
-        el.style.overflow = "hidden";
-        var open = {
-            height: full + "px",
-            opacity: 1
-        };
-        var shut = {
-            height: "0px",
-            minHeight: "0px",
-            opacity: 0,
-            paddingTop: "0px",
-            paddingBottom: "0px"
-        };
-        var anim = el.animate(collapse ? [open, shut] : [shut, open], {
-            duration: 180,
-            easing: "ease"
-        });
-        el._nestAnim = anim;
-        var settle = function() {
-            if (el._nestAnim !== anim) return;
-            el._nestAnim = null;
-            el.style.overflow = "";
-            if (collapse) el.classList.add("collapsed");
-        };
-        anim.onfinish = settle;
-        setTimeout(settle, 230);
-    }
-
     function paramSummary(action, params) {
         if (!params) return "";
         var keys = Object.keys(params);
@@ -2567,7 +2532,7 @@
             var collapsed = tg.classList.toggle("collapsed");
             for (var ci = 0; ci < wrap.children.length; ci++) {
                 var child = wrap.children[ci];
-                if (child.classList.contains("tool-nest-body")) _animateNest(child, collapsed);
+                if (child.classList.contains("tool-nest-body")) window.msMotion ? msMotion.collapse(child, collapsed) : child.classList.toggle("collapsed", collapsed);
                 else if (child.classList.contains("tool-nest-label")) child.classList.toggle("collapsed", collapsed);
             }
         });
@@ -3106,7 +3071,6 @@
     var layout = document.createElement("div");
     layout.className = "macros-layout";
 
-    // Toolbar
     var toolbar = document.createElement("div");
     toolbar.className = "macro-toolbar";
 
@@ -3467,6 +3431,8 @@
 
     actions.appendChild(overflowWrap);
     toolbar.appendChild(actions);
+
+    if (window.msMotion) toolbar._glide = msMotion.glideOnWrap(toolbar);
 
     // Main area
     var mainArea = document.createElement("div");
