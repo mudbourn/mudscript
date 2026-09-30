@@ -123,7 +123,7 @@
   },
   "mac/ms_core.lua": {
     "comment": 93,
-    "file-length": 7000,
+    "file-length": 6998,
     "lua-inline-table": 31,
     "marker-blank-after-open": 2,
     "marker-blank-before-end": 5,

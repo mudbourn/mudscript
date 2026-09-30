@@ -1,7 +1,7 @@
 (function() {
     "use strict";
 
-        const { REGISTRY, MOD_LIST, BINDABLE } = window.msMacroRegistry;
+        const { REGISTRY, MOD_LIST, BINDABLE, enumDefault } = window.msMacroRegistry;
 
         var _selectedId  = null;
         var _paramValues = {};
@@ -680,13 +680,7 @@
         }
     // END Replace each tool //
 
-    // First option's value for an enum param //
-        function enumDefault(p) {
-            var o = (p.options || [])[0];
-            if (o == null) return "";
-            return (typeof o === "object") ? o.value : o;
-        }
-
+    // Param field rendering //
         function renderParamField(p) {
             var bindable = !!BINDABLE[p.type];
             var bound = bindable && !!_paramBind[p.name];
@@ -771,7 +765,7 @@
             html += '</div>';
             return html;
         }
-    // END First option's value for an enum param //
+    // END Param field rendering //
 
     // Wire up input events //
         function wireParamInputs(fn) {

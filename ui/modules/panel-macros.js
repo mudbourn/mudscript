@@ -3,6 +3,7 @@
 
     var _svgCache = window.msSvgCache;
     var _fetchSVG = window.msFetchSVG;
+    var enumDefault = window.msMacroRegistry.enumDefault;
 
     var _currentMacroId = null;
     var _currentMacroDef = null;

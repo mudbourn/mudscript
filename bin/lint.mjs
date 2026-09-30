@@ -56,6 +56,7 @@ import { fileURLToPath } from "node:url";
         "native-menu-exempt": "A contextmenu suppressor may only exempt .allow-native-menu.",
         "unthemed-scrollbar": "Scroll container has no themed scrollbar.",
         "css-line-comment": "// is not a CSS comment and drops the next rule.",
+        "undefined-call": "Calls a name this file never declares and no ui file makes global. Declare it, or share it on a window namespace.",
         "font-reset-missing": "Page lacks button, input, textarea, select { font: inherit } so controls fall back to the system font.",
     };
 // END Setup //
@@ -973,8 +974,102 @@ import { fileURLToPath } from "node:url";
     }
 // END UI Rules //
 
+// Undefined Call Rule //
+    const IDENT = "[A-Za-z_$][\\w$]*";
+
+    const KEYWORDS = new Set([
+        "if", "for", "while", "switch", "catch", "function", "return", "typeof", "new", "do",
+        "else", "void", "delete", "await", "yield", "in", "of", "instanceof", "super", "import", "async",
+    ]);
+
+    const BROWSER_GLOBALS = [
+        "window", "document", "navigator", "location", "history", "screen", "performance",
+        "alert", "confirm", "prompt", "getComputedStyle", "matchMedia", "requestAnimationFrame",
+        "cancelAnimationFrame", "requestIdleCallback", "cancelIdleCallback", "getSelection",
+        "Image", "Audio", "Option", "Node", "Element", "HTMLElement", "Event", "CustomEvent",
+        "KeyboardEvent", "MouseEvent", "PointerEvent", "MutationObserver", "ResizeObserver",
+        "IntersectionObserver", "DOMParser", "XMLSerializer", "FileReader", "Blob", "File",
+        "FormData", "Headers", "Request", "Response", "XMLHttpRequest", "localStorage",
+        "sessionStorage", "CSS", "FontFace", "DOMRect", "Range", "getEventListeners",
+    ];
+
+    const JS_GLOBALS = new Set([...Object.getOwnPropertyNames(globalThis), ...BROWSER_GLOBALS]);
+
+    function declaredNames(code) {
+        const names = new Set();
+
+        const addList = (list) => {
+            for (const part of list.split(",")) {
+                const m = part.replace(/=.*$/s, "").match(new RegExp("(" + IDENT + ")\\s*$"));
+
+                if (m) names.add(m[1]);
+            }
+        };
+
+        for (const m of code.matchAll(new RegExp("\\b(?:function|class)\\s*\\*?\\s*(" + IDENT + ")", "g"))) names.add(m[1]);
+
+        for (const m of code.matchAll(new RegExp("\\b(?:var|let|const)\\s+(" + IDENT + ")", "g"))) names.add(m[1]);
+
+        for (const m of code.matchAll(/\b(?:var|let|const)\s+[{[]([^}\]]*)[}\]]/g)) addList(m[1].replace(/[\w$]+\s*:/g, ""));
+
+        for (const m of code.matchAll(/\b(?:function\b[^(]*|catch\s*)\(([^)]*)\)/g)) addList(m[1].replace(/[{}[\]]/g, ""));
+
+        for (const m of code.matchAll(/\(([^()]*)\)\s*=>/g)) addList(m[1].replace(/[{}[\]]/g, ""));
+
+        for (const m of code.matchAll(new RegExp("(" + IDENT + ")\\s*=>", "g"))) names.add(m[1]);
+
+        for (const m of code.matchAll(new RegExp("^\\s*(?:(?:static|async|get|set)\\s+)*(" + IDENT + ")\\s*\\([^)]*\\)\\s*\\{", "gm"))) names.add(m[1]);
+
+        for (const m of code.matchAll(new RegExp("\\bimport\\s+(" + IDENT + ")", "g"))) names.add(m[1]);
+
+        for (const m of code.matchAll(/\bimport\s*\{([^}]*)\}/g)) addList(m[1].replace(/\w+\s+as\s+/g, ""));
+
+        return names;
+    }
+
+    function collectGlobals(uiFiles) {
+        const globals = new Set(JS_GLOBALS);
+
+        for (const rel of uiFiles) {
+            const src = readFileSync(join(ROOT, rel), "utf8");
+
+            for (const m of src.matchAll(new RegExp("\\bwindow\\.(" + IDENT + ")\\s*=(?!=)", "g"))) globals.add(m[1]);
+
+            const wrapped = /^\s*(?:"use strict";?\s*)?\(function\s*\(/.test(src.replace(/^(\s*\/\/.*\n)*/, ""));
+
+            if (/\.html$/.test(rel) || !wrapped) {
+                for (const name of declaredNames(src)) globals.add(name);
+            }
+        }
+
+        return globals;
+    }
+
+    function checkUndefinedCalls(ctx, globals) {
+        const { lines, scanned, report } = ctx;
+
+        const code = scanned.lines.map((l) => l.code).join("\n");
+
+        const local = declaredNames(code);
+
+        const call = new RegExp("(^|[^.\\w$])(" + IDENT + ")\\s*\\(", "g");
+
+        lines.forEach((_, n) => {
+            const text = scanned.lines[n].code;
+
+            for (const m of text.matchAll(call)) {
+                const name = m[2];
+
+                if (KEYWORDS.has(name) || local.has(name) || globals.has(name)) continue;
+
+                report("undefined-call", n, name);
+            }
+        });
+    }
+// END Undefined Call Rule //
+
 // Lint Runner //
-    function lintFile(rel, styled) {
+    function lintFile(rel, styled, globals) {
         const src = readFileSync(join(ROOT, rel), "utf8");
 
         const lang = LANGS[extname(rel)];
@@ -1013,6 +1108,8 @@ import { fileURLToPath } from "node:url";
 
             checkFontReset(ctx);
         }
+
+        if (/^ui\/modules\/[^/]+\.js$/.test(rel)) checkUndefinedCalls(ctx, globals);
 
         return found;
     }
@@ -1093,11 +1190,13 @@ import { fileURLToPath } from "node:url";
 
         const styled = collectScrollbarRules(uiFiles);
 
+        const globals = collectGlobals(uiFiles);
+
         const targets = pathArgs.length
             ? pathArgs.map((p) => p.replace(/^\.\//, "").replace(ROOT + "/", "")).filter(lintable)
             : everything;
 
-        const findings = targets.flatMap((rel) => lintFile(rel, styled));
+        const findings = targets.flatMap((rel) => lintFile(rel, styled, globals));
 
         const counts = tally(findings);
 

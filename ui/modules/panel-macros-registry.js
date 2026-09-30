@@ -764,9 +764,16 @@
         var BINDABLE = { number: true, string: true };
     // END Function Registry //
 
+        function enumDefault(p) {
+            var o = (p.options || [])[0];
+            if (o == null) return "";
+            return (typeof o === "object") ? o.value : o;
+        }
+
         window.msMacroRegistry = {
             REGISTRY,
             MOD_LIST,
             BINDABLE,
+            enumDefault,
         };
     })();
