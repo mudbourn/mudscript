@@ -853,11 +853,43 @@
 // END Picker //
 
 // Tool keyboard shortcuts //
+    function pasteNow(inside) {
+        if (!(inside && M.canvas.pasteInside())) M.canvas.pasteAfter();
+        M.macroDirty = true;
+        updateSaveBtnState();
+    }
+
+    function syncClipboard() {
+        if (window.shellPost) shellPost("macros", "readClipboard", {});
+    }
+
+    canvasContainer.addEventListener("mousedown", syncClipboard, true);
+
+    canvasContainer.addEventListener("contextmenu", syncClipboard, true);
+
     document.addEventListener("keydown", function(e) {
         if (!builderSection.classList.contains("active")) return;
+        var mod = e.metaKey || e.ctrlKey;
+        if (mod && !e.shiftKey && (e.key === "s" || e.key === "S")) {
+            e.preventDefault();
+            if (M.macroDirty && window.playSlot) playSlot("interact");
+            saveMacro();
+            return;
+        }
+        if (mod && !e.shiftKey && (e.key === "n" || e.key === "N")) {
+            e.preventDefault();
+            newBtn.click();
+            return;
+        }
+        if (mod && !e.shiftKey && (e.key === "f" || e.key === "F")) {
+            e.preventDefault();
+            if (window.playSlot) playSlot("interact");
+            openFnOverlay();
+            if (window.fnPicker && window.fnPicker.focusSearch) window.fnPicker.focusSearch();
+            return;
+        }
         var t = e.target;
         if (t && t.closest && t.closest("input, textarea, [contenteditable='true']")) return;
-        var mod = e.metaKey || e.ctrlKey;
         var hk = _history && window.msHistoryKey(e);
         if (hk) {
             e.preventDefault();
@@ -871,9 +903,14 @@
         }
         if (mod && (e.key === "v" || e.key === "V")) {
             e.preventDefault();
-            if (!(e.shiftKey && M.canvas.pasteInside())) M.canvas.pasteAfter();
-            M.macroDirty = true;
-            updateSaveBtnState();
+            if (window.shellPost) {
+                shellPost("macros", "readClipboard", {
+                    inside: e.shiftKey,
+                    paste: true,
+                });
+            } else {
+                pasteNow(e.shiftKey);
+            }
             return;
         }
         if (e.key === "Escape" && M.canvas.hasSelection()) {
@@ -1115,6 +1152,11 @@
             M.canvas.addTool(body);
             M.macroDirty = true;
             updateSaveBtnState();
+            return;
+        }
+        if (action === "clipboardText" && body) {
+            M.canvas.adoptClipboardText(body.text);
+            if (body.paste) pasteNow(body.inside);
             return;
         }
         if (action === "macroList" && Array.isArray(body)) {

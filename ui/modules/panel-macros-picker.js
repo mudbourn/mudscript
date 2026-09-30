@@ -38,6 +38,7 @@
                 var p = fn.params[i];
                 if (p.type !== "choice") continue;
                 if (p.source === "profiles") wantProfiles = true;
+                else if (p.source === "macros" && window.shellPost) shellPost("macros", "listBinds", {});
                 else if (p.source === "pack") {
                     ["macro", "theme", "sound"].forEach(function(k) { wantKinds[k] = true; });
                 }
@@ -928,7 +929,13 @@
                 seen[value] = true;
                 opts.push({ value: String(value), label: label });
             }
-            if (p.source === "profiles") {
+            if (p.source === "macros") {
+                add("", "All macros");
+                (window.msMacroCatalog || []).forEach(function(m) {
+                    add(m.id, m.label || m.id);
+                    (m.subs || []).forEach(function(sub) { add(sub.id, (sub.label || sub.id) + " (sub)"); });
+                });
+            } else if (p.source === "profiles") {
                 for (var i = 0; i < _profilesData.length; i++) {
                     var e = _profilesData[i];
                     add(e.name, e.active ? e.name + " (active)" : e.name);
@@ -1168,6 +1175,13 @@
         }
 
         window.fnPicker = {
+            refreshChoices: function() { refillChoiceSelects(); },
+            focusSearch: function() {
+                setTimeout(function() {
+                    searchInput.focus();
+                    searchInput.select();
+                }, 0);
+            },
             select: selectFunction,
             registry: REGISTRY,
             showToast: showToast,

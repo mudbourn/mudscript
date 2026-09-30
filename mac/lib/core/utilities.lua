@@ -460,31 +460,50 @@
             return s
         end
 
-        ms.cancelMacros = function()
-            for co, ctx in pairs(ms._coroContext) do
-                ctx.cancelled = true
-                if ms.dev then ms.devtools:stopTrace(co) end
-            end
+        ms.cancelMacros = function(target)
+            if target == "" then target = nil end
+            local label = target
+            local def = target and ms.registry and ms.registry._defs[target]
+            if def and def.label then label = def.label end
 
-            ms._activeContexts = {}
-            ms._coroContext     = {}
+            local self = coroutine.running()
+            local hit = {}
+            local selfHit = false
+            for co, ctx in pairs(ms._coroContext) do
+                local root = ctx.callStack and ctx.callStack[1]
+                if not target or root == target or root == label or root == "test:" .. target then
+                    ctx.cancelled = true
+                    if ctx.onCancel then pcall(ctx.onCancel) end
+                    hit[co] = true
+                    if co == self then selfHit = true end
+                    if ms.dev then ms.devtools:stopTrace(co) end
+                    ms._coroContext[co] = nil
+                    ms._activeContexts[ctx] = nil
+                end
+            end
 
             for keyCode, entry in pairs(ms._macroHeldKeys) do
-                local ev = hs.eventtap.event.newKeyEvent(entry.mods, keyCode, false)
-                ev:setProperty(hs.eventtap.event.properties.eventSourceUserData, 999)
-                ev:post()
+                if not target or hit[entry.owner] then
+                    local ev = hs.eventtap.event.newKeyEvent(entry.mods, keyCode, false)
+                    ev:setProperty(hs.eventtap.event.properties.eventSourceUserData, 999)
+                    ev:post()
+                    ms._macroHeldKeys[keyCode] = nil
+                end
             end
-            ms._macroHeldKeys = {}
 
             for btn, entry in pairs(ms._macroHeldButtons) do
-                local ev = hs.eventtap.event.newMouseEvent(entry.upT, entry.pos)
-                if btn >= 2 then
-                    ev:setProperty(hs.eventtap.event.properties.mouseEventButtonNumber, btn)
+                if not target or hit[entry.owner] then
+                    local ev = hs.eventtap.event.newMouseEvent(entry.upT, entry.pos)
+                    if btn >= 2 then
+                        ev:setProperty(hs.eventtap.event.properties.mouseEventButtonNumber, btn)
+                    end
+                    ev:setProperty(hs.eventtap.event.properties.eventSourceUserData, 999)
+                    ev:post()
+                    ms._macroHeldButtons[btn] = nil
                 end
-                ev:setProperty(hs.eventtap.event.properties.eventSourceUserData, 999)
-                ev:post()
             end
-            ms._macroHeldButtons = {}
+
+            if selfHit then coroutine.yield() end
         end
 
         ms._soundsDirty = true

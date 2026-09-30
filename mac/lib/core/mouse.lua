@@ -541,6 +541,7 @@
                 ms._macroHeldButtons[btn] = {
                     upT = upT,
                     pos = pos1,
+                    owner = coroutine.running(),
                 }
             elseif operation == "Release"     then
                 post(upT, pos1)

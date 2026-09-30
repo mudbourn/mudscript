@@ -107,6 +107,23 @@
                     _macroShellEval("if(window.macroLab)macroLab.setMeta(" .. json .. ")")
                 end)
 
+                ms.bus.on("ui:macros:clipboard", function(_, body)
+                    if type(body) == "table" and type(body.text) == "string" then
+                        pcall(function() hs.pasteboard.setContents(body.text) end)
+                    end
+                end)
+
+                ms.bus.on("ui:macros:readClipboard", function(_, body)
+                    local ok, json = pcall(hs.json.encode, {
+                        text = hs.pasteboard.getContents() or "",
+                        inside = type(body) == "table" and body.inside == true,
+                        paste = type(body) == "table" and body.paste == true,
+                    })
+                    if ok then
+                        _macroShellEval("if(window.shellReceive)shellReceive('macros','clipboardText'," .. json .. ")")
+                    end
+                end)
+
                 ms.bus.on("ui:macros:setMeta", function(_, body)
                     if type(body) ~= "table" then return end
                     local ok, err = pcall(ms.compiler.setMeta, {

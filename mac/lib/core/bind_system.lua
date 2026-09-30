@@ -905,8 +905,13 @@
         ms.fn.define("ms.cancelMacros", ms.cancelMacros, {
             label  = "Cancel Macros",
             group  = "control",
-            info   = "Cancel all running macros",
-            params = {},
+            info   = "Cancel one running macro, or all of them",
+            params = {
+                {
+                    name = "macro",
+                    type = "string",
+                },
+            },
             icon   = "stop",
         })
         ms.fn.define("ms.pause", ms.pause, {

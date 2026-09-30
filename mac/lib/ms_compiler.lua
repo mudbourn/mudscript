@@ -276,6 +276,9 @@
                 ["ms.setMacros"] = {
                     "state",
                 },
+                ["ms.cancelMacros"] = {
+                    "macro",
+                },
             }
 
             local function buildArgs(params, argOrder)
@@ -505,6 +508,8 @@
             -- Ongoing inter-step delay set by an action_delay step
             local _actionDelay = 0
 
+            local _loopDepth = 0
+
             local _CONTAINER = {
                 ["if"]     = true,
                 ["for"]    = true,
@@ -610,11 +615,13 @@
                 lines[#lines + 1] = indent(lvl) .. "local " .. fc .. " = 0"
                 lines[#lines + 1] = indent(lvl) .. "for " .. varName .. " = " .. forArgs .. " do"
                 lines[#lines + 1] = indent(lvl + 1) .. fc .. " = " .. fc .. " + 1"
+                _loopDepth = _loopDepth + 1
                 if step.body then
                     for _, s in ipairs(step.body) do
                         lines[#lines + 1] = emitStep(s, lvl + 1)
                     end
                 end
+                _loopDepth = _loopDepth - 1
                 lines[#lines + 1] = indent(lvl) .. "end"
                 lines[#lines + 1] = indent(lvl) .. "ms.log('for', '" .. varName .. "=" .. forArgs .. "', " .. fc .. ")"
                 return table.concat(lines, "\n")
@@ -628,11 +635,13 @@
                 lines[#lines + 1] = indent(lvl) .. "local " .. fc .. " = 0"
                 lines[#lines + 1] = indent(lvl) .. "while " .. cond .. " do"
                 lines[#lines + 1] = indent(lvl + 1) .. fc .. " = " .. fc .. " + 1"
+                _loopDepth = _loopDepth + 1
                 if step.body then
                     for _, s in ipairs(step.body) do
                         lines[#lines + 1] = emitStep(s, lvl + 1)
                     end
                 end
+                _loopDepth = _loopDepth - 1
                 if not hasWait(step.body) then lines[#lines + 1] = indent(lvl + 1) .. "ms.wait(0)" end
                 lines[#lines + 1] = indent(lvl) .. "end"
                 lines[#lines + 1] = indent(lvl) .. "ms.log('while', " .. string.format("%q", cond) .. ", " .. fc .. ")"
@@ -647,15 +656,22 @@
                 lines[#lines + 1] = indent(lvl) .. "local " .. fc .. " = 0"
                 lines[#lines + 1] = indent(lvl) .. "repeat"
                 lines[#lines + 1] = indent(lvl + 1) .. fc .. " = " .. fc .. " + 1"
+                _loopDepth = _loopDepth + 1
                 if step.body then
                     for _, s in ipairs(step.body) do
                         lines[#lines + 1] = emitStep(s, lvl + 1)
                     end
                 end
+                _loopDepth = _loopDepth - 1
                 if not hasWait(step.body) then lines[#lines + 1] = indent(lvl + 1) .. "ms.wait(0)" end
                 lines[#lines + 1] = indent(lvl) .. "until " .. cond
                 lines[#lines + 1] = indent(lvl) .. "ms.log('repeat', " .. string.format("%q", cond) .. ", " .. fc .. ")"
                 return table.concat(lines, "\n")
+            end
+
+            emitters["break"] = function(step, lvl)
+                if _loopDepth > 0 then return indent(lvl) .. "do break end" end
+                return indent(lvl) .. "do return end"
             end
 
             emitters["comment"] = function(step, lvl)
@@ -770,6 +786,7 @@
                 local tvDecl = tempVarDecl(steps)
                 if tvDecl then lines[#lines + 1] = tvDecl end
                 _actionDelay = 0
+                _loopDepth = 0
                 for _, step in ipairs(steps) do
                     lines[#lines + 1] = emitStep(step, 1)
                 end
@@ -828,6 +845,7 @@
                 local tvDecl = tempVarDecl(steps)
                 if tvDecl then lines[#lines + 1] = tvDecl end
                 _actionDelay = 0
+                _loopDepth = 0
                 for _, step in ipairs(steps) do
                     lines[#lines + 1] = emitStep(step, 1)
                 end
@@ -1173,6 +1191,7 @@
                     cancelled = false,
                     paused = false,
                     callStack = { "test:" .. (macroDef.id or "macro") },
+                    onCancel = function() done(true) end,
                 }
                 local co = coroutine.create(function()
                     local rok, rerr = xpcall(fn, debug.traceback)

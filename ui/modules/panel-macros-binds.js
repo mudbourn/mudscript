@@ -206,6 +206,8 @@
 
             function setBindList(list) {
                 M.bindList = Array.isArray(list) ? list : [];
+                window.msMacroCatalog = M.bindList;
+                if (window.fnPicker && window.fnPicker.refreshChoices) window.fnPicker.refreshChoices();
                 renderBindList();
                 if (window.msBindMenu) window.msBindMenu.refresh(M.bindList);
             }

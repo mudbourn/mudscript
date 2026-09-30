@@ -391,15 +391,20 @@ Enabling starts the camera engine. Disabling calls `ms.cancelMacros()`, clears `
 
 ---
 
-### `ms.cancelMacros()`
+### `ms.cancelMacros([macro])`
 
-Cancels all active `ms.fn` coroutines and releases any keys or mouse buttons currently held by macro presses. Called automatically on every `ms.setMacros(0)`.
+With no argument, cancels every running `ms.fn` coroutine and releases any keys or mouse buttons held by macro presses. Called automatically on every `ms.setMacros(0)`.
 
-Safe to call manually if you need to abort running macros without disabling the system.
+Pass a macro id or label to cancel only that macro. Only the keys and buttons that macro is holding are released, and other macros keep running. When a macro cancels itself it stops at that line.
 
 ```lua
 ms.cancelMacros()
+ms.cancelMacros("Auto_Farm")
 ```
+
+In the visual builder, the Cancel Macros module has a Macro dropdown. Leave it on All macros to cancel everything.
+
+The builder also has a Break module. Inside a loop it exits the innermost loop. Outside any loop it ends the macro.
 
 ---
 

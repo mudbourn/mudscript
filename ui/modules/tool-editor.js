@@ -765,7 +765,13 @@
                 seen[v] = true;
                 opts.push({ value: String(v), label: l });
             }
-            if (p.source === "profiles" && window.msProfilesClient) {
+            if (p.source === "macros") {
+                add("", "All macros");
+                (window.msMacroCatalog || []).forEach(function(m) {
+                    add(m.id, m.label || m.id);
+                    (m.subs || []).forEach(function(sub) { add(sub.id, (sub.label || sub.id) + " (sub)"); });
+                });
+            } else if (p.source === "profiles" && window.msProfilesClient) {
                 (window.msProfilesClient.get() || []).forEach(function(e) {
                     add(e.name, e.active ? e.name + " (active)" : e.name);
                 });

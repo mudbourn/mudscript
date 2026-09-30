@@ -283,7 +283,10 @@
                         _keyLog(msg)
                     end
                 end
-                ms._macroHeldKeys[keyCode] = { mods = mods or {} }
+                ms._macroHeldKeys[keyCode] = {
+                    mods = mods or {},
+                    owner = coroutine.running(),
+                }
                 local ev = hs.eventtap.event.newKeyEvent(mods or {}, keyCode, true)
                 ev:setProperty(hs.eventtap.event.properties.eventSourceUserData, 999)
                 ev:post()

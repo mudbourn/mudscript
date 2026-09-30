@@ -22,7 +22,7 @@
           "ms.wait":"timer","ms.copy":"clipboard","ms.paste":"clipboard",
           "ms.cam":"camera","ms.cam.rebalance":"camera","ms.cam.reset":"camera",
           "ms.Mouse":"click","ms.click":"click","ms.scroll":"scroll","ms.move":"move","ms.select":"select",
-          "ms.search":"search","ms.record":"record","ms.stop":"stop","ms.pause":"pause",
+          "ms.search":"search","ms.record":"record","ms.stop":"stop","break":"stop","ms.cancelMacros":"stop","ms.pause":"pause",
           "ms.play":"play","ms.save":"save","ms.load":"upload","ms.alert":"alert",
           "ms.refresh":"refresh","ms.pixelScan":"pixelscan","ms.window":"window",
           "ms.input":"inputs","ms.variable":"variable","ms.watch":"watcher",
@@ -108,7 +108,6 @@
 
     function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
 
-    var EMPTY_CLIP = "empty, click to paste";
     if (window.ICONS) window.ICONS["paste-in"] = '<path d="M15 10L20 15L15 20M4 4V11C4 13.2091 5.79086 15 8 15H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
 
 // ToolCanvas class //
@@ -657,7 +656,6 @@
     };
 
     ToolCanvas.prototype._renderNest = function(steps, branch, parent) {
-        var self = this;
         var body = document.createElement("div");
         body.className = "tool-nest-body";
         body.setAttribute("data-nest-parent", parent._sid);
@@ -666,11 +664,7 @@
         if (steps.length === 0) {
             var emp = document.createElement("div");
             emp.className = "tool-nest-body-empty";
-            emp.textContent = this._clipboard ? EMPTY_CLIP : "empty";
-            emp.addEventListener("click", function(e) {
-                e.stopPropagation();
-                if (self.pasteInto(parent._sid, branch) && window.playSlot) playSlot("interact");
-            });
+            emp.textContent = "empty";
             body.appendChild(emp);
         } else {
             for (var i=0;i<steps.length;i++) body.appendChild(this._renderTool(steps[i]));
@@ -1009,16 +1003,29 @@
 // END Drop a group into a container branch //
 
 // Clipboard //
-    ToolCanvas.prototype._setClipboard = function(steps) {
+    ToolCanvas.prototype._setClipboard = function(steps, fromSystem) {
         var clones = deepClone(steps);
         this._strip(clones);
-        try { navigator.clipboard.writeText(JSON.stringify(clones.length === 1 ? clones[0] : clones)); } catch(e) {}
+        if (!fromSystem) {
+            var text = JSON.stringify(clones.length === 1 ? clones[0] : clones);
+            if (window.shellPost) shellPost("macros", "clipboard", { text: text });
+            else try { navigator.clipboard.writeText(text); } catch(e) {}
+        }
         this._clipboard = clones;
         if (this._root) {
             this._root.classList.add("has-clip");
-            this._root.querySelectorAll(".tool-nest-body-empty").forEach(function(el) { el.textContent = EMPTY_CLIP; });
         }
         return true;
+    };
+    ToolCanvas.prototype.adoptClipboardText = function(text) {
+        if (typeof text !== "string" || !/^\s*[\[{]/.test(text)) return false;
+        var parsed;
+        try { parsed = JSON.parse(text); } catch (e) { return false; }
+        var list = Array.isArray(parsed) ? parsed : [parsed];
+        var valid = list.length > 0 && list.every(function(s) {
+            return s && typeof s === "object" && !Array.isArray(s) && typeof s.action === "string";
+        });
+        return valid ? this._setClipboard(list, true) : false;
     };
     ToolCanvas.prototype.copyStep = function(sid) {
         var step = sid ? this._map[sid] : null;

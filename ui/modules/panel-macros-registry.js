@@ -594,10 +594,12 @@
             {
                 id: "ms.cancelMacros",
                 name: "ms.cancelMacros",
-                sig: "ms.cancelMacros()",
-                desc: "Cancel all active macro coroutines.",
+                sig: "ms.cancelMacros(macro)",
+                desc: "Cancel a running macro. Leave Macro on All to cancel every running macro, including this one.",
                 category: "flow",
-                params: []
+                params: [
+                    { name: "macro", type: "choice", source: "macros", label: "Macro", required: false }
+                ]
             },
             {
                 id: "ms.pause",
@@ -687,6 +689,14 @@
                 params: [
                     { name: "condition", type: "condition", label: "Until", required: false }
                 ]
+            },
+            {
+                id: "break",
+                name: "break",
+                sig: "break",
+                desc: "Exit the innermost loop. Outside a loop, it ends the macro.",
+                category: "logic",
+                params: []
             },
             {
                 id: "var_set",
