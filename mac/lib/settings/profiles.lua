@@ -368,6 +368,9 @@ return function(ms, ctx)
                     pcall(ms.ui._actions.libraryList, { kind = k })
                 end
             end
+            if ms.shell and ms.shell.eval then
+                pcall(ms.shell.eval, "if(window.shellReceive)shellReceive('macros','profileSwitched',{})")
+            end
         end
 
         auditMacros = function(src)

@@ -1567,6 +1567,15 @@
             refreshBindList();
             return;
         }
+        if (action === "profileSwitched") {
+            loadMacro(null);
+            macroSelect.value = "";
+            refreshMacroList();
+            refreshBindList();
+            refreshToolList();
+            refreshMeta();
+            return;
+        }
         if (action === "saveError") {
             _macroDirty = true;
             updateSaveBtnState();

@@ -404,6 +404,15 @@
             el.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
         }
 
+        function setBlockCollapsed(want) {
+            var el = toolBlock(gpFocusEl);
+            var root = el && el.closest('.tool-canvas');
+            if (!root || !root.gpSetCollapsed) return false;
+            if (!root.gpSetCollapsed(el.getAttribute('data-sid'), want)) return false;
+            sound('interact');
+            return true;
+        }
+
         function startGrab() {
             var el = toolBlock(gpFocusEl);
             if (!el) return;
@@ -529,8 +538,8 @@
                 case 'tabNext': switchTab(1); break;
                 case 'itemUp': move('up'); break;
                 case 'itemDown': move('down'); break;
-                case 'itemLeft': if (!adjustRange(-1)) move('left'); break;
-                case 'itemRight': if (!adjustRange(1)) move('right'); break;
+                case 'itemLeft': if (!adjustRange(-1) && !setBlockCollapsed(true)) move('left'); break;
+                case 'itemRight': if (!adjustRange(1) && !setBlockCollapsed(false)) move('right'); break;
                 case 'activate': doActivate(); break;
                 case 'grab': startGrab(); break;
                 case 'grabDrop': doActivate(); break;

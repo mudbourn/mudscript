@@ -124,6 +124,7 @@
         this._selId    = null;
         this._dragId = null;
         this._dragGroup = null;
+        this._collapsed = {};
         this._root = document.createElement("div");
         this._root.className = "tool-canvas";
         this._el.appendChild(this._root);
@@ -131,23 +132,8 @@
         this._preloadIcons();
 
         var self = this;
-        this._root.gpReorderSelection = function(dir) {
-            var sel = self._selList();
-            if (!sel.length) return false;
-            var order = self._docOrder();
-            var selSet = {};
-            for (var s = 0; s < sel.length; s++) selSet[sel[s]] = true;
-            if (dir < 0) {
-                for (var i = order.indexOf(sel[0]) - 1; i >= 0; i--) {
-                    if (!selSet[order[i]]) { self.moveTools(sel, order[i], "above"); return true; }
-                }
-            } else {
-                for (var j = order.indexOf(sel[sel.length - 1]) + 1; j < order.length; j++) {
-                    if (!selSet[order[j]]) { self.moveTools(sel, order[j], "below"); return true; }
-                }
-            }
-            return false;
-        };
+        this._root.gpReorderSelection = function(dir) { return self.stepSelection(dir); };
+        this._root.gpSetCollapsed = function(sid, want) { return self.setCollapsed(sid, want); };
         this._root.gpDuplicateSelection = function() { return self.duplicateSelected(); };
         this._root.gpDeleteSelection = function() { return self.removeSelected(); };
 
@@ -320,6 +306,90 @@
         this._applySelectionClasses();
         this._emitSelection();
         this._fireChange();
+    };
+
+    ToolCanvas.prototype._locateEx = function(sid, list, parent, branch) {
+        list = list || this._tools;
+        for (var i = 0; i < list.length; i++) {
+            var s = list[i];
+            if (s._sid === sid) return { list: list, idx: i, parent: parent || null, branch: branch || null };
+            var r = (s.then && this._locateEx(sid, s.then, s, "then"))
+                 || (s.else && this._locateEx(sid, s.else, s, "else"))
+                 || (s.body && this._locateEx(sid, s.body, s, "body"));
+            if (r) return r;
+        }
+        return null;
+    };
+
+    ToolCanvas.prototype.stepSelection = function(dir) {
+        var self = this;
+        var sel = this._selList().filter(function(sid, _, all) {
+            for (var i = 0; i < all.length; i++) { if (all[i] !== sid && self._isDesc(all[i], sid)) return false; }
+            return !!self._map[sid];
+        });
+        if (!sel.length) return false;
+        var selSet = {};
+        sel.forEach(function(sid) { selSet[sid] = true; });
+        var loc = this._locateEx(dir < 0 ? sel[0] : sel[sel.length - 1]);
+        if (!loc) return false;
+
+        var dest = null, n = null, k;
+        if (dir > 0) {
+            for (k = loc.idx + 1; k < loc.list.length; k++) { if (!selSet[loc.list[k]._sid]) { n = loc.list[k]; break; } }
+            if (n && this._isContainer(n) && !this._collapsed[n._sid]) {
+                dest = { list: n.action === "if" ? (n.then || (n.then = [])) : (n.body || (n.body = [])), at: "start" };
+            } else if (n) {
+                dest = { list: loc.list, after: n };
+            } else if (loc.parent && loc.branch === "then") {
+                dest = { list: loc.parent.else || (loc.parent.else = []), at: "start" };
+            } else if (loc.parent) {
+                dest = { list: this._locateEx(loc.parent._sid).list, after: loc.parent };
+            }
+        } else {
+            for (k = loc.idx - 1; k >= 0; k--) { if (!selSet[loc.list[k]._sid]) { n = loc.list[k]; break; } }
+            if (n && this._isContainer(n) && !this._collapsed[n._sid]) {
+                dest = { list: n.action === "if" ? (n.else || (n.else = [])) : (n.body || (n.body = [])), at: "end" };
+            } else if (n) {
+                dest = { list: loc.list, before: n };
+            } else if (loc.parent && loc.branch === "else") {
+                dest = { list: loc.parent.then || (loc.parent.then = []), at: "end" };
+            } else if (loc.parent) {
+                dest = { list: this._locateEx(loc.parent._sid).list, before: loc.parent };
+            }
+        }
+        if (!dest) return false;
+
+        var steps = sel.map(function(sid) { return self._map[sid]; });
+        sel.forEach(function(sid) { self._removeFrom(self._tools, sid); });
+        var at = dest.at === "start" ? 0
+            : dest.at === "end" ? dest.list.length
+            : dest.after ? dest.list.indexOf(dest.after) + 1
+            : dest.list.indexOf(dest.before);
+        Array.prototype.splice.apply(dest.list, [at, 0].concat(steps));
+
+        this._setSelection(sel);
+        this._render();
+        this._applySelectionClasses();
+        this._emitSelection();
+        this._fireChange();
+        return true;
+    };
+
+    ToolCanvas.prototype.setCollapsed = function(sid, want) {
+        var step = this._map[sid];
+        if (!step || !this._isContainer(step) || !!this._collapsed[sid] === !!want) return false;
+        if (want) this._collapsed[sid] = true;
+        else delete this._collapsed[sid];
+        var wrap = this._root.querySelector('.tool-block-container[data-sid="' + sid + '"]');
+        if (!wrap) return true;
+        var tg = wrap.querySelector(":scope > .tool-block > .tool-nest-toggle");
+        if (tg) tg.classList.toggle("collapsed", !!want);
+        for (var ci = 0; ci < wrap.children.length; ci++) {
+            var child = wrap.children[ci];
+            if (child.classList.contains("tool-nest-body")) window.msMotion ? msMotion.collapse(child, !!want) : child.classList.toggle("collapsed", !!want);
+            else if (child.classList.contains("tool-nest-label")) child.classList.toggle("collapsed", !!want);
+        }
+        return true;
     };
 
     ToolCanvas.prototype.serialize = function() {
@@ -528,12 +598,7 @@
         tg.addEventListener("click", function(e) {
             e.stopPropagation();
             if (window.playSlot) playSlot("interact");
-            var collapsed = tg.classList.toggle("collapsed");
-            for (var ci = 0; ci < wrap.children.length; ci++) {
-                var child = wrap.children[ci];
-                if (child.classList.contains("tool-nest-body")) window.msMotion ? msMotion.collapse(child, collapsed) : child.classList.toggle("collapsed", collapsed);
-                else if (child.classList.contains("tool-nest-label")) child.classList.toggle("collapsed", collapsed);
-            }
+            self.setCollapsed(step._sid, !self._collapsed[step._sid]);
         });
         header.appendChild(tg);
 
@@ -580,6 +645,13 @@
             wrap.appendChild(this._renderNest(step.else||[], "else", step));
         } else {
             wrap.appendChild(this._renderNest(step.body||[], "body", step));
+        }
+        if (this._collapsed[step._sid]) {
+            tg.classList.add("collapsed");
+            for (var ci = 0; ci < wrap.children.length; ci++) {
+                var child = wrap.children[ci];
+                if (child.classList.contains("tool-nest-body") || child.classList.contains("tool-nest-label")) child.classList.add("collapsed");
+            }
         }
         return wrap;
     };
