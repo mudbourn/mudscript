@@ -1438,7 +1438,6 @@
             recordBtn.className = "macro-toolbar-btn recording";
             recordBtn.innerHTML = menuLabel("stop", "Stop");
             recordBtn.title = "Stop recording";
-            showTestToast("Recording, perform actions, then click Stop\u2026", null, "record");
         } else {
             recordBtn.className = "macro-toolbar-btn";
             recordBtn.innerHTML = menuLabel("record", "Record");
@@ -1447,13 +1446,16 @@
     }
 
     recordBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
+    var _recordFromPad = false;
     recordBtn.addEventListener("click", function() {
         if (window.playSlot) playSlot("interact");
         if (!_isRecording) {
+            _recordFromPad = recordBtn.classList.contains("gp-focus");
             if (window.shellPost) {
                 shellPost("macros", "startRecording", {
                     waitThreshold: _recOpts.waitThreshold,
-                    options: _recOpts
+                    options: _recOpts,
+                    hideShell: true
                 });
             }
             _setRecordingState(true);
@@ -1608,6 +1610,14 @@
                     if (!_testRunning) testBtn.className = "macro-toolbar-btn macro-icon-btn";
                 }, 5000);
             }
+            return;
+        }
+        if (action === "recordStopped") {
+            _setRecordingState(false);
+            showTestToast("Recording stopped", "success", "check");
+            overflowWrap.classList.add("open");
+            if (_recordFromPad && window.gpSetFocus) window.gpSetFocus(recordBtn);
+            _recordFromPad = false;
             return;
         }
         if (action === "recordStep" && body) {

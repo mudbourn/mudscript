@@ -484,6 +484,26 @@
                     { name: "button", type: "string", label: "Button (left/right/middle)", required: true }
                 ]
             },
+            {
+                id: "ms.padstate",
+                name: "ms.padstate",
+                sig: "ms.padstate(button)",
+                desc: "Check if a controller button is currently held.",
+                category: "state",
+                params: [
+                    { name: "button", type: "string", label: "Button (a/l2/r3/up...)", required: true }
+                ]
+            },
+            {
+                id: "ms.padaxis",
+                name: "ms.padaxis",
+                sig: "ms.padaxis(axis)",
+                desc: "Read a stick (x, y from -1 to 1) or trigger (0 to 1).",
+                category: "state",
+                params: [
+                    { name: "axis", type: "string", label: "Axis (left/right/l2/r2)", required: true }
+                ]
+            },
 
             {
                 id: "ms.sound",

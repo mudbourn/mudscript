@@ -176,16 +176,30 @@
                         tap = nil, winFilter = nil, lastTs = nil,
                         threshold = 50, opts = {}, drag = nil, winFrames = {},
                         move = nil, _inFlush = false, _resample = nil,
-                        _moveFlushTimer = nil,
+                        _moveFlushTimer = nil, _startTimer = nil,
+                        hidden = false, held = {},
                     }
                     ms._macroRecord = rec
+
+                    local HOLD_S = 0.4
+
+                    local function sendStep(json)
+                        _macroShellEval("if(window.shellReceive)shellReceive('macros','recordStep'," .. json .. ")")
+                    end
+
+                    local function sendOldest()
+                        local json = table.remove(rec.held, 1)
+                        if json then sendStep(json) end
+                    end
 
                     local function pushStep(action, params)
                         local json = hs.json.encode({
                             action = action,
                             params = params,
                         })
-                        _macroShellEval("if(window.shellReceive)shellReceive('macros','recordStep'," .. json .. ")")
+                        if not rec.hidden then return sendStep(json) end
+                        rec.held[#rec.held + 1] = json
+                        hs.timer.doAfter(HOLD_S, sendOldest)
                     end
 
                     local flushMoves
@@ -582,12 +596,19 @@
                             .. rec.threshold .. "ms, mode " .. mode .. ")")
                     end
 
-                    rec.stop = function()
+                    rec.stop = function(discardHeld)
+                        if rec._startTimer then
+                            rec._startTimer:stop()
+                            rec._startTimer = nil
+                        end
                         if rec._moveFlushTimer then
                             rec._moveFlushTimer:stop()
                             rec._moveFlushTimer = nil
                         end
                         flushMoves()
+                        if discardHeld then rec.held = {} end
+                        while #rec.held > 0 do sendOldest() end
+                        rec.hidden = false
                         if rec.tap then rec.tap:stop()
                         rec.tap = nil end
                         if rec.winFilter then
@@ -603,10 +624,28 @@
                     end
 
                     ms.bus.on("ui:macros:startRecording", function(_, body)
-                        rec.start(body and body.waitThreshold, body and body.options)
+                        body = body or {}
+                        if rec.tap or rec._startTimer then return end
+                        if not (body.hideShell and ms.shell and ms._shellState and ms._shellState.visible) then
+                            return rec.start(body.waitThreshold, body.options)
+                        end
+                        rec.hidden = true
+                        ms.shell.hide()
+                        local fadeMs = (ms._theme and ms._theme.fadeMs) or 250
+                        rec._startTimer = hs.timer.doAfter(fadeMs / 1000 + 0.2, function()
+                            rec._startTimer = nil
+                            rec.start(body.waitThreshold, body.options)
+                        end)
                     end)
                     ms.bus.on("ui:macros:stopRecording", function()
                         rec.stop()
+                    end)
+                    ms.bus.on("macroLab:toggled", function(_, body)
+                        if not (body and body.visible and rec.hidden) then return end
+                        rec.stop(true)
+                        hs.timer.doAfter(0.15, function()
+                            _macroShellEval("if(window.shellReceive)shellReceive('macros','recordStopped',{})")
+                        end)
                     end)
                 end
 

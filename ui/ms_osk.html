@@ -4,21 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>mudscript keyboard</title>
+    <script src="./modules/ui-tokens.js"></script>
     <style>
         button,
         input,
         textarea,
         select {
             font: inherit;
-        }
-
-        :root {
-            --bg: #111; --surface: #1c1c1c; --surface2: #262626; --hover: #333;
-            --accent: #e0245e; --accent-hi: #ff5b86;
-            --text: #fff; --text2: #cfcfcf; --text3: #888;
-            --border: #333; --border-dim: #2f2f2f;
-            --radius: 8px; --radius-s: 5px;
-            --font-mono: ui-monospace, monospace;
         }
 
         html, body {
@@ -189,25 +181,10 @@
         function applyTheme(t) {
             if (!t || typeof t !== "object") return;
             _maxNatural = 0;
-            var s = document.documentElement.style;
-            var map = {
-                bg: "--bg", surface: "--surface", surface2: "--surface2",
-                hover: "--hover", accent: "--accent", accentHi: "--accent-hi",
-                text: "--text", text2: "--text2", text3: "--text3",
-                border: "--border", borderDim: "--border-dim",
-            };
-            for (var k in map) { if (t[k]) s.setProperty(map[k], t[k]); }
-            if (t.radius !== undefined) {
-                s.setProperty("--radius", t.radius + "px");
-                s.setProperty("--radius-s", Math.max(0, t.radius - 1) + "px");
-            }
+            window.msTheme.apply(t);
             if (t.font) {
-                if (t.fontURL) {
-                    var el = document.getElementById("_ms-osk-font");
-                    if (!el) { el = document.createElement("style"); el.id = "_ms-osk-font"; document.head.appendChild(el); }
-                    el.textContent = '@font-face { font-family: "' + t.font + '"; src: url("' + t.fontURL + '"); }';
-                }
-                s.setProperty("--font-mono", '"' + t.font + '", ui-monospace, monospace');
+                document.documentElement.style.setProperty("--font-mono",
+                    '"' + t.font + '", ui-monospace, monospace');
             }
         }
 

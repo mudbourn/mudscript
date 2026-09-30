@@ -178,6 +178,7 @@
         -- Currently-held buttons and registered chord bindings
         ms._gamepadHeld = {}
         ms._gamepadBinds = {}
+        ms._gamepadAxes = {}
 
         -- Normalize a gamepad bind config to a list of button names
         ms.gpButtons = function(c)
@@ -238,6 +239,7 @@
             ms._gamepadCallbacks = {}
             ms._gamepadControllers = {}
             ms._gamepadHeld = {}
+            ms._gamepadAxes = {}
             ms._gamepadTask = hs.task.new(bin, function() end, function(task, stdOut, stdErr)
                 if not stdOut or stdOut == "" then return true end
                 -- Decode stdout line by line
@@ -294,7 +296,13 @@
                                 local navCb = ms._gamepadCallbacks._nav
                                 if navCb then pcall(navCb, "release", ev.b, ms._gamepadHeld) end
                             end
+                        elseif ev.e == "trigger" then
+                            ms._gamepadAxes[ev.b] = tonumber(ev.v) or 0
                         elseif ev.e == "move" then
+                            ms._gamepadAxes[ev.b] = {
+                                x = tonumber(ev.x) or 0,
+                                y = tonumber(ev.y) or 0,
+                            }
                             local navCb = ms._gamepadCallbacks._nav
                             if navCb then pcall(navCb, "move", ev.b, ev.x, ev.y) end
                         end
@@ -314,6 +322,7 @@
                 ms._gamepadControllers = {}
                 ms._gamepadHeld = {}
                 ms._gamepadBinds = {}
+                ms._gamepadAxes = {}
             end
         end
 
@@ -353,6 +362,47 @@
             }
         end
 
+        -- Live controller state --
+            local _PAD_ALIAS = {
+                lb = "l1", rb = "r1", lt = "l2", rt = "r2",
+                ls = "l3", rs = "r3",
+                cross = "a", circle = "b", square = "x", triangle = "y",
+                start = "menu", select = "options", back = "options",
+                view = "options", share = "options", create = "options",
+                dup = "up", ddown = "down", dleft = "left", dright = "right",
+            }
+
+            local function _padName(name)
+                local n = tostring(name):lower():gsub("^pad", "")
+                return _PAD_ALIAS[n] or n
+            end
+
+            local function _padEnsure()
+                if ms.gamepadEnabled and not ms._gamepadTask then ms.gamepadStart() end
+            end
+
+            ms.padstate = function(...)
+                _padEnsure()
+                for _, b in ipairs({ ... }) do
+                    if ms._gamepadHeld[_padName(b)] then return true end
+                end
+                return false
+            end
+
+            ms.padaxis = function(name)
+                _padEnsure()
+                local n = _padName(name or "left")
+                if n == "l3" then n = "left" elseif n == "r3" then n = "right" end
+                if n == "left" or n == "right" then
+                    local a = ms._gamepadAxes[n]
+                    if a then return a.x, a.y end
+                    return 0, 0
+                end
+                local v = ms._gamepadAxes[n]
+                if v then return v end
+                return ms._gamepadHeld[n] and 1 or 0
+            end
+        -- END Live controller state --
 
         ms.Mouse = function(operation, button, reference, ...)
             local OPS  = {

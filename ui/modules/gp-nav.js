@@ -77,11 +77,13 @@
             while (a) { if (canScroll(a)) { sc = a; break; } a = a.parentElement; }
             if (!sc) { try { el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {} return; }
             var pad = 8;
+            var group = el.closest && el.closest('.fn-cat');
+            var stuck = group && group.firstElementChild !== el ? group.firstElementChild.offsetHeight : 0;
             for (var i = 0; i < 24; i++) {
                 var er = el.getBoundingClientRect();
                 var cr = sc.getBoundingClientRect();
                 var delta = 0;
-                if (er.top < cr.top + pad) delta = er.top - (cr.top + pad);
+                if (er.top < cr.top + pad + stuck) delta = er.top - (cr.top + pad + stuck);
                 else if (er.bottom > cr.bottom - pad) delta = er.bottom - (cr.bottom - pad);
                 if (Math.abs(delta) < 1) break;
                 var before = sc.scrollTop;

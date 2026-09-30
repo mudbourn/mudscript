@@ -166,6 +166,53 @@ if ms.mousestate("back") then ms.type("z") end   -- thumb button to undo
 
 ---
 
+### `ms.padstate(button [, ...])`
+
+Returns `true` if any of the named controller buttons are currently held, mirroring `ms.keystate` for gamepads. Needs the controller toggle on in Settings. Buttons are named by position, so `a` is the bottom face button on every controller.
+
+```lua
+ms.padstate("r2")
+ms.padstate("l3", "l2")   -- true if either is held
+if ms.padstate("l3") and ms.padstate("l2") then ... end   -- both held
+```
+
+Names are case-insensitive, and a leading `pad` is ignored (`padL3` is `l3`):
+
+| Button | Names |
+|--------|-------|
+| Face | `a`, `b`, `x`, `y` (also `cross`, `circle`, `square`, `triangle`) |
+| Shoulders | `l1`, `r1` (also `lb`, `rb`) |
+| Triggers | `l2`, `r2` (also `lt`, `rt`) |
+| Stick clicks | `l3`, `r3` (also `ls`, `rs`) |
+| D-pad | `up`, `down`, `left`, `right` (also `dup`, `ddown`, `dleft`, `dright`) |
+| System | `menu` (`start`), `options` (`select`, `back`, `view`, `share`), `home` |
+
+A loop that polls controller state must yield (`ms.wait`) every pass. Controller events arrive on the same thread as macros, so a loop without a wait never sees the button release and never ends.
+
+```lua
+while ms.padstate("l3") and ms.padstate("l2") do
+    ms.type("f")
+    ms.wait(50)
+end
+```
+
+---
+
+### `ms.padaxis(axis)`
+
+Reads an analog input. A stick returns `x, y` from -1 to 1 (up is positive `y`, 0.05 deadzone). A trigger returns how far it is pulled, from 0 to 1.
+
+```lua
+local x, y = ms.padaxis("right")   -- right stick
+local x, y = ms.padaxis("left")    -- left stick (l3/ls also work)
+local pull = ms.padaxis("r2")      -- right trigger
+if pull > 0.5 then ... end
+```
+
+Note that `left`/`right` mean the sticks here and the d-pad in `ms.padstate`.
+
+---
+
 ### `ms.held(id)`
 
 Returns `true` only if **every** identifier modifier of the bind `id` is currently held, used to route a shared trigger among multiple binds that claim it. A bind with no identifier modifiers (the fallback bind) always returns `false`.

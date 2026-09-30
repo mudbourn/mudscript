@@ -49,6 +49,14 @@
                 if f then
                     local html = f:read("*all")
                     f:close()
+                    local tf = io.open(hs.configdir .. "/ui/modules/ui-tokens.js", "r")
+                    if tf then
+                        local tokens = tf:read("*all")
+                        tf:close()
+                        html = html:gsub('<script src="%./modules/ui%-tokens%.js"></script>', function()
+                            return "<script>" .. tokens .. "</script>"
+                        end, 1)
+                    end
                     _oskView:html(html, baseURL)
                 end
 
@@ -90,6 +98,7 @@
                     })
                 end)
 
+                _oskTheme()
                 pcall(function()
                     _oskView:evaluateJavaScript(
                         "if(window.OSK)OSK.show(" .. hs.json.encode(payload) .. ")")

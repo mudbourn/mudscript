@@ -663,6 +663,26 @@
             } },
             icon   = "inputs",
         })
+        ms.fn.define("ms.padstate", ms.padstate, {
+            label  = "Controller State",
+            group  = "sensing",
+            info   = "Check if a controller button is currently held (a, l2, r3, up...)",
+            params = { {
+                name = "button",
+                type = "string",
+            } },
+            icon   = "inputs",
+        })
+        ms.fn.define("ms.padaxis", ms.padaxis, {
+            label  = "Controller Axis",
+            group  = "sensing",
+            info   = "Read a stick (left/right -> x, y) or trigger (l2/r2 -> 0 to 1)",
+            params = { {
+                name = "axis",
+                type = "string",
+            } },
+            icon   = "inputs",
+        })
         ms.fn.define("ms.ocr", ms.ocr, {
             label  = "Read Text",
             group  = "sensing",

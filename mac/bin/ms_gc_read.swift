@@ -22,6 +22,7 @@ struct ButtonTracker {
     var menu = false; var options = false; var home = false
     var lx: Float = 0; var ly: Float = 0
     var rx: Float = 0; var ry: Float = 0
+    var lt: Float = 0; var rt: Float = 0
 
     subscript(key: String) -> Bool {
         get {
@@ -89,6 +90,7 @@ func setupController(_ controller: GCController) {
         if let opt = gamepad.buttonOptions { buttons.append((opt, "options")) }
         if let l3 = gamepad.leftThumbstickButton { buttons.append((l3, "l3")) }
         if let r3 = gamepad.rightThumbstickButton { buttons.append((r3, "r3")) }
+        if let home = gamepad.buttonHome { buttons.append((home, "home")) }
 
         for (btn, name) in buttons {
             let pressed = btn.isPressed
@@ -116,6 +118,17 @@ func setupController(_ controller: GCController) {
             let sy = abs(ry) < deadzone ? 0.0 : ry
             t.rx = rx; t.ry = ry
             emit(["e": "move", "b": "right", "x": sx, "y": sy, "c": ctype, "p": p])
+        }
+
+        let lt = gamepad.leftTrigger.value
+        let rt = gamepad.rightTrigger.value
+        if abs(lt - t.lt) > 0.01 || (lt == 0) != (t.lt == 0) {
+            t.lt = lt
+            emit(["e": "trigger", "b": "l2", "v": lt, "c": ctype, "p": p])
+        }
+        if abs(rt - t.rt) > 0.01 || (rt == 0) != (t.rt == 0) {
+            t.rt = rt
+            emit(["e": "trigger", "b": "r2", "v": rt, "c": ctype, "p": p])
         }
 
         trackers[id] = t

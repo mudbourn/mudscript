@@ -265,18 +265,21 @@
                     renderList(filter);
                 });
             }
-            entriesDiv.appendChild(head);
+            var group = document.createElement("div");
+            group.className = "fn-cat";
+            group.appendChild(head);
+            entriesDiv.appendChild(group);
 
             if (collapsed) return;
 
-            rows.forEach(function(t) { entriesDiv.appendChild(makeToolRow(t)); });
-            fns.forEach(function(f) { entriesDiv.appendChild(makeFnCallRow(f)); });
+            rows.forEach(function(t) { group.appendChild(makeToolRow(t)); });
+            fns.forEach(function(f) { group.appendChild(makeFnCallRow(f)); });
 
             if (emptyHint && rows.length === 0 && fns.length === 0) {
                 var hint = document.createElement("div");
                 hint.className = "fn-entry fn-tool-hint";
                 hint.innerHTML = '<span class="fn-entry-sig">No tools, add one in the Tools panel</span>';
-                entriesDiv.appendChild(hint);
+                group.appendChild(hint);
             }
         }
 
@@ -334,11 +337,14 @@
                         renderList(filter);
                     });
                 }
-                entriesDiv.appendChild(head);
+                var group = document.createElement("div");
+                group.className = "fn-cat";
+                group.appendChild(head);
+                entriesDiv.appendChild(group);
 
                 if (!collapsed) {
                     groups[cat].forEach(function(fn) {
-                        entriesDiv.appendChild(makeEntryRow(fn));
+                        group.appendChild(makeEntryRow(fn));
                     });
                 }
             });
