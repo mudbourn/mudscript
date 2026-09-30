@@ -1894,15 +1894,9 @@
 
                 local btn  = BTNS[button]
 
-                local function resolve(x, y) return ms.resolvePoint(x, y, reference) end
-
-                local ax1, ay1 = resolve(x1, y1)
-                local ax2, ay2
-                if x2 ~= nil and y2 ~= nil then
-                    ax2, ay2 = resolve(x2, y2)
-                else
-                    ax2, ay2 = ax1, ay1
-                end
+                local ax1, ay1 = ms.resolvePoint(x1, y1, reference)
+                local ax2, ay2 = ax1, ay1
+                if x2 ~= nil and y2 ~= nil then ax2, ay2 = ms.resolvePoint(x2, y2, reference) end
                 local pos1 = {
                     x = ax1,
                     y = ay1,
@@ -1927,7 +1921,10 @@
                     dragT = hs.eventtap.event.types.otherMouseDragged
                 end
 
+                local follow = reference == "Mouse" and (x1 or 0) == 0 and (y1 or 0) == 0 and x2 == nil
+
                 local function post(evType, pos)
+                    if follow then pos = hs.mouse.absolutePosition() end
                     local ev = hs.eventtap.event.newMouseEvent(evType, pos)
                     if btn >= 2 then
                         ev:setProperty(hs.eventtap.event.properties.mouseEventButtonNumber, btn)
@@ -1937,6 +1934,7 @@
                 end
 
                 local function moveTo(pos)
+                    if follow then return end
                     local mv = hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.mouseMoved, pos)
                     mv:setProperty(hs.eventtap.event.properties.eventSourceUserData, 999)
                     mv:post()
