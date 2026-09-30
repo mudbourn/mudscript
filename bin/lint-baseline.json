@@ -189,10 +189,14 @@
     "file-length": 5080,
     "non-ascii": 10
   },
+  "ui/modules/panel-settings-builder.js": {
+    "non-ascii": 2
+  },
+  "ui/modules/panel-settings-tools.js": {
+    "non-ascii": 1
+  },
   "ui/modules/panel-settings.js": {
-    "comment": 34,
-    "file-length": 3291,
-    "non-ascii": 5
+    "non-ascii": 2
   },
   "ui/modules/panel-theme.js": {
     "comment": 28,
@@ -247,7 +251,7 @@
   },
   "ui/ms_shell.html": {
     "comment": 61,
-    "file-length": 2503,
+    "file-length": 2506,
     "marker-unclosed": 20,
     "non-ascii": 3
   },
