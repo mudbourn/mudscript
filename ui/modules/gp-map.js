@@ -248,7 +248,7 @@
         headL.appendChild(heading);
         var close = el("button", "gp-map-close fn-picker-overlay-close");
         close.type = "button";
-        close.textContent = "✕";
+        close.innerHTML = icon("close");
         close.addEventListener("click", function() { window.closeGamepadMap(); });
         head.appendChild(headL);
         head.appendChild(close);

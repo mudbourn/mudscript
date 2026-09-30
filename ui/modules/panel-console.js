@@ -35,12 +35,14 @@
           msgEl.className = "msg";
 
           if (type === "key") {
-              const arrow = entry.down ? "↓" : "↑";
-              msgEl.textContent = arrow + " " + (entry.key || entry.msg || "") + " (" + (entry.keyCode ?? "") + ")";
+              const arrow = entry.down ? "arrow-down" : "arrow-up";
+              msgEl.innerHTML = icon(arrow, "icon-inline");
+              msgEl.append(" " + (entry.key || entry.msg || "") + " (" + (entry.keyCode ?? "") + ")");
           } else if (type === "mouse") {
-              const arrow = entry.down ? "↓" : "↑";
+              const arrow = entry.down ? "arrow-down" : "arrow-up";
               const pos = (entry.x != null && entry.y != null) ? "  " + entry.x + "," + entry.y : "";
-              msgEl.textContent = arrow + " mouse:" + (entry.button ?? "") + pos;
+              msgEl.innerHTML = icon(arrow, "icon-inline");
+              msgEl.append(" mouse:" + (entry.button ?? "") + pos);
           } else if (type === "sound" || type === "macro") {
               msgEl.textContent = String(entry.msg ?? "");
           } else if (type === "input") {

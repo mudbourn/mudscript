@@ -79,7 +79,7 @@
                         ms.dev.log({
                             type = "step",
                             category = "macro",
-                            msg = "[" .. label .. "] ▶",
+                            msg = "[" .. label .. "] start",
                         })
                     end
                     local xok, xerr = xpcall(fn, debug.traceback, ...)
@@ -87,7 +87,7 @@
                         ms.dev.log({
                             type = "step",
                             category = "macro",
-                            msg = "[" .. label .. "] ■",
+                            msg = "[" .. label .. "] stop",
                         })
                     end
                     if not xok then

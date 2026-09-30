@@ -5,7 +5,7 @@ name: Sign Registry
 # index whole, so nothing is served until this workflow runs and commits the
 # signature back.
 #
-# Every push validates. Only a manual dispatch signs — MS_SIGNING_KEY is the
+# Every push validates. Only a manual dispatch signs - MS_SIGNING_KEY is the
 # same RSA-2048 key Guardian verifies MANIFEST.json against, and an automatic
 # signature on push would let any merged edit publish itself.
 
@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # No explicit ref: the triggering one is what we want in all three cases —
+      # No explicit ref: the triggering one is what we want in all three cases:
       # the PR head for a pull_request (pinning main would validate the wrong
       # bytes), and the selected branch for a dispatch, which is what gets the
       # signature commit pushed back to it.
@@ -53,7 +53,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${MS_SIGNING_KEY:-}" ]; then
-            echo "ERROR: MS_SIGNING_KEY is not set — refusing to publish an unsigned index."
+            echo "ERROR: MS_SIGNING_KEY is not set - refusing to publish an unsigned index."
             exit 1
           fi
 

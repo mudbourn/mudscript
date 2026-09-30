@@ -279,7 +279,7 @@ Items inside `items` with a `key` are automatically reachable via `ms.settings.g
 
 ```lua
 ms.menu.define({
-    id = "combatOptions", title = "Combat Options", icon = "⚔",
+    id = "combatOptions", title = "Combat Options",
     items = {
         { type = "toggle",     key = "autoParry",   label = "Auto Parry",   default = false,
           onChange = function(v) end },

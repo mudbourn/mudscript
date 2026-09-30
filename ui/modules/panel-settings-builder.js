@@ -325,7 +325,7 @@
                                 },
                             }),
                         );
-                        const rm = actionBtn("✕", "", () => {
+                        const rm = actionBtn(iconNode("close"), "", () => {
                             draft.options.splice(i, 1);
                             host.innerHTML = "";
                             renderOptions(host);
@@ -467,7 +467,7 @@
                     rowEl.appendChild(edit);
                 }
 
-                const del = actionBtn("✕", "", async () => {
+                const del = actionBtn(iconNode("close"), "", async () => {
                     const what = it.type === "divider" ? "divider"
                         : it.type === "groupLabel" ? "label"
                         : ("\"" + (it.label || it.key) + "\"");

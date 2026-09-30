@@ -59,6 +59,10 @@
     multiply: '<path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
     copy: '<path d="M9 9V5.25C9 4.42157 9.67157 3.75 10.5 3.75H18.75C19.5784 3.75 20.25 4.42157 20.25 5.25V13.5C20.25 14.3284 19.5784 15 18.75 15H15M9 9H5.25C4.42157 9 3.75 9.67157 3.75 10.5V18.75C3.75 19.5784 4.42157 20.25 5.25 20.25H13.5C14.3284 20.25 15 19.5784 15 18.75V15M9 9H13.5C14.3284 9 15 9.67157 15 10.5V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
     paste: '<path d="M9 5H7C5.89543 5 5 5.89543 5 7V19C5 20.1046 5.89543 21 7 21H17C18.1046 21 19 20.1046 19 19V7C19 5.89543 18.1046 5 17 5H15M9 5C9 3.89543 9.89543 3 11 3H13C14.1046 3 15 3.89543 15 5M9 5C9 6.10457 9.89543 7 11 7H13C14.1046 7 15 6.10457 15 5M12 11V17M12 17L9.5 14.5M12 17L14.5 14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+    circle: '<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>',
+    menu: '<path d="M4 5h16M4 12h16M4 19h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+    plus: '<path d="M5 12h14M12 5v14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+    minus: '<path d="M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
     check: '<path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
     ellipsis: '<g stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></g>',
     };
@@ -66,7 +70,19 @@
     function icon(name, cls) {
         return '<svg class="' + (cls || 'icon') + '" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">' + (ICONS[name] || '') + '</svg>';
     }
+    function iconNode(name, cls) {
+        const t = document.createElement('template');
+        t.innerHTML = icon(name, cls);
+        return t.content.firstChild;
+    }
+    if (!document.getElementById('icons-css')) {
+        const s = document.createElement('style');
+        s.id = 'icons-css';
+        s.textContent = '.icon-inline { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; }';
+        (document.head || document.documentElement).appendChild(s);
+    }
     window.icon = icon;
+    window.iconNode = iconNode;
     window.ICONS = ICONS;
 // END Icon map //
 })();

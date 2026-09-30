@@ -26,8 +26,14 @@
     var SHIFT_SVG = KEY_SVG + '<path d="M9 19a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-6a1 1 0 0 1 1-1h3.293a.707.707 0 0 0 .5-1.207l-7.086-7.086a1 1 0 0 0-1.414 0l-7.086 7.086a.707.707 0 0 0 .5 1.207H8a1 1 0 0 1 1 1z"/></svg>';
     var BACK_SVG = KEY_SVG + '<path d="M10 5a2 2 0 0 0-1.344.519l-6.328 5.74a1 1 0 0 0 0 1.481l6.328 5.741A2 2 0 0 0 10 19h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z"/><path d="m12 9 6 6"/><path d="m18 9-6 6"/></svg>';
 
+    var ENTER_SVG = KEY_SVG + '<path d="M20 4v7a4 4 0 0 1-4 4H4"/><path d="m9 10-5 5 5 5"/></svg>';
+    var MENU_SVG = KEY_SVG + '<path d="M4 5h16M4 12h16M4 19h16"/></svg>';
+    var TRI_PATH = '<path d="M13.73 4a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/></svg>';
+    var PREV_SVG = KEY_SVG.replace('<svg', '<svg style="transform: rotate(-90deg)"') + TRI_PATH;
+    var NEXT_SVG = KEY_SVG.replace('<svg', '<svg style="transform: rotate(90deg)"') + TRI_PATH;
+
     var LABELS = { '{shift}': SHIFT_SVG, '{back}': BACK_SVG, '{space}': 'space',
-        '{enter}': '↵', '{done}': 'Done', '{sym}': '#+=', '{abc}': 'ABC' };
+        '{enter}': ENTER_SVG, '{done}': 'Done', '{sym}': '#+=', '{abc}': 'ABC' };
 
     var _symMode = false;
     function LAYOUT_() { return _symMode ? SYMBOLS : LETTERS; }
@@ -60,13 +66,13 @@
         triangle: PS_SVG + '<path d="M13.73 4a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/></svg>',
     };
     var GLYPHS = {
-        xbox:    { a: 'A', b: 'B', x: 'X', y: 'Y', menu: '☰', l1: 'LB', r1: 'RB', l2: 'LT', r2: 'RT' },
-        generic: { a: 'A', b: 'B', x: 'X', y: 'Y', menu: '☰', l1: 'LB', r1: 'RB', l2: 'LT', r2: 'RT' },
+        xbox:    { a: 'A', b: 'B', x: 'X', y: 'Y', menu: MENU_SVG, l1: 'LB', r1: 'RB', l2: 'LT', r2: 'RT' },
+        generic: { a: 'A', b: 'B', x: 'X', y: 'Y', menu: MENU_SVG, l1: 'LB', r1: 'RB', l2: 'LT', r2: 'RT' },
         ds4:     { a: PS.cross, b: PS.circle, x: PS.square, y: PS.triangle, menu: 'Options', l1: 'L1', r1: 'R1', l2: 'L2', r2: 'R2' },
         'switch': { a: 'B', b: 'A', x: 'Y', y: 'X', menu: '+', l1: 'L', r1: 'R', l2: 'ZL', r2: 'ZR' },
     };
     var HINTS = [['a', 'Select'], ['b', 'Close'], ['x', BACK_SVG], ['y', 'Space'],
-        ['l1', '◀'], ['r1', '▶'], ['l2', '#+='], ['r2', SHIFT_SVG], ['menu', 'Done']];
+        ['l1', PREV_SVG], ['r1', NEXT_SVG], ['l2', '#+='], ['r2', SHIFT_SVG], ['menu', 'Done']];
 
     function glyphSet() { return GLYPHS[window.__gpType] || GLYPHS.xbox; }
 

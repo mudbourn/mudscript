@@ -1,5 +1,5 @@
 {
-  "description": "Guardian include/exclude patterns — shared between CI (release.yml) and runtime (lib/ms_guardian.lua). Both sides walk the same include globs, skip the same excludes, and agree on the manifest format.",
+  "description": "Guardian include/exclude patterns, shared between CI (release.yml) and runtime (lib/ms_guardian.lua). Both sides walk the same include globs, skip the same excludes, and agree on the manifest format.",
   "include": [
     "mac/ms_core.lua",
     "mac/lib/**/*.lua",

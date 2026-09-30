@@ -86,10 +86,6 @@ return function(ms, ctx)
             -- END --
 
             -- Editors & Windows --
-                openWindowMonitor = function() if ms.dev and ms.dev.window then ms.dev.window.toggle() end end,
-
-                openConsole = function() hs.openConsole() end,
-
                 editMacros = function()
                     local path = os.getenv("HOME") .. "/.hammerspoon/ms_macros.lua"
 

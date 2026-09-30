@@ -163,7 +163,7 @@
 
             function showToolsFilterMenu(x, y) {
                 showCtxMenu(x, y, TOOL_FILTER_ORDER.map((key) => ({
-                    icon: window._toolsFilter === key ? "✓" : "",
+                    icon: window._toolsFilter === key ? "check" : "",
                     label: TOOL_FILTER_LABEL[key] || key,
                     action: () => setToolsFilter(key),
                 })), "Filter by origin");

@@ -51,11 +51,7 @@
 
           const arrow = doc.createElement("span");
           arrow.className = "macro-select-arrow";
-          if (window.ICONS && window.ICONS.chevdown && typeof window.icon === "function") {
-              arrow.innerHTML = window.icon("chevdown");
-          } else {
-              arrow.textContent = "▾";
-          }
+          arrow.innerHTML = window.icon("chevdown");
           root.appendChild(arrow);
 
           const menu = doc.createElement("div");

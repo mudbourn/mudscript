@@ -1,14 +1,7 @@
 {
-  "bin/ui-lint.mjs": {
-    "comment": 109,
-    "non-ascii": 42
-  },
   "docs/index.html": {
     "comment": 16,
     "marker-unclosed": 26
-  },
-  "docs/mac/system.md": {
-    "non-ascii": 1
   },
   "mac/bin/deploy.sh": {
     "comment": 33
@@ -58,8 +51,7 @@
     "comment": 9,
     "marker-indent": 1,
     "marker-label": 1,
-    "marker-orphan-end": 1,
-    "non-ascii": 2
+    "marker-orphan-end": 1
   },
   "mac/lib/core/mouse.lua": {
     "comment": 19,
@@ -77,8 +69,7 @@
     "lua-inline-table": 8,
     "marker-indent": 1,
     "marker-label": 1,
-    "marker-orphan-end": 1,
-    "non-ascii": 2
+    "marker-orphan-end": 1
   },
   "mac/lib/ms_alert.lua": {
     "comment": 5
@@ -186,68 +177,44 @@
     "semicolon": 5
   },
   "ui/modules/gp-map.js": {
-    "comment": 2,
-    "non-ascii": 1
+    "comment": 2
   },
   "ui/modules/gp-nav.js": {
     "comment": 66
   },
   "ui/modules/log-panel.js": {
     "comment": 37,
-    "marker-unclosed": 16,
-    "non-ascii": 4
+    "marker-unclosed": 16
   },
   "ui/modules/osk.js": {
-    "comment": 22,
-    "non-ascii": 4
+    "comment": 22
   },
   "ui/modules/panel-browse.js": {
     "comment": 9
   },
-  "ui/modules/panel-console.js": {
-    "non-ascii": 2
-  },
   "ui/modules/panel-keys.js": {
-    "comment": 19,
-    "non-ascii": 4
-  },
-  "ui/modules/panel-macros.js": {
-    "non-ascii": 1
-  },
-  "ui/modules/panel-settings-builder.js": {
-    "non-ascii": 2
-  },
-  "ui/modules/panel-settings-tools.js": {
-    "non-ascii": 1
+    "comment": 19
   },
   "ui/modules/panel-theme.js": {
-    "comment": 28,
-    "non-ascii": 7
-  },
-  "ui/modules/panel-watcher.js": {
-    "non-ascii": 1
+    "comment": 28
   },
   "ui/modules/tool-block.js": {
     "comment": 31,
-    "marker-orphan-end": 1,
-    "non-ascii": 6
+    "marker-orphan-end": 1
   },
   "ui/modules/tool-editor.js": {
     "comment": 11,
-    "marker-unclosed": 1,
-    "non-ascii": 3
+    "marker-unclosed": 1
   },
   "ui/modules/ui-glyphs.js": {
     "comment": 4
   },
   "ui/modules/ui-select.js": {
-    "comment": 12,
-    "non-ascii": 1
+    "comment": 12
   },
   "ui/ms_console.html": {
     "comment": 20,
-    "marker-unclosed": 3,
-    "non-ascii": 2
+    "marker-unclosed": 3
   },
   "ui/ms_curtain.html": {
     "comment": 30,
@@ -260,8 +227,7 @@
   },
   "ui/ms_keys.html": {
     "comment": 29,
-    "marker-unclosed": 2,
-    "non-ascii": 5
+    "marker-unclosed": 2
   },
   "ui/ms_loading.html": {
     "comment": 41,
@@ -273,12 +239,10 @@
   },
   "ui/ms_shell.html": {
     "comment": 9,
-    "marker-unclosed": 16,
-    "non-ascii": 2
+    "marker-unclosed": 16
   },
   "ui/ms_watcher.html": {
-    "comment": 19,
-    "non-ascii": 2
+    "comment": 19
   },
   "ui/ms_window.html": {
     "comment": 25,

@@ -53,6 +53,13 @@
                 return s;
             }
 
+            function mkIcon(cls, name) {
+                const s = document.createElement("span");
+                s.className = cls;
+                s.innerHTML = icon(name, "icon-inline");
+                return s;
+            }
+
             function buildRow(entry) {
                 const row = document.createElement("div");
                 const t = entry.type;
@@ -75,10 +82,10 @@
                 if (t === "key") {
                     row.append(
                         mkSpan("badge badge-key", "key"),
-                        mkSpan(
+                        mkIcon(
                             "arrow " +
                                 (entry.down ? "arrow-key" : "arrow-key-up"),
-                            entry.down ? "↓" : "↑",
+                            entry.down ? "arrow-down" : "arrow-up",
                         ),
                         mkSpan("key-name", entry.key || ""),
                         mkSpan("dim", " (" + (entry.keyCode ?? "?") + ")"),
@@ -86,10 +93,10 @@
                 } else if (t === "mouse") {
                     row.append(
                         mkSpan("badge badge-mouse", "mouse"),
-                        mkSpan(
+                        mkIcon(
                             "arrow " +
                                 (entry.down ? "arrow-mouse" : "arrow-up"),
-                            entry.down ? "↓" : "↑",
+                            entry.down ? "arrow-down" : "arrow-up",
                         ),
                         mkSpan("mouse-name", btnName(entry.button)),
                         mkSpan("dim", " (" + entry.button + ")"),
@@ -98,9 +105,9 @@
                 } else if (t === "scroll") {
                     row.append(
                         mkSpan("badge badge-scroll", "scroll"),
-                        mkSpan(
+                        mkIcon(
                             "arrow arrow-scroll",
-                            entry.direction === "up" ? "↑" : "↓",
+                            entry.direction === "up" ? "arrow-up" : "arrow-down",
                         ),
                         mkSpan(
                             "scroll-name",
@@ -308,7 +315,10 @@
                     el.classList.toggle('active', el.dataset.value === mode);
                 });
                 var btn = document.getElementById('coord-dd-btn');
-                if (btn) btn.textContent = (labels[mode] || mode) + ' ▾';
+                if (btn) {
+                    btn.textContent = (labels[mode] || mode) + ' ';
+                    btn.insertAdjacentHTML('beforeend', icon('chevdown', 'icon-inline'));
+                }
             }
 
             // -- Expose for Lua evaluateJavaScript --

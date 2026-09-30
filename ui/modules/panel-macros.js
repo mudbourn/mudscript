@@ -621,7 +621,7 @@
                 var menuBtn = kit.h("button", {
                     cls: "row-menu-btn", title: "macro pack actions",
                     onmouseenter: function() { if (window.playSlot) playSlot("hover"); },
-                }, "⋯");
+                }, iconNode("ellipsis"));
                 var openMenu = function(x, y) {
                     if (window.playSlot) playSlot("interact");
                     kit.showCtxMenu(x, y, macroMenuItems(e), e.name);

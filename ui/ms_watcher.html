@@ -3,6 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <script src="./modules/ui-tokens.js"></script>
+        <script src="./modules/icons.js"></script>
         <script src="./modules/ui-probe.js"></script>
         <style>
             button,
@@ -480,7 +481,7 @@
                 {
                     id: "keys",
                     label: "Key presses",
-                    regex: /\] [↓↑] |\] type /,
+                    regex: /\] (down|up) |\] type /,
                 },
                 { id: "mouse", label: "Mouse actions", regex: /\] Mouse / },
                 { id: "scroll", label: "Scrolls", regex: /\] scroll / },
@@ -635,7 +636,7 @@
 
                     const dot = document.createElement("span");
                     dot.className = "dot";
-                    dot.textContent = "●";
+                    dot.innerHTML = icon("dot", "icon-inline");
                     row.appendChild(dot);
 
                     const msg = document.createElement("span");

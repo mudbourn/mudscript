@@ -359,7 +359,7 @@ function createLogPanel(config) {
             if (/\] wait /.test(msg)) return 'wait';
             if (/\] sound /.test(msg)) return 'sound';
             if (/\] cam\.move/.test(msg)) return 'cam';
-            if (/\] [↓↑] |\] type /.test(msg)) return 'keys';
+            if (/\] (down|up) |\] type /.test(msg)) return 'keys';
             if (/\] Mouse /.test(msg)) return 'mouse';
             if (/\] scroll /.test(msg)) return 'scroll';
             if (/\] copy/.test(msg)) return 'copy';
@@ -374,15 +374,15 @@ function createLogPanel(config) {
     }
 
     function _isKeyDown(entry) {
-        return (entry.msg || '').includes('] ↓ ');
+        return (entry.msg || '').includes('] down ');
     }
 
     function _isKeyUp(entry) {
-        return (entry.msg || '').includes('] ↑ ');
+        return (entry.msg || '').includes('] up ');
     }
 
     function _holdKey(entry) {
-        const m = (entry.msg || '').match(/\] [↓↑]\s+(.+)$/);
+        const m = (entry.msg || '').match(/\] (?:down|up)\s+(.+)$/);
         return m ? m[1] : null;
     }
 

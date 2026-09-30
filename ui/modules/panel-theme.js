@@ -275,7 +275,7 @@
                 cls: "row-menu-btn",
                 title: LIB_NOUN[kind] + " actions",
                 onmouseenter: () => playSlot("hover"),
-            }, "⋯");
+            }, iconNode("ellipsis"));
             const openMenu = (x, y) => {
                 playSlot("interact");
                 showCtxMenu(x, y, libMenuItems(kind, e), e.name);
@@ -569,7 +569,7 @@
                 onmouseenter: () => { if (!locked) playSlot("hover"); },
             },
             display,
-            h("span", { cls: "arrow" }, "▾"),
+            h("span", { cls: "arrow" }, iconNode("chevdown")),
         );
         const list = h("div", { cls: "sound-list" });
         list._detach = () => detach();
@@ -609,7 +609,7 @@
                 const item = h(
                     "div",
                     { cls: "sound-opt" + (isSelected ? " selected" : "") },
-                    h("span", { cls: "check" }, isSelected ? "✓" : ""),
+                    h("span", { cls: "check" }, isSelected ? iconNode("check", "icon-inline") : null),
                     opt.name,
                 );
                 item.addEventListener("mouseenter", () => playSlot("hover"));
@@ -732,16 +732,14 @@
             },
         });
         b.disabled = !can;
-        const svg = typeof window.icon === "function" ? window.icon("close") : "";
-        if (svg && svg.indexOf("<path") !== -1) b.innerHTML = svg;
-        else b.textContent = "✕";
+        b.innerHTML = icon("close");
         return b;
     }
 
     function slotButtons(slotId, label) {
         const { h } = ui();
         const wrap = h("div", { cls: "slot-btns" });
-        const mk = (iconName, glyph, title, action, locked) => {
+        const mk = (iconName, title, action, locked) => {
             const b = h("button", {
                 cls: "slot-btn",
                 title: locked ? LOCK_HINT : title,
@@ -749,14 +747,12 @@
                 onclick: (e) => { e.stopPropagation(); if (locked) return; action(); },
             });
             b.disabled = !!locked;
-            const svg = typeof window.icon === "function" ? window.icon(iconName) : "";
-            if (svg && svg.indexOf("<path") !== -1) b.innerHTML = svg;
-            else b.textContent = glyph;
+            b.innerHTML = icon(iconName);
             return b;
         };
-        wrap.appendChild(mk("play", "▶", "Preview",
+        wrap.appendChild(mk("play", "Preview",
             () => sendToHost({ action: "playSlot", slot: slotId })));
-        wrap.appendChild(mk("download", "⤓", "Import a file for this slot",
+        wrap.appendChild(mk("download", "Import a file for this slot",
             () => sendToHost({ action: "importSoundForSlot", slot: slotId, label: label }),
             themeLocked()));
         wrap.appendChild(removeBtn((S.soundAssign || {})[slotId] || ""));
@@ -949,9 +945,7 @@
                     sendToHost({ action: "previewSound", name: e.name });
                 },
             });
-            const psvg = typeof window.icon === "function" ? window.icon("play") : "";
-            if (psvg && psvg.indexOf("<path") !== -1) play.innerHTML = psvg;
-            else play.textContent = "▶";
+            play.innerHTML = icon("play");
             btns.appendChild(play);
             btns.appendChild(removeBtn(e.name));
             ctl.appendChild(btns);

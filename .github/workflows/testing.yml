@@ -9,7 +9,6 @@ on:
       - mac/lib/*.lua
       - ui/*.html
       - ui/modules/*.js
-      - bin/ui-lint.mjs
       - bin/lint.mjs
       - bin/lint-baseline.json
       - mac/lib/**/*.lua
@@ -20,9 +19,9 @@ permissions:
   contents: write
 
 jobs:
-  # ────────────────────────────────────────────────────────────────────────────
+  # ============================================================================
   # Detect which platform(s) changed
-  # ────────────────────────────────────────────────────────────────────────────
+  # ============================================================================
   check:
     runs-on: ubuntu-latest
     outputs:
@@ -43,9 +42,9 @@ jobs:
           MAC=false
           WIN=false
 
-          # mac/ or shared ui/ changes → build macOS
+          # mac/ or shared ui/ changes -> build macOS
           if echo "$CHANGED" | grep -qE "^(mac/|ui/)"; then MAC=true; fi
-          # win/ or shared ui/ changes → build Windows
+          # win/ or shared ui/ changes -> build Windows
           if echo "$CHANGED" | grep -qE "^(win/|ui/)"; then WIN=true; fi
 
           # workflow_dispatch always builds both
@@ -58,9 +57,9 @@ jobs:
           echo "win=$WIN" >> $GITHUB_OUTPUT
           echo "mac=$MAC  win=$WIN"
 
-  # ────────────────────────────────────────────────────────────────────────────
-  # UI lint — block hardcoded theme values and native macOS controls
-  # ────────────────────────────────────────────────────────────────────────────
+  # ============================================================================
+  # UI lint - block hardcoded theme values and native macOS controls
+  # ============================================================================
   ui-lint:
     runs-on: ubuntu-latest
     steps:
@@ -73,9 +72,9 @@ jobs:
       - name: Lint (style, markers, theme, native controls)
         run: node bin/lint.mjs --base ${{ github.event.before || 'HEAD~1' }}
 
-  # ────────────────────────────────────────────────────────────────────────────
+  # ============================================================================
   # Build macOS
-  # ────────────────────────────────────────────────────────────────────────────
+  # ============================================================================
   build-macos:
     needs: [check, ui-lint]
     if: needs.check.outputs.mac == 'true'
@@ -99,7 +98,7 @@ jobs:
 
           if [ -z "$PREV_TAG" ]; then
             echo "skip=false" >> $GITHUB_OUTPUT
-            echo "No previous pre-release — building"
+            echo "No previous pre-release - building"
             exit 0
           fi
 
@@ -109,10 +108,10 @@ jobs:
 
           if [ -z "$MAC_DIFF" ]; then
             echo "skip=true" >> $GITHUB_OUTPUT
-            echo "✓ macOS sources unchanged since $PREV_TAG — skipping build"
+            echo "OK: macOS sources unchanged since $PREV_TAG - skipping build"
           else
             echo "skip=false" >> $GITHUB_OUTPUT
-            echo "✗ macOS sources changed — rebuilding"
+            echo "CHANGED: macOS sources changed - rebuilding"
             echo "$MAC_DIFF"
           fi
 
@@ -133,13 +132,13 @@ jobs:
           mkdir -p "$DIST/data" "$DIST/sounds/defaults" "$DIST/profiles"
           rm -f "$DIST"/*.ahk "$DIST"/install.bat "$DIST/bin"/*.bat "$DIST/bin"/*.ps1 "$DIST/.gitignore" 2>/dev/null; true
 
-          # Stamp MANIFEST.json with pre-release version (bump patch: 1.2.7 → 1.2.8-pre.N)
+          # Stamp MANIFEST.json with pre-release version (bump patch: 1.2.7 -> 1.2.8-pre.N)
           # N = number of commits since the last stable release tag
           if [ -f "$DIST/MANIFEST.json" ]; then
             BASE_VER=$(jq -r '.version // "0.0.0"' "$DIST/MANIFEST.json")
-            # Strip any existing pre-release suffix (e.g. 1.2.8-pre.31 → 1.2.8)
+            # Strip any existing pre-release suffix (e.g. 1.2.8-pre.31 -> 1.2.8)
             BASE_VER=$(echo "$BASE_VER" | sed 's/-pre[.-][0-9]*$//')
-            # Bump patch version (1.2.7 → 1.2.8)
+            # Bump patch version (1.2.7 -> 1.2.8)
             BUMPED=$(echo "$BASE_VER" | awk -F. '{$NF=$NF+1; print}' OFS=.)
             # Count commits since last stable tag
             LAST_STABLE=$(git tag -l 'v*' --sort=-v:refname | head -1)
@@ -153,7 +152,7 @@ jobs:
             PRE_VER="${BUMPED}-pre.${BUILD_REL}"
             jq --arg v "$PRE_VER" '.version = $v' "$DIST/MANIFEST.json" > "$DIST/MANIFEST.json.tmp"
             mv "$DIST/MANIFEST.json.tmp" "$DIST/MANIFEST.json"
-            echo "Stamped MANIFEST.json: $BASE_VER → $PRE_VER"
+            echo "Stamped MANIFEST.json: $BASE_VER -> $PRE_VER"
           fi
 
           ARCHIVE="mudscript-macos-pre-${BUILD_NUM}.zip"
@@ -179,7 +178,7 @@ jobs:
             cp "/tmp/prev-artifact/$ARCHIVE" "mudscript-macos-pre-${{ github.run_number }}.zip"
             echo "Reusing: $ARCHIVE"
           else
-            echo "Asset not found in $PREV_TAG — will build fresh"
+            echo "Asset not found in $PREV_TAG - will build fresh"
             echo "download_failed=true" >> $GITHUB_OUTPUT
           fi
 
@@ -228,9 +227,9 @@ jobs:
             mudscript-macos-pre-${{ github.run_number }}.tar.gz
           if-no-files-found: warn
 
-  # ────────────────────────────────────────────────────────────────────────────
+  # ============================================================================
   # Build Windows
-  # ────────────────────────────────────────────────────────────────────────────
+  # ============================================================================
   build-windows:
     needs: [check, ui-lint]
     if: needs.check.outputs.win == 'true'
@@ -255,7 +254,7 @@ jobs:
 
           if (-not $prevTag) {
             "skip=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8NoBOM
-            Write-Output "No previous pre-release — building"
+            Write-Output "No previous pre-release - building"
             exit 0
           }
 
@@ -265,10 +264,10 @@ jobs:
 
           if (-not $winDiff -or $winDiff.Count -eq 0) {
             "skip=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8NoBOM
-            Write-Output "✓ Windows sources unchanged since $prevTag — skipping build"
+            Write-Output "OK: Windows sources unchanged since $prevTag - skipping build"
           } else {
             "skip=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8NoBOM
-            Write-Output "✗ Windows sources changed — rebuilding"
+            Write-Output "CHANGED: Windows sources changed - rebuilding"
             $winDiff | ForEach-Object { Write-Output "  $_" }
           }
           exit 0
@@ -317,9 +316,9 @@ jobs:
           if (Test-Path $manifestPath) {
             $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
             $baseVer = if ($manifest.version) { $manifest.version } else { "0.0.0" }
-            # Strip any existing pre-release suffix (e.g. 1.2.8-pre.31 → 1.2.8)
+            # Strip any existing pre-release suffix (e.g. 1.2.8-pre.31 -> 1.2.8)
             $baseVer = $baseVer -replace '-pre[\.\-]\d+$',''
-            # Bump patch version (1.2.7 → 1.2.8)
+            # Bump patch version (1.2.7 -> 1.2.8)
             $parts = $baseVer -split '\.'
             $parts[-1] = [int]$parts[-1] + 1
             $bumped = $parts -join '.'
@@ -358,7 +357,7 @@ jobs:
             Copy-Item "$env:TEMP\prev-artifact\$archive" "mudscript-windows-pre-${{ github.run_number }}.zip"
             Write-Output "Reusing: $archive"
           } else {
-            Write-Output "Asset not found in $prevTag — will build fresh"
+            Write-Output "Asset not found in $prevTag - will build fresh"
             "download_failed=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8NoBOM
           }
           exit 0
@@ -407,9 +406,9 @@ jobs:
           path: mudscript-windows-pre-${{ github.run_number }}.zip
           if-no-files-found: warn
 
-  # ────────────────────────────────────────────────────────────────────────────
-  # Pre-release — create a tagged pre-release with whatever was built
-  # ────────────────────────────────────────────────────────────────────────────
+  # ============================================================================
+  # Pre-release - create a tagged pre-release with whatever was built
+  # ============================================================================
   prerelease:
     needs: [build-macos, build-windows]
     if: always() && (needs.build-macos.result == 'success' || needs.build-windows.result == 'success')
@@ -454,7 +453,7 @@ jobs:
           cat > notes.md <<EOF
           ## Pre-release build ${{ github.run_number }}
 
-          > ⚠️ **Testing build** — not an official release.
+          > **Warning: testing build** - not an official release.
           > Switch mudscript's update channel to **Testing** to install automatically.
 
           > Platforms: **${BUILT}**

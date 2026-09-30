@@ -505,14 +505,16 @@
           if (!t) {
               el.style.display = "";
               el.classList.add("cond-missing");
-              el.textContent = "⚠ unknown tool '" + key + "', branch will run the else path";
+              el.innerHTML = icon("warning", "icon-inline");
+              el.append(" unknown tool '" + key + "', branch will run the else path");
               return;
           }
           const truthy = ToolEditor._luaTruthy(t.value);
           el.style.display = "";
           el.classList.add(truthy ? "cond-true" : "cond-false");
-          el.textContent = (truthy ? "● true" : "○ false")
-              + " runs the " + (truthy ? "then" : "else") + " branch";
+          el.innerHTML = icon(truthy ? "dot" : "circle", "icon-inline");
+          el.append((truthy ? " true" : " false")
+              + " runs the " + (truthy ? "then" : "else") + " branch");
       }
 
       _hookCanvasRender() {
@@ -949,7 +951,7 @@
 
             const btnMinus = document.createElement("button");
             btnMinus.className = "tool-ed-num-btn";
-            btnMinus.textContent = "−";
+            btnMinus.innerHTML = icon("minus");
             wrap.appendChild(btnMinus);
 
             const inp = document.createElement("input");
@@ -961,7 +963,7 @@
 
             const btnPlus = document.createElement("button");
             btnPlus.className = "tool-ed-num-btn";
-            btnPlus.textContent = "+";
+            btnPlus.innerHTML = icon("plus");
             wrap.appendChild(btnPlus);
 
             const emit = () => {

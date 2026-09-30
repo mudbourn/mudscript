@@ -28,38 +28,6 @@ return function(ms, ctx)
                     ms.playSlot("update")
                     ms.ui.refresh()
                 end,
-
-                setSoundPreset = function(data)
-                    if not data.assigns then return end
-                    ms.soundAssign = ms.soundAssign or {}
-                    local loadSlots = {
-                        "themeLoaded",
-                        "load",
-                        "launch",
-                    }
-                    for _, sid in ipairs(loadSlots) do
-                        ms.soundAssign[sid] = nil
-                    end
-                    for slotId, soundName in pairs(data.assigns) do
-                        ms.soundAssign[slotId] = soundName
-                    end
-                    ms._soundPreset = data.preset or "default"
-                    ms.saveSettings()
-                    ms.playSlot("update")
-                    ms.ui.refresh()
-                end,
-
-                clearSoundPreset = function(data)
-                    if not data.slots then return end
-                    ms.soundAssign = ms.soundAssign or {}
-                    for _, slotId in ipairs(data.slots) do
-                        ms.soundAssign[slotId] = nil
-                    end
-                    ms._soundPreset = "custom"
-                    ms.saveSettings()
-                    ms.playSlot("update")
-                    ms.ui.refresh()
-                end,
             -- END --
 
             -- Sound Files --

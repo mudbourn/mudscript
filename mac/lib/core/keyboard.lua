@@ -279,7 +279,7 @@
                     ms._keyHoldStarts[keyCode] = hs.timer.absoluteTime()
                     if ms.dev and not ms.devtools:getTraceSuppress() then
                         local modsStr = (mods and #mods > 0) and (" [" .. table.concat(mods, "+") .. "]") or ""
-                        local msg = "↓ " .. tostring(key) .. modsStr
+                        local msg = "down " .. tostring(key) .. modsStr
                         _keyLog(msg)
                     end
                 end
@@ -309,7 +309,7 @@
                     ms._keyHoldStarts[keyCode] = nil
                 end
                 if ms.dev and not ms.devtools:getTraceSuppress() then
-                    local msg = "↑ " .. tostring(key) .. durationStr
+                    local msg = "up " .. tostring(key) .. durationStr
                     _keyLog(msg)
                 end
                 ms._macroHeldKeys[keyCode] = nil

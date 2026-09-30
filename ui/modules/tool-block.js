@@ -516,7 +516,7 @@ function paramSummary(action, params) {
           this._root.innerHTML = "";
           const d = document.createElement("div");
           d.className = "tool-canvas-empty";
-          d.innerHTML = '<span class="tool-canvas-empty-icon">' + (_svgCache["tools"] || "▶") + '</span>'
+          d.innerHTML = '<span class="tool-canvas-empty-icon">' + (_svgCache["tools"] || "") + '</span>'
               + 'No tools yet<br><span style="font-size:10px">Click <b>+ Add Tool</b> to begin</span>';
           this._root.appendChild(d);
       }
@@ -537,7 +537,7 @@ function paramSummary(action, params) {
 
           const handle = document.createElement("div");
           handle.className = "tool-drag-handle";
-          handle.innerHTML = _svgCache["drag"] || "⠿";
+          handle.innerHTML = _svgCache["drag"] || "";
           el.appendChild(handle);
 
           const icon = document.createElement("div");
@@ -565,7 +565,7 @@ function paramSummary(action, params) {
           acts.appendChild(del);
           const editBtn = document.createElement("div");
           editBtn.className = "step-action-btn edit";
-          editBtn.innerHTML = _svgCache["edit"] || "✎";
+          editBtn.innerHTML = _svgCache["edit"] || "";
           _sfx(editBtn);
           editBtn.addEventListener("click", e => { e.stopPropagation(); this._selectTool(tool._sid); });
           acts.appendChild(editBtn);
@@ -591,12 +591,12 @@ function paramSummary(action, params) {
 
           const handle = document.createElement("div");
           handle.className = "tool-drag-handle";
-          handle.innerHTML = _svgCache["drag"] || "⠿";
+          handle.innerHTML = _svgCache["drag"] || "";
           header.appendChild(handle);
 
           const toggle = document.createElement("div");
           toggle.className = "tool-nest-toggle";
-          toggle.innerHTML = _svgCache["chevdown"] || "▾";
+          toggle.innerHTML = _svgCache["chevdown"] || "";
           _sfx(toggle);
           toggle.addEventListener("click", e => {
               e.stopPropagation();
@@ -640,7 +640,7 @@ function paramSummary(action, params) {
           acts.appendChild(del);
           const editBtn = document.createElement("div");
           editBtn.className = "step-action-btn edit";
-          editBtn.innerHTML = _svgCache["edit"] || "✎";
+          editBtn.innerHTML = _svgCache["edit"] || "";
           _sfx(editBtn);
           editBtn.addEventListener("click", e => { e.stopPropagation(); this._selectTool(tool._sid); });
           acts.appendChild(editBtn);

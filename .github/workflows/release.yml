@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version (e.g. 1.3.0) — stamped into MANIFEST.json"
+        description: "Release version (e.g. 1.3.0) - stamped into MANIFEST.json"
         required: true
         type: string
 
@@ -12,9 +12,9 @@ permissions:
   contents: write
 
 jobs:
-  # ────────────────────────────────────────────────────────────────────────────
-  # Build & Stamp — package macOS archive, hash, sign, commit MANIFEST.json
-  # ────────────────────────────────────────────────────────────────────────────
+  # ============================================================================
+  # Build & Stamp - package macOS archive, hash, sign, commit MANIFEST.json
+  # ============================================================================
   build:
     runs-on: ubuntu-latest
     outputs:
@@ -52,7 +52,7 @@ jobs:
           for f in data/ms_settings.json data/ms_settings_default.json; do
             [ -f "$f" ] && cp "$f" "$DIST/data/"
           done
-          # Copy mac/data/ wholesale — .gitignore keeps this directory tracking
+          # Copy mac/data/ wholesale - .gitignore keeps this directory tracking
           # only the files meant to ship (ms_authored.json, ms_macros_visual.*,
           # ms_settings_default.json). Private runtime state (.ms_trusted_hash,
           # guardian_agent.log, .ms_plugin_ledger.json, live ms_settings.json)
@@ -62,14 +62,14 @@ jobs:
           fi
           # Bundled registry index: the fallback ms_registry.lua reads when
           # there is no cache and the network is unavailable. Only the index
-          # travels — .mspkg binaries stay release assets and are fetched on
+          # travels - .mspkg binaries stay release assets and are fetched on
           # demand. It carries its own signature, so a stale bundled copy is
           # safe: the client verifies it exactly as it verifies a fetched one.
           if [ -f "registry/index.json" ]; then
             cp registry/index.json "$DIST/data/registry_index.json"
           fi
           # Include default sounds so fresh installs have audio feedback.
-          # sounds/ has no top-level .wav files — they live in active/, defaults/,
+          # sounds/ has no top-level .wav files - they live in active/, defaults/,
           # and macro/ subfolders, so the whole tree is copied to preserve structure.
           if [ -d "sounds" ]; then
             mkdir -p "$DIST/sounds"
@@ -154,7 +154,7 @@ jobs:
             mv /tmp/manifest.json MANIFEST.json
             echo "Signed bundle sha256."
           else
-            echo "Warning: MS_SIGNING_KEY not set — hash stamped, no signature."
+            echo "Warning: MS_SIGNING_KEY not set - hash stamped, no signature."
           fi
 
           echo "bundle_sha=$BUNDLE_SHA" >> "$GITHUB_OUTPUT"
@@ -244,7 +244,7 @@ jobs:
             mv /tmp/fm_out.json "$MANIFEST_OUT"
             echo "Signed per-file manifest ($FILE_COUNT files)."
           else
-            echo "Warning: MS_SIGNING_KEY not set — per-file manifest unsigned."
+            echo "Warning: MS_SIGNING_KEY not set - per-file manifest unsigned."
           fi
 
           # Wire fileManifest into MANIFEST.json, copy final assets into DIST, rebuild
@@ -268,7 +268,7 @@ jobs:
             git commit -m "release: v${VERSION}" || echo "Nothing to commit."
             git push
           else
-            echo "Pre-release ($VERSION) — skipping MANIFEST.json commit to keep stable channel clean."
+            echo "Pre-release ($VERSION) - skipping MANIFEST.json commit to keep stable channel clean."
           fi
 
       - name: Upload artifacts
@@ -278,9 +278,9 @@ jobs:
           path: |
             mudscript-macos-${{ inputs.version }}.zip
 
-  # ────────────────────────────────────────────────────────────────────────────
-  # Release — create GitHub Release and attach assets
-  # ────────────────────────────────────────────────────────────────────────────
+  # ============================================================================
+  # Release - create GitHub Release and attach assets
+  # ============================================================================
   release:
     needs: build
     runs-on: ubuntu-latest
@@ -334,9 +334,9 @@ jobs:
           ASSETS=$(find . -name "mudscript-*-${VERSION}.*" -type f 2>/dev/null | tr '\n' ' ' || true)
           echo "Assets: $ASSETS"
 
-          # Update existing release or create new one — never delete first
+          # Update existing release or create new one - never delete first
           if gh release view "$TAG" --json name &>/dev/null; then
-            echo "Release $TAG already exists — updating assets..."
+            echo "Release $TAG already exists - updating assets..."
             # Determine pre-release flag
             EDIT_PRERELEASE=""
             if [[ "$VERSION" == *-* ]]; then EDIT_PRERELEASE="--prerelease"; fi

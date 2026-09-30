@@ -9,7 +9,7 @@
           {
               id: "keys",
               label: "Key presses",
-              regex: /\] [↓↑] |\] type /,
+              regex: /\] (down|up) |\] type /,
           },
           { id: "mouse", label: "Mouse actions", regex: /\] Mouse / },
           { id: "scroll", label: "Scrolls", regex: /\] scroll / },
