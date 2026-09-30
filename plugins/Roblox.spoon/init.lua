@@ -5,7 +5,7 @@ local obj = {}
 obj.__index = obj
 
 obj.name    = "Roblox"
-obj.version = "0.2.0"
+obj.version = "0.2.1"
 obj.author  = "mudbourn"
 obj.license = "MIT"
 
@@ -77,6 +77,7 @@ obj.license = "MIT"
 
 local _sensWatcher = nil
 local _sensTimer   = nil
+local _sensSeen    = nil
 local _cacheTimer  = nil
 
 -- Settings Reader --
@@ -260,7 +261,7 @@ function obj:init()
             label   = "Camera Sensitivity",
             min     = 0.1,
             max     = 4,
-            step    = 0.1,
+            step    = 0.01,
             default = 1.5,
             save    = true,
             section = "roblox",
@@ -271,15 +272,17 @@ function obj:init()
     -- END Camera Sensitivity --
 
     -- Sensitivity Tether --
-        local function syncSensitivity()
+        local function syncSensitivity(force)
             if ms.settings.get("robloxSyncSensitivity") == false then return end
             local sens = effectiveSensitivity()
             if type(sens) ~= "number" or sens <= 0 then return end
+            if sens == _sensSeen and not force then return end
+            _sensSeen = sens
             if ms._camSens ~= sens then
-                ms._camSens = sens
                 if ms.settings.get("cameraSensitivity") ~= nil then
                     pcall(ms.settings.set, "cameraSensitivity", sens)
                 end
+                ms._camSens = sens
             end
         end
 
@@ -291,7 +294,7 @@ function obj:init()
             default = true,
             save    = true,
             section = "roblox",
-            onChange = function() pcall(syncSensitivity) end,
+            onChange = function() pcall(syncSensitivity, true) end,
         })
 
         if _sensWatcher then _sensWatcher:stop() end
@@ -302,7 +305,7 @@ function obj:init()
 
         if _sensTimer then _sensTimer:stop() end
         _sensTimer = hs.timer.doEvery(10, function() pcall(syncSensitivity) end)
-        pcall(syncSensitivity)
+        pcall(syncSensitivity, true)
     -- END Sensitivity Tether --
 
     -- Cache Cleaner Toggle --

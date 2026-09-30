@@ -23,7 +23,36 @@ P_AUTHOR=""
 P_WEBSITE=""
 P_DESCRIPTION=""
 
-usage() { sed -n '2,41p' "$0"; }
+usage() {
+    cat <<'USAGE'
+Usage: registry_publish.sh <package> [options]
+
+  <package>            a .spoon bundle directory or a .mspkg file
+
+Metadata (.spoon only, a .mspkg carries its own):
+  --name <name>        display name
+  --version <v>        version to publish
+  --author <author>    author
+  --website <url>      website
+  --description <d>    description
+
+Registry:
+  --id <id>            registry entry id
+  --repo <owner/repo>  GitHub repo that hosts the asset
+  --release <tag>      release tag for the asset (default: packages)
+  --trust <level>      trust level (default: trusted)
+
+Steps:
+  --no-upload          edit the index without uploading the asset
+  --sign               sign the index locally
+  --key <file>         key file for --sign
+  --dry-run            show what would change, touch nothing
+  -h, --help           show this help
+
+Example:
+  ms.publish plugins/Roblox.spoon --version 0.2.1
+USAGE
+}
 
 while [ $# -gt 0 ]; do
     case "$1" in
