@@ -215,7 +215,7 @@ YQIDAQAB
             end
             dir2:close()
         end
-        local function _walkUiJs(dir)
+        local function _walkUiAssets(dir)
             local okd, iterd, dobj = pcall(hs.fs.dir, dir)
             if not okd or not iterd then return end
             for entry in iterd, dobj do
@@ -223,15 +223,15 @@ YQIDAQAB
                     local path = dir .. entry
                     local attr = hs.fs.attributes(path)
                     if attr and attr.mode == "directory" then
-                        _walkUiJs(path .. "/")
-                    elseif entry:match("%.js$") then
+                        _walkUiAssets(path .. "/")
+                    elseif entry:match("%.js$") or entry:match("%.css$") then
                         files[#files + 1] = path
                     end
                 end
             end
             dobj:close()
         end
-        _walkUiJs(uiDir)
+        _walkUiAssets(uiDir)
 
         local binDir = _home .. "/.hammerspoon/bin/"
         local ok3, iter3, dir3 = pcall(hs.fs.dir, binDir)

@@ -37,6 +37,8 @@ return function(ms)
 -- END MsDevTools --
 
 -- State --
+    local S = {}
+
     local _home       = os.getenv("HOME")
     local _devLogDir  = _home .. "/Documents/"
     local _devBaseDir = _devLogDir .. "ms_dev_logs/"
@@ -44,12 +46,6 @@ return function(ms)
     local _devBase    = "file://" .. _home .. "/.hammerspoon/ui/"
 
     local _jsonDir, _readDir
-    local _catPaths, _readablePaths
-    -- Forward-declared at file scope: defined inside :start() but also called from
-    -- :showConsole()/:hideConsole()/etc. As a start()-local it was a nil global at
-    -- those sites (a latent bug on every platform), which husked the shell when
-    -- console open ran ms.shell.eval('showPanel(console)') then threw before loading.
-    local _loadDevHistory
 
     local _typeToCategory = {
         key       = "input",
@@ -142,7 +138,7 @@ return function(ms)
     local function _flushReadLine()
         if not _lastReadLine then return end
 
-        local catPath = _readablePaths and _readablePaths[_lastReadCategory]
+        local catPath = S.readablePaths and S.readablePaths[_lastReadCategory]
 
         if catPath then
             local h = _handleFor(_readHandles, catPath)
@@ -157,17 +153,7 @@ return function(ms)
         _lastReadCategory = nil
     end
 
-    local _consolePanel, _watcherPanel, _keysPanel, _windowPanel
-    local _consolePanelPos, _watcherPanelPos, _keysPanelPos, _windowPanelPos
-    local _consoleOpen, _watcherOpen, _keysOpen, _windowOpen
-    local _keysReady, _activeKeys, _activeButtons, _coordMode
-    local _mousePos, _mousePoller, _windowPoller
-    local _windowHistory, _windowLast, _windowMaxHistory
-    local _pushMouseState
-    local _winAppWatcher, _winUiWatcher, _winMonitor
-    local _winDirty, _winMoveN, _winResizeN, _winLastMouse, _winLastInspectAt
-    local _winRead, _winPush
-    local _axTimeoutSet = false
+    S.axTimeoutSet = false
     local _devDragTap
     local function _devDragEnd(getView)
         if _devDragTap then _devDragTap:stop()
@@ -210,10 +196,8 @@ return function(ms)
         end)
         _devDragTap:start()
     end
-    local _activePanel, _shellMousePoller
-    local _winElementTab = true
-    local _winElementInspect = false
-    local _winPendingEvent, _winWatchedAppName
+    S.winElementTab = true
+    S.winElementInspect = false
 
     local _traceSuppress = false
 
@@ -255,8 +239,8 @@ return function(ms)
         _jsonDir = _devBaseDir .. "json/"
         _readDir = _devBaseDir .. "readable/"
 
-        _catPaths = {}
-        _readablePaths = {}
+        S.catPaths = {}
+        S.readablePaths = {}
 
         for _, cat in ipairs({
             "input",
@@ -265,27 +249,27 @@ return function(ms)
             "error",
             "console",
         }) do
-            _catPaths[cat]      = _jsonDir .. "ms_dev_" .. cat .. ".log"
-            _readablePaths[cat] = _readDir .. "ms_dev_" .. cat .. ".txt"
+            S.catPaths[cat]      = _jsonDir .. "ms_dev_" .. cat .. ".log"
+            S.readablePaths[cat] = _readDir .. "ms_dev_" .. cat .. ".txt"
         end
 
         self:_archiveOnReload()
 
-        _activeKeys       = {}
-        _activeButtons    = {}
-        _coordMode        = "screen"
-        _keysReady        = false
-        _windowHistory    = {}
-        _windowLast       = nil
-        _windowMaxHistory = 80
+        S.activeKeys       = {}
+        S.activeButtons    = {}
+        S.coordMode        = "screen"
+        S.keysReady        = false
+        S.windowHistory    = {}
+        S.windowLast       = nil
+        S.windowMaxHistory = 80
     end
 
     function MsDevTools:start()
         if not ms then return end
         if ms.checkGuardian and not ms.checkGuardian("MsDevTools") then return end
 
-        if not _axTimeoutSet then
-            _axTimeoutSet = pcall(function()
+        if not S.axTimeoutSet then
+            S.axTimeoutSet = pcall(function()
                 hs.axuielement.systemWideElement():setTimeout(0.15)
             end)
         end
@@ -299,22 +283,22 @@ return function(ms)
             _consolePanelPos = nil,
             _watcherPanelPos = nil,
             _keysPanelPos    = nil,
-            _activeKeys      = _activeKeys,
-            _activeButtons   = _activeButtons,
-            _coordMode       = _coordMode,
+            _activeKeys      = S.activeKeys,
+            _activeButtons   = S.activeButtons,
+            _coordMode       = S.coordMode,
             _keysReady       = false,
         }
 
         setmetatable(ms.dev, {
             __index = function(t, k)
-                if     k == "_consolePanel" then return _consolePanel
-                elseif k == "_watcherPanel" then return _watcherPanel
-                elseif k == "_keysPanel"    then return _keysPanel
-                elseif k == "_keysReady"    then return _keysReady
-                elseif k == "_consoleOpen"  then return _consoleOpen
-                elseif k == "_watcherOpen"  then return _watcherOpen
-                elseif k == "_keysOpen"     then return _keysOpen
-                elseif k == "_windowOpen"   then return _windowOpen
+                if     k == "_consolePanel" then return S.consolePanel
+                elseif k == "_watcherPanel" then return S.watcherPanel
+                elseif k == "_keysPanel"    then return S.keysPanel
+                elseif k == "_keysReady"    then return S.keysReady
+                elseif k == "_consoleOpen"  then return S.consoleOpen
+                elseif k == "_watcherOpen"  then return S.watcherOpen
+                elseif k == "_keysOpen"     then return S.keysOpen
+                elseif k == "_windowOpen"   then return S.windowOpen
                 elseif k == "recolor"       then return function() self:recolor() end
                 elseif k == "rezoom"        then return function(_, a, b, c) return self:rezoom(a, b, c) end
                 end
@@ -365,10 +349,10 @@ return function(ms)
         end
 
         ms.dev._wantsMouseEvents = function()
-            return _keysPanel or _shellActive() or _logEnabled.keys
+            return S.keysPanel or _shellActive() or _logEnabled.keys
         end
         ms.dev._wantsKeyEvents = function()
-            return _keysPanel or _shellActive() or _logEnabled.keys
+            return S.keysPanel or _shellActive() or _logEnabled.keys
         end
 
         ms.dev.console = {}
@@ -398,7 +382,7 @@ return function(ms)
         ms.dev._pushMouseState = function(x, y)
             self:pushMouseState(x, y)
         end
-        _pushMouseState = ms.dev._pushMouseState
+        S.pushMouseState = ms.dev._pushMouseState
 
         self._origPrint = print
 
@@ -488,15 +472,15 @@ return function(ms)
 
         -- Assigns the file-scope upvalue (declared above), not a start()-local, so
         -- sibling methods (:showConsole etc.) can call it. All upvalues it closes over
-        -- (_catPaths/_readablePaths/_HIST_MAX/_pushToPanel) are themselves file-level.
-        function _loadDevHistory(panel, categories, shellPanelId, skipEvents)
+        -- (S.catPaths/S.readablePaths/_HIST_MAX/_pushToPanel) are themselves file-level.
+        function S.loadDevHistory(panel, categories, shellPanelId, skipEvents)
             local entries = {}
             -- Insertion order per entry, so the merge below is a *stable* sort:
             -- entries sharing a timestamp keep their real arrival order instead
             -- of being shuffled by table.sort (which is not stable).
             local order = {}
             for _, cat in ipairs(categories) do
-                local path = _catPaths[cat]
+                local path = S.catPaths[cat]
                 if path then
                     local f = io.open(path, "r")
                     if f then
@@ -576,10 +560,10 @@ return function(ms)
                         "error",
                         "system",
                     }) do
-                        local p = _catPaths[cat]
+                        local p = S.catPaths[cat]
                         if p then local f = io.open(p, "w")
                         if f then f:close() end end
-                        local r = _readablePaths[cat]
+                        local r = S.readablePaths[cat]
                         if r then local f = io.open(r, "w")
                         if f then f:close() end end
                     end
@@ -589,12 +573,12 @@ return function(ms)
                     ms._consoleDangerAck = true
                     if ms.saveSettings then ms.saveSettings() end
                 elseif action == "ready" then
-                    _loadDevHistory(nil, {
+                    S.loadDevHistory(nil, {
                         "console",
                         "error",
                         "system",
                     }, "console", _consoleSkip)
-                    _pushToPanel(_consolePanel, "console",
+                    _pushToPanel(S.consolePanel, "console",
                         "setDangerAck(" .. (ms._consoleDangerAck and "true" or "false") .. ")")
                 end
             end)
@@ -607,17 +591,17 @@ return function(ms)
                         "macro",
                         "error",
                     }) do
-                        local p = _catPaths[cat]
+                        local p = S.catPaths[cat]
                         if p then local f = io.open(p, "w")
                         if f then f:close() end end
-                        local r = _readablePaths[cat]
+                        local r = S.readablePaths[cat]
                         if r then local f = io.open(r, "w")
                         if f then f:close() end end
                     end
                 elseif action == "playSlot" and body.slot then
                     ms.playSlot(body.slot)
                 elseif action == "ready" then
-                    _loadDevHistory(nil, {
+                    S.loadDevHistory(nil, {
                         "macro",
                         "error",
                     }, "watcher")
@@ -628,26 +612,26 @@ return function(ms)
                 if not body or type(body) ~= "table" then return end
                 local action = body.action
                 if action == "clear" then
-                    local p = _catPaths["input"]
+                    local p = S.catPaths["input"]
                     if p then local f = io.open(p, "w")
                     if f then f:close() end end
-                    local r = _readablePaths["input"]
+                    local r = S.readablePaths["input"]
                     if r then local f = io.open(r, "w")
                     if f then f:close() end end
                 elseif action == "playSlot" and body.slot then
                     ms.playSlot(body.slot)
                 elseif action == "ready" then
-                    if not _keysReady then
-                        _keysReady = true
+                    if not S.keysReady then
+                        S.keysReady = true
                         local _p = hs.mouse.absolutePosition()
-                        _mousePos = {
+                        S.mousePos = {
                             x = math.floor(_p.x),
                             y = math.floor(_p.y),
                         }
                     end
-                    _loadDevHistory(nil, {"input"}, "keys")
+                    S.loadDevHistory(nil, {"input"}, "keys")
                 elseif action == "setCoordMode" then
-                    _coordMode = body.mode or "screen"
+                    S.coordMode = body.mode or "screen"
                 end
             end)
 
@@ -655,24 +639,24 @@ return function(ms)
                 if not body or type(body) ~= "table" then return end
                 local action = body.action
                 if action == "clear" then
-                    _windowHistory = {}
+                    S.windowHistory = {}
                 elseif action == "playSlot" and body.slot then
                     ms.playSlot(body.slot)
                 elseif action == "tab" then
-                    _winElementTab = (body.tab == "window")
-                    if _winElementTab then _winLastMouse = nil end
+                    S.winElementTab = (body.tab == "window")
+                    if S.winElementTab then S.winLastMouse = nil end
                 elseif action == "setInspect" then
-                    _winElementInspect = (body.enabled == true)
-                    if not _winElementInspect then _winLastMouse = nil end
+                    S.winElementInspect = (body.enabled == true)
+                    if not S.winElementInspect then S.winLastMouse = nil end
                 elseif action == "ready" then
                     hs.timer.doAfter(0.05, function()
-                        if _windowOpen then
-                            local st = _winRead(hs.window.focusedWindow())
-                            if st then _winPush("updateCurrentWindow", st) end
-                            if #_windowHistory > 0 then
-                                local ok, j = pcall(hs.json.encode, _windowHistory)
+                        if S.windowOpen then
+                            local st = S.winRead(hs.window.focusedWindow())
+                            if st then S.winPush("updateCurrentWindow", st) end
+                            if #S.windowHistory > 0 then
+                                local ok, j = pcall(hs.json.encode, S.windowHistory)
                                 if ok then pcall(function()
-                                    _pushToPanel(_windowPanel, "window", "loadHistory(" .. j .. ")")
+                                    _pushToPanel(S.windowPanel, "window", "loadHistory(" .. j .. ")")
                                 end) end
                             end
                         end
@@ -682,7 +666,7 @@ return function(ms)
 
             ms.bus.on("panel:poppedOut", function(_, body)
                 if not body or body.id ~= "window" then return end
-                _windowOpen = true
+                S.windowOpen = true
                 if not (_G.ms and _G.ms._octaneMode) then
                     self:_winEngineStart()
                 end
@@ -700,68 +684,68 @@ return function(ms)
                         keys="keys",
                         window="window",
                     }
-                    local prevCh = _panelToChannel[_activePanel]
+                    local prevCh = _panelToChannel[S.activePanel]
                     if prevCh then _logEnabled[prevCh] = false end
                     local newCh = _panelToChannel[p]
                     if newCh then _logEnabled[newCh] = true end
                 end
 
-                _activePanel = p
+                S.activePanel = p
                 if p ~= "window"
                     and not (ms.shell and ms.shell.isPoppedOut and ms.shell.isPoppedOut("window")) then
-                    _winElementTab = false
+                    S.winElementTab = false
                     self:_winEngineStop()
                 end
                 if p == "console" then
-                    _consoleOpen = true
+                    S.consoleOpen = true
                     hs.timer.doAfter(0.1, function()
-                        _loadDevHistory(nil, {
+                        S.loadDevHistory(nil, {
                             "console",
                             "error",
                             "system",
                         }, "console", _consoleSkip)
                     end)
                 elseif p == "watcher" then
-                    _watcherOpen = true
+                    S.watcherOpen = true
                     hs.timer.doAfter(0.1, function()
-                        _loadDevHistory(nil, {
+                        S.loadDevHistory(nil, {
                             "macro",
                             "error",
                         }, "watcher")
                     end)
                 elseif p == "keys" then
-                    if not _keysReady then _keysReady = true end
+                    if not S.keysReady then S.keysReady = true end
                     hs.timer.doAfter(0.1, function()
-                        _loadDevHistory(nil, {"input"}, "keys")
+                        S.loadDevHistory(nil, {"input"}, "keys")
                     end)
                     if not _octaneActive then
-                        if _shellMousePoller then _shellMousePoller:stop() end
-                        _shellMousePoller = hs.timer.doEvery(0.08, function()
+                        if S.shellMousePoller then S.shellMousePoller:stop() end
+                        S.shellMousePoller = hs.timer.doEvery(0.08, function()
                         if not _shellActive() then
-                            if _shellMousePoller then _shellMousePoller:stop()
-                            _shellMousePoller = nil end
+                            if S.shellMousePoller then S.shellMousePoller:stop()
+                            S.shellMousePoller = nil end
                             return
                         end
-                        if _activePanel ~= "keys" then return end
+                        if S.activePanel ~= "keys" then return end
                         local _sst = _G.ms and _G.ms._shellState
                         if _sst and _sst.visible == false then return end
                         local _p = hs.mouse.absolutePosition()
                         local _x, _y = math.floor(_p.x), math.floor(_p.y)
-                        local prev = _mousePos
+                        local prev = S.mousePos
                         if not prev or _x ~= prev.x or _y ~= prev.y then
-                            _mousePos = {
+                            S.mousePos = {
                                 x = _x,
                                 y = _y,
                             }
-                            pcall(function() _pushMouseState(_x, _y) end)
+                            pcall(function() S.pushMouseState(_x, _y) end)
                         end
                     end)
                     end
                 elseif p == "window" then
-                    _windowOpen = true
+                    S.windowOpen = true
                     hs.timer.doAfter(0.15, function()
-                        if #_windowHistory > 0 then
-                            local ok, j = pcall(hs.json.encode, _windowHistory)
+                        if #S.windowHistory > 0 then
+                            local ok, j = pcall(hs.json.encode, S.windowHistory)
                             if ok then pcall(function() ms.shell.eval("shellReceive('window','loadHistory'," .. j .. ")") end) end
                         end
                     end)
@@ -772,7 +756,7 @@ return function(ms)
             end)
 
             ms.bus.on("macroLab:toggled", function(_, body)
-                if body and body.visible and _activePanel == "window" and _windowOpen
+                if body and body.visible and S.activePanel == "window" and S.windowOpen
                     and not (_G.ms and _G.ms._octaneMode) then
                     self:_winEngineStart()
                 end
@@ -783,7 +767,7 @@ return function(ms)
                         keys="keys",
                         window="window",
                     }
-                    local ch = _panelToChannel[_activePanel]
+                    local ch = _panelToChannel[S.activePanel]
                     if ch then _logEnabled[ch] = false end
                 end
             end)
@@ -864,11 +848,11 @@ return function(ms)
         hs.fs.mkdir(_jsonDir)
         hs.fs.mkdir(_readDir)
 
-        for _, p in pairs(_catPaths) do
+        for _, p in pairs(S.catPaths) do
             self:_archiveLog(p, stamp, "json")
         end
 
-        for _, p in pairs(_readablePaths) do
+        for _, p in pairs(S.readablePaths) do
             self:_archiveLog(p, stamp, "readable")
         end
     end
@@ -921,7 +905,7 @@ return function(ms)
             return
         end
 
-        local catPath = _catPaths[entry.category]
+        local catPath = S.catPaths[entry.category]
 
         if catPath then
             local h = _handleFor(_catHandles, catPath)
@@ -938,7 +922,7 @@ return function(ms)
             end
         end
 
-        local readPath = _readablePaths[entry.category]
+        local readPath = S.readablePaths[entry.category]
 
         if readPath then
             local h = _handleFor(_readHandles, readPath)
@@ -1023,7 +1007,7 @@ return function(ms)
 
         local t = entry.type
 
-        if (_consolePanel or _shellActive()) and _logEnabled.console and t ~= "mousemove" and t ~= "step" then
+        if (S.consolePanel or _shellActive()) and _logEnabled.console and t ~= "mousemove" and t ~= "step" then
             local send = false
 
             local _consoleDedicated = {
@@ -1043,21 +1027,21 @@ return function(ms)
 
             if send then
                 pcall(function()
-                    _pushToPanel(_consolePanel, "console", "appendEntry(" .. json .. ")")
+                    _pushToPanel(S.consolePanel, "console", "appendEntry(" .. json .. ")")
                 end)
             end
         end
 
-        if (_watcherPanel or _shellActive()) and _logEnabled.watcher and (t == "macro" or t == "error" or t == "sound") then
+        if (S.watcherPanel or _shellActive()) and _logEnabled.watcher and (t == "macro" or t == "error" or t == "sound") then
             pcall(function()
-                _pushToPanel(_watcherPanel, "watcher", "appendEntry(" .. json .. ")")
+                _pushToPanel(S.watcherPanel, "watcher", "appendEntry(" .. json .. ")")
             end)
         end
 
-        if (_keysPanel or _shellActive()) and _logEnabled.keys and _keysReady
+        if (S.keysPanel or _shellActive()) and _logEnabled.keys and S.keysReady
             and (t == "key" or t == "mouse" or t == "scroll" or t == "mousemove") then
             pcall(function()
-                _pushToPanel(_keysPanel, "keys", "appendEntry(" .. json .. ")")
+                _pushToPanel(S.keysPanel, "keys", "appendEntry(" .. json .. ")")
             end)
         end
 
@@ -1096,15 +1080,15 @@ return function(ms)
         })
 
         if isDown then
-            _activeKeys[keyCode] = keyName or tostring(keyCode)
+            S.activeKeys[keyCode] = keyName or tostring(keyCode)
         else
-            _activeKeys[keyCode] = nil
+            S.activeKeys[keyCode] = nil
         end
 
-        if _keysPanel or _shellActive() then
+        if S.keysPanel or _shellActive() then
             local active = {}
 
-            for code, name in pairs(_activeKeys) do
+            for code, name in pairs(S.activeKeys) do
                 table.insert(active, {
                     name = name,
                     code = code,
@@ -1115,7 +1099,7 @@ return function(ms)
 
             if aok then
                 pcall(function()
-                    _pushToPanel(_keysPanel, "keys", "updateActiveKeys(" .. aj .. ")")
+                    _pushToPanel(S.keysPanel, "keys", "updateActiveKeys(" .. aj .. ")")
                 end)
             end
         end
@@ -1131,15 +1115,15 @@ return function(ms)
         })
 
         if isDown then
-            _activeButtons[button] = true
+            S.activeButtons[button] = true
         else
-            _activeButtons[button] = nil
+            S.activeButtons[button] = nil
         end
 
-        if (_keysPanel or _shellActive()) and _keysReady then
+        if (S.keysPanel or _shellActive()) and S.keysReady then
             local active = {}
 
-            for btn in pairs(_activeButtons) do
+            for btn in pairs(S.activeButtons) do
                 table.insert(active, btn)
             end
 
@@ -1151,7 +1135,7 @@ return function(ms)
 
             if aok then
                 pcall(function()
-                    _pushToPanel(_keysPanel, "keys", "updateMouseState(" .. aj .. ")")
+                    _pushToPanel(S.keysPanel, "keys", "updateMouseState(" .. aj .. ")")
                 end)
             end
         end
@@ -1166,7 +1150,7 @@ return function(ms)
     end
 
     function MsDevTools:watcherStep(msg, label)
-        if not _watcherPanel then return end
+        if not S.watcherPanel then return end
 
         local displayLabel = _buildDisplayLabel(label)
         if not displayLabel then return end
@@ -1179,7 +1163,7 @@ return function(ms)
 
         if ok then
             pcall(function()
-                _pushToPanel(_watcherPanel, "watcher", "appendEntry(" .. j .. ")")
+                _pushToPanel(S.watcherPanel, "watcher", "appendEntry(" .. j .. ")")
             end)
         end
     end
@@ -1199,14 +1183,14 @@ return function(ms)
         if _traceSuppress then return end
         if dx == nil or dy == nil then return end
         local msg = "cam(" .. dx .. ", " .. dy .. ")"
-        if _watcherPanel then self:watcherStep(msg, label) end
+        if S.watcherPanel then self:watcherStep(msg, label) end
         self:macroLog(msg, label)
     end
 
     function MsDevTools:accWait(duration, label)
         if _traceSuppress then return end
         local msg = "wait " .. (tonumber(duration) or 0) .. "ms"
-        if _watcherPanel then self:watcherStep(msg, label) end
+        if S.watcherPanel then self:watcherStep(msg, label) end
         self:macroLog(msg, label)
     end
 
@@ -1236,7 +1220,7 @@ return function(ms)
 
         if not st or #st.buffer == 0 then return end
 
-        local h = _handleFor(_readHandles, _readablePaths and _readablePaths["macro"])
+        local h = _handleFor(_readHandles, S.readablePaths and S.readablePaths["macro"])
         if h then
             for _, line in ipairs(st.buffer) do
                 h:write(line .. "\n")
@@ -1244,7 +1228,7 @@ return function(ms)
             h:flush()
         end
 
-        if _watcherPanel then
+        if S.watcherPanel then
             for _, line in ipairs(st.buffer) do
                 local ok, j = pcall(hs.json.encode, {
                     type = "step",
@@ -1254,7 +1238,7 @@ return function(ms)
 
                 if ok then
                     pcall(function()
-                        _pushToPanel(_watcherPanel, "watcher", "appendEntry(" .. j .. ")")
+                        _pushToPanel(S.watcherPanel, "watcher", "appendEntry(" .. j .. ")")
                     end)
                 end
             end
@@ -1279,1301 +1263,30 @@ return function(ms)
     end
 -- END Branch Tracing --
 
--- Panel Helpers --
+-- Submodules --
+    local ctx = {
+        S = S,
+        MsDevTools = MsDevTools,
+        home = _home,
+        devBase = _devBase,
+        pushToPanel = _pushToPanel,
+        shellActive = _shellActive,
+        devDragStart = _devDragStart,
+        devDragEnd = _devDragEnd,
+        devFadeTimers = _devFadeTimers,
+        htmlCache = _htmlCache,
+        consoleSkip = _consoleSkip,
+    }
 
-    local function _devThemeJS()
-        local t = ms._theme or {}
-
-        local safe = {}
-        for _, k in ipairs({
-            "bg",
-            "surface",
-            "surface2",
-            "hover",
-            "accent",
-            "accentHi",
-            "success","dangerBg","danger","warning","text","text2","text3",
-            "border","borderDim","accentGlow","accentGlowFaint","dangerGlow",
-            "dangerBorder","mouse","scroll","key","radius","font"}) do
-            if t[k] ~= nil then safe[k] = t[k] end
-        end
-
-        if type(t.font) == "string" and t.font:match("%.[ot]tf$") then
-            local fp = hs.configdir .. "/sounds/" .. t.font
-            local f = io.open(fp, "r")
-            if not f then
-                fp = _home .. "/.hammerspoon/sounds/" .. t.font
-                f = io.open(fp, "r")
-            end
-            if f then f:close()
-            safe.fontURL = "file://" .. fp end
-        end
-
-        local ok, json = pcall(hs.json.encode, safe)
-        if not ok or json == "{}" then return "" end
-
-        return "applyTheme(" .. json .. ")"
+    for _, name in ipairs({
+        "panel_kit",
+        "panels",
+        "window",
+    }) do
+        package.loaded["lib.devtools." .. name] = nil
+        require("lib.devtools." .. name)(ms, ctx)
     end
-
-    local function _makeDevPanel(ucName, w, h, xOff, yOff)
-        local uc     = hs.webview.usercontent.new(ucName)
-        local screen = hs.screen.mainScreen():frame()
-        local x      = screen.x + screen.w - w - xOff
-        local y      = screen.y + yOff
-        local panel  = hs.webview.new(
-            {
-                x = x,
-                y = y,
-                w = w,
-                h = h,
-            },
-            { developerExtrasEnabled = true },
-            uc
-        )
-
-        if not panel then return nil, uc end
-
-        pcall(function() panel:windowStyle(0) end)
-        pcall(function() panel:level((hs.canvas.windowLevels.popUpMenu or 101) + 1) end)
-        pcall(function() panel:behavior(hs.canvas.windowBehaviors.canJoinAllSpaces) end)
-        pcall(function() panel:allowTextEntry(true) end)
-        pcall(function() panel:shadow(true) end)
-
-        return panel, uc, {
-            x = x,
-            y = y,
-            w = w,
-            h = h,
-        }
-    end
-
-    local function _setupDevPanelTheme(panel, timerKey, onReady)
-        if ms and ms.theme and ms.theme.applyWindowRadius then ms.theme.applyWindowRadius(panel) end
-        if ms and ms.theme and ms.theme.onChanged then
-            ms.theme.onChanged(function()
-                if ms and ms.theme and ms.theme._pushWindowRadius then ms.theme._pushWindowRadius(panel) end
-            end)
-        end
-
-        panel:navigationCallback(function(_, action)
-            if action == "navigating" then return end
-
-            _devFadeTimers[timerKey] = hs.timer.doAfter(0, function()
-                _devFadeTimers[timerKey] = nil
-                local tj = _devThemeJS()
-
-                if tj ~= "" then
-                    pcall(function() panel:evaluateJavaScript(tj) end)
-                end
-                -- Freshly opened popout inherits the current UI zoom.
-                local z = ms and ms._uiZoom or 1.0
-                if z ~= 1.0 then
-                    pcall(function()
-                        panel:evaluateJavaScript(
-                            "if(window.applyZoom)applyZoom(" .. z .. ")")
-                    end)
-                end
-            end)
-
-            if onReady then onReady() end
-        end)
-    end
-
-    local function _devFadeIn(panel, key)
-        if _devFadeTimers[key] then
-            _devFadeTimers[key]:stop()
-            _devFadeTimers[key] = nil
-        end
-
-        if ms and ms._octaneMode then
-            pcall(function() panel:alpha(1) end)
-            return
-        end
-
-        pcall(function() panel:alpha(0) end)
-
-        local step, steps = 0, 6
-
-        _devFadeTimers[key] = hs.timer.doEvery((ms._theme.fadeMs or 150) / 1000 / steps, function()
-            step = step + 1
-
-            pcall(function() panel:alpha(step / steps) end)
-
-            if step >= steps then
-                _devFadeTimers[key]:stop()
-                _devFadeTimers[key] = nil
-            end
-        end)
-    end
-
-    local function _devFadeOut(panel, key, onDone)
-        if _devFadeTimers[key] then
-            _devFadeTimers[key]:stop()
-            _devFadeTimers[key] = nil
-        end
-
-        if ms and ms._octaneMode then
-            pcall(function() panel:alpha(0) end)
-            if onDone then onDone() end
-            return
-        end
-
-        local step, steps = 0, 6
-
-        _devFadeTimers[key] = hs.timer.doEvery((ms._theme.fadeMs or 150) / 1000 / steps, function()
-            step = step + 1
-
-            pcall(function() panel:alpha(1 - (step / steps)) end)
-
-            if step >= steps then
-                _devFadeTimers[key]:stop()
-                _devFadeTimers[key] = nil
-
-                if onDone then onDone() end
-            end
-        end)
-    end
-
-    function MsDevTools:pushMouseState(x, y)
-        if not _keysPanel and not _shellActive() then return end
-
-        local _x   = x or (_mousePos and _mousePos.x) or 0
-        local _y   = y or (_mousePos and _mousePos.y) or 0
-        local mode = _coordMode or "screen"
-        local tx, ty = _x, _y
-
-        if mode == "window" or mode == "windowTR" or mode == "windowBL"
-            or mode == "windowBR" or mode == "windowCenter" then
-
-            local win = ms.getTargetWin()
-
-            if win then
-                local f = win:frame()
-
-                if mode == "window" then
-                    tx = _x - f.x
-                    ty = _y - f.y
-
-                elseif mode == "windowTR" then
-                    tx = _x - (f.x + f.w)
-                    ty = _y - f.y
-
-                elseif mode == "windowBL" then
-                    tx = _x - f.x
-                    ty = _y - (f.y + f.h)
-
-                elseif mode == "windowBR" then
-                    tx = _x - (f.x + f.w)
-                    ty = _y - (f.y + f.h)
-
-                elseif mode == "windowCenter" then
-                    tx = _x - (f.x + f.w / 2)
-                    ty = _y - (f.y + f.h / 2)
-
-                end
-            end
-
-        elseif mode == "screenCenter" then
-            local sf = hs.screen.mainScreen():frame()
-
-            tx = _x - math.floor(sf.w / 2)
-            ty = _y - math.floor(sf.h / 2)
-        end
-
-        local j = string.format('{"x":%d,"y":%d}', math.floor(tx), math.floor(ty))
-
-        pcall(function()
-            _pushToPanel(_keysPanel, "keys", "updateMouseState(" .. j .. ")")
-        end)
-    end
--- END Panel Helpers --
-
--- Console Panel --
-    function MsDevTools:_buildConsolePanel()
-        local panel, ucCon, pos = _makeDevPanel("console", 360, 480, 20, 20)
-
-        if not panel then return nil end
-
-        ucCon:setCallback(function(msg)
-            local ok, data = pcall(hs.json.decode, msg.body)
-
-            if not ok or type(data) ~= "table" then return end
-
-            if data.action == "execute" and data.code then
-                local fn, err = load("return " .. data.code)
-
-                if not fn then fn, err = load(data.code) end
-
-                if not fn then
-                    self:_devWrite({
-                        type = "error",
-                        msg  = err or "syntax error",
-                    })
-                else
-                    local res     = table.pack(pcall(fn))
-                    local success = table.remove(res, 1)
-
-                    if not success then
-                        self:_devWrite({
-                            type = "error",
-                            msg  = tostring(res[1]),
-                        })
-                    elseif #res > 0 then
-                        local parts = {}
-
-                        for _, v in ipairs(res) do
-                            parts[#parts + 1] = tostring(v)
-                        end
-
-                        self:_devWrite({
-                            type = "result",
-                            msg  = table.concat(parts, "\t"),
-                        })
-                    end
-                end
-
-            elseif data.action == "clear" then
-                for _, cat in ipairs({
-                    "console",
-                    "error",
-                    "system",
-                }) do
-                    local p = _catPaths[cat]
-                    if p then local f = io.open(p, "w")
-                    if f then f:close() end end
-
-                    local r = _readablePaths[cat]
-                    if r then local f = io.open(r, "w")
-                    if f then f:close() end end
-                end
-
-            elseif data.action == "close" then
-                self:hideConsole()
-
-            elseif data.action == "openWatcher" then
-                self:showWatcher()
-
-            elseif data.action == "openKeys" then
-                self:showKeys()
-
-            elseif data.action == "dragStart" then
-                _devDragStart(function() return _consolePanel end, _consolePanelPos)
-
-            elseif data.action == "moveEnd" then
-                _devDragEnd(function() return _consolePanel end)
-
-            elseif data.action == "move" and _consolePanelPos then
-                _consolePanelPos.x = _consolePanelPos.x + (data.dx or 0)
-                _consolePanelPos.y = _consolePanelPos.y + (data.dy or 0)
-
-                if _consolePanel then
-                    pcall(function() _consolePanel:frame(_consolePanelPos) end)
-                end
-
-            elseif data.action == "playSlot" and data.slot then
-                ms.playSlot(data.slot)
-            end
-        end)
-
-        _consolePanelPos = pos
-        _setupDevPanelTheme(panel, "_themeConsole")
-
-        if _htmlCache["console"] then
-            panel:html(_htmlCache["console"], _devBase)
-        end
-
-        return panel
-    end
-
-    function MsDevTools:showConsole()
-        local ms = _G.ms
-        if ms and ms.shell and ms.shell.isReady and ms.shell.isReady() then
-            _consoleOpen = true
-            ms.shell.show()
-            ms.shell.eval("showPanel('console')")
-            hs.timer.doAfter(0.15, function()
-                _loadDevHistory(nil, {
-                    "console",
-                    "error",
-                    "system",
-                }, "console", _consoleSkip)
-            end)
-            return
-        end
-
-        if not _consolePanel then
-            _consolePanel = self:_buildConsolePanel()
-
-            if not _consolePanel then return end
-        end
-
-        _consoleOpen = true
-
-        if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
-        if ms.ui and ms.ui.refresh then pcall(function() ms.ui.refresh() end) end
-
-        ms.playSlot("settingsOpen")
-
-        ms.safeShow(_consolePanel)
-
-        pcall(function() _consolePanel:bringToFront(true) end)
-
-        _devFadeIn(_consolePanel, "console")
-
-        _devFadeTimers["_histConsole"] = hs.timer.doAfter(0.1, function()
-            _devFadeTimers["_histConsole"] = nil
-            if not _consolePanel or not _consoleOpen then return end
-
-            _loadDevHistory(_consolePanel, {
-                "console",
-                "error",
-                "system",
-            }, nil, _consoleSkip)
-        end)
-    end
-
-    function MsDevTools:hideConsole()
-        _consoleOpen = false
-
-        if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
-        if ms.ui and ms.ui.refresh then pcall(function() ms.ui.refresh() end) end
-
-        if _consolePanel then
-            ms.playSlot("settingsClose")
-
-            _devFadeOut(_consolePanel, "console", function()
-                if _consolePanel then _consolePanel:hide() end
-            end)
-        end
-    end
-
-    function MsDevTools:toggleConsole()
-        if _consoleOpen then
-            self:hideConsole()
-        else
-            self:showConsole()
-        end
-    end
--- END Console Panel --
-
--- Watcher Panel --
-    function MsDevTools:_buildWatcherPanel()
-        local panel, ucWatcher, pos = _makeDevPanel("watcher", 360, 480, 50, 44)
-
-        if not panel then return nil end
-
-        ucWatcher:setCallback(function(msg)
-            local ok, data = pcall(hs.json.decode, msg.body)
-
-            if not ok or type(data) ~= "table" then return end
-
-            if data.action == "clear" then
-                for _, cat in ipairs({
-                    "macro",
-                    "error",
-                }) do
-                    local p = _catPaths[cat]
-                    if p then local f = io.open(p, "w")
-                    if f then f:close() end end
-
-                    local r = _readablePaths[cat]
-                    if r then local f = io.open(r, "w")
-                    if f then f:close() end end
-                end
-
-            elseif data.action == "close" then
-                self:hideWatcher()
-
-            elseif data.action == "dragStart" then
-                _devDragStart(function() return _watcherPanel end, _watcherPanelPos)
-
-            elseif data.action == "moveEnd" then
-                _devDragEnd(function() return _watcherPanel end)
-
-            elseif data.action == "move" and _watcherPanelPos then
-                _watcherPanelPos.x = _watcherPanelPos.x + (data.dx or 0)
-                _watcherPanelPos.y = _watcherPanelPos.y + (data.dy or 0)
-
-                if _watcherPanel then
-                    pcall(function() _watcherPanel:frame(_watcherPanelPos) end)
-                end
-
-            elseif data.action == "playSlot" and data.slot then
-                ms.playSlot(data.slot)
-            end
-        end)
-
-        _watcherPanelPos = pos
-        _setupDevPanelTheme(panel, "_themeWatcher")
-
-        if _htmlCache["watcher"] then
-            panel:html(_htmlCache["watcher"], _devBase)
-        end
-
-        return panel
-    end
-
-    function MsDevTools:showWatcher()
-        local ms = _G.ms
-        if ms and ms.shell and ms.shell.isReady and ms.shell.isReady() then
-            _watcherOpen = true
-            ms.shell.show()
-            ms.shell.eval("showPanel('watcher')")
-            hs.timer.doAfter(0.15, function()
-                _loadDevHistory(nil, {
-                    "macro",
-                    "error",
-                }, "watcher")
-            end)
-            return
-        end
-
-        if not _watcherPanel then
-            _watcherPanel = self:_buildWatcherPanel()
-
-            if not _watcherPanel then return end
-        end
-
-        _watcherOpen = true
-
-        if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
-        if ms.ui and ms.ui.refresh then pcall(function() ms.ui.refresh() end) end
-
-        ms.playSlot("settingsOpen")
-
-        ms.safeShow(_watcherPanel)
-
-        pcall(function() _watcherPanel:bringToFront(true) end)
-
-        _devFadeIn(_watcherPanel, "watcher")
-
-        _devFadeTimers["_histWatcher"] = hs.timer.doAfter(0.1, function()
-            _devFadeTimers["_histWatcher"] = nil
-            if not _watcherPanel or not _watcherOpen then return end
-
-            _loadDevHistory(_watcherPanel, {
-                "macro",
-                "error",
-            })
-        end)
-    end
-
-    function MsDevTools:hideWatcher()
-        _watcherOpen = false
-
-        if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
-        if ms.ui and ms.ui.refresh then pcall(function() ms.ui.refresh() end) end
-
-        if _watcherPanel then
-            ms.playSlot("settingsClose")
-
-            _devFadeOut(_watcherPanel, "watcher", function()
-                if _watcherPanel then _watcherPanel:hide() end
-            end)
-        end
-    end
-
-    function MsDevTools:toggleWatcher()
-        if _watcherOpen then
-            self:hideWatcher()
-        else
-            self:showWatcher()
-        end
-    end
--- END Watcher Panel --
-
--- Inputs Panel --
-    function MsDevTools:_buildKeysPanel()
-        local panel, ucKeys, pos = _makeDevPanel("keys", 360, 480, 80, 68)
-
-        if not panel then return nil end
-
-        ucKeys:setCallback(function(msg)
-            local ok, data = pcall(hs.json.decode, msg.body)
-
-            if not ok or type(data) ~= "table" then return end
-
-            if data.action == "clear" then
-                local p = _catPaths["input"]
-                if p then local f = io.open(p, "w")
-                if f then f:close() end end
-
-                local r = _readablePaths["input"]
-                if r then local f = io.open(r, "w")
-                if f then f:close() end end
-
-            elseif data.action == "close" then
-                self:hideKeys()
-
-            elseif data.action == "ready" then
-                if not _keysReady then
-                    _keysReady = true
-
-                    local _p = hs.mouse.absolutePosition()
-
-                    _mousePos = {
-                        x = math.floor(_p.x),
-                        y = math.floor(_p.y),
-                    }
-                end
-
-            elseif data.action == "setCoordMode" then
-                _coordMode = data.mode or "screen"
-
-                _devFadeTimers["_coordPush"] = hs.timer.doAfter(0.01, function()
-                    _devFadeTimers["_coordPush"] = nil
-                    if _keysPanel then
-                        pcall(function() _pushMouseState() end)
-                    end
-                end)
-
-            elseif data.action == "dragStart" then
-                _devDragStart(function() return _keysPanel end, _keysPanelPos)
-
-            elseif data.action == "moveEnd" then
-                _devDragEnd(function() return _keysPanel end)
-
-            elseif data.action == "move" and _keysPanelPos then
-                _keysPanelPos.x = _keysPanelPos.x + (data.dx or 0)
-                _keysPanelPos.y = _keysPanelPos.y + (data.dy or 0)
-
-                if _keysPanel then
-                    pcall(function() _keysPanel:frame(_keysPanelPos) end)
-                end
-
-            elseif data.action == "playSlot" and data.slot then
-                ms.playSlot(data.slot)
-            end
-        end)
-
-        if not _htmlCache["keys"] then return nil end
-
-        _keysPanelPos = pos
-        _keysReady    = false
-
-        local function keysOnReady()
-            if not _keysReady then
-                _keysReady = true
-
-                local _p = hs.mouse.absolutePosition()
-
-                _mousePos = {
-                    x = math.floor(_p.x),
-                    y = math.floor(_p.y),
-                }
-            end
-        end
-
-        _setupDevPanelTheme(panel, "_themeKeys", keysOnReady)
-
-        panel:html(_htmlCache["keys"], _devBase)
-
-        return panel
-    end
-
-    function MsDevTools:showKeys()
-        local ms = _G.ms
-        if ms and ms.shell and ms.shell.isReady and ms.shell.isReady() then
-            _keysOpen = true
-            _keysReady = true
-            ms.shell.show()
-            ms.shell.eval("showPanel('keys')")
-            hs.timer.doAfter(0.15, function()
-                _loadDevHistory(nil, {"input"}, "keys")
-            end)
-            return
-        end
-
-        if not _keysPanel then
-            _keysPanel = self:_buildKeysPanel()
-
-            if not _keysPanel then return end
-        end
-
-        _keysOpen  = true
-        _keysReady = true
-
-        if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
-        if ms.ui and ms.ui.refresh then pcall(function() ms.ui.refresh() end) end
-
-        ms.playSlot("settingsOpen")
-
-        ms.safeShow(_keysPanel)
-
-        pcall(function() _keysPanel:bringToFront(true) end)
-
-        _devFadeIn(_keysPanel, "keys")
-
-        _devFadeTimers["_histKeys"] = hs.timer.doAfter(0.1, function()
-            _devFadeTimers["_histKeys"] = nil
-            if not _keysPanel or not _keysOpen then return end
-
-            _loadDevHistory(_keysPanel, {"input"})
-
-            pcall(function() _pushMouseState() end)
-        end)
-
-        if _mousePoller then _mousePoller:stop() end
-
-        _mousePoller = hs.timer.doEvery(0.1, function()
-            if not _keysPanel then
-                if _mousePoller then
-                    _mousePoller:stop()
-                    _mousePoller = nil
-                end
-
-                return
-            end
-
-            local _p      = hs.mouse.absolutePosition()
-            local _x, _y  = math.floor(_p.x), math.floor(_p.y)
-            local prev    = _mousePos
-
-            if not prev or _x ~= prev.x or _y ~= prev.y then
-                _mousePos = {
-                    x = _x,
-                    y = _y,
-                }
-
-                _pushMouseState(_x, _y)
-            end
-        end)
-    end
-
-    function MsDevTools:hideKeys()
-        if _mousePoller then
-            _mousePoller:stop()
-            _mousePoller = nil
-        end
-
-        _keysReady = false
-        _keysOpen  = false
-
-        if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
-        if ms.ui and ms.ui.refresh then pcall(function() ms.ui.refresh() end) end
-
-        if _keysPanel then
-            ms.playSlot("settingsClose")
-
-            _devFadeOut(_keysPanel, "keys", function()
-                if _keysPanel then _keysPanel:hide() end
-            end)
-        end
-    end
-
-    function MsDevTools:toggleKeys()
-        if _keysOpen then
-            self:hideKeys()
-        else
-            self:showKeys()
-        end
-    end
-
-    function MsDevTools:stopAllPollers()
-        if _mousePoller then _mousePoller:stop()
-        _mousePoller = nil end
-        if _shellMousePoller then _shellMousePoller:stop()
-        _shellMousePoller = nil end
-        self:_winEngineStop()
-    end
-
-    function MsDevTools:restartPollersIfActive()
-        if _keysOpen and _keysPanel and not _mousePoller then
-            _mousePoller = hs.timer.doEvery(0.1, function()
-                if not _keysPanel then
-                    if _mousePoller then _mousePoller:stop()
-                    _mousePoller = nil end
-                    return
-                end
-                local _p      = hs.mouse.absolutePosition()
-                local _x, _y  = math.floor(_p.x), math.floor(_p.y)
-                local prev    = _mousePos
-                if not prev or _x ~= prev.x or _y ~= prev.y then
-                    _mousePos = {
-                        x = _x,
-                        y = _y,
-                    }
-                    _pushMouseState(_x, _y)
-                end
-            end)
-        end
-        if _windowOpen and _activePanel == "window" then
-            self:_winEngineStart()
-        end
-    end
--- END Inputs Panel --
-
--- Window Panel --
-    local function _winG(fn) local ok, v = pcall(fn)
-    if ok then return v end end
-
-    function _winRead(win)
-        if not win then return nil end
-        local appObj = _winG(function() return win:application() end)
-        local f = _winG(function() return win:frame() end)
-        return {
-            app        = appObj and _winG(function() return appObj:name() end) or nil,
-            pid        = appObj and _winG(function() return appObj:pid() end) or nil,
-            bundleID   = appObj and _winG(function() return appObj:bundleID() end) or nil,
-            title      = _winG(function() return win:title() end),
-            role       = _winG(function() return win:role() end),
-            subrole    = _winG(function() return win:subrole() end),
-            frame      = f and {
-                x = math.floor(f.x),
-                y = math.floor(f.y),
-                w = math.floor(f.w),
-                h = math.floor(f.h),
-            } or nil,
-            screen     = _winG(function()
-                local s = win:screen()
-                return s and s:name()
-            end),
-            id         = _winG(function() return win:id() end),
-            standard   = _winG(function() return win:isStandard() end),
-            minimized  = _winG(function() return win:isMinimized() end),
-            fullscreen = _winG(function() return win:isFullscreen() end),
-            visible    = _winG(function() return win:isVisible() end),
-        }
-    end
-
-    local function _winReadLight(win)
-        if not win then return nil end
-        local f = _winG(function() return win:frame() end)
-        return {
-            frame      = f and {
-                x = math.floor(f.x),
-                y = math.floor(f.y),
-                w = math.floor(f.w),
-                h = math.floor(f.h),
-            } or nil,
-            standard   = _winG(function() return win:isStandard() end),
-            minimized  = _winG(function() return win:isMinimized() end),
-            fullscreen = _winG(function() return win:isFullscreen() end),
-            visible    = _winG(function() return win:isVisible() end),
-        }
-    end
-
-    function _winPush(fn, payload)
-        local ok, j = pcall(hs.json.encode, payload)
-        if ok then pcall(function() _pushToPanel(_windowPanel, "window", fn .. "(" .. j .. ")") end) end
-    end
-
-    local function _axStr(v)
-        local t = type(v)
-        if t == "string" then return #v > 120 and (v:sub(1, 120) .. "\u{2026}") or v end
-        if t == "number" or t == "boolean" then return tostring(v) end
-        return nil
-    end
-
-    local function _winStillOpen()
-        if _windowPanel ~= nil then return _windowOpen end
-        local ms = _G.ms
-        if ms and ms.shell and ms.shell.isPoppedOut and ms.shell.isPoppedOut("window") then
-            return _windowOpen
-        end
-        if not (_windowOpen and _shellActive() and _activePanel == "window") then
-            return false
-        end
-        local st = _G.ms and _G.ms._shellState
-        return not (st and st.visible == false)
-    end
-
-    function MsDevTools:_winEngineStop()
-        if _winAppWatcher then pcall(function() _winAppWatcher:stop() end)
-        _winAppWatcher = nil end
-        if _winUiWatcher  then pcall(function() _winUiWatcher:stop()  end)
-        _winUiWatcher  = nil end
-        if _winMonitor then _winMonitor:stop()
-        _winMonitor = nil end
-        _winElementInspect = false
-    end
-
-    function MsDevTools:setWinElementInspect(enabled)
-        _winElementInspect = (enabled == true)
-        if not _winElementInspect then _winLastMouse = nil end
-    end
-
-    function MsDevTools:_winEngineStart()
-        self:_winEngineStop()
-        _winDirty, _winMoveN, _winResizeN, _winLastMouse = false, 0, 0, nil
-        _winElementTab = true
-        local _winLastFullState = nil
-
-        local _winLastWin = nil
-
-        local function _winSubject()
-            local w = hs.window.focusedWindow()
-            if w then _winLastWin = w
-            return w end
-            return _winLastWin
-        end
-
-        local function pushState(win, light)
-            local st
-            if win then _winLastWin = win end
-            if light then
-                st = _winReadLight(win or _winSubject())
-                if st and _winLastFullState then
-                    for k, v in pairs(_winLastFullState) do
-                        if st[k] == nil then st[k] = v end
-                    end
-                end
-            else
-                st = _winRead(win or _winSubject())
-                _winLastFullState = st
-            end
-            if st then _winPush("updateCurrentWindow", st) end
-            return st
-        end
-
-        local function watchApp(app)
-            if _winUiWatcher then pcall(function() _winUiWatcher:stop() end)
-            _winUiWatcher = nil end
-            if not app then _winWatchedAppName = nil
-            return end
-            _winWatchedAppName = _winG(function() return app:name() end)
-            _winUiWatcher = _winG(function()
-                local w = app:newWatcher(function(el, ev)
-                    if _G.ms and _G.ms._shellDragging then return end
-                    if ev == hs.uielement.watcher.windowMinimized then
-                        _winPendingEvent = {
-                            type = "minimize",
-                            app = _winWatchedAppName,
-                            win = _winG(function() return el:asHSWindow() end) }
-                    elseif ev == hs.uielement.watcher.windowUnminimized then
-                        _winPendingEvent = {
-                            type = "unminimize",
-                            app = _winWatchedAppName,
-                            win = _winG(function() return el:asHSWindow() end) }
-                    elseif ev == hs.uielement.watcher.windowResized then
-                        _winResizeN = _winResizeN + 1
-                    else
-                        _winMoveN = _winMoveN + 1
-                    end
-                    _winDirty = true
-                end)
-                w:start({
-                    hs.uielement.watcher.windowMoved,
-                    hs.uielement.watcher.windowResized,
-                    hs.uielement.watcher.windowCreated,
-                    hs.uielement.watcher.mainWindowChanged,
-                    hs.uielement.watcher.windowMinimized,
-                    hs.uielement.watcher.windowUnminimized,
-                })
-                return w
-            end)
-        end
-
-        _winAppWatcher = hs.application.watcher.new(function(_, ev, app)
-            if not _winStillOpen() then self:_winEngineStop()
-            return end
-            if ev == hs.application.watcher.activated then
-                local st = pushState()
-                if st then
-                    self:_pushWindowEvent({
-                        type = "focus",
-                        ts = os.date("%H:%M:%S"),
-                        app = st.app,
-                        title = st.title,
-                    })
-                end
-                watchApp(app)
-            elseif ev == hs.application.watcher.hidden or ev == hs.application.watcher.unhidden then
-                local nm = _winG(function() return app:name() end)
-                self:_pushWindowEvent({
-                    type = ev == hs.application.watcher.hidden and "hide" or "show",
-                    ts = os.date("%H:%M:%S"),
-                    app = nm,
-                })
-                pushState(_winG(function() return app:mainWindow() end))
-            end
-        end)
-        pcall(function() _winAppWatcher:start() end)
-
-        _winMonitor = hs.timer.doEvery(0.2, function()
-            if not _winStillOpen() then self:_winEngineStop()
-            return end
-            if _G.ms and _G.ms._shellDragging then return end
-
-            local payload = {}
-            local hasData = false
-
-            if _winDirty then
-                _winDirty = false
-                local st = _winReadLight(
-                    (_winPendingEvent and _winPendingEvent.win) or _winSubject()
-                )
-                if st and _winLastFullState then
-                    for k, v in pairs(_winLastFullState) do
-                        if st[k] == nil then st[k] = v end
-                    end
-                end
-                if st then
-                    payload.window = st
-                    hasData = true
-                end
-                local f = st and st.frame
-                local events = {}
-                if _winPendingEvent then
-                    local entry = {
-                        type = _winPendingEvent.type,
-                        ts = os.date("%H:%M:%S"),
-                        app = _winPendingEvent.app }
-                    table.insert(_windowHistory, entry)
-                    if #_windowHistory > _windowMaxHistory then table.remove(_windowHistory, 1) end
-                    table.insert(events, entry)
-                    _winPendingEvent = nil
-                end
-                if _winMoveN > 0 then
-                    local entry = {
-                        type = "move",
-                        ts = os.date("%H:%M:%S"),
-                        count = _winMoveN,
-                        x = f and f.x or nil,
-                        y = f and f.y or nil,
-                    }
-                    table.insert(_windowHistory, entry)
-                    if #_windowHistory > _windowMaxHistory then table.remove(_windowHistory, 1) end
-                    table.insert(events, entry)
-                    _winMoveN = 0
-                end
-                if _winResizeN > 0 then
-                    local entry = {
-                        type = "resize",
-                        ts = os.date("%H:%M:%S"),
-                        count = _winResizeN,
-                        w = f and f.w or nil,
-                        h = f and f.h or nil,
-                    }
-                    table.insert(_windowHistory, entry)
-                    if #_windowHistory > _windowMaxHistory then table.remove(_windowHistory, 1) end
-                    table.insert(events, entry)
-                    _winResizeN = 0
-                end
-                if #events > 0 then
-                    payload.events = events
-                    hasData = true
-                end
-            end
-
-            if _winElementInspect and _winElementTab and hs.accessibilityState() then
-                local p = hs.mouse.absolutePosition()
-                local _now = hs.timer.secondsSinceEpoch()
-                local _stationaryDue = (not _winLastInspectAt) or (_now - _winLastInspectAt) >= 0.5
-                if _stationaryDue or not (_winLastMouse and p.x == _winLastMouse.x and p.y == _winLastMouse.y) then
-                    _winLastMouse = p
-                    _winLastInspectAt = _now
-                    -- Shared sampler (ms.screen.sampleAt) is the single source of
-                    -- truth so inspect and macro pixelColor can never drift apart.
-                    local pixel = _winG(function()
-                        return ms.screen and ms.screen.sampleAt
-                           and ms.screen.sampleAt(p.x, p.y) or nil
-                    end)
-                    local win = hs.window.focusedWindow()
-                    local wf = win and _winG(function() return win:frame() end)
-                    payload.mouse = {
-                        sx = math.floor(p.x),
-                        sy = math.floor(p.y),
-                        wx = wf and math.floor(p.x - wf.x) or nil,
-                        wy = wf and math.floor(p.y - wf.y) or nil,
-                        pixel = pixel,
-                    }
-                    local el = _winG(function() return hs.axuielement.systemElementAtPosition(p.x, p.y) end)
-                    if el then
-                        local function ga(a) return _axStr(_winG(function() return el:attributeValue(a) end)) end
-                        local fr = _winG(function() return el:attributeValue("AXFrame") end)
-                        local frame
-                        if type(fr) == "table" and fr.x then
-                            frame = {
-                                x = math.floor(fr.x),
-                                y = math.floor(fr.y),
-                                w = math.floor(fr.w),
-                                h = math.floor(fr.h),
-                            }
-                        end
-                        payload.element = {
-                            axPermission    = true,
-                            role            = ga("AXRole"),
-                            roleDescription = ga("AXRoleDescription"),
-                            title           = ga("AXTitle"),
-                            value           = ga("AXValue"),
-                            identifier      = ga("AXIdentifier"),
-                            frame           = frame,
-                        }
-                    end
-                    hasData = true
-                end
-            end
-
-            if hasData then
-                _winPush("updateAll", payload)
-            end
-        end)
-
-        if not hs.accessibilityState() then
-            _winPush("updateElement", { axPermission = false })
-        end
-
-        hs.timer.doAfter(0.02, function()
-            if not _winStillOpen() then return end
-            local win = hs.window.focusedWindow()
-            pushState(win)
-            if win then watchApp(_winG(function() return win:application() end)) end
-        end)
-        hs.timer.doAfter(0.2, function()
-            if _winStillOpen() then pushState() end
-        end)
-    end
-
-    function MsDevTools:_pushWindowEvent(entry)
-        table.insert(_windowHistory, entry)
-
-        if #_windowHistory > _windowMaxHistory then
-            table.remove(_windowHistory, 1)
-        end
-
-        if _windowPanel or _shellActive() then
-            local ok, j = pcall(hs.json.encode, entry)
-
-            if ok then
-                pcall(function()
-                    _pushToPanel(_windowPanel, "window", "appendEntry(" .. j .. ")")
-                end)
-            end
-        end
-    end
-
-    function MsDevTools:_buildWindowPanel()
-        local panel, ucWindow, pos = _makeDevPanel("window", 360, 480, 110, 68)
-
-        if not panel then return nil end
-
-        ucWindow:setCallback(function(msg)
-            local ok, data = pcall(hs.json.decode, msg.body)
-
-            if not ok or type(data) ~= "table" then return end
-
-            if data.action == "clear" then
-                _windowHistory = {}
-
-            elseif data.action == "close" then
-                self:hideWindow()
-
-            elseif data.action == "dragStart" then
-                _devDragStart(function() return _windowPanel end, _windowPanelPos)
-
-            elseif data.action == "moveEnd" then
-                _devDragEnd(function() return _windowPanel end)
-
-            elseif data.action == "move" and _windowPanelPos then
-                _windowPanelPos.x = _windowPanelPos.x + (data.dx or 0)
-                _windowPanelPos.y = _windowPanelPos.y + (data.dy or 0)
-
-                if _windowPanel then
-                    pcall(function() _windowPanel:frame(_windowPanelPos) end)
-                end
-
-            elseif data.action == "playSlot" and data.slot then
-                ms.playSlot(data.slot)
-            end
-        end)
-
-        _windowPanelPos = pos
-        _setupDevPanelTheme(panel, "_themeWindow")
-
-        if _htmlCache["window"] then
-            panel:html(_htmlCache["window"], _devBase)
-        end
-
-        _devFadeTimers["_histWindow"] = hs.timer.doAfter(0.05, function()
-            _devFadeTimers["_histWindow"] = nil
-            if not _windowPanel then return end
-
-            if #_windowHistory > 0 then
-                local ok, j = pcall(hs.json.encode, _windowHistory)
-                if ok then
-                    pcall(function() panel:evaluateJavaScript("loadHistory(" .. j .. ")") end)
-                end
-            end
-
-            local st = _winRead(hs.window.focusedWindow())
-            if st then
-                local ok2, j2 = pcall(hs.json.encode, st)
-                if ok2 then
-                    pcall(function() panel:evaluateJavaScript("updateCurrentWindow(" .. j2 .. ")") end)
-                end
-            end
-        end)
-
-        return panel
-    end
-
-    function MsDevTools:showWindow()
-        local ms = _G.ms
-        if ms and ms.shell and ms.shell.isReady and ms.shell.isReady() then
-            _windowOpen = true
-            ms.shell.show()
-            ms.shell.eval("showPanel('window')")
-            hs.timer.doAfter(0.15, function()
-                if #_windowHistory > 0 then
-                    local ok, j = pcall(hs.json.encode, _windowHistory)
-                    if ok then
-                        pcall(function() ms.shell.eval("shellReceive('window','loadHistory'," .. j .. ")") end)
-                    end
-                end
-                _winPush("updateCurrentWindow", _winRead(hs.window.focusedWindow()))
-            end)
-            self:_winEngineStart()
-            return
-        end
-
-        if not _windowPanel then
-            _windowPanel = self:_buildWindowPanel()
-
-            if not _windowPanel then return end
-        end
-
-        _windowOpen = true
-
-        if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
-        if ms.ui and ms.ui.refresh then pcall(function() ms.ui.refresh() end) end
-
-        ms.playSlot("settingsOpen")
-
-        ms.safeShow(_windowPanel)
-
-        pcall(function() _windowPanel:bringToFront(true) end)
-
-        _devFadeIn(_windowPanel, "window")
-
-        self:_winEngineStart()
-    end
-
-    function MsDevTools:hideWindow()
-        self:_winEngineStop()
-        if _windowPoller then
-            _windowPoller:stop()
-            _windowPoller = nil
-        end
-
-        _windowOpen = false
-
-        if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
-        if ms.ui and ms.ui.refresh then pcall(function() ms.ui.refresh() end) end
-
-        if _windowPanel then
-            ms.playSlot("settingsClose")
-
-            local panel = _windowPanel
-
-            _windowPanel = nil
-
-            _devFadeOut(panel, "window", function()
-                if panel then panel:hide() end
-            end)
-        end
-    end
-
-    function MsDevTools:toggleWindow()
-        if _windowOpen then
-            self:hideWindow()
-        else
-            self:showWindow()
-        end
-    end
--- END Window Panel --
-
--- Prewarm --
-    function MsDevTools:prewarm()
-        if not _consolePanel then _consolePanel = self:_buildConsolePanel() end
-        if not _watcherPanel then _watcherPanel = self:_buildWatcherPanel() end
-        if not _keysPanel    then _keysPanel    = self:_buildKeysPanel() end
-        if not _windowPanel  then _windowPanel  = self:_buildWindowPanel() end
-    end
-
-    function MsDevTools:recolor()
-        local js = _devThemeJS()
-        if js == "" then return end
-        if _consolePanel then pcall(function() _consolePanel:evaluateJavaScript(js) end) end
-        if _watcherPanel then pcall(function() _watcherPanel:evaluateJavaScript(js) end) end
-        if _keysPanel    then pcall(function() _keysPanel:evaluateJavaScript(js) end) end
-        if _windowPanel  then pcall(function() _windowPanel:evaluateJavaScript(js) end) end
-    end
-
-    -- Apply a new UI zoom to every open popout: rescale its frame by `ratio`
-    -- (so apparent content size holds and nothing clips), clamped to the
-    -- zoom-scaled popout minimum, then set CSS zoom via applyZoom(z).
-    function MsDevTools:rezoom(z, ratio, noRescale)
-        z = tonumber(z) or 1.0
-        ratio = tonumber(ratio) or 1.0
-        local minW = (ms._popBaseMin and ms._popBaseMin.w or 460) * z
-        local minH = (ms._popBaseMin and ms._popBaseMin.h or 320) * z
-        local js = "if(window.applyZoom)applyZoom(" .. z .. ")"
-        local function apply(panel)
-            if not panel then return end
-            if not noRescale and math.abs(ratio - 1) > 0.001 then
-                pcall(function()
-                    local f = panel:frame()
-                    local nf = { x = f.x, y = f.y,
-                                 w = f.w * ratio, h = f.h * ratio }
-                    if nf.w < minW then nf.w = minW end
-                    if nf.h < minH then nf.h = minH end
-                    panel:frame(nf)
-                end)
-            end
-            pcall(function() panel:evaluateJavaScript(js) end)
-        end
-        apply(_consolePanel)
-        apply(_watcherPanel)
-        apply(_keysPanel)
-        apply(_windowPanel)
-    end
-
-    function MsDevTools:prewarmStep(which)
-        if     which == "console" and not _consolePanel then
-            _consolePanel = self:_buildConsolePanel()
-
-        elseif which == "watcher" and not _watcherPanel then
-            _watcherPanel = self:_buildWatcherPanel()
-
-        elseif which == "keys" and not _keysPanel then
-            _keysPanel = self:_buildKeysPanel()
-
-        elseif which == "window" and not _windowPanel then
-            _windowPanel = self:_buildWindowPanel()
-        end
-    end
-
-    function MsDevTools:step(msg)
-        local entry = {
-            type = "step",
-            ts   = os.date("%H:%M:%S"),
-            msg  = tostring(msg or ""),
-        }
-
-        self:log(entry)
-
-        if _watcherPanel or _shellActive() then
-            local ok, j = pcall(hs.json.encode, entry)
-
-            if ok then
-                pcall(function()
-                    _pushToPanel(_watcherPanel, "watcher", "appendEntry(" .. j .. ")")
-                end)
-            end
-        end
-    end
--- END Prewarm --
-
--- Public Accessors --
-    function MsDevTools:getPanel(name)
-        if     name == "console" then return _consolePanel
-        elseif name == "watcher" then return _watcherPanel
-        elseif name == "keys"    then return _keysPanel
-        elseif name == "window"  then return _windowPanel
-        end
-    end
--- END Public Accessors --
+-- END Submodules --
 
 return MsDevTools
 

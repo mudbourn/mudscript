@@ -1,15 +1,17 @@
 (function() {
     "use strict";
 
+    var M = {};
+
     var _svgCache = window.msSvgCache;
     var _fetchSVG = window.msFetchSVG;
     var enumDefault = window.msMacroRegistry.enumDefault;
 
-    var _currentMacroId = null;
-    var _currentMacroDef = null;
-    var _macroDirty = false;
-    var _canvas = null;
-    var _mtabs = null;
+    M.currentMacroId = null;
+    M.currentMacroDef = null;
+    M.macroDirty = false;
+    M.canvas = null;
+    M.mtabs = null;
 
     var slot = document.getElementById("slot-macros");
     if (!slot) return;
@@ -170,9 +172,9 @@
     histSlot.style.cssText = "display:flex;gap:4px;margin-left:8px";
     toolbar.appendChild(histSlot);
 
-    var _currentMacroClass = "main";
-    var _currentMacroCooldown = null;
-    var _currentMacroShared = "";
+    M.currentMacroClass = "main";
+    M.currentMacroCooldown = null;
+    M.currentMacroShared = "";
 
     var classLabel = document.createElement("span");
     classLabel.style.cssText = "font-family:inherit;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-left:8px;margin-right:4px";
@@ -185,7 +187,7 @@
     classSeg.className = "fn-bind-switch macro-class-seg";
     function buildClassOpt(value, text) {
         var b = document.createElement("button");
-        b.className = "fn-bind-opt" + (_currentMacroClass === value ? " on" : "");
+        b.className = "fn-bind-opt" + (M.currentMacroClass === value ? " on" : "");
         b.setAttribute("data-class", value);
         b.textContent = text;
         b.title = value === "main"
@@ -193,10 +195,10 @@
             : "Optional macro, grouped under VISUAL - OPTIONAL";
         b.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
         b.addEventListener("click", function() {
-            if (_currentMacroClass === value) return;
+            if (M.currentMacroClass === value) return;
             if (window.playSlot) playSlot("interact");
             setMacroClass(value);
-            _macroDirty = true;
+            M.macroDirty = true;
             updateSaveBtnState();
         });
         return b;
@@ -206,10 +208,10 @@
     toolbar.appendChild(classSeg);
 
     function setMacroClass(value) {
-        _currentMacroClass = (value === "optional") ? "optional" : "main";
+        M.currentMacroClass = (value === "optional") ? "optional" : "main";
         var opts = classSeg.querySelectorAll(".fn-bind-opt");
         opts.forEach(function(o) {
-            o.classList.toggle("on", o.getAttribute("data-class") === _currentMacroClass);
+            o.classList.toggle("on", o.getAttribute("data-class") === M.currentMacroClass);
         });
     }
     function classFromGroup(group) {
@@ -278,8 +280,8 @@
     cooldownInput.setAttribute("spellcheck", "false");
     cooldownInput.addEventListener("input", function() {
         var raw = cooldownInput.value.trim();
-        _currentMacroCooldown = raw === "" ? null : Math.max(0, parseInt(raw, 10) || 0);
-        _macroDirty = true;
+        M.currentMacroCooldown = raw === "" ? null : Math.max(0, parseInt(raw, 10) || 0);
+        M.macroDirty = true;
         updateSaveBtnState();
     });
     flowCooldownRow.appendChild(cooldownLbl);
@@ -299,8 +301,8 @@
     sharedInput.addEventListener("input", function() {
         var clean = sharedInput.value.replace(/[^A-Za-z0-9_ -]/g, "");
         if (clean !== sharedInput.value) sharedInput.value = clean;
-        _currentMacroShared = clean.trim();
-        _macroDirty = true;
+        M.currentMacroShared = clean.trim();
+        M.macroDirty = true;
         updateSaveBtnState();
     });
     flowGroupRow.appendChild(sharedLbl);
@@ -439,9 +441,9 @@
 // END Fn //
 
 // Pack Info //
-    var _metaLoaded  = false;
-    var _metaDirty   = false;
-    var _metaOwned   = false;
+    M.metaLoaded  = false;
+    M.metaDirty   = false;
+    M.metaOwned   = false;
 
     function metaField(labelText, placeholder) {
         var wrap = document.createElement("label");
@@ -455,7 +457,7 @@
         inp.placeholder = placeholder || "";
         inp.addEventListener("keydown", function(e) { e.stopPropagation(); });
         inp.addEventListener("input", function() {
-            if (_metaLoaded) { _metaDirty = true; updateMetaSaveBtn(); }
+            if (M.metaLoaded) { M.metaDirty = true; updateMetaSaveBtn(); }
         });
         wrap.appendChild(lb);
         wrap.appendChild(inp);
@@ -471,7 +473,7 @@
     var _metaWebsite = metaField("Website", "https://...");
 
     var metaSaveBtn = _kit.actionBtn("Save Pack Info", "", function() {
-        if (!_metaDirty) return;
+        if (!M.metaDirty) return;
         if (window.shellPost) {
             shellPost("macros", "setMeta", {
                 name:    _metaName.input.value.trim(),
@@ -480,7 +482,7 @@
                 website: _metaWebsite.input.value.trim(),
             });
         }
-        _metaDirty = false;
+        M.metaDirty = false;
         updateMetaSaveBtn();
     });
     var metaSaveRow = _kit.btnRow(metaSaveBtn);
@@ -497,7 +499,7 @@
     var metaDesc = metaCard.querySelector(".section-desc");
     bindsScroll.insertBefore(metaCard, bindList);
 
-    var _macroLib = [];
+    M.macroLib = [];
     var packList;
 // END Pack Info //
 
@@ -599,14 +601,14 @@
         packList.innerHTML = "";
         if (!kit) return;
 
-        if (!_macroLib.length) {
+        if (!M.macroLib.length) {
             packList.appendChild(kit.h("div", { cls: "theme-note" },
                 "Nothing here yet. Install a macro pack from Browse, or save "
                 + "your current one below."));
             return;
         }
 
-        for (var i = 0; i < _macroLib.length; i++) {
+        for (var i = 0; i < M.macroLib.length; i++) {
             (function(e) {
                 var meta = [e.origin, e.version].filter(Boolean).join(" - ");
                 var r = kit.h("div", { cls: "row",
@@ -639,20 +641,20 @@
                     openMenu(ev.clientX, ev.clientY);
                 });
                 packList.appendChild(r);
-            })(_macroLib[i]);
+            })(M.macroLib[i]);
         }
     }
 
     if (window.msLibraryClient) {
         window.msLibraryClient.on("macro", function(entries) {
-            _macroLib = entries || [];
+            M.macroLib = entries || [];
             fillMacroLib();
         });
         window.msLibraryClient.request("macro");
     }
 
     function updateMetaSaveBtn() {
-        var on = _metaDirty && !_metaOwned;
+        var on = M.metaDirty && !M.metaOwned;
         metaSaveBtn.disabled = !on;
         metaSaveBtn.style.opacity = on ? "1" : "0.5";
     }
@@ -664,23 +666,23 @@
 
     function setMeta(meta) {
         meta = meta || {};
-        _metaLoaded = false;
+        M.metaLoaded = false;
         _metaName.input.value    = meta.name    || "";
         _metaVersion.input.value = meta.version || "";
         _metaAuthor.input.value  = meta.author  || "";
         _metaWebsite.input.value = meta.website || "";
-        _metaLoaded = true;
-        _metaDirty  = false;
+        M.metaLoaded = true;
+        M.metaDirty  = false;
 
-        _metaOwned = meta.owned === true;
+        M.metaOwned = meta.owned === true;
         [_metaName, _metaVersion, _metaAuthor, _metaWebsite].forEach(function(f) {
-            f.input.readOnly = _metaOwned;
-            f.input.classList.toggle("meta-input-locked", _metaOwned);
+            f.input.readOnly = M.metaOwned;
+            f.input.classList.toggle("meta-input-locked", M.metaOwned);
         });
-        metaDesc.textContent = _metaOwned
+        metaDesc.textContent = M.metaOwned
             ? "Sourced from your handwritten ms_macros.lua (read-only)"
             : "Credits baked into your visual macros (ms.macroMeta)";
-        metaSaveRow.style.display = _metaOwned ? "none" : "";
+        metaSaveRow.style.display = M.metaOwned ? "none" : "";
         updateMetaSaveBtn();
     }
 
@@ -693,7 +695,7 @@
             if (window.playSlot) playSlot("hover");
         });
         b.addEventListener("click", function() {
-            if (_mtabs) _mtabs.switch(id);
+            if (M.mtabs) M.mtabs.switch(id);
         });
         mtabs.appendChild(b);
     });
@@ -707,7 +709,7 @@
 // END Managers sit at the bottom //
 
 // Shared tab model //
-    _mtabs = window.createTabs && window.createTabs({
+    M.mtabs = window.createTabs && window.createTabs({
         root: layout,
         tabSelector: ".mtab",
         sectionSelector: ".mtab-section",
@@ -720,9 +722,9 @@
                 refreshBindList();
                 refreshMeta();
                 if (window.msLibraryClient) window.msLibraryClient.request("macro");
-            } else if (tab === "builder" && _canvas) {
+            } else if (tab === "builder" && M.canvas) {
                 requestAnimationFrame(function() {
-                    requestAnimationFrame(function() { _canvas._updateParamMarquee(); });
+                    requestAnimationFrame(function() { M.canvas._updateParamMarquee(); });
                 });
             }
         },
@@ -730,23 +732,23 @@
 // END Shared tab model //
 
 // Tool Canvas instance //
-    _canvas = new ToolCanvas(canvasContainer, {
+    M.canvas = new ToolCanvas(canvasContainer, {
         onChange: function(steps) {
-            _macroDirty = true;
+            M.macroDirty = true;
             updateSaveBtnState();
         },
         onSelect: function(sid, step) {
-            if (!_toolEditor) return;
-            if (_toolEditor._open && (!sid || _toolEditor._toolSid !== sid)) {
-                _toolEditor.close();
+            if (!M.toolEditor) return;
+            if (M.toolEditor._open && (!sid || M.toolEditor._toolSid !== sid)) {
+                M.toolEditor.close();
             }
         },
         onContext: function(sid) {
-            if (!_toolEditor || !sid) return;
-            if (_toolEditor._open && _toolEditor._toolSid === sid) {
-                _toolEditor.close();
+            if (!M.toolEditor || !sid) return;
+            if (M.toolEditor._open && M.toolEditor._toolSid === sid) {
+                M.toolEditor.close();
             } else {
-                _toolEditor.open(sid);
+                M.toolEditor.open(sid);
             }
         }
     });
@@ -795,9 +797,9 @@
             });
             return { action: fn.name, params: params };
         }
-        _canvas.defFor = buildDefaultDef;
+        M.canvas.defFor = buildDefaultDef;
         function beforeSidAt(clientY) {
-            var root = _canvas._root;
+            var root = M.canvas._root;
             var blocks = root.children;
             for (var i = 0; i < blocks.length; i++) {
                 var b = blocks[i];
@@ -819,19 +821,19 @@
             e.preventDefault();
             e.stopPropagation();
             e.dataTransfer.dropEffect = "copy";
-            _canvas._root.classList.add("fn-drop-target");
+            M.canvas._root.classList.add("fn-drop-target");
         }, true);
         canvasContainer.addEventListener("dragleave", function(e) {
             if (!hasFn(e)) return;
             if (e.target === canvasContainer || !canvasContainer.contains(e.relatedTarget)) {
-                _canvas._root.classList.remove("fn-drop-target");
+                M.canvas._root.classList.remove("fn-drop-target");
             }
         }, true);
         canvasContainer.addEventListener("drop", function(e) {
             if (!hasFn(e)) return;
             e.preventDefault();
             e.stopPropagation();
-            _canvas._root.classList.remove("fn-drop-target");
+            M.canvas._root.classList.remove("fn-drop-target");
             var def = null;
             if (hasType(e, TOOL_MIME)) {
                 def = buildToolDef(e.dataTransfer.getData(TOOL_MIME));
@@ -841,8 +843,8 @@
                 def = buildDefaultDef(e.dataTransfer.getData(FN_MIME));
             }
             if (!def) return;
-            _canvas.insertDefAt(def, beforeSidAt(e.clientY));
-            _macroDirty = true;
+            M.canvas.insertDefAt(def, beforeSidAt(e.clientY));
+            M.macroDirty = true;
             updateSaveBtnState();
             if (window.playSlot) playSlot("interact");
             closeFnOverlay();
@@ -864,38 +866,38 @@
         }
         if (mod && (e.key === "a" || e.key === "A")) {
             e.preventDefault();
-            _canvas.selectAll();
+            M.canvas.selectAll();
             return;
         }
         if (mod && (e.key === "v" || e.key === "V")) {
             e.preventDefault();
-            if (!(e.shiftKey && _canvas.pasteInside())) _canvas.pasteAfter();
-            _macroDirty = true;
+            if (!(e.shiftKey && M.canvas.pasteInside())) M.canvas.pasteAfter();
+            M.macroDirty = true;
             updateSaveBtnState();
             return;
         }
-        if (e.key === "Escape" && _canvas.hasSelection()) {
+        if (e.key === "Escape" && M.canvas.hasSelection()) {
             e.preventDefault();
-            _canvas.clearSelection();
+            M.canvas.clearSelection();
             return;
         }
-        if (!_canvas.hasSelection()) return;
+        if (!M.canvas.hasSelection()) return;
         if (mod && (e.key === "c" || e.key === "C")) {
             e.preventDefault();
-            _canvas.copySelected();
+            M.canvas.copySelected();
         } else if (mod && (e.key === "x" || e.key === "X")) {
             e.preventDefault();
-            _canvas.cutSelected();
-            _macroDirty = true;
+            M.canvas.cutSelected();
+            M.macroDirty = true;
             updateSaveBtnState();
         } else if (mod && (e.key === "d" || e.key === "g")) {
             e.preventDefault();
-            if (e.key === "d") _canvas.duplicateSelected();
-            else _canvas.openWrapMenu();
+            if (e.key === "d") M.canvas.duplicateSelected();
+            else M.canvas.openWrapMenu();
         } else if (e.key === "Delete" || e.key === "Backspace") {
             e.preventDefault();
-            _canvas.removeSelected();
-            _macroDirty = true;
+            M.canvas.removeSelected();
+            M.macroDirty = true;
             updateSaveBtnState();
         }
     });
@@ -904,21 +906,21 @@
         limit: 256,
         capture: function() {
             return {
-                steps: _canvas.serialize(),
-                cls: _currentMacroClass,
-                cooldown: _currentMacroCooldown,
-                shared: _currentMacroShared,
+                steps: M.canvas.serialize(),
+                cls: M.currentMacroClass,
+                cooldown: M.currentMacroCooldown,
+                shared: M.currentMacroShared,
             };
         },
         restore: function(snap) {
-            if (_toolEditor && _toolEditor._open) _toolEditor.close();
-            _canvas.load(snap.steps);
+            if (M.toolEditor && M.toolEditor._open) M.toolEditor.close();
+            M.canvas.load(snap.steps);
             setMacroClass(snap.cls);
-            _currentMacroCooldown = snap.cooldown;
+            M.currentMacroCooldown = snap.cooldown;
             cooldownInput.value = snap.cooldown != null ? String(snap.cooldown) : "";
-            _currentMacroShared = snap.shared;
+            M.currentMacroShared = snap.shared;
             sharedInput.value = snap.shared;
-            _macroDirty = true;
+            M.macroDirty = true;
             updateSaveBtnState();
         },
     });
@@ -934,9 +936,9 @@
     }
     histSlot.appendChild(testBtn);
 
-    var _toolEditor = null;
+    M.toolEditor = null;
     if (window.ToolEditor) {
-        _toolEditor = new ToolEditor({ canvas: _canvas });
+        M.toolEditor = new ToolEditor({ canvas: M.canvas });
     } else {
         console.warn("[macros] ToolEditor not loaded, inline editing disabled");
     }
@@ -978,337 +980,63 @@
         }
     }
 
-    var _bindList = [];
+    M.bindList = [];
 
     function refreshBindList() {
         if (window.shellPost) shellPost("macros", "listBinds", {});
     }
 // END Fn //
 
-// Themed delete confirmation //
-    function confirmDelete(name) {
-        var msg = 'Delete "' + name + '"? This cannot be undone.';
-        if (typeof window.openModal === "function") {
-            return window.openModal("Delete macro", msg, "Delete", "Cancel")
-                .then(function(r) { return !!(r && r.confirmed); });
-        }
-        // lint-allow native-dialog
-        var ok = (typeof window.confirm !== "function") || window.confirm(msg);
-        return Promise.resolve(ok);
-    }
+// Bind list and saving //
+    var _binds = window.msMacroBinds({
+        M: M,
+        macroSelect: macroSelect,
+        nameInput: nameInput,
+        setMacroClass: setMacroClass,
+        classFromGroup: classFromGroup,
+        saveBtn: saveBtn,
+        cooldownInput: cooldownInput,
+        sharedInput: sharedInput,
+        bindOptsBtn: bindOptsBtn,
+        bindList: bindList,
+        _history: _history,
+        refreshMacroList: refreshMacroList,
+        refreshBindList: refreshBindList,
+        showTestToast: function() { return showTestToast.apply(null, arguments); },
+    });
 
-    function bindPill(text, onClick, title, onMenu) {
-        var b = document.createElement("button");
-        b.className = "bind-pill" + (text ? "" : " unset");
-        b.textContent = text || "Unset";
-        if (title) b.title = title;
-        b.addEventListener("mouseenter", function() {
-            if (window.playSlot) playSlot("hover");
-        });
-        b.addEventListener("click", function(e) {
-            e.stopPropagation();
-            if (window.playSlot) playSlot("interact");
-            onClick();
-        });
-        if (onMenu) b.addEventListener("contextmenu", function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            onMenu();
-        });
-        return b;
-    }
-// END Themed delete confirmation //
+    var focusSystemBinds = _binds.focusSystemBinds;
 
-// Bind list //
-    function openBindMenu(m, isSub, mode) {
-        window.msBindMenu.open(m, isSub, mode, {
-            list:          function() { return _bindList; },
-            confirmDelete: confirmDelete,
-            onDelete:      function(id) {
-                _bindList = _bindList.filter(function(x) { return x.id !== id; });
-                renderBindList();
-            },
-        });
-    }
+    var setBindList = _binds.setBindList;
 
-    function bindRow(m, isSub) {
-        var r = document.createElement("div");
-        r.className = "bind-row" + (isSub ? " bind-row-sub" : "");
-        r.addEventListener("mouseenter", function() {
-            if (window.playSlot) playSlot("hover");
-        });
+    var setMacroList = _binds.setMacroList;
 
-        var lbl = document.createElement("div");
-        lbl.className = "bind-label";
-        lbl.textContent = m.label || m.id;
-        r.appendChild(lbl);
+    var loadMacro = _binds.loadMacro;
 
-        var acts = document.createElement("div");
-        acts.className = "bind-acts";
+    var setMacroDef = _binds.setMacroDef;
 
-        var mode = { full: false };
-        acts.appendChild(bindPill(m.bind, function() {
-            if (isSub && !mode.full) {
-                shellPost("macros", "startModRebind", {
-                    action: "startModRebind",
-                    id:     m.id,
-                });
-            } else {
-                shellPost("macros", "startRebind", {
-                    action:     "startRebind",
-                    id:         m.id,
-                    systemBind: m.systemBind || false,
-                });
-            }
-        }, isSub
-            ? "Click to rebind - capture mode is set in the ⋯ menu"
-            : "Click to rebind", function() { openBindMenu(m, isSub, mode); }));
+    var saveMacro = _binds.saveMacro;
 
-        var moreBtn = document.createElement("button");
-        moreBtn.className = "bind-act bind-more";
-        moreBtn.textContent = "⋯";
-        moreBtn.title = "Bind options";
-        moreBtn.addEventListener("mouseenter", function() {
-            if (window.playSlot) playSlot("hover");
-        });
-        moreBtn.addEventListener("click", function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            openBindMenu(m, isSub, mode);
-        });
-        acts.appendChild(moreBtn);
+    var deleteMacro = _binds.deleteMacro;
 
-        r.appendChild(acts);
-        return r;
-    }
-
-    function renderBindList() {
-        bindList.innerHTML = "";
-
-        if (!_bindList.length) {
-            var empty = document.createElement("div");
-            empty.className = "binds-empty";
-            empty.textContent = "No macros registered.";
-            bindList.appendChild(empty);
-            return;
-        }
-
-        var order = [];
-        var groups = {};
-        _bindList.forEach(function(m) {
-            var g = m.group || "ungrouped";
-            if (!groups[g]) { groups[g] = []; order.push(g); }
-            groups[g].push(m);
-        });
-
-        order.forEach(function(g) {
-            var rows = [];
-            groups[g].forEach(function(m) {
-                rows.push(bindRow(m, false));
-                (m.subs || []).forEach(function(sub) {
-                    rows.push(bindRow(sub, true));
-                });
-            });
-            var sec = bindSection(
-                titleCaseGroup(g),
-                g === "system" ? "Always live, these cannot be disabled" : null,
-                rows,
-            );
-            sec.setAttribute("data-bind-group", g);
-            bindList.appendChild(sec);
-        });
-    }
-
-    function focusSystemBinds() {
-        if (_mtabs) _mtabs.switch("binds");
-        refreshBindList();
-        setTimeout(function() {
-            var sec = bindList.querySelector('[data-bind-group="system"]');
-            if (sec && sec.scrollIntoView) sec.scrollIntoView({ block: "start" });
-        }, 90);
-    }
-
-    function titleCaseGroup(g) {
-        return String(g).replace(/[A-Za-z]+/g, function(w) {
-            return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-        });
-    }
-// END Bind list //
-
-// Same markup as msUI.section //
-    function bindSection(title, desc, rows) {
-        var wrap = document.createElement("div");
-        wrap.className = "section";
-        var head = document.createElement("div");
-        head.className = "section-head";
-        var t = document.createElement("span");
-        t.className = "section-title";
-        t.textContent = title;
-        head.appendChild(t);
-        if (desc) {
-            var d = document.createElement("span");
-            d.className = "section-desc";
-            d.textContent = desc;
-            head.appendChild(d);
-        }
-        var body = document.createElement("div");
-        body.className = "section-body";
-        rows.forEach(function(r) { body.appendChild(r); });
-        wrap.appendChild(head);
-        wrap.appendChild(body);
-        return wrap;
-    }
-
-    function setBindList(list) {
-        _bindList = Array.isArray(list) ? list : [];
-        renderBindList();
-        if (window.msBindMenu) window.msBindMenu.refresh(_bindList);
-    }
-
-    function setMacroList(ids) {
-        var opts = [];
-        for (var i = 0; i < ids.length; i++) {
-            opts.push({ value: ids[i], label: ids[i] });
-        }
-        macroSelect.setOptions(opts);
-
-        if (_currentMacroId) {
-            macroSelect.value = _currentMacroId;
-        }
-    }
-
-    function loadMacro(macroId) {
-        if (!macroId) {
-            _currentMacroId = null;
-            _currentMacroDef = null;
-            _canvas.load([]);
-            nameInput.value = "";
-            setMacroClass("main");
-            _currentMacroCooldown = null;
-            cooldownInput.value = "";
-            _currentMacroShared = "";
-            sharedInput.value = "";
-            _macroDirty = false;
-            updateSaveBtnState();
-            if (_history) _history.reset();
-            return;
-        }
-        if (window.shellPost) {
-            shellPost("macros", "getMacro", { id: macroId });
-        }
-    }
-
-    function setMacroDef(def) {
-        _currentMacroId = def.id;
-        _currentMacroDef = def;
-        nameInput.value = def.name || def.id || "";
-        _canvas.load(def.steps || []);
-        setMacroClass(classFromGroup(def.group));
-        _currentMacroCooldown = def.cooldown != null ? def.cooldown : null;
-        cooldownInput.value = _currentMacroCooldown != null ? String(_currentMacroCooldown) : "";
-        _currentMacroShared = def.shared || "";
-        sharedInput.value = _currentMacroShared;
-        _macroDirty = false;
-        updateSaveBtnState();
-        if (_history) _history.reset();
-        macroSelect.value = def.id;
-    }
-// END Same markup as msUI.section //
-
-// Bind options and saving //
-    function openCurrentBindMenu() {
-        var found = null;
-        _bindList.forEach(function(top) {
-            if (top.id === _currentMacroId) found = { m: top, sub: false };
-            (top.subs || []).forEach(function(s) {
-                if (s.id === _currentMacroId) found = { m: s, sub: true };
-            });
-        });
-        if (!found) {
-            showTestToast("Save the macro before binding it", "error");
-            return;
-        }
-        openBindMenu(found.m, found.sub, { full: false });
-    }
-
-    bindOptsBtn.addEventListener("click", openCurrentBindMenu);
-
-    function saveMacro() {
-        if (!_currentMacroId) {
-            var name = nameInput.value.trim();
-            if (!name) {
-                nameInput.focus();
-                return;
-            }
-            _currentMacroId = name.replace(/[^a-zA-Z0-9_]/g, "_");
-        }
-
-        var name = nameInput.value.trim() || _currentMacroId;
-        var def = {
-            id: _currentMacroId,
-            name: name,
-            author: "User",
-            group: "visual - " + _currentMacroClass,
-            steps: _canvas.serialize()
-        };
-        if (_currentMacroDef && _currentMacroDef.bind) {
-            def.bind = _currentMacroDef.bind;
-        }
-        if (_currentMacroCooldown != null) {
-            def.cooldown = _currentMacroCooldown;
-        }
-        if (_currentMacroShared) {
-            def.shared = _currentMacroShared;
-        }
-        _currentMacroDef = def;
-
-        if (window.shellPost) {
-            shellPost("macros", "saveMacro", { id: _currentMacroId, def: def });
-        }
-        updateSaveBtnState();
-    }
-
-    function deleteMacro() {
-        if (!_currentMacroId) return;
-        if (window.shellPost) {
-            shellPost("macros", "deleteMacro", { id: _currentMacroId });
-        }
-        _currentMacroId = null;
-        _currentMacroDef = null;
-        _canvas.load([]);
-        nameInput.value = "";
-        setMacroClass("main");
-        _currentMacroCooldown = null;
-        cooldownInput.value = "";
-        _currentMacroShared = "";
-        sharedInput.value = "";
-        _macroDirty = false;
-        updateSaveBtnState();
-        if (_history) _history.reset();
-        refreshMacroList();
-    }
-
-    function updateSaveBtnState() {
-        saveBtn.style.opacity = _macroDirty ? "1" : "0.5";
-        if (_macroDirty && _history) _history.record();
-    }
-// END Bind options and saving //
+    var updateSaveBtnState = _binds.updateSaveBtnState;
+// END Bind list and saving //
 
 // Wire toolbar buttons //
     newBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
     newBtn.addEventListener("click", function() {
         if (window.playSlot) playSlot("interact");
-        _currentMacroId = null;
-        _currentMacroDef = null;
-        _canvas.load([]);
+        M.currentMacroId = null;
+        M.currentMacroDef = null;
+        M.canvas.load([]);
         nameInput.value = "";
         nameInput.focus();
         setMacroClass("main");
-        _currentMacroCooldown = null;
+        M.currentMacroCooldown = null;
         cooldownInput.value = "";
-        _currentMacroShared = "";
+        M.currentMacroShared = "";
         sharedInput.value = "";
-        _macroDirty = false;
+        M.macroDirty = false;
         updateSaveBtnState();
         if (_history) _history.reset();
         macroSelect.value = "";
@@ -1333,192 +1061,29 @@
     });
 // END Wire toolbar buttons //
 
-// Test Run //
-    var _testRunning = false;
-    var _testToastTimer = null;
-
-    function showTestToast(msg, type, iconName) {
-        if (iconName && window.icon) {
-            testToast.innerHTML = window.icon(iconName);
-            testToast.appendChild(document.createTextNode(" " + msg));
-        } else {
-            testToast.textContent = msg;
-        }
-        testToast.className = "macro-test-toast show"
-            + (type === "error" ? " error-toast" : "")
-            + (type === "success" ? " success-toast" : "");
-        if (_testToastTimer) clearTimeout(_testToastTimer);
-        _testToastTimer = setTimeout(function() {
-            testToast.className = "macro-test-toast";
-            _testToastTimer = null;
-        }, type === "error" ? 5000 : 2500);
-    }
-
-    function _resetTestBtn() {
-        testBtn.className = "macro-toolbar-btn macro-icon-btn";
-        testBtn.innerHTML = iconOnly("play");
-        testBtn.disabled = false;
-        _testRunning = false;
-    }
-
-    testBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
-    var _testFromPad = false;
-
-    testBtn.addEventListener("click", function() {
-        if (_testRunning) return;
-        _testFromPad = testBtn.classList.contains("gp-focus");
-        var steps = _canvas.serialize();
-        if (!steps || steps.length === 0) {
-            if (window.playSlot) playSlot("back");
-            showTestToast("No steps to run", "error");
-            return;
-        }
-        if (window.playSlot) playSlot("interact");
-
-        var macroId = _currentMacroId || ("_test_" + Date.now().toString(36));
-        var macroDef = {
-            id: macroId,
-            name: nameInput.value.trim() || macroId,
-            steps: steps,
-            hideShell: true,
-        };
-
-        _testRunning = true;
-        testBtn.className = "macro-toolbar-btn macro-icon-btn running";
-        testBtn.innerHTML = iconOnly("timer");
-        testBtn.disabled = true;
-
-        if (window.shellPost) {
-            shellPost("macros", "testRun", macroDef);
-        }
-
-        setTimeout(function() {
-            if (_testRunning) {
-                _resetTestBtn();
-                showTestToast("Test run timed out", "error");
-            }
-        }, 35000);
+// Test Run and Recording //
+    var _record = window.msMacroRecord({
+        M: M,
+        nameInput: nameInput,
+        iconOnly: iconOnly,
+        menuLabel: menuLabel,
+        testBtn: testBtn,
+        recordBtn: recordBtn,
+        recSettingsBtn: recSettingsBtn,
+        testToast: testToast,
     });
 
-    var _isRecording = false;
-// END Test Run //
+    var showTestToast = _record.showTestToast;
 
-// Recording options //
-    var _REC_OPTS_KEY = "ms.macroRecordOpts";
-    var _recOptDefaults = {
-        recordDelays:       true,
-        pressMode:          "type",
-        recordDrags:        true,
-        dragGranularity:    5,
-        recordMouseMoves:   false,
-        moveGranularity:    5,
-        recordMouseButtons: true,
-        recordWindowMove:   false,
-        recordWindowResize: false,
-        waitThreshold:      50
-    };
-    var _recOpts = (function() {
-        var o = {};
-        for (var k in _recOptDefaults) o[k] = _recOptDefaults[k];
-        try {
-            var saved = JSON.parse(localStorage.getItem(_REC_OPTS_KEY) || "{}");
-            for (var k2 in saved) if (k2 in o) o[k2] = saved[k2];
-            if (o.pressMode === "press") o.pressMode = "pressRelease";
-        } catch (e) {}
-        return o;
-    })();
-    function _saveRecOpts() {
-        try { localStorage.setItem(_REC_OPTS_KEY, JSON.stringify(_recOpts)); }
-        catch (e) {}
-    }
+    var _resetTestBtn = _record._resetTestBtn;
 
-    function _setRecordingState(on) {
-        _isRecording = on;
-        if (on) {
-            recordBtn.className = "macro-toolbar-btn recording";
-            recordBtn.innerHTML = menuLabel("stop", "Stop");
-            recordBtn.title = "Stop recording";
-        } else {
-            recordBtn.className = "macro-toolbar-btn";
-            recordBtn.innerHTML = menuLabel("record", "Record");
-            recordBtn.title = "Record user actions into tools";
-        }
-    }
+    var _setRecordingState = _record._setRecordingState;
+// END Test Run and Recording //
 
-    recordBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
-    var _recordFromPad = false;
-    recordBtn.addEventListener("click", function() {
-        if (window.playSlot) playSlot("interact");
-        if (!_isRecording) {
-            _recordFromPad = recordBtn.classList.contains("gp-focus");
-            if (window.shellPost) {
-                shellPost("macros", "startRecording", {
-                    waitThreshold: _recOpts.waitThreshold,
-                    options: _recOpts,
-                    hideShell: true
-                });
-            }
-            _setRecordingState(true);
-        } else {
-            if (window.shellPost) {
-                shellPost("macros", "stopRecording", {});
-            }
-            _setRecordingState(false);
-            showTestToast("Recording stopped", "success");
-        }
-    });
-// END Recording options //
-
-// Recording settings menu //
-    function _openRecModal() {
-        function set(key) {
-            return function(v) {
-                _recOpts[key] = v;
-                _saveRecOpts();
-            };
-        }
-        window.msPopup.open({
-            title: "Recording Settings",
-            sub: "Choose what a recording captures. Applied to the next recording you start.",
-            build: function(p) {
-                p.row("Record delays", "Insert wait modules for idle gaps between actions.",
-                    p.toggle(_recOpts.recordDelays, set("recordDelays")));
-                p.row("Key presses", "How keystrokes are captured.", p.seg([
-                    { value: "type",         label: "Type",  hint: "Full press+release keystroke (ms.type)" },
-                    { value: "pressRelease", label: "Press", hint: "Separate press and release with real hold timing" },
-                ], _recOpts.pressMode, set("pressMode")));
-                p.row("Record mouse buttons", "Capture left/right/middle clicks.",
-                    p.toggle(_recOpts.recordMouseButtons, set("recordMouseButtons")));
-                p.row("Record mouse drags", "Capture press-move-release as a drag gesture.",
-                    p.toggle(_recOpts.recordDrags, set("recordDrags")));
-                p.row("Drag fidelity", "How closely a recorded drag follows your real path. Lower is coarser; higher tracks curves near 1:1. The whole gesture stays one module either way.",
-                    p.range(1, 10, _recOpts.dragGranularity, set("dragGranularity")));
-                p.row("Record mouse movement", "Capture free cursor motion (no button held) as moveMouse steps.",
-                    p.toggle(_recOpts.recordMouseMoves, set("recordMouseMoves")));
-                p.row("Movement fidelity", "How closely recorded movement follows your real path. Lower is coarser, higher tracks curves near 1:1.",
-                    p.range(1, 10, _recOpts.moveGranularity, set("moveGranularity")));
-                p.row("Record window moves", "Capture moving the focused window.",
-                    p.toggle(_recOpts.recordWindowMove, set("recordWindowMove")));
-                p.row("Record window resizes", "Capture resizing the focused window.",
-                    p.toggle(_recOpts.recordWindowResize, set("recordWindowResize")));
-                p.action(p.button("Reset", function() {
-                    for (var k in _recOptDefaults) _recOpts[k] = _recOptDefaults[k];
-                    _saveRecOpts();
-                    p.close();
-                    _openRecModal();
-                }, "back"));
-                p.spacer();
-                p.action(p.button("Done", function() { p.close(); }, "primary"));
-            },
-        });
-    }
-
-    recSettingsBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
-    recSettingsBtn.addEventListener("click", _openRecModal);
-
+// Delete, select and rename wiring //
     delMacroBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
     delMacroBtn.addEventListener("click", function() {
-        if (_currentMacroId) {
+        if (M.currentMacroId) {
             if (window.playSlot) playSlot("back");
             deleteMacro();
         }
@@ -1531,24 +1096,24 @@
 
     nameInput.addEventListener("keydown", function(e) { e.stopPropagation(); });
     nameInput.addEventListener("input", function() {
-        _macroDirty = true;
+        M.macroDirty = true;
         updateSaveBtnState();
     });
-// END Recording settings menu //
+// END Delete, select and rename wiring //
 
 // Panel handler //
-    var _libSelfHealed = false;
+    M.libSelfHealed = false;
     window.registerPanel("macros", function(action, body) {
-        if (!_libSelfHealed && window.msLibraryClient) {
-            _libSelfHealed = true;
+        if (!M.libSelfHealed && window.msLibraryClient) {
+            M.libSelfHealed = true;
             window.msLibraryClient.request("macro");
         }
         if (window.fnPicker && window.fnPicker.handler) {
             window.fnPicker.handler(action, body);
         }
         if (action === "addTool" && body) {
-            _canvas.addTool(body);
-            _macroDirty = true;
+            M.canvas.addTool(body);
+            M.macroDirty = true;
             updateSaveBtnState();
             return;
         }
@@ -1561,7 +1126,7 @@
             return;
         }
         if (action === "macroSaved") {
-            _macroDirty = false;
+            M.macroDirty = false;
             updateSaveBtnState();
             refreshMacroList();
             refreshBindList();
@@ -1577,7 +1142,7 @@
             return;
         }
         if (action === "saveError") {
-            _macroDirty = true;
+            M.macroDirty = true;
             updateSaveBtnState();
             refreshMacroList();
             refreshBindList();
@@ -1601,22 +1166,22 @@
         }
         if (action === "testRunResult" && body) {
             _resetTestBtn();
-            if (_testFromPad && window.gpSetFocus) {
+            if (M.testFromPad && window.gpSetFocus) {
                 testBtn.dataset.gpBack = ".tool-block[data-sid]";
                 window.gpSetFocus(testBtn);
             }
-            _testFromPad = false;
+            M.testFromPad = false;
             if (body.ok) {
                 testBtn.className = "macro-toolbar-btn macro-icon-btn success";
                 showTestToast("Macro ran successfully", "success", "check");
                 setTimeout(function() {
-                    if (!_testRunning) testBtn.className = "macro-toolbar-btn macro-icon-btn";
+                    if (!M.testRunning) testBtn.className = "macro-toolbar-btn macro-icon-btn";
                 }, 2500);
             } else {
                 testBtn.className = "macro-toolbar-btn macro-icon-btn error";
                 showTestToast(body.err || "Unknown error", "error", "close");
                 setTimeout(function() {
-                    if (!_testRunning) testBtn.className = "macro-toolbar-btn macro-icon-btn";
+                    if (!M.testRunning) testBtn.className = "macro-toolbar-btn macro-icon-btn";
                 }, 5000);
             }
             return;
@@ -1625,13 +1190,13 @@
             _setRecordingState(false);
             showTestToast("Recording stopped", "success", "check");
             overflowWrap.classList.add("open");
-            if (_recordFromPad && window.gpSetFocus) window.gpSetFocus(recordBtn);
-            _recordFromPad = false;
+            if (M.recordFromPad && window.gpSetFocus) window.gpSetFocus(recordBtn);
+            M.recordFromPad = false;
             return;
         }
         if (action === "recordStep" && body) {
-            _canvas.addTool({ action: body.action, params: body.params });
-            _macroDirty = true;
+            M.canvas.addTool({ action: body.action, params: body.params });
+            M.macroDirty = true;
             updateSaveBtnState();
             return;
         }
@@ -1640,8 +1205,8 @@
 
 // External API //
     window.macroLab = {
-        canvas: _canvas,
-        editor: _toolEditor,
+        canvas: M.canvas,
+        editor: M.toolEditor,
         loadMacro: loadMacro,
         saveMacro: saveMacro,
         refreshList: refreshMacroList,
@@ -1652,7 +1217,7 @@
         focusSystemBinds: focusSystemBinds,
         setMeta: setMeta,
         refreshMeta: refreshMeta,
-        addTool: function(def) { _canvas.addTool(def); closeFnOverlay(); },
+        addTool: function(def) { M.canvas.addTool(def); closeFnOverlay(); },
         setToolList: function(list) {
             if (window.fnPicker && window.fnPicker.setToolList) {
                 window.fnPicker.setToolList(list);
@@ -1681,9 +1246,9 @@
             setTimeout(refreshToolList, 250);
         },
         testRun: function() { testBtn.click(); },
-        startRecording: function() { if (!_isRecording) recordBtn.click(); },
-        stopRecording: function() { if (_isRecording) recordBtn.click(); },
-        isRecording: function() { return _isRecording; },
+        startRecording: function() { if (!M.isRecording) recordBtn.click(); },
+        stopRecording: function() { if (M.isRecording) recordBtn.click(); },
+        isRecording: function() { return M.isRecording; },
     };
 
     window.closePanel = function() {

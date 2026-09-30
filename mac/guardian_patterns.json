@@ -6,6 +6,7 @@
     "mac/Spoons/**/*.lua",
     "ui/**/*.html",
     "ui/**/*.js",
+    "ui/**/*.css",
     "mac/bin/*.sh"
   ],
   "exclude": [

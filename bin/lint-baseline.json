@@ -88,9 +88,7 @@
     "lua-inline-table": 1
   },
   "mac/lib/ms_devtools.lua": {
-    "comment": 21,
-    "file-length": 2581,
-    "marker-blank-after-open": 1,
+    "comment": 11,
     "marker-unclosed": 1
   },
   "mac/lib/ms_guardian.lua": {
@@ -102,8 +100,7 @@
     "comment": 1
   },
   "mac/lib/ms_package.lua": {
-    "comment": 54,
-    "lua-inline-table": 2,
+    "comment": 17,
     "marker-blank-after-open": 1,
     "marker-unclosed": 1
   },
@@ -120,8 +117,8 @@
     "marker-unclosed": 1
   },
   "mac/lib/ms_shell.lua": {
-    "comment": 24,
-    "lua-inline-table": 3
+    "comment": 8,
+    "lua-inline-table": 1
   },
   "mac/lib/ms_ui.lua": {
     "lua-inline-table": 7,
@@ -149,7 +146,7 @@
     "semicolon": 2
   },
   "mac/lib/settings/validation.lua": {
-    "comment": 20,
+    "comment": 2,
     "marker-body-indent": 1
   },
   "mac/lib/ui/actions_library.lua": {
@@ -159,11 +156,9 @@
     "lua-inline-table": 1
   },
   "mac/ms_core.lua": {
-    "comment": 18,
+    "comment": 12,
     "marker-blank-before-end": 1,
-    "marker-body-indent": 3,
-    "marker-indent": 4,
-    "marker-label": 4
+    "marker-body-indent": 1
   },
   "plugins/HIDInject.spoon/README.md": {
     "semicolon": 1
@@ -198,7 +193,7 @@
     "comment": 66
   },
   "ui/modules/log-panel.js": {
-    "comment": 38,
+    "comment": 37,
     "marker-unclosed": 16,
     "non-ascii": 4
   },
@@ -217,16 +212,13 @@
     "non-ascii": 4
   },
   "ui/modules/panel-macros.js": {
-    "non-ascii": 3
+    "non-ascii": 1
   },
   "ui/modules/panel-settings-builder.js": {
     "non-ascii": 2
   },
   "ui/modules/panel-settings-tools.js": {
     "non-ascii": 1
-  },
-  "ui/modules/panel-settings.js": {
-    "non-ascii": 2
   },
   "ui/modules/panel-theme.js": {
     "comment": 28,
@@ -280,10 +272,9 @@
     "font-reset-missing": 1
   },
   "ui/ms_shell.html": {
-    "comment": 59,
-    "file-length": 2258,
-    "marker-unclosed": 19,
-    "non-ascii": 3
+    "comment": 9,
+    "marker-unclosed": 16,
+    "non-ascii": 2
   },
   "ui/ms_watcher.html": {
     "comment": 19,

@@ -121,6 +121,8 @@ return function(ms)
         }
         for _, name in ipairs({
             "validation",
+            "authored",
+            "lifecycle",
             "api",
             "profiles",
             "integrity",

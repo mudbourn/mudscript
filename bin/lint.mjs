@@ -782,7 +782,7 @@ import { fileURLToPath } from "node:url";
     function checkUi(ctx) {
         const { rel, lines, scanned, report } = ctx;
 
-        const isModule = /^ui\/modules\/[^/]+\.js$/.test(rel);
+        const isModule = /^ui\/modules\/[^/]+\.(js|css)$/.test(rel);
 
         const isThemedHtml = /^ui\/[^/]+\.html$/.test(rel) && !/ms_guardian\.html$/.test(rel);
 
@@ -936,7 +936,15 @@ import { fileURLToPath } from "node:url";
 
         const covered = new Set();
 
-        for (const m of src.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+        let css = src;
+
+        for (const link of src.matchAll(/<link rel="stylesheet" href="\.\/(modules\/[\w.-]+\.css)">/g)) {
+            const path = join(ROOT, "ui", link[1]);
+
+            if (existsSync(path)) css += readFileSync(path, "utf8");
+        }
+
+        for (const m of css.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
             if (!/\bfont(-family)?\s*:\s*inherit\b/.test(m[2])) continue;
 
             for (const sel of m[1].split(",")) {
@@ -953,6 +961,8 @@ import { fileURLToPath } from "node:url";
         const { src, rel, report } = ctx;
 
         const blocks = [];
+
+        if (rel.endsWith(".css")) blocks.push([0, src]);
 
         if (rel.endsWith(".html")) {
             for (const m of src.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)) blocks.push([m.index + m[0].indexOf(m[1]), m[1]]);
@@ -1099,7 +1109,7 @@ import { fileURLToPath } from "node:url";
 
         if (lang === "lua") checkLua(ctx);
 
-        if (/^ui\/.*\.(js|html)$/.test(rel)) {
+        if (/^ui\/.*\.(js|html|css)$/.test(rel)) {
             checkUi(ctx);
 
             checkScrollbars(ctx, styled);
@@ -1186,11 +1196,11 @@ import { fileURLToPath } from "node:url";
     function main() {
         const everything = allFiles();
 
-        const uiFiles = everything.filter((f) => /^ui\/.*\.(js|html)$/.test(f));
+        const uiFiles = everything.filter((f) => /^ui\/.*\.(js|html|css)$/.test(f));
 
         const styled = collectScrollbarRules(uiFiles);
 
-        const globals = collectGlobals(uiFiles);
+        const globals = collectGlobals(uiFiles.filter((f) => !f.endsWith(".css")));
 
         const targets = pathArgs.length
             ? pathArgs.map((p) => p.replace(/^\.\//, "").replace(ROOT + "/", "")).filter(lintable)
