@@ -2032,10 +2032,9 @@
                 __call = function(_, dx, dy)
                     if not _camActivated then _activateCam() end
 
-                    local refSens = ms.settings and ms.settings.get("refSensitivity") or 1.5
-                    local curSens = ms._camSens or 1.5
-                    if refSens > 0 and curSens > 0 and refSens ~= curSens then
-                        local scale = refSens / curSens
+                    local curSens = ms._camSens or REF_SENS
+                    if curSens > 0 and curSens ~= REF_SENS then
+                        local scale = REF_SENS / curSens
                         dx = dx * scale
                         dy = dy * scale
                     end
