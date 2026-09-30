@@ -1,3072 +1,20 @@
 (function() {
     "use strict";
-(function() {
-        "use strict";
 
-        // Enum option sets
-        var MOUSE_OPS = ["Move", "Click", "DoubleClick", "TripleClick", "Drag", "Press", "Release"];
-        var MOUSE_BTNS = ["Left", "Right", "Center", "Button4", "Button5"];
-        var MOUSE_REFS = [
-            { value: "Absolute",     label: "Absolute (screen coords)" },
-            { value: "Mouse",        label: "Mouse (relative to cursor)" },
-            { value: "WindowTL",     label: "Window - Top-Left" },
-            { value: "WindowTR",     label: "Window - Top-Right" },
-            { value: "WindowBL",     label: "Window - Bottom-Left" },
-            { value: "WindowBR",     label: "Window - Bottom-Right" },
-            { value: "WindowCenter", label: "Window - Center" },
-            { value: "ScreenTL",     label: "Screen - Top-Left" },
-            { value: "ScreenTR",     label: "Screen - Top-Right" },
-            { value: "ScreenBL",     label: "Screen - Bottom-Left" },
-            { value: "ScreenBR",     label: "Screen - Bottom-Right" },
-            { value: "ScreenCenter", label: "Screen - Center" }
-        ];
-        var SCROLL_DIRS = ["up", "down", "left", "right"];
-        var WINDOW_OPS = ["Move", "Resize", "Frame"];
+    var _svgCache = window.msSvgCache;
+    var _fetchSVG = window.msFetchSVG;
 
-        // Function Registry
-        var REGISTRY = [
-            // input
-            {
-                id: "ms.type",
-                name: "ms.type",
-                sig: "ms.type(key, mods)",
-                desc: "Type a key with optional modifiers. Full keypress cycle (down+up).",
-                category: "input",
-                params: [
-                    { name: "key",  type: "key",   label: "Key",        required: true },
-                    { name: "mods", type: "mods",   label: "Modifiers",  required: false }
-                ]
-            },
-            {
-                id: "ms.press",
-                name: "ms.press",
-                sig: "ms.press(key, mods)",
-                desc: "Send key-down only.",
-                category: "input",
-                params: [
-                    { name: "key",  type: "key",   label: "Key",        required: true },
-                    { name: "mods", type: "mods",   label: "Modifiers",  required: false }
-                ]
-            },
-            {
-                id: "ms.release",
-                name: "ms.release",
-                sig: "ms.release(key)",
-                desc: "Send key-up only.",
-                category: "input",
-                params: [
-                    { name: "key", type: "key", label: "Key", required: true }
-                ]
-            },
-            {
-                id: "ms.hold",
-                name: "ms.hold",
-                sig: "ms.hold(key)",
-                desc: "Hold a key down without releasing.",
-                category: "input",
-                params: [
-                    { name: "key", type: "key", label: "Key", required: true }
-                ]
-            },
-            {
-                id: "ms.toggle",
-                name: "ms.toggle",
-                sig: "ms.toggle(key, mods)",
-                desc: "Toggle a key: if held, release; if not held, press.",
-                category: "input",
-                params: [
-                    { name: "key",  type: "key",   label: "Key",        required: true },
-                    { name: "mods", type: "mods",   label: "Modifiers",  required: false }
-                ]
-            },
-            {
-                id: "ms.multiPress",
-                name: "ms.multiPress",
-                sig: "ms.multiPress(keys, delayMs, mods)",
-                desc: "Press a sequence of keys in order with optional delay.",
-                category: "input",
-                params: [
-                    { name: "keys",    type: "string", label: "Keys (comma-separated)", required: true },
-                    { name: "delayMs", type: "number", label: "Delay (ms)",             required: false },
-                    { name: "mods",    type: "mods",   label: "Modifiers",              required: false }
-                ]
-            },
-
-            // clipboard
-            {
-                id: "ms.copy",
-                name: "ms.copy",
-                sig: "ms.copy(text)",
-                desc: "Copy text to system clipboard.",
-                category: "clipboard",
-                params: [
-                    { name: "text", type: "string", label: "Text", required: true }
-                ]
-            },
-            {
-                id: "ms.paste",
-                name: "ms.paste",
-                sig: "ms.paste()",
-                desc: "Paste current clipboard contents.",
-                category: "clipboard",
-                params: []
-            },
-
-            // timing
-            {
-                id: "ms.wait",
-                name: "ms.wait",
-                sig: "ms.wait(ms)",
-                desc: "Pause macro execution for N milliseconds.",
-                category: "timing",
-                params: [
-                    { name: "ms", type: "number", label: "Milliseconds", required: true }
-                ]
-            },
-            {
-                // Compiler construct
-                id: "action_delay",
-                name: "action_delay",
-                sig: "set action delay (ms)",
-                desc: "Keyboard-Maestro style: auto-insert this pause between all following steps (0 = off).",
-                category: "timing",
-                params: [
-                    { name: "delayMs", type: "number", label: "Delay between steps (ms)", required: true }
-                ]
-            },
-            {
-                id: "ms.randWait",
-                name: "ms.randWait",
-                sig: "ms.randWait(min, max)",
-                desc: "Wait a random duration between min and max ms.",
-                category: "timing",
-                params: [
-                    { name: "min", type: "number", label: "Min (ms)", required: true },
-                    { name: "max", type: "number", label: "Max (ms)", required: true }
-                ]
-            },
-            {
-                id: "ms.jitter",
-                name: "ms.jitter",
-                sig: "ms.jitter(base, jitterMs)",
-                desc: "Wait base ms plus/minus random jitter.",
-                category: "timing",
-                params: [
-                    { name: "base",     type: "number", label: "Base (ms)",   required: true },
-                    { name: "jitterMs", type: "number", label: "Jitter (ms)", required: true }
-                ]
-            },
-            {
-                id: "ms.waitApp",
-                name: "ms.waitApp",
-                sig: "ms.waitApp(appName, timeout)",
-                desc: "Wait until an app is running.",
-                category: "timing",
-                params: [
-                    { name: "appName", type: "string", label: "App Name",  required: true },
-                    { name: "timeout", type: "number", label: "Timeout (ms)", required: false }
-                ]
-            },
-            {
-                id: "ms.waitNotApp",
-                name: "ms.waitNotApp",
-                sig: "ms.waitNotApp(appName, timeout)",
-                desc: "Wait until an app stops running.",
-                category: "timing",
-                params: [
-                    { name: "appName", type: "string", label: "App Name",  required: true },
-                    { name: "timeout", type: "number", label: "Timeout (ms)", required: false }
-                ]
-            },
-
-            // mouse
-            {
-                id: "ms.Mouse",
-                name: "ms.Mouse",
-                sig: "ms.Mouse(operation, button, reference, x1, y1, x2, y2)",
-                desc: "Unified mouse API (click, move, drag at coordinates).",
-                category: "mouse",
-                params: [
-                    { name: "operation", type: "enum", options: MOUSE_OPS,  label: "Operation", required: true },
-                    { name: "button",    type: "enum", options: MOUSE_BTNS, label: "Button",    required: true },
-                    { name: "reference", type: "enum", options: MOUSE_REFS, label: "Reference", required: true },
-                    { name: "x1",        type: "number",  label: "X1",                          required: true },
-                    { name: "y1",        type: "number",  label: "Y1",                          required: true },
-                    { name: "x2",        type: "number",  label: "X2",                          required: false },
-                    { name: "y2",        type: "number",  label: "Y2",                          required: false }
-                ]
-            },
-            {
-                id: "ms.scroll",
-                name: "ms.scroll",
-                sig: "ms.scroll(direction, clicks)",
-                desc: "Post a scroll event.",
-                category: "mouse",
-                params: [
-                    { name: "direction", type: "enum", options: SCROLL_DIRS, label: "Direction", required: true },
-                    { name: "clicks",    type: "number", label: "Clicks",                        required: true }
-                ]
-            },
-            {
-                id: "ms.moveMouse",
-                name: "ms.moveMouse",
-                sig: "ms.moveMouse(x, y, ref, durationMs)",
-                desc: "Smooth mouse movement.",
-                category: "mouse",
-                params: [
-                    { name: "x",          type: "number", label: "X",          required: true },
-                    { name: "y",          type: "number", label: "Y",          required: true },
-                    { name: "ref",        type: "enum", options: MOUSE_REFS, label: "Reference",  required: false },
-                    { name: "durationMs", type: "number", label: "Duration (ms)", required: false }
-                ]
-            },
-            {
-                id: "ms.dragPath",
-                name: "ms.dragPath",
-                sig: "ms.dragPath(points, button, ref, delayMs)",
-                desc: "Drag through a sequence of points.",
-                category: "mouse",
-                params: [
-                    { name: "points", type: "string", label: "Points (x,y;x,y)", required: true },
-                    { name: "button", type: "enum", options: MOUSE_BTNS, label: "Button",     required: false },
-                    { name: "ref",    type: "enum", options: MOUSE_REFS, label: "Reference",  required: false },
-                    { name: "delayMs",type: "number", label: "Delay (ms)",       required: false }
-                ]
-            },
-            {
-                id: "ms.saveCursor",
-                name: "ms.saveCursor",
-                sig: "ms.saveCursor()",
-                desc: "Save current mouse position.",
-                category: "mouse",
-                params: []
-            },
-            {
-                id: "ms.restoreCursor",
-                name: "ms.restoreCursor",
-                sig: "ms.restoreCursor()",
-                desc: "Restore saved mouse position.",
-                category: "mouse",
-                params: []
-            },
-
-            // window
-            {
-                id: "ms.window",
-                name: "ms.window",
-                sig: "ms.window(operation, x, y, w, h)",
-                desc: "Move or resize the focused window. Move uses (x,y); Resize uses (x=width, y=height); Frame uses all four.",
-                category: "window",
-                params: [
-                    { name: "operation", type: "enum", options: WINDOW_OPS, label: "Operation", required: true },
-                    { name: "x", type: "number", label: "X / Width",  required: true },
-                    { name: "y", type: "number", label: "Y / Height", required: true },
-                    { name: "w", type: "number", label: "Width (Frame)",  required: false },
-                    { name: "h", type: "number", label: "Height (Frame)", required: false }
-                ]
-            },
-            {
-                id: "ms.windowPos",
-                name: "ms.windowPos",
-                sig: "ms.windowPos(appName)",
-                desc: "Get the position of an app's window.",
-                category: "window",
-                params: [
-                    { name: "appName", type: "string", label: "App Name", required: true }
-                ]
-            },
-
-            // camera
-            {
-                id: "ms.cam",
-                name: "ms.cam",
-                sig: "ms.cam(dy, dx)",
-                desc: "Move camera by delta. Note: params are (dy, dx), vertical first.",
-                category: "camera",
-                params: [
-                    { name: "dy", type: "number", label: "Delta Y", required: true },
-                    { name: "dx", type: "number", label: "Delta X", required: true }
-                ]
-            },
-            {
-                id: "ms.cam.rebalance",
-                name: "ms.cam.rebalance",
-                sig: "ms.cam.rebalance()",
-                desc: "Rebalance camera to neutral.",
-                category: "camera",
-                params: []
-            },
-            {
-                id: "ms.cam.reset",
-                name: "ms.cam.reset",
-                sig: "ms.cam.reset()",
-                desc: "Reset camera to default.",
-                category: "camera",
-                params: []
-            },
-
-            // pixel
-            {
-                id: "ms.pixelColor",
-                name: "ms.pixelColor",
-                sig: "ms.pixelColor(x, y, reference)",
-                desc: "Get pixel color at position.",
-                category: "pixel",
-                params: [
-                    { name: "x",         type: "number", label: "X",         required: true },
-                    { name: "y",         type: "number", label: "Y",         required: true },
-                    { name: "reference", type: "enum", options: MOUSE_REFS, label: "Reference", required: false }
-                ]
-            },
-            {
-                id: "ms.pixelMatch",
-                name: "ms.pixelMatch",
-                sig: "ms.pixelMatch(x, y, reference, r, g, b, tolerance)",
-                desc: "Check if pixel matches color.",
-                category: "pixel",
-                params: [
-                    { name: "x",         type: "number", label: "X",         required: true },
-                    { name: "y",         type: "number", label: "Y",         required: true },
-                    { name: "reference", type: "enum", options: MOUSE_REFS, label: "Reference", required: false },
-                    { name: "r",         type: "number", label: "R",         required: true },
-                    { name: "g",         type: "number", label: "G",         required: true },
-                    { name: "b",         type: "number", label: "B",         required: true },
-                    { name: "tolerance", type: "number", label: "Tolerance", required: false }
-                ]
-            },
-            {
-                id: "ms.waitPixel",
-                name: "ms.waitPixel",
-                sig: "ms.waitPixel(x, y, ref, r, g, b, tolerance, timeout)",
-                desc: "Wait until pixel matches color.",
-                category: "pixel",
-                params: [
-                    { name: "x",         type: "number", label: "X",         required: true },
-                    { name: "y",         type: "number", label: "Y",         required: true },
-                    { name: "ref",       type: "enum", options: MOUSE_REFS, label: "Reference", required: false },
-                    { name: "r",         type: "number", label: "R",         required: true },
-                    { name: "g",         type: "number", label: "G",         required: true },
-                    { name: "b",         type: "number", label: "B",         required: true },
-                    { name: "tolerance", type: "number", label: "Tolerance", required: false },
-                    { name: "timeout",   type: "number", label: "Timeout (ms)", required: false }
-                ]
-            },
-            {
-                id: "ms.waitNotPixel",
-                name: "ms.waitNotPixel",
-                sig: "ms.waitNotPixel(x, y, ref, r, g, b, tolerance, timeout)",
-                desc: "Wait until pixel changes.",
-                category: "pixel",
-                params: [
-                    { name: "x",         type: "number", label: "X",         required: true },
-                    { name: "y",         type: "number", label: "Y",         required: true },
-                    { name: "ref",       type: "enum", options: MOUSE_REFS, label: "Reference", required: false },
-                    { name: "r",         type: "number", label: "R",         required: true },
-                    { name: "g",         type: "number", label: "G",         required: true },
-                    { name: "b",         type: "number", label: "B",         required: true },
-                    { name: "tolerance", type: "number", label: "Tolerance", required: false },
-                    { name: "timeout",   type: "number", label: "Timeout (ms)", required: false }
-                ]
-            },
-
-            // ocr
-            {
-                id: "ms.ocr",
-                name: "ms.ocr",
-                sig: "ms.ocr(x, y, w, h)",
-                desc: "OCR a screen region and return its text. Blank W/H = whole screen.",
-                category: "ocr",
-                params: [
-                    { name: "x", type: "number", label: "X",          required: false },
-                    { name: "y", type: "number", label: "Y",          required: false },
-                    { name: "w", type: "number", label: "Width",      required: false },
-                    { name: "h", type: "number", label: "Height",     required: false }
-                ]
-            },
-            {
-                id: "ms.readNumber",
-                name: "ms.readNumber",
-                sig: "ms.readNumber(x, y, w, h)",
-                desc: "OCR a region and return the first number in it.",
-                category: "ocr",
-                params: [
-                    { name: "x", type: "number", label: "X",          required: false },
-                    { name: "y", type: "number", label: "Y",          required: false },
-                    { name: "w", type: "number", label: "Width",      required: false },
-                    { name: "h", type: "number", label: "Height",     required: false }
-                ]
-            },
-            {
-                id: "ms.findText",
-                name: "ms.findText",
-                sig: "ms.findText(text, x, y, w, h)",
-                desc: "Find text on screen; returns its center {x,y} to click.",
-                category: "ocr",
-                params: [
-                    { name: "text", type: "string", label: "Text",    required: true },
-                    { name: "x",    type: "number", label: "X",        required: false },
-                    { name: "y",    type: "number", label: "Y",        required: false },
-                    { name: "w",    type: "number", label: "Width",    required: false },
-                    { name: "h",    type: "number", label: "Height",   required: false }
-                ]
-            },
-            {
-                id: "ms.waitText",
-                name: "ms.waitText",
-                sig: "ms.waitText(text, x, y, w, h, timeout)",
-                desc: "Wait until text appears in a region; returns its {x,y}.",
-                category: "ocr",
-                params: [
-                    { name: "text",    type: "string", label: "Text",       required: true },
-                    { name: "x",       type: "number", label: "X",          required: false },
-                    { name: "y",       type: "number", label: "Y",          required: false },
-                    { name: "w",       type: "number", label: "Width",      required: false },
-                    { name: "h",       type: "number", label: "Height",     required: false },
-                    { name: "timeout", type: "number", label: "Timeout (ms)", required: false }
-                ]
-            },
-
-            // state
-            {
-                id: "ms.app",
-                name: "ms.app",
-                sig: "ms.app()",
-                desc: "Get frontmost app name.",
-                category: "state",
-                params: []
-            },
-            {
-                id: "ms.appRunning",
-                name: "ms.appRunning",
-                sig: "ms.appRunning(appName)",
-                desc: "Check if app is running.",
-                category: "state",
-                params: [
-                    { name: "appName", type: "string", label: "App Name", required: true }
-                ]
-            },
-            {
-                id: "ms.appIsFront",
-                name: "ms.appIsFront",
-                sig: "ms.appIsFront(appName)",
-                desc: "Check if app is frontmost.",
-                category: "state",
-                params: [
-                    { name: "appName", type: "string", label: "App Name", required: true }
-                ]
-            },
-            {
-                id: "ms.focus",
-                name: "ms.focus",
-                sig: "ms.focus(appName)",
-                desc: "Bring app to front.",
-                category: "state",
-                params: [
-                    { name: "appName", type: "string", label: "App Name", required: true }
-                ]
-            },
-            {
-                id: "ms.keystate",
-                name: "ms.keystate",
-                sig: "ms.keystate(key)",
-                desc: "Check if a key is currently held.",
-                category: "state",
-                params: [
-                    { name: "key", type: "key", label: "Key", required: true }
-                ]
-            },
-            {
-                id: "ms.mousePos",
-                name: "ms.mousePos",
-                sig: "ms.mousePos()",
-                desc: "Get cursor position in reference-space.",
-                category: "state",
-                params: []
-            },
-            {
-                id: "ms.mousestate",
-                name: "ms.mousestate",
-                sig: "ms.mousestate(button)",
-                desc: "Check if a mouse button is currently held (left/right/middle).",
-                category: "state",
-                params: [
-                    { name: "button", type: "string", label: "Button (left/right/middle)", required: true }
-                ]
-            },
-
-            // audio
-            {
-                id: "ms.sound",
-                name: "ms.sound",
-                sig: "ms.sound(path, async)",
-                desc: "Play a sound file.",
-                category: "audio",
-                params: [
-                    { name: "path",  type: "string", label: "Path",  required: true },
-                    { name: "async", type: "number", label: "Async", required: false }
-                ]
-            },
-            {
-                id: "ms.playSlot",
-                name: "ms.playSlot",
-                sig: "ms.playSlot(slotId)",
-                desc: "Play a named sound slot.",
-                category: "audio",
-                params: [
-                    { name: "slotId", type: "string", label: "Slot ID", required: true }
-                ]
-            },
-            {
-                id: "ms.setVolume",
-                name: "ms.setVolume",
-                sig: "ms.setVolume(level)",
-                desc: "Set system volume (0-100).",
-                category: "audio",
-                params: [
-                    { name: "level", type: "number", label: "Level (0-100)", required: true }
-                ]
-            },
-            {
-                id: "ms.mute",
-                name: "ms.mute",
-                sig: "ms.mute()",
-                desc: "Mute system audio.",
-                category: "audio",
-                params: []
-            },
-            {
-                id: "ms.unmute",
-                name: "ms.unmute",
-                sig: "ms.unmute()",
-                desc: "Unmute system audio.",
-                category: "audio",
-                params: []
-            },
-
-            // utility
-            {
-                id: "ms.alert",
-                name: "ms.alert",
-                sig: "ms.alert(msg, duration)",
-                desc: "Show a floating toast notification.",
-                category: "utility",
-                params: [
-                    { name: "msg",      type: "string", label: "Message",       required: true },
-                    { name: "duration", type: "number", label: "Duration (ms)", required: false }
-                ]
-            },
-            {
-                id: "ms.screenshot",
-                name: "ms.screenshot",
-                sig: "ms.screenshot(path)",
-                desc: "Take a screenshot.",
-                category: "utility",
-                params: [
-                    { name: "path", type: "string", label: "Path", required: false }
-                ]
-            },
-            {
-                id: "ms.notify",
-                name: "ms.notify",
-                sig: "ms.notify(title, subTitle, infoText)",
-                desc: "Show native macOS notification.",
-                category: "utility",
-                params: [
-                    { name: "title",    type: "string", label: "Title",    required: true },
-                    { name: "subTitle", type: "string", label: "Subtitle", required: false },
-                    { name: "infoText", type: "string", label: "Info",     required: false }
-                ]
-            },
-
-            // flow
-            {
-                id: "ms.setMacros",
-                name: "ms.setMacros",
-                sig: "ms.setMacros(state)",
-                desc: "Enable (1) or disable (0) macros.",
-                category: "flow",
-                params: [
-                    { name: "state", type: "number", label: "State (0/1)", required: true }
-                ]
-            },
-            {
-                id: "ms.cancelMacros",
-                name: "ms.cancelMacros",
-                sig: "ms.cancelMacros()",
-                desc: "Cancel all active macro coroutines.",
-                category: "flow",
-                params: []
-            },
-            {
-                id: "ms.pause",
-                name: "ms.pause",
-                sig: "ms.pause()",
-                desc: "Pause the current macro.",
-                category: "flow",
-                params: []
-            },
-            {
-                id: "ms.resume",
-                name: "ms.resume",
-                sig: "ms.resume()",
-                desc: "Resume a paused macro.",
-                category: "flow",
-                params: []
-            },
-            {
-                id: "ms.done",
-                name: "ms.done",
-                sig: "ms.done()",
-                desc: "Signal macro completion.",
-                category: "flow",
-                params: []
-            },
-            {
-                id: "ms.switchProfile",
-                name: "ms.switchProfile",
-                sig: "ms.switchProfile(name)",
-                desc: "Switch to another profile by name. Hotswaps its macros, settings, theme, and sounds live.",
-                category: "flow",
-                params: [
-                    { name: "name", type: "choice", source: "profiles", label: "Profile", required: true }
-                ]
-            },
-            {
-                id: "ms.switchPack",
-                name: "ms.switchPack",
-                sig: "ms.switchPack(slug, kind)",
-                desc: "Activate an installed library pack. Kind picks which slice (macro / theme / sound) is swapped in.",
-                category: "flow",
-                params: [
-                    { name: "kind", type: "enum", options: ["macro", "theme", "sound"], label: "Kind", required: true },
-                    { name: "slug", type: "choice", source: "pack", dependsOn: "kind", kind: "macro", label: "Pack", required: true }
-                ]
-            },
-
-            // logic
-            {
-                id: "if",
-                name: "if",
-                sig: "if <condition> then ... else ... end",
-                desc: "Branch: run the nested modules when a Lua condition is true, otherwise the else branch.",
-                category: "logic",
-                params: [
-                    { name: "condition", type: "condition", label: "Condition", required: false }
-                ]
-            },
-            {
-                id: "for",
-                name: "for",
-                sig: "for i = from, to do ... end",
-                desc: "Numeric loop: run the nested modules once per step from `from` to `to`.",
-                category: "logic",
-                params: [
-                    { name: "var",  type: "string", label: "Variable", required: false },
-                    { name: "from", type: "number", label: "From",     required: false },
-                    { name: "to",   type: "number", label: "To",       required: false },
-                    { name: "step", type: "number", label: "Step",     required: false }
-                ]
-            },
-            {
-                id: "while",
-                name: "while",
-                sig: "while <condition> do ... end",
-                desc: "Loop the nested modules while a Lua condition holds true.",
-                category: "logic",
-                params: [
-                    { name: "condition", type: "condition", label: "Condition", required: false }
-                ]
-            },
-            {
-                id: "repeat",
-                name: "repeat",
-                sig: "repeat ... until <condition>",
-                desc: "Loop the nested modules until a Lua condition becomes true (runs at least once).",
-                category: "logic",
-                params: [
-                    { name: "condition", type: "condition", label: "Until", required: false }
-                ]
-            },
-            {
-                id: "var_set",
-                name: "var_set",
-                sig: "local name = value",
-                desc: "Declare or set a local variable.",
-                category: "logic",
-                params: [
-                    { name: "name",  type: "string", label: "Name",  required: true },
-                    { name: "value", type: "string", label: "Value", required: false }
-                ]
-            },
-            {
-                id: "var_add",
-                name: "var_add",
-                sig: "name = name + amount",
-                desc: "Increment a variable.",
-                category: "logic",
-                params: [
-                    { name: "name",   type: "string", label: "Name",   required: true },
-                    { name: "amount", type: "number", label: "Amount", required: false }
-                ]
-            },
-            {
-                id: "var_sub",
-                name: "var_sub",
-                sig: "name = name - amount",
-                desc: "Decrement a variable.",
-                category: "logic",
-                params: [
-                    { name: "name",   type: "string", label: "Name",   required: true },
-                    { name: "amount", type: "number", label: "Amount", required: false }
-                ]
-            },
-            {
-                id: "var_mul",
-                name: "var_mul",
-                sig: "name = name * amount",
-                desc: "Multiply a variable.",
-                category: "logic",
-                params: [
-                    { name: "name",   type: "string", label: "Name",   required: true },
-                    { name: "amount", type: "number", label: "Amount", required: false }
-                ]
-            },
-            {
-                id: "call_fn",
-                name: "call_fn",
-                sig: "ms.callFn(name)",
-                desc: "Run a function tool or pack macro by name. Author functions in the Tools panel's Function tab.",
-                category: "logic",
-                params: [
-                    { name: "name", type: "string", label: "Function", required: true }
-                ]
-            },
-            {
-                id: "hvar_set",
-                name: "hvar_set",
-                sig: "ms.vars.set(name, value)",
-                desc: "Write a shared, disk-persistent helper variable. Declare it in the Tools panel's Variable tab; read it by wiring a Value field to it.",
-                category: "logic",
-                params: [
-                    { name: "name",  type: "string", label: "Variable", required: true },
-                    { name: "value", type: "string", label: "Value",    required: false }
-                ]
-            },
-            {
-                id: "comment",
-                name: "comment",
-                sig: "-- text",
-                desc: "A Lua comment. Documents the macro; emits nothing at runtime.",
-                category: "logic",
-                params: [
-                    { name: "text", type: "string", label: "Text", required: false }
-                ]
-            },
-            {
-                id: "code",
-                name: "code",
-                sig: "<raw Lua>",
-                desc: "Raw Lua escape hatch, emitted verbatim. Use for coroutines or anything the modules don't cover.",
-                category: "logic",
-                params: [
-                    { name: "source", type: "code", label: "Lua source", required: false }
-                ]
-            }
-        ];
-
-        var MOD_LIST = ["ctrl", "alt", "shift", "cmd"];
-
-        // Parameter types that can be wired to a tool
-        var BINDABLE = { number: true, string: true };
-
-        // State
-        var _selectedId  = null;
-        var _paramValues = {};
-        var _paramBind   = {};
-        var _modState    = {};
-        var _keyCapture  = null;
-        var _toastTimer  = null;
-        var _tools       = [];
-        var _fnList      = [];
-        var _view        = "module";
-
-        // Live lists for "choice" params
-        var _profilesData = [];
-        var _packData     = { macro: [], theme: [], sound: [] };
-        var _choiceSelects = [];
-
-        // Subscribe once to the shell clients
-        if (window.msProfilesClient) {
-            window.msProfilesClient.subscribe(function(entries) {
-                _profilesData = entries || [];
-                refillChoiceSelects();
-            });
-        }
-        if (window.msLibraryClient && window.msLibraryClient.subscribe) {
-            ["macro", "theme", "sound"].forEach(function(kind) {
-                window.msLibraryClient.subscribe(kind, function(entries) {
-                    _packData[kind] = entries || [];
-                    refillChoiceSelects();
-                });
-            });
-        }
-
-        // Kick a fresh request for whatever a just-opened module needs
-        function requestChoiceData(fn) {
-            var wantProfiles = false, wantKinds = {};
-            for (var i = 0; i < fn.params.length; i++) {
-                var p = fn.params[i];
-                if (p.type !== "choice") continue;
-                if (p.source === "profiles") wantProfiles = true;
-                else if (p.source === "pack") {
-                    // Request every kind the param could switch
-                    ["macro", "theme", "sound"].forEach(function(k) { wantKinds[k] = true; });
-                }
-            }
-            if (wantProfiles && window.msProfilesClient) window.msProfilesClient.request();
-            if (window.msLibraryClient) {
-                Object.keys(wantKinds).forEach(function(k) { window.msLibraryClient.request(k); });
-            }
-        }
-
-        // Build DOM
-        var slot = document.getElementById("slot-macros");
-        if (!slot) return;
-
-        var root = document.createElement("div");
-        root.className = "fn-picker";
-
-        // Left: list
-        var listPane = document.createElement("div");
-        listPane.className = "fn-picker-list";
-
-        var searchBox = document.createElement("div");
-        searchBox.className = "fn-picker-search";
-        var searchInput = document.createElement("input");
-        searchInput.type = "text";
-        searchInput.placeholder = "Search modules\u2026";
-        searchInput.setAttribute("spellcheck", "false");
-        searchInput.setAttribute("autocomplete", "off");
-        searchInput.setAttribute("autocorrect", "off");
-        searchInput.setAttribute("autocapitalize", "off");
-        searchBox.appendChild(searchInput);
-        listPane.appendChild(searchBox);
-
-        var entriesDiv = document.createElement("div");
-        entriesDiv.className = "fn-picker-entries";
-        listPane.appendChild(entriesDiv);
-
-        // Right: detail
-        var detailPane = document.createElement("div");
-        detailPane.className = "fn-picker-detail";
-        detailPane.innerHTML = '<div class="fn-detail-empty"><svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16.6582 9.28638C18.098 10.1862 18.8178 10.6361 19.0647 11.2122C19.2803 11.7152 19.2803 12.2847 19.0647 12.7878C18.8178 13.3638 18.098 13.8137 16.6582 14.7136L9.896 18.94C8.29805 19.9387 7.49907 20.4381 6.83973 20.385C6.26501 20.3388 5.73818 20.0469 5.3944 19.584C5 19.053 5 18.1108 5 16.2264V7.77357C5 5.88919 5 4.94701 5.3944 4.41598C5.73818 3.9531 6.26501 3.66111 6.83973 3.6149C7.49907 3.5619 8.29805 4.06126 9.896 5.05998L16.6582 9.28638Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Select a module from the list</div>';
-
-        root.appendChild(listPane);
-        root.appendChild(detailPane);
-        slot.appendChild(root);
-
-        // Toast
-        var toast = document.createElement("div");
-        toast.className = "fn-toast";
-        document.body.appendChild(toast);
-
-        // Render Function List
-        var _catCollapsed = {};
-
-        function makeEntryRow(fn) {
-            var row = document.createElement("div");
-            row.className = "fn-entry" + (_selectedId === fn.id ? " active" : "");
-            row.setAttribute("data-fn-id", fn.id);
-
-            var sigSpan = document.createElement("span");
-            sigSpan.className = "fn-entry-sig";
-            sigSpan.textContent = fn.name;
-            row.appendChild(sigSpan);
-
-            // Draggable onto the canvas as a new module
-            row.setAttribute("draggable", "true");
-            row.addEventListener("dragstart", function(e) {
-                e.dataTransfer.effectAllowed = "copy";
-                e.dataTransfer.setData("application/x-ms-fn", fn.id);
-                e.dataTransfer.setData("text/plain", fn.name);
-            });
-
-            row.addEventListener("click", function() {
-                if (window.playSlot) playSlot("interact");
-                selectFunction(fn.id);
-            });
-            row.addEventListener("mouseenter", function() {
-                if (window.playSlot) playSlot("hover");
-            });
-            return row;
-        }
-
-        // Build one draggable tool row
-        function makeToolRow(t) {
-            var row = document.createElement("div");
-            row.className = "fn-entry fn-tool-entry"
-                + (_view === "tool" && _selectedId === t.key ? " active" : "");
-            row.setAttribute("data-tool-key", t.key);
-
-            var sig = document.createElement("span");
-            sig.className = "fn-entry-sig";
-            sig.textContent = t.label || t.key;
-            row.appendChild(sig);
-
-            var tag = document.createElement("span");
-            tag.className = "fn-tool-tag fn-tool-tag-" + (t.source || "pack");
-            tag.textContent = t.type;
-            row.appendChild(tag);
-
-            // Draggable onto the canvas as a shared-setting reference block
-            row.setAttribute("draggable", "true");
-            row.addEventListener("dragstart", function(e) {
-                e.dataTransfer.effectAllowed = "copy";
-                e.dataTransfer.setData("application/x-ms-tool", t.key);
-                e.dataTransfer.setData("text/plain", t.label || t.key);
-            });
-            row.addEventListener("mouseenter", function() {
-                if (window.playSlot) playSlot("hover");
-            });
-            row.addEventListener("click", function() {
-                if (window.playSlot) playSlot("interact");
-                selectTool(t.key);
-            });
-            return row;
-        }
-
-        // Build one draggable function row
-        function makeFnCallRow(fn) {
-            var id  = fn.id || fn.name;
-            var row = document.createElement("div");
-            row.className = "fn-entry fn-tool-entry";
-            row.setAttribute("data-fn-call", id);
-
-            var sig = document.createElement("span");
-            sig.className = "fn-entry-sig";
-            sig.textContent = fn.name || id;
-            row.appendChild(sig);
-
-            var tag = document.createElement("span");
-            tag.className = "fn-tool-tag fn-tool-tag-" + (fn.source || "builder");
-            tag.textContent = "function";
-            row.appendChild(tag);
-
-            row.setAttribute("draggable", "true");
-            row.addEventListener("dragstart", function(e) {
-                e.dataTransfer.effectAllowed = "copy";
-                e.dataTransfer.setData("application/x-ms-callfn", id);
-                e.dataTransfer.setData("text/plain", fn.name || id);
-            });
-            row.addEventListener("mouseenter", function() {
-                if (window.playSlot) playSlot("hover");
-            });
-            row.addEventListener("click", function() {
-                if (window.playSlot) playSlot("interact");
-                if (window.macroLab && window.macroLab.addTool) {
-                    window.macroLab.addTool({ action: "call_fn", params: { name: id } });
-                }
-            });
-            return row;
-        }
-
-        // Group tools by their section into collapsible headings
-        function renderToolsGroup(filter, searching) {
-            var q = (filter || "").toLowerCase();
-            var matches = _tools.filter(function(t) {
-                if (!q) return true;
-                return (t.label || "").toLowerCase().indexOf(q) !== -1
-                    || (t.key || "").toLowerCase().indexOf(q) !== -1
-                    || (t.section || "").toLowerCase().indexOf(q) !== -1
-                    || "tool".indexOf(q) !== -1;
-            });
-            var fnMatches = _fnList.filter(function(f) {
-                if (!q) return true;
-                return (String(f.name || f.id)).toLowerCase().indexOf(q) !== -1
-                    || "function tool".indexOf(q) !== -1;
-            });
-            var searchingTools = q && "tool".indexOf(q) === -1
-                && "function".indexOf(q) === -1;
-
-            // Empty state
-            if (matches.length === 0 && fnMatches.length === 0) {
-                if (searchingTools) return;
-                renderToolSection("tools", [], [], filter, searching, true);
-                return;
-            }
-
-            // Group by section in first-seen order
-            var order = [];
-            var groups = {};
-            matches.forEach(function(t) {
-                var s = (t.section && String(t.section)) || "tools";
-                if (!groups[s]) { groups[s] = []; order.push(s); }
-                groups[s].push(t);
-            });
-            // Functions always live in the default "tools" section
-            if (fnMatches.length && !groups["tools"]) { groups["tools"] = []; order.push("tools"); }
-            if (groups["tools"]) {
-                order = ["tools"].concat(order.filter(function(s) { return s !== "tools"; }));
-            }
-            order.forEach(function(s) {
-                renderToolSection(s, groups[s], s === "tools" ? fnMatches : [], filter, searching, false);
-            });
-        }
-
-        // Render one Tools sub-section: a category-style header keyed by section
-        function renderToolSection(section, rows, fns, filter, searching, emptyHint) {
-            fns = fns || [];
-            var key = "__tools:" + section;
-            var collapsed = searching ? false : (_catCollapsed[key] !== false);
-
-            var head = document.createElement("div");
-            head.className = "fn-cat-head fn-cat-tools" + (collapsed ? " collapsed" : "");
-
-            var chev = document.createElement("span");
-            chev.className = "fn-cat-chev";
-            chev.innerHTML = (typeof window.icon === "function"
-                && window.ICONS && window.ICONS.chevdown)
-                ? window.icon("chevdown") : "";
-            head.appendChild(chev);
-
-            var name = document.createElement("span");
-            name.className = "fn-cat-name";
-            name.textContent = section;
-            head.appendChild(name);
-
-            var count = document.createElement("span");
-            count.className = "fn-cat-count";
-            count.textContent = String(rows.length + fns.length);
-            head.appendChild(count);
-
-            head.addEventListener("mouseenter", function() {
-                if (window.playSlot) playSlot("hover");
-            });
-            if (!searching) {
-                head.addEventListener("click", function() {
-                    if (window.playSlot) playSlot("interact");
-                    _catCollapsed[key] = !(_catCollapsed[key] !== false);
-                    renderList(filter);
-                });
-            }
-            entriesDiv.appendChild(head);
-
-            if (collapsed) return;
-
-            rows.forEach(function(t) { entriesDiv.appendChild(makeToolRow(t)); });
-            fns.forEach(function(f) { entriesDiv.appendChild(makeFnCallRow(f)); });
-
-            // A hint points at the Tools panel when none exist yet
-            if (emptyHint && rows.length === 0 && fns.length === 0) {
-                var hint = document.createElement("div");
-                hint.className = "fn-entry fn-tool-hint";
-                hint.innerHTML = '<span class="fn-entry-sig">No tools, add one in the Tools panel</span>';
-                entriesDiv.appendChild(hint);
-            }
-        }
-
-        function renderList(filter) {
-            entriesDiv.innerHTML = "";
-            var q = (filter || "").toLowerCase();
-            var searching = q.length > 0;
-
-            renderToolsGroup(filter, searching);
-
-            // Group visible entries by category
-            var order = [];
-            var groups = {};
-            for (var i = 0; i < REGISTRY.length; i++) {
-                var fn = REGISTRY[i];
-                if (q && fn.name.toLowerCase().indexOf(q) === -1
-                       && fn.desc.toLowerCase().indexOf(q) === -1
-                       && fn.category.toLowerCase().indexOf(q) === -1) {
-                    continue;
-                }
-                var c = fn.category || "other";
-                if (!groups[c]) { groups[c] = []; order.push(c); }
-                groups[c].push(fn);
-            }
-
-            order.forEach(function(cat) {
-                var collapsed = searching ? false : (_catCollapsed[cat] !== false);
-
-                var head = document.createElement("div");
-                head.className = "fn-cat-head" + (collapsed ? " collapsed" : "");
-
-                var chev = document.createElement("span");
-                chev.className = "fn-cat-chev";
-                chev.innerHTML = (typeof window.icon === "function"
-                    && window.ICONS && window.ICONS.chevdown)
-                    ? window.icon("chevdown") : "";
-                head.appendChild(chev);
-
-                var name = document.createElement("span");
-                name.className = "fn-cat-name";
-                name.textContent = cat;
-                head.appendChild(name);
-
-                var count = document.createElement("span");
-                count.className = "fn-cat-count";
-                count.textContent = String(groups[cat].length);
-                head.appendChild(count);
-
-                head.addEventListener("mouseenter", function() {
-                    if (window.playSlot) playSlot("hover");
-                });
-                // Sections forced open while searching
-                if (!searching) {
-                    head.addEventListener("click", function() {
-                        if (window.playSlot) playSlot("interact");
-                        _catCollapsed[cat] = !(_catCollapsed[cat] !== false);
-                        renderList(filter);
-                    });
-                }
-                entriesDiv.appendChild(head);
-
-                if (!collapsed) {
-                    groups[cat].forEach(function(fn) {
-                        entriesDiv.appendChild(makeEntryRow(fn));
-                    });
-                }
-            });
-        }
-
-        // Select Function
-        function selectFunction(id) {
-            _selectedId = id;
-            _view = "module";
-            _paramValues = {};
-            _paramBind = {};
-            _modState = {};
-            _keyCapture = null;
-
-            // Update list highlight
-            var items = entriesDiv.querySelectorAll(".fn-entry");
-            for (var i = 0; i < items.length; i++) {
-                items[i].classList.toggle("active", items[i].getAttribute("data-fn-id") === id);
-            }
-
-            // Find function definition
-            var fn = null;
-            for (var j = 0; j < REGISTRY.length; j++) {
-                if (REGISTRY[j].id === id) { fn = REGISTRY[j]; break; }
-            }
-            if (!fn) return;
-
-            // Initialize defaults
-            for (var k = 0; k < fn.params.length; k++) {
-                var p = fn.params[k];
-                if (p.type === "mods") {
-                    _paramValues[p.name] = [];
-                    _modState = { ctrl: false, alt: false, shift: false, cmd: false };
-                } else if (p.type === "number") {
-                    _paramValues[p.name] = 0;
-                } else if (p.type === "boolean") {
-                    _paramValues[p.name] = false;
-                } else if (p.type === "enum") {
-                    _paramValues[p.name] = enumDefault(p);
-                } else {
-                    _paramValues[p.name] = "";
-                }
-            }
-
-            renderDetail(fn);
-        }
-
-        // Tools
-        function findTool(key) {
-            for (var i = 0; i < _tools.length; i++) {
-                if (_tools[i].key === key) return _tools[i];
-            }
-            return null;
-        }
-
-        // Canvas step for a tool reference
-        function settingDefFor(t) {
-            return {
-                action: "setting",
-                params: { key: t.key, label: t.label || t.key, type: t.type },
-            };
-        }
-
-        function selectTool(key) {
-            _view = "tool";
-            _selectedId = key;
-            var items = entriesDiv.querySelectorAll(".fn-entry");
-            for (var i = 0; i < items.length; i++) {
-                items[i].classList.toggle("active",
-                    items[i].getAttribute("data-tool-key") === key);
-            }
-            renderToolDetail(findTool(key));
-        }
-
-        function renderToolDetail(t) {
-            if (!t) { detailPane.innerHTML = ''; return; }
-            var html = '';
-            html += '<div class="fn-detail-header">';
-            html += '<div class="fn-detail-name">' + esc(t.label || t.key) + '</div>';
-            html += '<div class="fn-detail-desc">'
-                + esc(t.hint || 'A ' + t.type + ' tool. Wire it into a module parameter to read its value live.')
-                + '</div>';
-            html += '</div>';
-
-            html += '<div class="fn-detail-body"><div class="fn-params">';
-            html += toolMetaRow("Key", t.key);
-            html += toolMetaRow("Type", t.type);
-            html += toolMetaRow("Source",
-                t.source === "builder" ? "Authored here" : "Declared in the pack");
-            if (t.type === "slider") {
-                html += toolMetaRow("Range", (t.min != null ? t.min : "?")
-                    + " - " + (t.max != null ? t.max : "?")
-                    + (t.step ? " (step " + t.step + ")" : ""));
-            }
-            if (t.type === "seg" && t.options) {
-                var labels = t.options.map(function(o) { return o.label; }).join(", ");
-                html += toolMetaRow("Options", labels);
-            }
-            if (t.default !== undefined && t.default !== null && t.default !== "") {
-                html += toolMetaRow("Default", String(t.default));
-            }
-            html += '<div class="fn-tool-usehint">Reads as <code>ms.settings.get("'
-                + esc(t.key) + '")</code>. To use it, add a module and switch any '
-                + 'value field to <b>Tool</b>, then pick this.</div>';
-            html += '</div></div>';
-
-            html += '<div class="fn-detail-footer">';
-            // Add the tool to the macro as a shared-setting reference block
-            html += '<button class="fn-add-btn" id="fn-tool-add">Add to Macro</button>';
-            if (t.source === "builder") {
-                html += '<button class="fn-add-btn fn-tool-delete" id="fn-tool-delete">Delete Tool</button>';
-            }
-            html += '</div>';
-
-            detailPane.innerHTML = html;
-
-            var add = document.getElementById("fn-tool-add");
-            if (add) {
-                add.addEventListener("mouseenter", function() {
-                    if (window.playSlot) playSlot("hover");
-                });
-                add.addEventListener("click", function() {
-                    if (window.playSlot) playSlot("interact");
-                    if (window.macroLab && window.macroLab.addTool) {
-                        window.macroLab.addTool(settingDefFor(t));
-                    }
-                });
-            }
-
-            var del = document.getElementById("fn-tool-delete");
-            if (del) {
-                del.addEventListener("mouseenter", function() {
-                    if (window.playSlot) playSlot("hover");
-                });
-                del.addEventListener("click", function() {
-                    if (window.playSlot) playSlot("back");
-                    if (window.macroLab && window.macroLab.deleteTool) {
-                        window.macroLab.deleteTool(t.key);
-                    }
-                });
-            }
-        }
-
-        function toolMetaRow(label, value) {
-            return '<div class="fn-param-group fn-tool-meta"><div class="fn-param-label">'
-                + esc(label) + '</div><div class="fn-tool-meta-val">'
-                + esc(String(value)) + '</div></div>';
-        }
-
-        // Render Detail Panel
-        function renderDetail(fn) {
-            var html = '';
-
-            // Header
-            html += '<div class="fn-detail-header">';
-            html += '<div class="fn-detail-name">' + esc(fn.name) + '</div>';
-            html += '<div class="fn-detail-desc">' + esc(fn.desc) + '</div>';
-            html += '</div>';
-
-            // Body
-            html += '<div class="fn-detail-body">';
-            if (fn.params.length === 0) {
-                html += '<div class="fn-no-params">This function takes no parameters.</div>';
-            } else {
-                html += '<div class="fn-params">';
-                for (var i = 0; i < fn.params.length; i++) {
-                    var p = fn.params[i];
-                    html += renderParamField(p);
-                }
-                html += '</div>';
-            }
-            html += '</div>';
-
-            // Footer
-            html += '<div class="fn-detail-footer">';
-            html += '<button class="fn-add-btn" id="fn-add-btn">Add Module</button>';
-            html += '<span class="fn-tool-preview" id="fn-tool-preview"></span>';
-            html += '</div>';
-
-            detailPane.innerHTML = html;
-
-            // Wire up param inputs
-            wireParamInputs(fn);
-
-            // Wire add button
-            var addBtn = document.getElementById("fn-add-btn");
-            if (addBtn) {
-                addBtn.addEventListener("mouseenter", function() {
-                    if (window.playSlot) playSlot("hover");
-                });
-                addBtn.addEventListener("click", function() {
-                    if (window.playSlot) playSlot("interact");
-                    addToMacro(fn);
-                });
-            }
-
-            updatePreview(fn);
-        }
-
-        // Render a single parameter field
-        function toolSelectOptions() {
-            if (_tools.length === 0) {
-                return [{ value: "", label: "No tools, create one first" }];
-            }
-            var opts = [{ value: "", label: "Pick a tool..." }];
-            _tools.forEach(function(t) {
-                opts.push({ value: t.key, label: (t.label || t.key) + "  -  " + t.type });
-            });
-            return opts;
-        }
-
-        // Live createSelect nodes for the currently rendered param fields
-        var _toolSelects = {};
-
-        // Header line above the bound tool's value editor
-        function setToolInfo(name, key) {
-            var el = detailPane.querySelector('[data-toolinfo="' + name + '"]');
-            if (!el) return;
-            var t = key && findTool(key);
-            el.innerHTML = t ? ("Sets the <b>" + esc(t.type) + "</b> tool's value:") : "";
-        }
-
-        // The tool's live value
-        function currentToolValue(t) {
-            if (t.value !== undefined && t.value !== null) return t.value;
-            return (t.default !== undefined) ? t.default : null;
-        }
-
-        // Persist a tool value to the host
-        function commitToolValue(t, value, name) {
-            t.value = value;
-            if (window.shellPost) {
-                shellPost("macros", "userSettingChange", {
-                    action: "userSettingChange",
-                    key: t.key,
-                    value: value,
-                });
-            }
-        }
-
-        // Inline value editor under the tool picker
-        function mountToolValue(name, key) {
-            var wrap = detailPane.querySelector('[data-toolval="' + name + '"]');
-            if (!wrap) return;
-            wrap.innerHTML = "";
-            var t = key && findTool(key);
-            if (!t) return;
-            var val = currentToolValue(t);
-
-            if (t.type === "toggle") {
-                var on = (val === true || val === "true");
-                var lab = document.createElement("label");
-                lab.className = "toggle fn-param-toggle";
-                var cb = document.createElement("input");
-                cb.type = "checkbox";
-                cb.checked = on;
-                var track = document.createElement("span");
-                track.className = "toggle-track";
-                var thumb = document.createElement("span");
-                thumb.className = "toggle-thumb";
-                lab.appendChild(cb);
-                lab.appendChild(track);
-                lab.appendChild(thumb);
-                cb.addEventListener("change", function() {
-                    if (window.playSlot) playSlot(cb.checked ? "toggleOn" : "toggleOff");
-                    commitToolValue(t, cb.checked, name);
-                });
-                wrap.appendChild(lab);
-
-            } else if (t.type === "seg") {
-                var seg = document.createElement("div");
-                seg.className = "fn-tool-seg";
-                (t.options || []).forEach(function(o) {
-                    var b = document.createElement("button");
-                    b.className = "fn-tool-seg-opt" + (o.value === val ? " on" : "");
-                    b.textContent = o.label;
-                    b.addEventListener("mouseenter", function() {
-                        if (window.playSlot) playSlot("hover");
-                    });
-                    b.addEventListener("click", function() {
-                        var opts = seg.querySelectorAll(".fn-tool-seg-opt");
-                        for (var i = 0; i < opts.length; i++) opts[i].classList.remove("on");
-                        b.classList.add("on");
-                        if (window.playSlot) playSlot("interact");
-                        commitToolValue(t, o.value, name);
-                    });
-                    seg.appendChild(b);
-                });
-                wrap.appendChild(seg);
-
-            } else if (t.type === "slider") {
-                var row = document.createElement("div");
-                row.className = "fn-tool-slider";
-                var range = document.createElement("input");
-                range.type = "range";
-                range.min = (t.min != null ? t.min : 0);
-                range.max = (t.max != null ? t.max : 100);
-                range.step = (t.step != null ? t.step : 1);
-                var num = (typeof val === "number") ? val : parseFloat(val);
-                if (isNaN(num)) num = Number(range.min);
-                range.value = num;
-                var read = document.createElement("span");
-                read.className = "fn-tool-slider-val";
-                var fmt = function(v) { return String(v) + (t.unit ? (" " + t.unit) : ""); };
-                read.textContent = fmt(num);
-                // Live read-out on drag
-                range.addEventListener("input", function() {
-                    read.textContent = fmt(parseFloat(range.value));
-                });
-                range.addEventListener("change", function() {
-                    commitToolValue(t, parseFloat(range.value), name);
-                });
-                row.appendChild(range);
-                row.appendChild(read);
-                wrap.appendChild(row);
-            }
-        }
-
-        // Refresh both the header and the value editor for a param's tool pick
-        function refreshToolBind(name, key) {
-            setToolInfo(name, key);
-            mountToolValue(name, key);
-        }
-
-        // Replace each tool-select mount point with a themed createSelect
-        function mountToolSelects(fn) {
-            _toolSelects = {};
-            if (typeof window.createSelect !== "function") return;
-            var mounts = detailPane.querySelectorAll(".fn-tool-select-mount");
-            for (var i = 0; i < mounts.length; i++) {
-                (function(mount) {
-                    var name = mount.getAttribute("data-toolmount");
-                    var sel = window.createSelect({
-                        options: toolSelectOptions(),
-                        value: _paramBind[name] || "",
-                        className: "fn-tool-select",
-                        onChange: function(v) {
-                            if (window.playSlot) playSlot("interact");
-                            _paramBind[name] = v;
-                            _paramValues[name] = { __toolRef: v };
-                            refreshToolBind(name, v);
-                            updatePreview(fn);
-                        },
-                    });
-                    // The Value/Tool switch reads the current pick via this attr
-                    sel.setAttribute("data-toolsel", name);
-                    mount.appendChild(sel);
-                    _toolSelects[name] = sel;
-                    refreshToolBind(name, _paramBind[name] || "");
-                })(mounts[i]);
-            }
-        }
-
-        // First option's value for an enum param
-        function enumDefault(p) {
-            var o = (p.options || [])[0];
-            if (o == null) return "";
-            return (typeof o === "object") ? o.value : o;
-        }
-
-        function renderParamField(p) {
-            var bindable = !!BINDABLE[p.type];
-            var bound = bindable && !!_paramBind[p.name];
-
-            var html = '<div class="fn-param-group fn-param' + (bound ? ' bound' : '')
-                + '" data-pname="' + esc(p.name) + '">';
-            html += '<div class="fn-param-label">' + esc(p.label);
-            html += ' <span class="fn-param-type">' + esc(p.type) + '</span>';
-            if (p.required) html += ' <span style="color:var(--danger)">*</span>';
-            if (bindable) {
-                html += '<span class="fn-bind-switch">'
-                    + '<button class="fn-bind-opt' + (bound ? '' : ' on') + '" data-bindmode="literal" data-param="'
-                    + esc(p.name) + '">Value</button>'
-                    + '<button class="fn-bind-opt' + (bound ? ' on' : '') + '" data-bindmode="tool" data-param="'
-                    + esc(p.name) + '">Tool</button></span>';
-            }
-            html += '</div>';
-
-            html += '<div class="fn-param-literal" data-lit="' + esc(p.name) + '"'
-                + (bound ? ' style="display:none"' : '') + '>';
-            switch (p.type) {
-                case "string":
-                    html += '<input type="text" data-param="' + esc(p.name) + '" placeholder="Enter text\u2026" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">';
-                    break;
-
-                case "number":
-                    html += '<input type="number" data-param="' + esc(p.name) + '" value="0" step="1">';
-                    break;
-
-                case "enum":
-                    // A fixed constant set
-                    html += '<div class="fn-enum-select-mount" data-enummount="' + esc(p.name) + '"></div>';
-                    break;
-
-                case "choice":
-                    // A live-sourced dropdown
-                    html += '<div class="fn-choice-select-mount" data-choicemount="' + esc(p.name)
-                        + '" data-choicesrc="' + esc(p.source || "")
-                        + '" data-choicekind="' + esc(p.kind || "")
-                        + '" data-choicedep="' + esc(p.dependsOn || "") + '"></div>';
-                    break;
-
-                case "boolean":
-                    // Shared .toggle markup
-                    html += '<label class="toggle fn-param-toggle">'
-                        + '<input type="checkbox" data-param="' + esc(p.name) + '">'
-                        + '<span class="toggle-track"></span>'
-                        + '<span class="toggle-thumb"></span></label>';
-                    break;
-
-                case "key":
-                    html += '<div class="fn-key-capture">';
-                    html += '<button class="fn-key-btn" data-param="' + esc(p.name) + '" data-key-capture>Click to set</button>';
-                    html += '<span class="fn-key-hint">press a key\u2026</span>';
-                    html += '</div>';
-                    break;
-
-                case "mods":
-                    html += '<div class="fn-mods-row">';
-                    for (var i = 0; i < MOD_LIST.length; i++) {
-                        html += '<button class="fn-mod-chip" data-mod="' + MOD_LIST[i] + '">' + MOD_LIST[i] + '</button>';
-                    }
-                    html += '</div>';
-                    break;
-
-                case "condition":
-                    html += '<textarea class="fn-code-input" data-param="' + esc(p.name) + '" rows="1" placeholder="Lua expression..." spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>';
-                    break;
-
-                case "code":
-                    html += '<textarea class="fn-code-input" data-param="' + esc(p.name) + '" rows="3" placeholder="Lua source..." spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>';
-                    break;
-            }
-            html += '</div>';
-
-            if (bindable) {
-                html += '<div class="fn-param-tool" data-toolwrap="' + esc(p.name) + '"'
-                    + (bound ? '' : ' style="display:none"') + '>';
-                // Themed createSelect mounted after the HTML lands
-                html += '<div class="fn-tool-select-mount" data-toolmount="' + esc(p.name) + '"></div>';
-                html += '<div class="fn-tool-info" data-toolinfo="' + esc(p.name) + '"></div>';
-                html += '<div class="fn-tool-value" data-toolval="' + esc(p.name) + '"></div>';
-                html += '</div>';
-            }
-
-            html += '</div>';
-            return html;
-        }
-
-        // Wire up input events
-        function wireParamInputs(fn) {
-            // Text and number inputs
-            var inputs = detailPane.querySelectorAll("input[data-param], textarea[data-param]");
-            for (var i = 0; i < inputs.length; i++) {
-                (function(inp) {
-                    var name = inp.getAttribute("data-param");
-                    // Checkboxes commit their state on "change"
-                    var evt = (inp.type === "checkbox") ? "change" : "input";
-                    inp.addEventListener(evt, function() {
-                        if (inp.type === "checkbox") {
-                            _paramValues[name] = inp.checked;
-                            if (window.playSlot) playSlot(inp.checked ? "toggleOn" : "toggleOff");
-                        } else if (inp.type === "number") {
-                            _paramValues[name] = parseFloat(inp.value) || 0;
-                        } else {
-                            _paramValues[name] = inp.value;
-                        }
-                        updatePreview(fn);
-                    });
-                    // Textareas capture typing
-                    if (inp.tagName === "TEXTAREA") {
-                        inp.addEventListener("keydown", function(e) { e.stopPropagation(); });
-                    }
-                })(inputs[i]);
-            }
-
-            // Key capture buttons
-            var keyBtns = detailPane.querySelectorAll("[data-key-capture]");
-            for (var j = 0; j < keyBtns.length; j++) {
-                (function(btn) {
-                    var name = btn.getAttribute("data-param");
-                    btn.addEventListener("mouseenter", function() {
-                        if (window.playSlot) playSlot("hover");
-                    });
-                    btn.addEventListener("click", function(e) {
-                        e.stopPropagation();
-                        if (window.playSlot) playSlot("interact");
-                        startKeyCapture(name, btn, fn);
-                    });
-                })(keyBtns[j]);
-            }
-
-            // Modifier chips
-            var modChips = detailPane.querySelectorAll("[data-mod]");
-            for (var k = 0; k < modChips.length; k++) {
-                (function(chip) {
-                    var mod = chip.getAttribute("data-mod");
-                    chip.addEventListener("mouseenter", function() {
-                        if (window.playSlot) playSlot("hover");
-                    });
-                    chip.addEventListener("click", function() {
-                        _modState[mod] = !_modState[mod];
-                        if (window.playSlot) playSlot(_modState[mod] ? "toggleOn" : "toggleOff");
-                        chip.classList.toggle("on", _modState[mod]);
-                        // Update mods param value
-                        var mods = [];
-                        for (var m = 0; m < MOD_LIST.length; m++) {
-                            if (_modState[MOD_LIST[m]]) mods.push(MOD_LIST[m]);
-                        }
-                        // Find the mods param name
-                        for (var n = 0; n < fn.params.length; n++) {
-                            if (fn.params[n].type === "mods") {
-                                _paramValues[fn.params[n].name] = mods;
-                                break;
-                            }
-                        }
-                        updatePreview(fn);
-                    });
-                })(modChips[k]);
-            }
-
-            // Value/Tool switch: flips a parameter between a literal and a tool binding
-            var switches = detailPane.querySelectorAll(".fn-bind-opt");
-            for (var s = 0; s < switches.length; s++) {
-                (function(btn) {
-                    var name = btn.getAttribute("data-param");
-                    var mode = btn.getAttribute("data-bindmode");
-                    btn.addEventListener("click", function() {
-                        if (window.playSlot) playSlot("interact");
-                        var group = detailPane.querySelector('.fn-param[data-pname="' + name + '"]');
-                        if (!group) return;
-                        var lit  = group.querySelector('[data-lit="' + name + '"]');
-                        var tool = group.querySelector('[data-toolwrap="' + name + '"]');
-                        var opts = group.querySelectorAll('.fn-bind-opt');
-                        opts.forEach(function(o) {
-                            o.classList.toggle("on", o.getAttribute("data-bindmode") === mode);
-                        });
-                        if (mode === "tool") {
-                            group.classList.add("bound");
-                            if (lit)  lit.style.display  = "none";
-                            if (tool) tool.style.display = "";
-                            var selEl = group.querySelector('[data-toolsel="' + name + '"]');
-                            _paramBind[name] = (selEl && selEl.value) ? selEl.value : "";
-                            if (_paramBind[name]) {
-                                _paramValues[name] = { __toolRef: _paramBind[name] };
-                            }
-                            refreshToolBind(name, _paramBind[name] || "");
-                        } else {
-                            group.classList.remove("bound");
-                            if (lit)  lit.style.display  = "";
-                            if (tool) tool.style.display = "none";
-                            delete _paramBind[name];
-                            var litInput = group.querySelector('[data-param="' + name + '"]');
-                            if (litInput) {
-                                _paramValues[name] = (litInput.type === "number")
-                                    ? (parseFloat(litInput.value) || 0) : litInput.value;
-                            } else {
-                                _paramValues[name] = "";
-                            }
-                        }
-                        updatePreview(fn);
-                    });
-                })(switches[s]);
-            }
-
-            // Enum selects
-            mountEnumSelects(fn);
-
-            // Choice selects
-            _choiceSelects = [];
-            mountChoiceSelects(fn);
-            requestChoiceData(fn);
-
-            // Tool selects
-            mountToolSelects(fn);
-        }
-
-        // Replace each enum mount point with a themed createSelect
-        function mountEnumSelects(fn) {
-            if (typeof window.createSelect !== "function") return;
-            var byName = {};
-            for (var i = 0; i < fn.params.length; i++) byName[fn.params[i].name] = fn.params[i];
-            var mounts = detailPane.querySelectorAll(".fn-enum-select-mount");
-            for (var m = 0; m < mounts.length; m++) {
-                (function(mount) {
-                    var name = mount.getAttribute("data-enummount");
-                    var p = byName[name];
-                    if (!p) return;
-                    var sel = window.createSelect({
-                        options: p.options || [],
-                        value: _paramValues[name] || "",
-                        className: "fn-enum-select",
-                        onChange: function(v) {
-                            if (window.playSlot) playSlot("interact");
-                            _paramValues[name] = v;
-                            // A choice param may key its options off this enum
-                            refillChoiceSelects();
-                            updatePreview(fn);
-                        },
-                    });
-                    mount.appendChild(sel);
-                })(mounts[m]);
-            }
-        }
-
-        // Options for a "choice" param
-        function choiceOptions(p) {
-            var opts = [];
-            var seen = {};
-            function add(value, label) {
-                if (value == null || seen[value]) return;
-                seen[value] = true;
-                opts.push({ value: String(value), label: label });
-            }
-            if (p.source === "profiles") {
-                for (var i = 0; i < _profilesData.length; i++) {
-                    var e = _profilesData[i];
-                    add(e.name, e.active ? e.name + " (active)" : e.name);
-                }
-            } else if (p.source === "pack") {
-                var kind = (p.dependsOn && _paramValues[p.dependsOn]) || p.kind || "macro";
-                var list = _packData[kind] || [];
-                for (var j = 0; j < list.length; j++) {
-                    var pk = list[j];
-                    add(pk.slug, pk.active ? pk.name + " (active)" : pk.name);
-                }
-            }
-            var cur = _paramValues[p.name];
-            if (cur && !seen[cur]) add(cur, cur + " (not installed)");
-            if (!opts.length) add("", "None available");
-            return opts;
-        }
-
-        // Replace each choice mount point with a live-sourced createSelect
-        function mountChoiceSelects(fn) {
-            if (typeof window.createSelect !== "function") return;
-            var byName = {};
-            for (var i = 0; i < fn.params.length; i++) byName[fn.params[i].name] = fn.params[i];
-            var mounts = detailPane.querySelectorAll(".fn-choice-select-mount");
-            for (var m = 0; m < mounts.length; m++) {
-                (function(mount) {
-                    var name = mount.getAttribute("data-choicemount");
-                    var p = byName[name];
-                    if (!p) return;
-                    var opts = choiceOptions(p);
-                    // Seed a valid value: keep the stored one if present
-                    if (!_paramValues[name] && opts.length && opts[0].value) {
-                        _paramValues[name] = opts[0].value;
-                    }
-                    var sel = window.createSelect({
-                        options: opts,
-                        value: _paramValues[name] || "",
-                        className: "fn-choice-select",
-                        searchable: opts.length > 8,
-                        onChange: function(v) {
-                            if (window.playSlot) playSlot("interact");
-                            _paramValues[name] = v;
-                            updatePreview(fn);
-                        },
-                    });
-                    mount.appendChild(sel);
-                    _choiceSelects.push({ sel: sel, param: p, fn: fn });
-                })(mounts[m]);
-            }
-        }
-
-        // Refresh the options of every mounted choice select from current data
-        function refillChoiceSelects() {
-            for (var i = 0; i < _choiceSelects.length; i++) {
-                var c = _choiceSelects[i];
-                if (!c.sel.isConnected) continue;
-                var opts = choiceOptions(c.param);
-                var keep = c.sel.value;
-                c.sel.setOptions(opts);
-                var has = false;
-                for (var j = 0; j < opts.length; j++) if (opts[j].value === keep) { has = true; break; }
-                if (has) c.sel.value = keep;
-                _paramValues[c.param.name] = c.sel.value;
-            }
-        }
-
-        // Key Capture
-        function startKeyCapture(paramName, btn, fn) {
-            // Cancel any existing capture
-            if (_keyCapture) {
-                var prevBtn = detailPane.querySelector(".fn-key-btn.capturing");
-                if (prevBtn) prevBtn.classList.remove("capturing");
-                document.removeEventListener("keydown", _keyCaptureHandler, true);
-            }
-
-            _keyCapture = paramName;
-            btn.classList.add("capturing");
-            btn.textContent = "\u2026";
-
-            function handler(e) {
-                e.preventDefault();
-                e.stopPropagation();
-
-                // Build key name
-                var key = normalizeKey(e);
-                _paramValues[paramName] = key;
-
-                btn.classList.remove("capturing");
-                btn.textContent = key || "???";
-                btn.classList.remove("fn-key-btn");
-                btn.classList.add("fn-key-btn");
-
-                document.removeEventListener("keydown", handler, true);
-                _keyCapture = null;
-                _keyCaptureHandler = null;
-                updatePreview(fn);
-            }
-
-            _keyCaptureHandler = handler;
-            document.addEventListener("keydown", handler, true);
-        }
-
-        var _keyCaptureHandler = null;
-
-        function normalizeKey(e) {
-            // Map common keys to ms naming
-            var map = {
-                " ": "space",
-                "ArrowUp": "up",
-                "ArrowDown": "down",
-                "ArrowLeft": "left",
-                "ArrowRight": "right",
-                "Backspace": "delete",
-                "Escape": "escape",
-                "Enter": "return",
-                "Tab": "tab"
-            };
-            if (map[e.key]) return map[e.key];
-            if (e.key.length === 1) return e.key.toLowerCase();
-            return e.key.toLowerCase();
-        }
-
-        // Step Preview
-        function updatePreview(fn) {
-            var el = document.getElementById("fn-tool-preview");
-            if (!el) return;
-
-            var parts = [];
-            for (var i = 0; i < fn.params.length; i++) {
-                var p = fn.params[i];
-                var val = _paramValues[p.name];
-                if (val && typeof val === "object" && val.__toolRef) {
-                    // A bound parameter previews as the call it compiles
-                    parts.push(p.name + ':ms.settings.get("' + val.__toolRef + '")');
-                } else if (p.type === "mods") {
-                    parts.push(p.name + ":[" + (val || []).join(",") + "]");
-                } else if (p.type === "string" || p.type === "enum") {
-                    parts.push(p.name + ':"' + (val || "") + '"');
-                } else {
-                    parts.push(p.name + ":" + (val !== undefined ? val : ""));
-                }
-            }
-            el.textContent = fn.name + "(" + parts.join(", ") + ")";
-        }
-
-        // Add to Macro
-        function addToMacro(fn) {
-            var params = {};
-            for (var i = 0; i < fn.params.length; i++) {
-                var p = fn.params[i];
-                var val = _paramValues[p.name];
-                // A parameter switched to Tool but never given one is unfinished
-                if (_paramBind[p.name] !== undefined && !_paramBind[p.name]) {
-                    showToast("Pick a tool for: " + p.label);
-                    return;
-                }
-                if (val && typeof val === "object" && val.__toolRef) {
-                    params[p.name] = { __toolRef: val.__toolRef };
-                    continue;
-                }
-                if (p.required && p.type === "string" && (!val || val === "")) {
-                    showToast("Missing required field: " + p.label);
-                    return;
-                }
-                if (p.required && p.type === "key" && (!val || val === "")) {
-                    showToast("Missing required field: " + p.label);
-                    return;
-                }
-                if (p.type === "mods") {
-                    params[p.name] = val || [];
-                } else {
-                    params[p.name] = val;
-                }
-            }
-
-            // Add step directly to canvas via macroLab API
-            if (window.macroLab && window.macroLab.addTool) {
-                window.macroLab.addTool({ action: fn.name, params: params });
-            }
-            // Also send to Lua for bus event
-            window.shellPost("macros", "addTool", {
-                action: fn.name,
-                params: params
-            });
-
-            showToast("Added: " + fn.name);
-        }
-
-        // Toast
-        function showToast(msg) {
-            toast.textContent = msg;
-            toast.classList.add("show");
-            if (_toastTimer) clearTimeout(_toastTimer);
-            _toastTimer = setTimeout(function() {
-                toast.classList.remove("show");
-                _toastTimer = null;
-            }, 1800);
-        }
-
-        // Escape HTML
-        function esc(s) {
-            var d = document.createElement("div");
-            d.appendChild(document.createTextNode(s));
-            return d.innerHTML;
-        }
-
-        // Search Input Handler
-        searchInput.addEventListener("input", function() {
-            renderList(searchInput.value);
-        });
-
-        // Prevent key capture from swallowing search input keystrokes
-        searchInput.addEventListener("keydown", function(e) {
-            e.stopPropagation();
-        });
-
-        // Refresh the callable-function list pushed from Lua
-        function setFunctionList(list) {
-            _fnList = Array.isArray(list) ? list : [];
-            renderList(searchInput.value);
-        }
-
-        // Panel handler
-        function _fnPickerHandler(action, body) {
-            if (action === "functions" && Array.isArray(body)) {
-                setFunctionList(body);
-            }
-            if (action === "selectFunction" && body && body.name) {
-                selectFunction(body.name);
-            }
-        }
-
-        // Refresh the tool list pushed from Lua
-        function setToolList(list) {
-            _tools = Array.isArray(list) ? list : [];
-            window.msMacroTools = _tools;
-            renderList(searchInput.value);
-            if (_view === "tool" && _selectedId) {
-                var t = findTool(_selectedId);
-                if (t) renderToolDetail(t); else { detailPane.innerHTML = ''; _view = "module"; }
-            } else {
-                for (var name in _toolSelects) {
-                    if (!_toolSelects.hasOwnProperty(name)) continue;
-                    var picked = _paramBind[name] || "";
-                    _toolSelects[name].setOptions(toolSelectOptions());
-                    _toolSelects[name].value = picked;
-                }
-            }
-        }
-
-        // External API: allow ms.shell.eval to call in
-        window.fnPicker = {
-            select: selectFunction,
-            registry: REGISTRY,
-            showToast: showToast,
-            setToolList: setToolList,
-            setFunctionList: setFunctionList,
-            settingDef: settingDefFor,
-            handler: _fnPickerHandler
-        };
-
-        // Initial Render
-        renderList("");
-
-    })();
-
-(function() {
-    "use strict";
-
-    if (typeof window !== "undefined") window.ToolCanvas = ToolCanvas;
-
-    var _svgCache = {};
-
-    // SVG loader //
-      function _fetchSVG(name) {
-          if (_svgCache[name]) return Promise.resolve(_svgCache[name]);
-          if (window.ICONS && window.ICONS[name]) {
-              _svgCache[name] = '<svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">' + window.ICONS[name] + '</svg>';
-              return Promise.resolve(_svgCache[name]);
-          }
-          return Promise.resolve("");
-      }
-    // END SVG loader //
-
-    // Action to icon mapping //
-      var ACTION_ICON = {
-          "ms.type":"keyboard","ms.press":"keyboard","ms.hold":"keyboard","ms.release":"keyboard",
-          "ms.wait":"timer","ms.copy":"clipboard","ms.paste":"clipboard",
-          "ms.cam":"camera","ms.cam.rebalance":"camera","ms.cam.reset":"camera",
-          "ms.Mouse":"click","ms.click":"click","ms.scroll":"scroll","ms.move":"move","ms.select":"select",
-          "ms.search":"search","ms.record":"record","ms.stop":"stop","ms.pause":"pause",
-          "ms.play":"play","ms.save":"save","ms.load":"upload","ms.alert":"alert",
-          "ms.refresh":"refresh","ms.pixelScan":"pixelscan","ms.window":"window",
-          "ms.input":"inputs","ms.variable":"variable","ms.watch":"watcher",
-          "ms.sound":"sound","ms.gamepad":"controller","ms.gamepadStart":"controller","ms.gamepadBind":"controller",
-          "ms.setMacros":"power","ms.enable":"power","ms.disable":"power",
-          "ms.switchProfile":"settings","ms.switchPack":"macros",
-          "ms.screenshot":"camera","ms.clipChanged":"clipboard",
-          "ms.randWait":"timer","ms.jitter":"timer","ms.waitPixel":"pixelscan","ms.waitNotPixel":"pixelscan",
-          "ms.ocr":"ocr","ms.readNumber":"ocr","ms.findText":"ocr","ms.waitText":"ocr",
-          "ms.waitApp":"search","ms.waitNotApp":"search",
-          "ms.focus":"window","ms.appRunning":"window","ms.appIsFront":"window",
-          "ms.toggle":"keyboard","ms.multiPress":"keyboard",
-          "ms.saveCursor":"select","ms.restoreCursor":"select",
-          "ms.setVolume":"sound","ms.mute":"sound","ms.unmute":"sound",
-          "ms.drag":"drag",
-          "if":"branch","for":"loop","while":"repeat","repeat":"repeat","else":"branch",
-          "var_set":"variable","var_add":"variable","var_sub":"variable","var_mul":"variable",
-          "comment":"inputs","code":"macros","setting":"settings"
-      };
-
-      function iconFor(action) { return ACTION_ICON[action] || "macros"; }
-
-      function condSummary(c) {
-          if (c && typeof c === "object") {
-              if (typeof c.__toolRef === "string") return 'ms.settings.get("' + c.__toolRef + '")';
-              if (typeof c.__varRef === "string")  return 'ms.vars.get("' + c.__varRef + '")';
-              return "";
-          }
-          return c || "";
-      }
-    // END Action to icon mapping //
-
-    // Tool-ref label //
-        function toolRefLabel(key) {
-            var list = window.msMacroTools || [];
-            for (var i = 0; i < list.length; i++) {
-                var t = list[i];
-                if (t && t.key === key) {
-                    return (t.type || "tool") + " " + (t.label || t.key);
-                }
-            }
-            return key;
-        }
-    // END //
-
-    function paramSummary(action, params) {
-        if (!params) return "";
-        var keys = Object.keys(params);
-        if (keys.length === 0) return "";
-        if (action === "if" || action === "while" || action === "repeat") return condSummary(params.condition);
-        if (action === "for") return (params.var||"i") + " = " + (params.from||1) + " -> " + (params.to||1);
-        if (action === "comment") return params.text || "";
-        if (action === "code") return (params.source||"").split("\n")[0] || "";
-        if (action === "setting") return 'ms.settings.get("' + (params.key || "") + '")';
-        if (action === "ms.dragPath") {
-            var pts = (typeof params.points === "string" && params.points.trim())
-                ? params.points.split(";").filter(function(s){ return s.trim(); }).length : 0;
-            return (params.button || "Left") + " drag - " + pts + " pts";
-        }
-        if (action === "ms.switchProfile") return "profile: " + (params.name || "?");
-        if (action === "ms.switchPack") return (params.kind || "macro") + " pack: " + (params.slug || "?");
-        if (action === "var_set") return (params.name||"v") + " = " + (params.value!==undefined?params.value:"");
-        if (action === "var_add" || action === "var_sub" || action === "var_mul") {
-            var op = action==="var_add"?"+":action==="var_sub"?"-":"*";
-            return (params.name||"v") + " " + op + "= " + (params.amount!==undefined?params.amount:1);
-        }
-        var parts = [];
-        for (var i = 0; i < Math.min(keys.length, 2); i++) {
-            var k = keys[i], v = params[k];
-            if (v && typeof v === "object" && (v.__toolRef || v.__varRef)) {
-                parts.push(k + ": " + toolRefLabel(v.__toolRef || v.__varRef));
-                continue;
-            }
-            if (Array.isArray(v)) { if (v.length === 0) continue; v = v.join("+"); }
-            if (typeof v === "string" && v.length > 16) v = v.slice(0,14) + "...";
-            parts.push(k + ": " + v);
-        }
-        return parts.join(", ");
-    }
-
-    // Step ID generator
-    var _toolIdCounter = 0;
-    function nextToolId() { return "_s" + (++_toolIdCounter) + "_" + Date.now().toString(36); }
-
-    function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
-
-    // ToolCanvas class
-    function ToolCanvas(container, opts) {
-        this._el = container;
-        this._onChange = (opts && opts.onChange) || function(){};
-        this._onSelect = (opts && opts.onSelect) || function(){};
-        // The parameter editor opens on right-click
-        this._onContext = (opts && opts.onContext) || function(){};
-        this._tools = [];
-        this._map = {};
-        // Selection model: _selSet
-        this._selSet   = {};
-        this._anchorId = null;
-        this._selId    = null;
-        this._dragId = null;
-        this._dragGroup = null;
-        this._root = document.createElement("div");
-        this._root.className = "tool-canvas";
-        this._el.appendChild(this._root);
-        this._renderEmpty();
-        this._preloadIcons();
-
-        var self = this;
-        this._root.gpReorderSelection = function(dir) {
-            var sel = self._selList();
-            if (!sel.length) return false;
-            var order = self._docOrder();
-            var selSet = {};
-            for (var s = 0; s < sel.length; s++) selSet[sel[s]] = true;
-            if (dir < 0) {
-                for (var i = order.indexOf(sel[0]) - 1; i >= 0; i--) {
-                    if (!selSet[order[i]]) { self.moveTools(sel, order[i], "above"); return true; }
-                }
-            } else {
-                for (var j = order.indexOf(sel[sel.length - 1]) + 1; j < order.length; j++) {
-                    if (!selSet[order[j]]) { self.moveTools(sel, order[j], "below"); return true; }
-                }
-            }
-            return false;
-        };
-        this._root.gpDuplicateSelection = function() { return self.duplicateSelected(); };
-        this._root.gpDeleteSelection = function() { return self.removeSelected(); };
-
-        // The canvas often renders while the Builder tab is hidden
-        if (window.ResizeObserver) {
-            this._ro = new ResizeObserver(function() { self._updateParamMarquee(); });
-            this._ro.observe(this._root);
-        }
-    }
-
-    ToolCanvas.prototype._preloadIcons = function() {
-        var needed = ["drag","close","chevdown","macros","copy","paste"];
-        for (var a in ACTION_ICON) { if (needed.indexOf(ACTION_ICON[a]) === -1) needed.push(ACTION_ICON[a]); }
-        var self = this;
-        var chain = Promise.resolve();
-        needed.forEach(function(n) { chain = chain.then(function(){ return _fetchSVG(n); }); });
-    };
-
-    ToolCanvas.prototype._assignIds = function(steps) {
-        for (var i = 0; i < steps.length; i++) {
-            var s = steps[i];
-            if (!s._sid) s._sid = nextToolId();
-            this._map[s._sid] = s;
-            if (s.then) this._assignIds(s.then);
-            if (s.else) this._assignIds(s.else);
-            if (s.body) this._assignIds(s.body);
-        }
-    };
-
-    ToolCanvas.prototype.load = function(steps) {
-        this._tools = steps || [];
-        this._map = {};
-        this._assignIds(this._tools);
-        this._clearSelection();
-        this._render();
-    };
-
-    // Container actions carry nested child lists
-    function seedContainer(step) {
-        if (step.action === "if") {
-            if (!step.then) step.then = [];
-            if (!step.else) step.else = [];
-        } else if (step.action === "for" || step.action === "while" || step.action === "repeat") {
-            if (!step.body) step.body = [];
-        }
-    }
-
-    ToolCanvas.prototype.addTool = function(def, afterId) {
-        var step = deepClone(def);
-        step._sid = nextToolId();
-        seedContainer(step);
-        this._map[step._sid] = step;
-        if (afterId) {
-            var idx = this._findIdx(this._tools, afterId);
-            if (idx !== -1) this._tools.splice(idx+1, 0, step);
-            else this._tools.push(step);
-        } else {
-            this._tools.push(step);
-        }
-        this._render();
-        this._fireChange();
-        return step._sid;
-    };
-
-    // Insert a new top-level module before `beforeSid`
-    ToolCanvas.prototype.insertDefAt = function(def, beforeSid) {
-        var step = deepClone(def);
-        step._sid = nextToolId();
-        seedContainer(step);
-        this._map[step._sid] = step;
-        var idx = beforeSid ? this._findIdx(this._tools, beforeSid) : -1;
-        if (idx !== -1) this._tools.splice(idx, 0, step);
-        else this._tools.push(step);
-        this._setSelection([step._sid]);
-        this._render();
-        this._fireChange();
-        return step._sid;
-    };
-
-    ToolCanvas.prototype.removeTool = function(sid) {
-        if (this._removeFrom(this._tools, sid)) {
-            delete this._map[sid];
-            this._deselectOne(sid);
-            this._render();
-            this._emitSelection();
-            this._fireChange();
-        }
-    };
-
-    ToolCanvas.prototype._removeFrom = function(list, sid) {
-        for (var i = 0; i < list.length; i++) {
-            if (list[i]._sid === sid) { list.splice(i,1); return true; }
-            var s = list[i];
-            if (s.then && this._removeFrom(s.then, sid)) return true;
-            if (s.else && this._removeFrom(s.else, sid)) return true;
-            if (s.body && this._removeFrom(s.body, sid)) return true;
-        }
-        return false;
-    };
-
-    ToolCanvas.prototype._findIdx = function(list, sid) {
-        for (var i = 0; i < list.length; i++) { if (list[i]._sid === sid) return i; }
-        return -1;
-    };
-
-    ToolCanvas.prototype.moveTool = function(dragId, targetId, pos) {
-        var step = this._map[dragId];
-        if (!step) return;
-        this._removeFrom(this._tools, dragId);
-        if (pos === "nest") {
-            var tgt = this._map[targetId];
-            if (tgt) {
-                if (tgt.action === "if") { if(!tgt.then) tgt.then=[]; tgt.then.push(step); }
-                else { if(!tgt.body) tgt.body=[]; tgt.body.push(step); }
-            }
-        } else {
-            var ti = this._findIdx(this._tools, targetId);
-            if (ti !== -1) this._tools.splice(pos==="above"?ti:ti+1, 0, step);
-            else this._tools.push(step);
-        }
-        this._render();
-        this._fireChange();
-    };
-
-    // Locate the list a sid lives in and its index within that list
-    ToolCanvas.prototype._locate = function(sid, list) {
-        list = list || this._tools;
-        for (var i = 0; i < list.length; i++) {
-            if (list[i]._sid === sid) return { list: list, idx: i };
-            var s = list[i];
-            var r = (s.then && this._locate(sid, s.then))
-                 || (s.else && this._locate(sid, s.else))
-                 || (s.body && this._locate(sid, s.body));
-            if (r) return r;
-        }
-        return null;
-    };
-
-    // Move a group of blocks
-    ToolCanvas.prototype.moveTools = function(dragIds, targetId, pos) {
-        if (!dragIds || !dragIds.length) return;
-        if (dragIds.indexOf(targetId) !== -1) return;
-        // Collect the step objects
-        var steps = [];
-        for (var i = 0; i < dragIds.length; i++) {
-            var s = this._map[dragIds[i]];
-            if (s) { steps.push(s); this._removeFrom(this._tools, dragIds[i]); }
-        }
-        if (!steps.length) return;
-
-        if (pos === "nest") {
-            var tgt = this._map[targetId];
-            if (tgt) {
-                var branch = tgt.action === "if"
-                    ? (tgt.then || (tgt.then = []))
-                    : (tgt.body || (tgt.body = []));
-                for (var j = 0; j < steps.length; j++) branch.push(steps[j]);
-            }
-        } else {
-            // Re-locate the target AFTER detaching
-            var loc = this._locate(targetId);
-            if (loc) {
-                var at = pos === "above" ? loc.idx : loc.idx + 1;
-                Array.prototype.splice.apply(loc.list, [at, 0].concat(steps));
-            } else {
-                for (var k = 0; k < steps.length; k++) this._tools.push(steps[k]);
-            }
-        }
-        // The moved blocks stay selected so the group can be nudged again
-        this._setSelection(dragIds);
-        this._render();
-        this._applySelectionClasses();
-        this._emitSelection();
-        this._fireChange();
-    };
-
-    ToolCanvas.prototype.serialize = function() {
-        return this._strip(deepClone(this._tools));
-    };
-
-    ToolCanvas.prototype._strip = function(steps) {
-        for (var i=0;i<steps.length;i++) {
-            delete steps[i]._sid;
-            if (steps[i].then) this._strip(steps[i].then);
-            if (steps[i].else) this._strip(steps[i].else);
-            if (steps[i].body) this._strip(steps[i].body);
-        }
-        return steps;
-    };
-
-    ToolCanvas.prototype._fireChange = function() { this._onChange(this.serialize()); };
-
-    ToolCanvas.prototype._render = function() {
-        this._root.innerHTML = "";
-        if (this._tools.length === 0) { this._renderEmpty(); return; }
-        for (var i=0;i<this._tools.length;i++) {
-            this._root.appendChild(this._renderTool(this._tools[i]));
-        }
-        this._updateParamMarquee();
-        var self = this;
-        requestAnimationFrame(function() { self._updateParamMarquee(); });
-    };
-
-    ToolCanvas.prototype._updateParamMarquee = function(el) {
-        if (!this._root.offsetParent || this._root.clientWidth === 0) {
-            var self = this;
-            if (window.requestAnimationFrame) {
-                requestAnimationFrame(function() {
-                    requestAnimationFrame(function() {
-                        if (self._root.offsetParent && self._root.clientWidth > 0) self._updateParamMarquee(el);
-                    });
-                });
-            }
-            return;
-        }
-        var params = el
-            ? [el.querySelector(".tool-params")]
-            : Array.prototype.slice.call(this._root.querySelectorAll(".tool-params"));
-        for (var i = 0; i < params.length; i++) {
-            var p = params[i];
-            if (!p) continue;
-            var shift = p.scrollWidth - p.clientWidth;
-            if (shift > 2) {
-                p.style.setProperty("--mq", "-" + shift + "px");
-                p.classList.add("has-mq");
-            } else {
-                p.style.removeProperty("--mq");
-                p.classList.remove("has-mq");
-            }
-        }
-    };
-
-    ToolCanvas.prototype._renderEmpty = function() {
-        this._root.innerHTML = "";
-        var d = document.createElement("div");
-        d.className = "tool-canvas-empty";
-        d.innerHTML = '<span class="tool-canvas-empty-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16.6582 9.28638C18.098 10.1862 18.8178 10.6361 19.0647 11.2122C19.2803 11.7152 19.2803 12.2847 19.0647 12.7878C18.8178 13.3638 18.098 13.8137 16.6582 14.7136L9.896 18.94C8.29805 19.9387 7.49907 20.4381 6.83973 20.385C6.26501 20.3388 5.73818 20.0469 5.3944 19.584C5 19.053 5 18.1108 5 16.2264V7.77357C5 5.88919 5 4.94701 5.3944 4.41598C5.73818 3.9531 6.26501 3.66111 6.83973 3.6149C7.49907 3.5619 8.29805 4.06126 9.896 5.05998L16.6582 9.28638Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></span>No modules yet<br><span style="font-size:10px">Click <b>+ Add Module</b> to begin</span>';
-        this._root.appendChild(d);
-    };
-
-    ToolCanvas.prototype._isContainer = function(s) {
-        return s.action==="if" || s.action==="for" || s.action==="while" || s.action==="repeat";
-    };
-
-    ToolCanvas.prototype._renderTool = function(step) {
-        return this._isContainer(step) ? this._renderContainer(step) : this._renderLeaf(step);
-    };
-
-    ToolCanvas.prototype._renderLeaf = function(step) {
-        var self = this;
-        var isSetting = step.action === "setting";
-        var el = document.createElement("div");
-        el.className = "tool-block" + (this._isSelected(step._sid)?" selected":"")
-            + (isSetting ? " tool-block-setting" : "");
-        el.setAttribute("data-sid", step._sid);
-        // No draggable="true": reordering is pointer-based
-
-        var h = document.createElement("div");
-        h.className = "tool-drag-handle";
-        h.innerHTML = _svgCache["drag"] || '<svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3V9M12 3L9 6M12 3L15 6M12 15V21M12 21L15 18M12 21L9 18M3 12H9M3 12L6 15M3 12L6 9M15 12H21M21 12L18 9M21 12L18 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-        el.appendChild(h);
-
-        var ic = document.createElement("div");
-        ic.className = "tool-icon";
-        ic.innerHTML = _svgCache[iconFor(step.action)] || "";
-        el.appendChild(ic);
-
-        var nm = document.createElement("span");
-        nm.className = "tool-action-name";
-        // A setting block is a reference to a shared tool
-        nm.textContent = isSetting
-            ? ("Setting - " + ((step.params && (step.params.label || step.params.key)) || "?"))
-            : step.action;
-        el.appendChild(nm);
-
-        var pm = document.createElement("span");
-        pm.className = "tool-params";
-        pm.textContent = paramSummary(step.action, step.params);
-        el.appendChild(pm);
-
-        el.appendChild(this._buildToolActions(step));
-
-        el.addEventListener("mouseenter", function() {
-            if (window.playSlot) playSlot("hover");
-            self._updateParamMarquee(el);
-        });
-        el.addEventListener("click", function(e) {
-            if (e.target.closest(".tool-action-btn") || e.target.closest(".tool-drag-handle")) return;
-            if (window.playSlot) playSlot("interact");
-            self._clickSelect(step._sid, e);
-        });
-        // Right-click opens the parameter editor for just this module
-        el.addEventListener("contextmenu", function(e) {
-            e.preventDefault();
-            if (window.playSlot) playSlot("interact");
-            self.select([step._sid]);
-            self._onContext(step._sid);
-        });
-
-        this._wireDrag(el, step);
-        return el;
-    };
-
-    // Copy / paste / delete controls shared by leaf and container blocks
-    ToolCanvas.prototype._buildToolActions = function(step) {
-        var self = this;
-        var acts = document.createElement("div");
-        acts.className = "tool-actions";
-
-        var cp = document.createElement("div");
-        cp.className = "tool-action-btn copy";
-        cp.title = "Copy module";
-        cp.innerHTML = _svgCache["copy"] || (window.icon ? window.icon("copy") : "");
-        cp.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
-        cp.addEventListener("click", function(e) {
-            e.stopPropagation();
-            if (window.playSlot) playSlot("interact");
-            self.copyStep(step._sid);
-        });
-        acts.appendChild(cp);
-
-        var pt = document.createElement("div");
-        pt.className = "tool-action-btn paste";
-        pt.title = "Paste module after this one";
-        pt.innerHTML = _svgCache["paste"] || (window.icon ? window.icon("paste") : "");
-        pt.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
-        pt.addEventListener("click", function(e) {
-            e.stopPropagation();
-            if (window.playSlot) playSlot("interact");
-            self.pasteAfterId(step._sid);
-        });
-        acts.appendChild(pt);
-
-        var db = document.createElement("div");
-        db.className = "tool-action-btn del";
-        db.title = "Delete module";
-        db.innerHTML = _svgCache["close"] || '<svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="Edit / Close_Circle"><path id="Vector" d="M9 9L11.9999 11.9999M11.9999 11.9999L14.9999 14.9999M11.9999 11.9999L9 14.9999M11.9999 11.9999L14.9999 9M12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12C21 16.9706 16.9706 21 12 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g></svg>';
-        db.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
-        db.addEventListener("click", function(e) {
-            e.stopPropagation();
-            if (window.playSlot) playSlot("back");
-            self.removeTool(step._sid);
-        });
-        acts.appendChild(db);
-
-        return acts;
-    };
-
-    ToolCanvas.prototype._renderContainer = function(step) {
-        var self = this;
-        var wrap = document.createElement("div");
-        wrap.className = "tool-block-container";
-        wrap.setAttribute("data-sid", step._sid);
-
-        var header = document.createElement("div");
-        header.className = "tool-block" + (this._isSelected(step._sid)?" selected":"");
-        header.setAttribute("data-sid", step._sid);
-        // Pointer-based drag
-
-        var h = document.createElement("div");
-        h.className = "tool-drag-handle";
-        h.innerHTML = _svgCache["drag"] || '<svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3V9M12 3L9 6M12 3L15 6M12 15V21M12 21L15 18M12 21L9 18M3 12H9M3 12L6 15M3 12L6 9M15 12H21M21 12L18 9M21 12L18 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-        header.appendChild(h);
-
-        var tg = document.createElement("div");
-        tg.className = "tool-nest-toggle";
-        tg.innerHTML = _svgCache["chevdown"] || '<svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 13L12 18L17 13M7 6L12 11L17 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-        tg.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
-        tg.addEventListener("click", function(e) {
-            e.stopPropagation();
-            if (window.playSlot) playSlot("interact");
-            var collapsed = tg.classList.toggle("collapsed");
-            for (var ci = 0; ci < wrap.children.length; ci++) {
-                var child = wrap.children[ci];
-                if (child.classList.contains("tool-nest-body")) window.msMotion ? msMotion.collapse(child, collapsed) : child.classList.toggle("collapsed", collapsed);
-                else if (child.classList.contains("tool-nest-label")) child.classList.toggle("collapsed", collapsed);
-            }
-        });
-        header.appendChild(tg);
-
-        var ic = document.createElement("div");
-        ic.className = "tool-icon";
-        ic.innerHTML = _svgCache[iconFor(step.action)] || "";
-        header.appendChild(ic);
-
-        var nm = document.createElement("span");
-        nm.className = "tool-action-name";
-        nm.textContent = step.action;
-        header.appendChild(nm);
-
-        var pm = document.createElement("span");
-        pm.className = "tool-params";
-        pm.textContent = paramSummary(step.action, step.params);
-        header.appendChild(pm);
-
-        header.appendChild(this._buildToolActions(step));
-
-        header.addEventListener("mouseenter", function() {
-            if (window.playSlot) playSlot("hover");
-            self._updateParamMarquee(header);
-        });
-        header.addEventListener("click", function(e) {
-            if (e.target.closest(".tool-action-btn")||e.target.closest(".tool-drag-handle")||e.target.closest(".tool-nest-toggle")) return;
-            if (window.playSlot) playSlot("interact");
-            self._clickSelect(step._sid, e);
-        });
-        // Right-click opens the parameter editor for this container
-        header.addEventListener("contextmenu", function(e) {
-            e.preventDefault();
-            if (window.playSlot) playSlot("interact");
-            self.select([step._sid]);
-            self._onContext(step._sid);
-        });
-        this._wireDrag(header, step);
-
-        wrap.appendChild(header);
-
-        if (step.action === "if") {
-            var tl = document.createElement("div"); tl.className="tool-nest-label"; tl.textContent="then"; wrap.appendChild(tl);
-            wrap.appendChild(this._renderNest(step.then||[], "then", step));
-            var el2 = document.createElement("div"); el2.className="tool-nest-label"; el2.textContent="else"; wrap.appendChild(el2);
-            wrap.appendChild(this._renderNest(step.else||[], "else", step));
-        } else {
-            wrap.appendChild(this._renderNest(step.body||[], "body", step));
-        }
-        return wrap;
-    };
-
-    ToolCanvas.prototype._renderNest = function(steps, branch, parent) {
-        var self = this;
-        var body = document.createElement("div");
-        body.className = "tool-nest-body";
-        body.setAttribute("data-nest-parent", parent._sid);
-        body.setAttribute("data-nest-branch", branch);
-
-        if (steps.length === 0) {
-            var emp = document.createElement("div");
-            emp.className = "tool-nest-body-empty";
-            emp.textContent = "empty";
-            body.appendChild(emp);
-        } else {
-            for (var i=0;i<steps.length;i++) body.appendChild(this._renderTool(steps[i]));
-        }
-
-        // Dropping a block INTO this branch is handled by the pointer-drag
-        return body;
-    };
-
-    // Selection engine
-
-    ToolCanvas.prototype._isSelected = function(sid) {
-        return !!this._selSet[sid];
-    };
-    ToolCanvas.prototype._selCount = function() {
-        return Object.keys(this._selSet).length;
-    };
-    // Selected sids in document
-    ToolCanvas.prototype._selList = function() {
-        var self = this, out = [];
-        if (this._root) {
-            this._root.querySelectorAll(".tool-block[data-sid]").forEach(function(el) {
-                var sid = el.getAttribute("data-sid");
-                if (self._selSet[sid] && out.indexOf(sid) === -1) out.push(sid);
-            });
-        }
-        // Fall back to insertion order for missing ids
-        for (var sid in this._selSet) { if (out.indexOf(sid) === -1) out.push(sid); }
-        return out;
-    };
-    // All sids in document order
-    ToolCanvas.prototype._docOrder = function() {
-        var out = [];
-        if (this._root) {
-            this._root.querySelectorAll(".tool-block[data-sid]").forEach(function(el) {
-                var sid = el.getAttribute("data-sid");
-                if (out.indexOf(sid) === -1) out.push(sid);
-            });
-        }
-        return out;
-    };
-
-    // Update state
-    ToolCanvas.prototype._setSelection = function(ids) {
-        this._selSet = {};
-        for (var i = 0; i < ids.length; i++) { if (ids[i]) this._selSet[ids[i]] = true; }
-        var keys = Object.keys(this._selSet);
-        this._selId = keys.length === 1 ? keys[0] : null;
-        if (ids.length) this._anchorId = ids[ids.length - 1];
-    };
-    ToolCanvas.prototype._clearSelection = function() {
-        this._selSet = {};
-        this._selId = null;
-        this._anchorId = null;
-    };
-    ToolCanvas.prototype._deselectOne = function(sid) {
-        delete this._selSet[sid];
-        if (this._anchorId === sid) this._anchorId = null;
-        var keys = Object.keys(this._selSet);
-        this._selId = keys.length === 1 ? keys[0] : null;
-    };
-
-    // Repaint .selected on every block from _selSet without a full re-render
-    ToolCanvas.prototype._applySelectionClasses = function() {
-        var self = this;
-        if (!this._root) return;
-        this._root.querySelectorAll(".tool-block[data-sid]").forEach(function(el) {
-            var sid = el.getAttribute("data-sid");
-            el.classList.toggle("selected", !!self._selSet[sid]);
-        });
-    };
-
-    // Tell the host the primary selection
-    ToolCanvas.prototype._emitSelection = function() {
-        this._onSelect(this._selId, this._selId ? this._map[this._selId] : null);
-    };
-
-    // Click routing: plain / ⌘(⌃)-toggle / ⇧-range
-    ToolCanvas.prototype._clickSelect = function(sid, e) {
-        var meta  = e && (e.metaKey || e.ctrlKey);
-        var shift = e && e.shiftKey;
-
-        if (meta) {
-            // Toggle this block in/out of the selection
-            if (this._selSet[sid]) this._deselectOne(sid);
-            else { this._selSet[sid] = true; this._anchorId = sid;
-                   var k = Object.keys(this._selSet); this._selId = k.length === 1 ? k[0] : null; }
-        } else if (shift && this._anchorId && this._anchorId !== sid) {
-            // Select the contiguous visual range between the anchor and here
-            var order = this._docOrder();
-            var a = order.indexOf(this._anchorId), b = order.indexOf(sid);
-            if (a === -1 || b === -1) { this._setSelection([sid]); }
-            else {
-                var lo = Math.min(a, b), hi = Math.max(a, b);
-                this._selSet = {};
-                for (var i = lo; i <= hi; i++) this._selSet[order[i]] = true;
-                this._selId = (hi - lo === 0) ? order[lo] : null;
-                // keep _anchorId where it was so the range can be re-dragged
-            }
-        } else {
-            // Plain click: if this block is already the sole selection
-            if (this._selId === sid && this._selCount() === 1) this._clearSelection();
-            else this._setSelection([sid]);
-        }
-
-        this._applySelectionClasses();
-        this._emitSelection();
-    };
-
-    // Public: select exactly these ids and refresh the view + editor
-    ToolCanvas.prototype.select = function(ids) {
-        this._setSelection(ids || []);
-        this._applySelectionClasses();
-        this._emitSelection();
-    };
-    ToolCanvas.prototype.clearSelection = function() {
-        this._clearSelection();
-        this._applySelectionClasses();
-        this._emitSelection();
-    };
-
-    ToolCanvas.prototype._isDesc = function(pid, cid) {
-        var p = this._map[pid]; if (!p) return false;
-        var ch = [].concat(p.then||[], p.else||[], p.body||[]);
-        for (var i=0;i<ch.length;i++) {
-            if (ch[i]._sid===cid) return true;
-            if (this._isDesc(ch[i]._sid, cid)) return true;
-        }
-        return false;
-    };
-
-    // Pointer-based reorder
-    ToolCanvas.prototype._wireDrag = function(el, step) {
-        var self = this;
-        el.addEventListener("mousedown", function(e) {
-            if (e.button !== 0) return;
-            if (e.target.closest(".tool-action-btn")) return;
-            if (e.target.closest(".tool-nest-toggle")) return;
-            // Suppress the native text-selection drag
-            e.preventDefault();
-            self._beginPointerDrag(el, step, e);
-        });
-    };
-
-    // Runs a single reorder gesture
-    ToolCanvas.prototype._beginPointerDrag = function(el, step, downEvt) {
-        var self = this;
-        var startX = downEvt.clientX, startY = downEvt.clientY;
-        var THRESH = 4;
-        var started = false;
-        var ghost = null, offX = 0, offY = 0;
-        var group = null;
-        var target = null;
-        var scroller = self._el;
-
-        function begin() {
-            started = true;
-            // Single block
-            if (self._isSelected(step._sid) && self._selCount() > 1) {
-                group = self._selList();
-            } else {
-                group = [step._sid];
-                if (!self._isSelected(step._sid)) self.select([step._sid]);
-            }
-            self._dragId = step._sid;
-            self._dragGroup = group;
-            group.forEach(function(sid) {
-                var d = self._root.querySelector('.tool-block[data-sid="'+sid+'"]');
-                if (d) d.classList.add("dragging");
-            });
-            ghost = el.cloneNode(true);
-            ghost.classList.add("tool-drag-ghost");
-            ghost.style.width = el.offsetWidth + "px";
-            var r = el.getBoundingClientRect();
-            offX = startX - r.left; offY = startY - r.top;
-            if (group.length > 1) {
-                var badge = document.createElement("div");
-                badge.className = "tool-drag-badge";
-                badge.textContent = group.length;
-                ghost.appendChild(badge);
-            }
-            document.body.appendChild(ghost);
-            document.body.classList.add("tool-dragging-active");
-            moveGhost(startX, startY);
-            if (window.playSlot) playSlot("interact");
-        }
-
-        function moveGhost(x, y) {
-            if (ghost) { ghost.style.left = (x - offX) + "px"; ghost.style.top = (y - offY) + "px"; }
-        }
-
-        // Figure out where a drop lands
-        function hitTest(x, y) {
-            self._clearDrops();
-            target = null;
-            var under = document.elementFromPoint(x, y);
-            if (!under || !under.closest) return;
-
-            var blockEl = under.closest(".tool-block[data-sid]");
-            if (blockEl && group.indexOf(blockEl.getAttribute("data-sid")) !== -1) {
-                blockEl = null;
-            }
-            if (blockEl) {
-                var tid = blockEl.getAttribute("data-sid");
-                var tstep = self._map[tid];
-                var rect = blockEl.getBoundingClientRect();
-                var ry = y - rect.top, h = rect.height;
-                var pos;
-                if (tstep && self._isContainer(tstep) && ry > h*0.3 && ry < h*0.7) pos = "nest";
-                else if (ry < h/2) pos = "above";
-                else pos = "below";
-                if (pos === "nest") {
-                    for (var i = 0; i < group.length; i++) {
-                        if (group[i] === tid || self._isDesc(group[i], tid)) return;
-                    }
-                }
-                blockEl.classList.add(pos === "nest" ? "drag-over-nest"
-                    : pos === "above" ? "drag-over-above" : "drag-over-below");
-                target = { kind: "block", sid: tid, pos: pos };
-                return;
-            }
-
-            // Not over any block
-            var nestEl = under.closest(".tool-nest-body");
-            if (nestEl) {
-                var psid = nestEl.getAttribute("data-nest-parent");
-                for (var j = 0; j < group.length; j++) {
-                    if (group[j] === psid || self._isDesc(group[j], psid)) return;
-                }
-                nestEl.classList.add("drag-target");
-                target = { kind: "nest", parent: psid, branch: nestEl.getAttribute("data-nest-branch") };
-            }
-        }
-
-        function autoscroll(y) {
-            if (!scroller) return;
-            var r = scroller.getBoundingClientRect(), M = 28;
-            if (y < r.top + M) scroller.scrollTop -= 10;
-            else if (y > r.bottom - M) scroller.scrollTop += 10;
-        }
-
-        function onMove(e) {
-            if (!started) {
-                if (Math.abs(e.clientX - startX) < THRESH && Math.abs(e.clientY - startY) < THRESH) return;
-                begin();
-            }
-            e.preventDefault();
-            moveGhost(e.clientX, e.clientY);
-            autoscroll(e.clientY);
-            hitTest(e.clientX, e.clientY);
-        }
-
-        function commit() {
-            if (!target) return;
-            if (target.kind === "block") self.moveTools(group, target.sid, target.pos);
-            else self._commitNest(group, target.parent, target.branch);
-        }
-
-        function cleanup() {
-            document.removeEventListener("mousemove", onMove, true);
-            document.removeEventListener("mouseup", onUp, true);
-            document.removeEventListener("keydown", onKey, true);
-            if (ghost) ghost.remove();
-            ghost = null;
-            document.body.classList.remove("tool-dragging-active");
-            self._root.querySelectorAll(".tool-block.dragging").forEach(function(d) {
-                d.classList.remove("dragging");
-            });
-            self._clearDrops();
-            self._dragId = null; self._dragGroup = null;
-        }
-
-        function onUp(e) {
-            if (started) {
-                e.preventDefault(); e.stopPropagation();
-                commit();
-                // Swallow the click that a mouseup would otherwise synthesise
-                var swallow = function(ev) {
-                    ev.stopPropagation(); ev.preventDefault();
-                    document.removeEventListener("click", swallow, true);
-                };
-                document.addEventListener("click", swallow, true);
-            }
-            cleanup();
-        }
-        function onKey(e) { if (e.key === "Escape") { target = null; cleanup(); } }
-
-        document.addEventListener("mousemove", onMove, true);
-        document.addEventListener("mouseup", onUp, true);
-        document.addEventListener("keydown", onKey, true);
-    };
-
-    // Drop a group into a container branch
-    ToolCanvas.prototype._commitNest = function(group, parentSid, branch) {
-        var parent = this._map[parentSid];
-        if (!parent) return;
-        for (var i = 0; i < group.length; i++) {
-            if (group[i] === parentSid || this._isDesc(group[i], parentSid)) return;
-        }
-        var steps = [];
-        for (var g = 0; g < group.length; g++) {
-            var st = this._map[group[g]];
-            if (st) { steps.push(st); this._removeFrom(this._tools, group[g]); }
-        }
-        if (!steps.length) return;
-        var dst = branch === "then" ? (parent.then || (parent.then = []))
-                : branch === "else" ? (parent.else || (parent.else = []))
-                : (parent.body || (parent.body = []));
-        for (var k = 0; k < steps.length; k++) dst.push(steps[k]);
-        this._setSelection(group);
-        this._render(); this._applySelectionClasses(); this._emitSelection(); this._fireChange();
-    };
-
-    ToolCanvas.prototype._clearDrops = function() {
-        this._root.querySelectorAll(".drag-over-above,.drag-over-below,.drag-over-nest").forEach(function(el) {
-            el.classList.remove("drag-over-above","drag-over-below","drag-over-nest");
-        });
-        this._root.querySelectorAll(".drag-target").forEach(function(el) { el.classList.remove("drag-target"); });
-    };
-
-    ToolCanvas.prototype.updateTool = function(sid, params, opts) {
-        var s = this._map[sid]; if (!s) return;
-        for (var k in params) { if (params.hasOwnProperty(k)) s.params[k] = params[k]; }
-        // Live typing passes { quiet:true } to patch the summary without re-rendering
-        if (opts && opts.quiet) {
-            this._patchSummary(sid);
-            this._fireChange();
-            return;
-        }
-        this._render(); this._fireChange();
-    };
-
-    // Update just the on-canvas parameter summary for one block
-    ToolCanvas.prototype._patchSummary = function(sid) {
-        var s = this._map[sid]; if (!s || !this._root) return;
-        var block = this._root.querySelector('.tool-block[data-sid="' + sid + '"]');
-        if (!block) return;
-        var el = block.querySelector(":scope > .tool-params");
-        if (el) el.textContent = paramSummary(s.action, s.params);
-    };
-
-    ToolCanvas.prototype.getSelectedId = function() { return this._selId; };
-    ToolCanvas.prototype.getSelectedTool = function() { return this._selId ? this._map[this._selId] : null; };
-    ToolCanvas.prototype.hasSelection = function() { return this._selCount() > 0; };
-    ToolCanvas.prototype.getSelectedIds = function() { return this._selList(); };
-    // Select every top-level block
-    ToolCanvas.prototype.selectAll = function() {
-        var ids = this._tools.map(function(s) { return s._sid; });
-        this.select(ids);
-    };
-
-    // Clipboard
-    ToolCanvas.prototype._setClipboard = function(steps) {
-        var clones = deepClone(steps);
-        this._strip(clones);
-        try { navigator.clipboard.writeText(JSON.stringify(clones.length === 1 ? clones[0] : clones)); } catch(e) {}
-        this._clipboard = clones;
-        if (this._root) this._root.classList.add("has-clip");
-        return true;
-    };
-    ToolCanvas.prototype.copyStep = function(sid) {
-        var step = sid ? this._map[sid] : null;
-        if (!step) return false;
-        return this._setClipboard([step]);
-    };
-    ToolCanvas.prototype.copySelected = function() {
-        var ids = this._selList();
-        if (!ids.length) return false;
-        var steps = [];
-        for (var i = 0; i < ids.length; i++) { if (this._map[ids[i]]) steps.push(this._map[ids[i]]); }
-        if (!steps.length) return false;
-        return this._setClipboard(steps);
-    };
-    ToolCanvas.prototype.cutSelected = function() {
-        if (!this.copySelected()) return false;
-        this.removeSelected();
-        return true;
-    };
-    // Remove every selected block
-    ToolCanvas.prototype.removeSelected = function() {
-        var ids = this._selList();
-        if (!ids.length) return false;
-        for (var i = 0; i < ids.length; i++) {
-            if (this._removeFrom(this._tools, ids[i])) delete this._map[ids[i]];
-        }
-        this._clearSelection();
-        this._render();
-        this._emitSelection();
-        this._fireChange();
-        return true;
-    };
-    // Paste the clipboard modules after `afterId`
-    ToolCanvas.prototype.pasteAfterId = function(afterId) {
-        if (!this._clipboard) return false;
-        var entries = Array.isArray(this._clipboard) ? this._clipboard : [this._clipboard];
-        if (!entries.length) return false;
-        var newIds = [];
-        var insertAt = afterId ? this._findIdx(this._tools, afterId) : -1;
-        // No anchor pastes at the top
-        var atTop = (insertAt === -1);
-        for (var i = 0; i < entries.length; i++) {
-            var clone = deepClone(entries[i]);
-            clone._sid = nextToolId();
-            this._map[clone._sid] = clone;
-            if (clone.then) this._assignIds(clone.then);
-            if (clone.else) this._assignIds(clone.else);
-            if (clone.body) this._assignIds(clone.body);
-            if (atTop) this._tools.splice(i, 0, clone);
-            else this._tools.splice(insertAt + 1 + i, 0, clone);
-            newIds.push(clone._sid);
-        }
-        this._setSelection(newIds);
-        this._render();
-        this._applySelectionClasses();
-        this._emitSelection();
-        if (this._root) this._root.classList.add("has-clip");
-        this._fireChange();
-        return true;
-    };
-    ToolCanvas.prototype.pasteAfter = function() {
-        // Paste after the last selected block so a group paste lands in order
-        var ids = this._selList();
-        return this.pasteAfterId(ids.length ? ids[ids.length - 1] : null);
-    };
-    // Clone the selected blocks in place
-    ToolCanvas.prototype.duplicateSelected = function() {
-        var ids = this._selList();
-        if (!ids.length) return false;
-        var afterId = ids[ids.length - 1];
-        var insertAt = this._findIdx(this._tools, afterId);
-        var atTop = (insertAt === -1);
-        var newIds = [];
-        for (var i = 0; i < ids.length; i++) {
-            var src = this._map[ids[i]];
-            if (!src) continue;
-            var clone = deepClone(src);
-            this._strip([clone]);
-            clone._sid = nextToolId();
-            this._map[clone._sid] = clone;
-            if (clone.then) this._assignIds(clone.then);
-            if (clone.else) this._assignIds(clone.else);
-            if (clone.body) this._assignIds(clone.body);
-            if (atTop) this._tools.splice(newIds.length, 0, clone);
-            else this._tools.splice(insertAt + 1 + newIds.length, 0, clone);
-            newIds.push(clone._sid);
-        }
-        if (!newIds.length) return false;
-        this._setSelection(newIds);
-        this._render();
-        this._applySelectionClasses();
-        this._emitSelection();
-        this._fireChange();
-        return newIds[newIds.length - 1];
-    };
-
-    // Macro Management State
     var _currentMacroId = null;
     var _currentMacroDef = null;
     var _macroDirty = false;
     var _canvas = null;
     var _mtabs = null;
 
-    // Layout Setup
     var slot = document.getElementById("slot-macros");
     if (!slot) return;
 
-    // The existing function picker is already in slot-macros as a .fn-picker child
-
     var existingPicker = slot.querySelector(".fn-picker");
 
-    // Create the macros layout wrapper
     var layout = document.createElement("div");
     layout.className = "macros-layout";
 
@@ -3078,7 +26,7 @@
     macroLabel.textContent = "Macro";
     toolbar.appendChild(macroLabel);
 
-    // Custom dropdown rather than <select>
+// Custom dropdown rather than <select> //
     var macroSelect = (function() {
         var root = document.createElement("div");
         root.className = "macro-select";
@@ -3090,7 +38,6 @@
 
         var arrow = document.createElement("span");
         arrow.className = "macro-select-arrow";
-        // chevdown from the shell's ICONS rather than a typographic arrow
         arrow.innerHTML = (typeof window.icon === "function" && window.ICONS
             && window.ICONS.chevdown)
             ? window.icon("chevdown")
@@ -3103,7 +50,6 @@
 
         var _opts = [];
         var _value = "";
-        // Shown on the closed button when nothing is selected
         var PLACEHOLDER = "Select";
 
         function labelFor(v) {
@@ -3114,14 +60,11 @@
         }
         function close() { root.classList.remove("open"); }
         function render() {
-            // Empty value -> the button reads "Select"
             var lbl = _value ? labelFor(_value) : "";
             label.textContent = lbl || PLACEHOLDER;
             menu.innerHTML = "";
-            // Real selectable options only
             var choices = _opts.filter(function(o) { return o.value !== ""; });
             if (choices.length === 0) {
-                // Placeholder row when nothing exists yet
                 var none = document.createElement("div");
                 none.className = "macro-select-item macro-select-empty";
                 none.textContent = "None";
@@ -3200,7 +143,6 @@
         };
         root.gpClose = function() { _gpIndex = -1; close(); };
 
-        // No options until the macro list arrives from Lua
         root.setOptions([]);
         return root;
     })();
@@ -3214,7 +156,6 @@
     nameInput.setAttribute("autocomplete", "off");
     nameInput.setAttribute("autocorrect", "off");
     nameInput.setAttribute("autocapitalize", "off");
-    // Shell sounds: hover on enter
     nameInput.addEventListener("mouseenter", function() {
         if (window.playSlot) playSlot("hover");
     });
@@ -3223,7 +164,6 @@
     });
     toolbar.appendChild(nameInput);
 
-    // Bind field
     var bindLabel = document.createElement("span");
     bindLabel.style.cssText = "font-family:inherit;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-left:8px;margin-right:4px";
     bindLabel.textContent = "Bind";
@@ -3235,7 +175,6 @@
     bindBtn.title = "Click to capture a bind for this macro";
     toolbar.appendChild(bindBtn);
 
-    // Class field: marks the macro MAIN or OPTIONAL
     var _currentMacroClass = "main";
     var _currentMacroCooldown = null;
     var _currentMacroShared = "";
@@ -3244,8 +183,9 @@
     classLabel.style.cssText = "font-family:inherit;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-left:8px;margin-right:4px";
     classLabel.textContent = "Class";
     toolbar.appendChild(classLabel);
+// END Custom dropdown rather than <select> //
 
-    // Two-button segmented control
+// Two //
     var classSeg = document.createElement("span");
     classSeg.className = "fn-bind-switch macro-class-seg";
     function buildClassOpt(value, text) {
@@ -3270,7 +210,6 @@
     classSeg.appendChild(buildClassOpt("optional", "Optional"));
     toolbar.appendChild(classSeg);
 
-    // Reflect the current class onto the segmented control
     function setMacroClass(value) {
         _currentMacroClass = (value === "optional") ? "optional" : "main";
         var opts = classSeg.querySelectorAll(".fn-bind-opt");
@@ -3278,28 +217,25 @@
             o.classList.toggle("on", o.getAttribute("data-class") === _currentMacroClass);
         });
     }
-    // Derive the class from a stored macro group string
     function classFromGroup(group) {
         return (typeof group === "string" && /optional/i.test(group)) ? "optional" : "main";
     }
 
-    // Right-side action cluster
     var actions = document.createElement("div");
     actions.className = "macro-toolbar-actions";
 
-    // New macro button
     var newBtn = document.createElement("button");
     newBtn.className = "macro-toolbar-btn";
     newBtn.textContent = "New";
     actions.appendChild(newBtn);
 
-    // Save button
     var saveBtn = document.createElement("button");
     saveBtn.className = "macro-toolbar-btn primary";
     saveBtn.textContent = "Save";
     actions.appendChild(saveBtn);
+// END Two //
 
-    // Secondary actions live under an overflow menu so the toolbar never clips them
+// Secondary actions live under an overflow menu so the toolbar never clips them //
     var overflowWrap = document.createElement("div");
     overflowWrap.className = "macro-overflow";
     var overflowBtn = document.createElement("button");
@@ -3320,11 +256,11 @@
         if (!overflowWrap.classList.contains("open") && window.playSlot) playSlot("interact");
         overflowWrap.classList.toggle("open");
     });
-    // A menu item's own handler still runs
     overflowMenu.addEventListener("click", function() { closeOverflow(); });
     document.addEventListener("click", closeOverflow);
+// END Secondary actions live under an overflow menu so the toolbar never clips them //
 
-    // Every overflow item is icon + label so the menu reads as one consistent list
+// Every overflow item is icon + label so the menu reads as one consistent list //
     function menuLabel(name, text) {
         return (window.icon ? window.icon(name) : "") + '<span>' + text + '</span>';
     }
@@ -3382,14 +318,12 @@
     overflowMenu.appendChild(flowGroupRow);
     overflowMenu.appendChild(flowDivider);
 
-    // Test Run button
     var testBtn = document.createElement("button");
     testBtn.className = "macro-toolbar-btn";
     testBtn.innerHTML = menuLabel("play", "Test");
     testBtn.title = "Test Run current macro";
     overflowMenu.appendChild(testBtn);
 
-    // Record button
     var recordRow = document.createElement("div");
     recordRow.className = "macro-record-row";
     var recordBtn = document.createElement("button");
@@ -3407,21 +341,18 @@
 
     overflowMenu.appendChild(recordRow);
 
-    // Delete button
     var delMacroBtn = document.createElement("button");
     delMacroBtn.className = "macro-toolbar-btn danger";
     delMacroBtn.innerHTML = menuLabel("trash", "Delete");
     delMacroBtn.title = "Delete macro";
     overflowMenu.appendChild(delMacroBtn);
 
-    // Edit raw macro file
     var editFileBtn = document.createElement("button");
     editFileBtn.className = "macro-toolbar-btn";
     editFileBtn.innerHTML = menuLabel("edit", "Edit File");
     editFileBtn.title = "Open ms_macros.lua in your editor";
     overflowMenu.appendChild(editFileBtn);
 
-    // Change the app "Edit File" opens in
     var editorBtn = document.createElement("button");
     editorBtn.className = "macro-toolbar-btn";
     editorBtn.innerHTML = menuLabel("settings", "Change Editor");
@@ -3433,34 +364,29 @@
 
     if (window.msMotion) toolbar._glide = msMotion.glideOnWrap(toolbar);
 
-    // Main area
     var mainArea = document.createElement("div");
     mainArea.className = "macros-main";
 
-    // Tool canvas area
     var toolArea = document.createElement("div");
     toolArea.className = "macros-tool-area";
-    // Canvas container
     var canvasContainer = document.createElement("div");
-    // overflow-y:auto so the module list scrolls
     canvasContainer.className = "macros-canvas-scroll";
     canvasContainer.style.cssText = "flex:1;overflow-y:auto;overflow-x:hidden;position:relative";
     toolArea.appendChild(canvasContainer);
 
     mainArea.appendChild(toolArea);
 
-    // Floating add-tool button
     var addToolBtn = document.createElement("button");
     addToolBtn.className = "macros-add-tool-btn";
     addToolBtn.innerHTML = (_svgCache["add"] || "+") + " Add Module";
     toolArea.appendChild(addToolBtn);
 
-    // Test run / recording toast
     var testToast = document.createElement("div");
     testToast.className = "macro-test-toast";
     toolArea.appendChild(testToast);
+// END Every overflow item is icon + label so the menu reads as one consistent list //
 
-    // Fn-picker overlay
+// Fn //
     var overlay = document.createElement("div");
     overlay.className = "fn-picker-overlay";
 
@@ -3481,7 +407,6 @@
     overlayHeader.appendChild(overlayClose);
     overlay.appendChild(overlayHeader);
 
-    // Move existing picker into overlay
     if (existingPicker) {
         existingPicker.style.width = "100%";
         existingPicker.style.height = "100%";
@@ -3490,11 +415,9 @@
     }
     mainArea.appendChild(overlay);
 
-    // Tab strip: Builder | Binds
     var mtabs = document.createElement("div");
     mtabs.className = "mtabs";
 
-    // Binds is the landing tab
     var builderSection = document.createElement("div");
     builderSection.className = "mtab-section";
     builderSection.setAttribute("data-msec", "builder");
@@ -3507,11 +430,11 @@
     bindsScroll.className = "binds-scroll";
     bindsSection.appendChild(bindsScroll);
 
-    // Rebuilt by renderBindList
     var bindList = document.createElement("div");
     bindsScroll.appendChild(bindList);
+// END Fn //
 
-    // Pack Info
+// Pack Info //
     var _metaLoaded  = false;
     var _metaDirty   = false;
     var _metaOwned   = false;
@@ -3526,7 +449,6 @@
         inp.type = "text";
         inp.className = "meta-input";
         inp.placeholder = placeholder || "";
-        // Keydown must not bubble to the canvas shortcut handler
         inp.addEventListener("keydown", function(e) { e.stopPropagation(); });
         inp.addEventListener("input", function() {
             if (_metaLoaded) { _metaDirty = true; updateMetaSaveBtn(); }
@@ -3535,8 +457,9 @@
         wrap.appendChild(inp);
         return { wrap: wrap, input: inp };
     }
+// END Pack Info //
 
-    // Pack Info: credits editor
+// Pack Info //
     var _kit = window.msUI;
     var _metaName    = metaField("Name",    "My Macros");
     var _metaVersion = metaField("Version", "1.0.0");
@@ -3570,11 +493,11 @@
     var metaDesc = metaCard.querySelector(".section-desc");
     bindsScroll.insertBefore(metaCard, bindList);
 
-    // Installed Macro Packs: hotswap library
     var _macroLib = [];
     var packList;
+// END Pack Info //
 
-    // Per-pack actions
+// Per //
     function macroMenuItems(e) {
         var items = [];
         if (!e.active) items.push({
@@ -3615,7 +538,6 @@
 
     var packCreateBtn = _kit.actionBtn("Create New macro pack", "", async function() {
         if (!window.openModal || !window.msLibraryClient) return;
-        // Name the pack
         var r = await window.openModal(
             "Create New macro pack",
             "Name a fresh macro pack.",
@@ -3637,7 +559,6 @@
         if (r.confirmed) window.msLibraryClient.capture("macro", (r.value || "").trim());
     });
 
-    // Import routes by the package's manifest
     var packImportBtn = _kit.actionBtn("Import macro pack...", "", function() {
         if (window.sendToHost) window.sendToHost({ action: "importPackage" });
     });
@@ -3649,7 +570,6 @@
         packList = _kit.h("div", { id: "library-list-macro", cls: "library-list" });
         body.appendChild(packList);
     }, "Hotswap a saved macro set");
-    // Clear every stored pack except the active one
     var packClearBtn = _kit.actionBtn("Clear Saved macro packs", "danger", async function() {
         if (!window.openModal || !window.msLibraryClient) return;
         var r = await window.openModal(
@@ -3664,7 +584,9 @@
         body.appendChild(_kit.btnRow(packImportBtn, packExportBtn));
         body.appendChild(_kit.btnRow(packClearBtn));
     }, "Creating, saving and moving macro packs");
-    // Managers sit at the bottom
+// END Per //
+
+// Managers sit at the bottom //
     bindsScroll.appendChild(packCard);
     bindsScroll.appendChild(packManageCard);
 
@@ -3746,7 +668,6 @@
         _metaLoaded = true;
         _metaDirty  = false;
 
-        // Handwritten ms_macros.lua credits are shown read-only
         _metaOwned = meta.owned === true;
         [_metaName, _metaVersion, _metaAuthor, _metaWebsite].forEach(function(f) {
             f.input.readOnly = _metaOwned;
@@ -3773,15 +694,15 @@
         mtabs.appendChild(b);
     });
 
-    // Assemble layout
     builderSection.appendChild(toolbar);
     builderSection.appendChild(mainArea);
     layout.appendChild(mtabs);
     layout.appendChild(builderSection);
     layout.appendChild(bindsSection);
     slot.appendChild(layout);
+// END Managers sit at the bottom //
 
-    // Shared tab model
+// Shared tab model //
     _mtabs = window.createTabs && window.createTabs({
         root: layout,
         tabSelector: ".mtab",
@@ -3794,7 +715,6 @@
             if (tab === "binds") {
                 refreshBindList();
                 refreshMeta();
-                // Re-fetch the library each time the tab is shown so a request
                 if (window.msLibraryClient) window.msLibraryClient.request("macro");
             } else if (tab === "builder" && _canvas) {
                 requestAnimationFrame(function() {
@@ -3803,8 +723,9 @@
             }
         },
     });
+// END Shared tab model //
 
-    // Tool Canvas instance
+// Tool Canvas instance //
     _canvas = new ToolCanvas(canvasContainer, {
         onChange: function(steps) {
             _macroDirty = true;
@@ -3812,14 +733,12 @@
         },
         onSelect: function(sid, step) {
             if (!_toolEditor) return;
-            // Selecting only closes a stale editor when the block is no longer the sole selection
             if (_toolEditor._open && (!sid || _toolEditor._toolSid !== sid)) {
                 _toolEditor.close();
             }
         },
         onContext: function(sid) {
             if (!_toolEditor || !sid) return;
-            // Right-click toggles the parameter editor open or closed for this module
             if (_toolEditor._open && _toolEditor._toolSid === sid) {
                 _toolEditor.close();
             } else {
@@ -3827,8 +746,9 @@
             }
         }
     });
+// END Tool Canvas instance //
 
-    // Picker -> canvas drag-drop
+// Picker //
     (function() {
         var FN_MIME     = "application/x-ms-fn";
         var TOOL_MIME   = "application/x-ms-tool";
@@ -3839,12 +759,10 @@
             return Array.prototype.indexOf.call(types, mime) !== -1;
         }
         function hasFn(e)   { return hasType(e, FN_MIME) || hasType(e, TOOL_MIME) || hasType(e, CALLFN_MIME); }
-        // Build a "Call function" step preset to a dragged function id
         function buildCallFnDef(id) {
             if (!id) return null;
             return { action: "call_fn", params: { name: id } };
         }
-        // Build a shared-setting reference step for a dragged tool key
         function buildToolDef(key) {
             var tools = window.msMacroTools || [];
             for (var i = 0; i < tools.length; i++) {
@@ -3856,7 +774,6 @@
             }
             return null;
         }
-        // Build a module def with default params from the shared registry
         function buildDefaultDef(fnId) {
             var reg = window.fnPicker && window.fnPicker.registry;
             if (!reg) return null;
@@ -3874,7 +791,6 @@
             });
             return { action: fn.name, params: params };
         }
-        // Which existing top-level block should the new one land before?
         function beforeSidAt(clientY) {
             var root = _canvas._root;
             var blocks = root.children;
@@ -3902,7 +818,6 @@
         }, true);
         canvasContainer.addEventListener("dragleave", function(e) {
             if (!hasFn(e)) return;
-            // Only clear when the pointer actually leaves the container
             if (e.target === canvasContainer || !canvasContainer.contains(e.relatedTarget)) {
                 _canvas._root.classList.remove("fn-drop-target");
             }
@@ -3928,14 +843,14 @@
             closeFnOverlay();
         }, true);
     })();
+// END Picker //
 
-    // Tool keyboard shortcuts
+// Tool keyboard shortcuts //
     document.addEventListener("keydown", function(e) {
         if (!builderSection.classList.contains("active")) return;
         var t = e.target;
         if (t && t.closest && t.closest("input, textarea, [contenteditable='true']")) return;
         var mod = e.metaKey || e.ctrlKey;
-        // Cmd-A selects all top-level blocks
         if (mod && (e.key === "a" || e.key === "A")) {
             e.preventDefault();
             _canvas.selectAll();
@@ -3970,7 +885,6 @@
         }
     });
 
-    // Inline tool parameter editor
     var _toolEditor = null;
     if (window.ToolEditor) {
         _toolEditor = new ToolEditor({ canvas: _canvas });
@@ -3978,20 +892,19 @@
         console.warn("[macros] ToolEditor not loaded, inline editing disabled");
     }
 
-    // Preload add icon
     _fetchSVG("add").then(function(svg) {
         if (svg) addToolBtn.innerHTML = svg + " Add Module";
     });
     _fetchSVG("close").then(function(svg) {
         if (svg) overlayClose.innerHTML = svg;
     });
+// END Tool keyboard shortcuts //
 
-    // Fn-picker overlay toggle
+// Fn //
     overlay.inert = true;
     function openFnOverlay() {
         overlay.classList.add("open");
         overlay.inert = false;
-        // Pull the current tool list every time it opens
         refreshToolList();
     }
     function closeFnOverlay() {
@@ -4010,29 +923,27 @@
         if (window.shellPost) shellPost("macros", "listTools", {});
     }
 
-    // Macro select / management
     function refreshMacroList() {
-        // Ask Lua for the list of macros
         if (window.shellPost) {
             shellPost("macros", "listMacros", {});
         }
     }
 
-    // Binds tab
     var _bindList = [];
 
     function refreshBindList() {
         if (window.shellPost) shellPost("macros", "listBinds", {});
     }
+// END Fn //
 
-    // Themed delete confirmation -> Promise<boolean>
+// Themed delete confirmation //
     function confirmDelete(name) {
         var msg = 'Delete "' + name + '"? This cannot be undone.';
         if (typeof window.openModal === "function") {
             return window.openModal("Delete macro", msg, "Delete", "Cancel")
                 .then(function(r) { return !!(r && r.confirmed); });
         }
-        // ui-lint-allow-native: last-resort fallback if the shell modal is absent.
+        // lint-allow native-dialog
         var ok = (typeof window.confirm !== "function") || window.confirm(msg);
         return Promise.resolve(ok);
     }
@@ -4052,8 +963,9 @@
         });
         return b;
     }
+// END Themed delete confirmation //
 
-    // Candidate macros this one can be tethered to: every real
+// Candidate macros this one can be tethered to //
     function linkTargets(m) {
         var exclude = {};
         exclude[m.id] = true;
@@ -4074,7 +986,6 @@
     }
 
 
-    // Builds the target list for the "Link to another macro" submenu
     function linkMenuItems(m) {
         return linkTargets(m).map(function(o) {
             return {
@@ -4090,14 +1001,14 @@
             };
         });
     }
+// END Candidate macros this one can be tethered to //
 
-    // Opens the per-bind "⋯" options menu
+// Opens the per //
     function openBindMenu(m, isSub, mode, x, y) {
         var kit = window.msUI;
         if (!kit || typeof kit.showCtxMenu !== "function") return;
         var items = [];
 
-        // Enable / disable
         if (m.group !== "system" && !m.systemBind) {
             items.push({
                 icon:  "",
@@ -4113,7 +1024,6 @@
             });
         }
 
-        // Reset / clear
         if (isSub) {
             items.push({
                 icon:  "",
@@ -4139,7 +1049,6 @@
             });
         }
 
-        // Sub-bind rebind mode
         if (isSub) {
             items.push({
                 icon:  "",
@@ -4148,7 +1057,6 @@
             });
         }
 
-        // Ignore extra modifiers
         if (m.group !== "system" && !m.systemBind
             && (m.bindType === "key" || m.bindType === "combo")) {
             items.push({
@@ -4164,7 +1072,6 @@
             });
         }
 
-        // Link this macro to follow another macro's trigger
         if (m.group !== "system" && !m.systemBind) {
             var targets = linkMenuItems(m);
             if (targets.length) {
@@ -4176,7 +1083,6 @@
             }
         }
 
-        // Delete
         if (m.group !== "system" && !m.systemBind) {
             items.push({
                 icon:  "",
@@ -4202,7 +1108,6 @@
     function bindRow(m, isSub) {
         var r = document.createElement("div");
         r.className = "bind-row" + (isSub ? " bind-row-sub" : "");
-        // Row-level hover
         r.addEventListener("mouseenter", function() {
             if (window.playSlot) playSlot("hover");
         });
@@ -4215,7 +1120,6 @@
         var acts = document.createElement("div");
         acts.className = "bind-acts";
 
-        // Inline is just the two the user asked for: the chord pill
         var mode = { full: false };
         acts.appendChild(bindPill(m.bind, function() {
             if (isSub && !mode.full) {
@@ -4234,7 +1138,6 @@
             ? "Click to rebind - capture mode is set in the ⋯ menu"
             : "Click to rebind"));
 
-        // The ⋯ options menu
         var moreBtn = document.createElement("button");
         moreBtn.className = "bind-act bind-more";
         moreBtn.textContent = "⋯";
@@ -4265,7 +1168,6 @@
             return;
         }
 
-        // Group in registration order
         var order = [];
         var groups = {};
         _bindList.forEach(function(m) {
@@ -4274,7 +1176,6 @@
             groups[g].push(m);
         });
 
-        // A group is a settings section: a sticky heading and its binds in a card
         order.forEach(function(g) {
             var rows = [];
             groups[g].forEach(function(m) {
@@ -4302,14 +1203,14 @@
         }, 90);
     }
 
-    // Title-case each word of a group key so compound groups read cleanly
     function titleCaseGroup(g) {
         return String(g).replace(/[A-Za-z]+/g, function(w) {
             return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
         });
     }
+// END Opens the per //
 
-    // Same markup as msUI.section()
+// Same markup as msUI.section //
     function bindSection(title, desc, rows) {
         var wrap = document.createElement("div");
         wrap.className = "section";
@@ -4340,7 +1241,6 @@
     }
 
     function setMacroList(ids) {
-        // Real macro ids
         var opts = [];
         for (var i = 0; i < ids.length; i++) {
             opts.push({ value: ids[i], label: ids[i] });
@@ -4368,7 +1268,6 @@
             updateBindBtn();
             return;
         }
-        // Ask Lua for the macro definition
         if (window.shellPost) {
             shellPost("macros", "getMacro", { id: macroId });
         }
@@ -4389,8 +1288,9 @@
         macroSelect.value = def.id;
         updateBindBtn();
     }
+// END Same markup as msUI.section //
 
-    // Show the macro's effective bind
+// Show the macro's effective bind //
     function updateBindBtn() {
         var text = "";
         for (var i = 0; i < _bindList.length; i++) {
@@ -4411,7 +1311,6 @@
     });
     bindBtn.addEventListener("click", function() {
         if (window.playSlot) playSlot("interact");
-        // Capture targets a registered bind id
         if (!_currentMacroId || _macroDirty) {
             showTestToast("Save the macro before binding it", "error");
             return;
@@ -4424,7 +1323,6 @@
 
     function saveMacro() {
         if (!_currentMacroId) {
-            // Create new
             var name = nameInput.value.trim();
             if (!name) {
                 nameInput.focus();
@@ -4438,11 +1336,9 @@
             id: _currentMacroId,
             name: name,
             author: "User",
-            // Group the compiled bind under VISUAL - MAIN / VISUAL - OPTIONAL
             group: "visual - " + _currentMacroClass,
             steps: _canvas.serialize()
         };
-        // Carry the compiled default bind through a save
         if (_currentMacroDef && _currentMacroDef.bind) {
             def.bind = _currentMacroDef.bind;
         }
@@ -4457,7 +1353,6 @@
         if (window.shellPost) {
             shellPost("macros", "saveMacro", { id: _currentMacroId, def: def });
         }
-        // Do NOT optimistically mark clean here
         updateSaveBtnState();
     }
 
@@ -4483,8 +1378,9 @@
     function updateSaveBtnState() {
         saveBtn.style.opacity = _macroDirty ? "1" : "0.5";
     }
+// END Show the macro's effective bind //
 
-    // Wire toolbar buttons
+// Wire toolbar buttons //
     newBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
     newBtn.addEventListener("click", function() {
         if (window.playSlot) playSlot("interact");
@@ -4513,7 +1409,6 @@
     editFileBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
     editFileBtn.addEventListener("click", function() {
         if (window.playSlot) playSlot("interact");
-        // The action router keys on body.action
         if (window.shellPost) shellPost("macros", "editMacros", { action: "editMacros" });
     });
 
@@ -4522,13 +1417,13 @@
         if (window.playSlot) playSlot("interact");
         if (window.shellPost) shellPost("macros", "chooseMacroEditor", { action: "chooseMacroEditor" });
     });
+// END Wire toolbar buttons //
 
-    // Test Run
+// Test Run //
     var _testRunning = false;
     var _testToastTimer = null;
 
     function showTestToast(msg, type, iconName) {
-        // Icon path builds via DOM so msg stays inert text
         if (iconName && window.icon) {
             testToast.innerHTML = window.icon(iconName);
             testToast.appendChild(document.createTextNode(" " + msg));
@@ -4563,7 +1458,6 @@
         }
         if (window.playSlot) playSlot("interact");
 
-        // Build macro def for test run
         var macroId = _currentMacroId || ("_test_" + Date.now().toString(36));
         var macroDef = {
             id: macroId,
@@ -4571,18 +1465,15 @@
             steps: steps,
         };
 
-        // Set running state
         _testRunning = true;
         testBtn.className = "macro-toolbar-btn running";
         testBtn.innerHTML = menuLabel("timer", "Running\u2026");
         testBtn.disabled = true;
 
-        // Send to Lua
         if (window.shellPost) {
             shellPost("macros", "testRun", macroDef);
         }
 
-        // Safety timeout
         setTimeout(function() {
             if (_testRunning) {
                 _resetTestBtn();
@@ -4591,10 +1482,10 @@
         }, 30000);
     });
 
-    // Record Mode
     var _isRecording = false;
+// END Test Run //
 
-    // Recording options
+// Recording options //
     var _REC_OPTS_KEY = "ms.macroRecordOpts";
     var _recOptDefaults = {
         recordDelays:       true,
@@ -4614,7 +1505,6 @@
         try {
             var saved = JSON.parse(localStorage.getItem(_REC_OPTS_KEY) || "{}");
             for (var k2 in saved) if (k2 in o) o[k2] = saved[k2];
-            // Fold any stored down-only value into the press+release mode
             if (o.pressMode === "press") o.pressMode = "pressRelease";
         } catch (e) {}
         return o;
@@ -4642,7 +1532,6 @@
     recordBtn.addEventListener("click", function() {
         if (window.playSlot) playSlot("interact");
         if (!_isRecording) {
-            // Start recording
             if (window.shellPost) {
                 shellPost("macros", "startRecording", {
                     waitThreshold: _recOpts.waitThreshold,
@@ -4651,7 +1540,6 @@
             }
             _setRecordingState(true);
         } else {
-            // Stop recording
             if (window.shellPost) {
                 shellPost("macros", "stopRecording", {});
             }
@@ -4659,8 +1547,9 @@
             showTestToast("Recording stopped", "success");
         }
     });
+// END Recording options //
 
-    // Recording settings menu
+// Recording settings menu //
     var _recModal = null;
 
     function _buildRecModal() {
@@ -4689,7 +1578,6 @@
         sub.textContent = "Choose what a recording captures. Applied to the next recording you start.";
         card.appendChild(sub);
 
-        // Row scaffold shared by toggle + segmented rows
         function row(label, hint, control) {
             var r = document.createElement("div");
             r.style.cssText =
@@ -4730,7 +1618,6 @@
             return wrap;
         }
 
-        // Integer slider for drag fidelity
         function slider(key, min, max) {
             var wrap = document.createElement("div");
             wrap.style.cssText = "display:flex;align-items:center;gap:10px;";
@@ -4794,7 +1681,6 @@
         row("Record window resizes", "Capture resizing the focused window.", toggle("recordWindowResize"));
         lastRow.style.borderBottom = "none";
 
-        // Buttons
         var btns = document.createElement("div");
         btns.className = "modal-btns";
         btns.style.cssText = "display:flex;gap:8px;margin-top:16px;";
@@ -4821,7 +1707,6 @@
             for (var k in _recOptDefaults) _recOpts[k] = _recOptDefaults[k];
             _saveRecOpts();
             if (window.playSlot) playSlot("back");
-            // Rebuild reflects the reset values cleanly
             _recModal = null;
             card.remove(); overlayEl.remove();
             _openRecModal();
@@ -4839,7 +1724,6 @@
 
     function _openRecModal() {
         var m = _recModal || _buildRecModal();
-        // Force reflow so the opening transition runs from the closed state
         m.overlay.getBoundingClientRect();
         m.overlay.style.opacity = "1";
         m.overlay.style.pointerEvents = "all";
@@ -4848,7 +1732,6 @@
 
     recSettingsBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
     recSettingsBtn.addEventListener("click", function() {
-        // Let the click bubble so the overflow menu closes behind the modal
         if (window.playSlot) playSlot("interact");
         _openRecModal();
     });
@@ -4871,20 +1754,18 @@
         _macroDirty = true;
         updateSaveBtnState();
     });
+// END Recording settings menu //
 
-    // Panel handler
+// Panel handler //
     var _libSelfHealed = false;
     window.registerPanel("macros", function(action, body) {
-        // The Installed Macro Packs list is filled by a request() fired during
         if (!_libSelfHealed && window.msLibraryClient) {
             _libSelfHealed = true;
             window.msLibraryClient.request("macro");
         }
-        // Function picker messages
         if (window.fnPicker && window.fnPicker.handler) {
             window.fnPicker.handler(action, body);
         }
-        // Tool-canvas messages
         if (action === "addTool" && body) {
             _canvas.addTool(body);
             _macroDirty = true;
@@ -4903,15 +1784,12 @@
             _macroDirty = false;
             updateSaveBtnState();
             refreshMacroList();
-            // A saved macro may have gained or changed its bind
             refreshBindList();
             return;
         }
         if (action === "saveError") {
-            // The JSON store was written
             _macroDirty = true;
             updateSaveBtnState();
-            // Binds/list still refresh: the macro survives
             refreshMacroList();
             refreshBindList();
             showTestToast("\u2717 Save failed to compile: "
@@ -4956,8 +1834,9 @@
             return;
         }
     });
+// END Panel handler //
 
-    // External API
+// External API //
     window.macroLab = {
         canvas: _canvas,
         editor: _toolEditor,
@@ -4972,20 +1851,16 @@
         setMeta: setMeta,
         refreshMeta: refreshMeta,
         addTool: function(def) { _canvas.addTool(def); closeFnOverlay(); },
-        // Tools list is pushed from Lua
         setToolList: function(list) {
             if (window.fnPicker && window.fnPicker.setToolList) {
                 window.fnPicker.setToolList(list);
             }
-            // The Tools panel's Variable tab renders from the same list
             if (typeof window.renderToolVariablesTab === "function") {
                 window.renderToolVariablesTab();
             }
         },
-        // Function tools
         setFunctionList: function(list) {
             window.msMacroFunctions = Array.isArray(list) ? list : [];
-            // Surface them in the builder's picker
             if (window.fnPicker && window.fnPicker.setFunctionList) {
                 window.fnPicker.setFunctionList(window.msMacroFunctions);
             }
@@ -4996,7 +1871,6 @@
         createTool: function(def) {
             if (!window.shellPost) return;
             shellPost("macros", "addUserSetting", { action: "addUserSetting", def: def });
-            // The host has no create-ack
             setTimeout(refreshToolList, 250);
         },
         deleteTool: function(key) {
@@ -5004,19 +1878,16 @@
             shellPost("macros", "removeUserSetting", { action: "removeUserSetting", key: key });
             setTimeout(refreshToolList, 250);
         },
-        // Test Run & Record Mode
         testRun: function() { testBtn.click(); },
         startRecording: function() { if (!_isRecording) recordBtn.click(); },
         stopRecording: function() { if (_isRecording) recordBtn.click(); },
         isRecording: function() { return _isRecording; },
     };
 
-    // Close panel
     window.closePanel = function() {
         if (window.shellPost) shellPost("macros", "close", {});
     };
 
-    // Macro-engine
     window._macrosEnabled = window._macrosEnabled || false;
     window.updateMacrosToggleBtn = function(enabled) {
         window._macrosEnabled = !!enabled;
@@ -5034,13 +1905,13 @@
         }
     };
 
-    // Initial state
     updateSaveBtnState();
     refreshMacroList();
     refreshBindList();
     refreshMeta();
+// END External API //
 
-    // Header drag
+// Header drag //
     (function() {
         let _drag = null;
         const panel = document.querySelector(".panel-macros");
@@ -5072,8 +1943,5 @@
             window.addEventListener("mouseup", onUp);
         });
     })();
-
-    })();
-
-
-    })();
+// END Header drag //
+})();

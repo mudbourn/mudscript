@@ -185,9 +185,7 @@
     "non-ascii": 4
   },
   "ui/modules/panel-macros.js": {
-    "comment": 286,
-    "file-length": 5080,
-    "non-ascii": 10
+    "non-ascii": 7
   },
   "ui/modules/panel-settings-builder.js": {
     "non-ascii": 2
@@ -251,7 +249,7 @@
   },
   "ui/ms_shell.html": {
     "comment": 61,
-    "file-length": 2506,
+    "file-length": 2509,
     "marker-unclosed": 20,
     "non-ascii": 3
   },

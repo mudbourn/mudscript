@@ -89,6 +89,22 @@
         return out;
     }
 
+    function versionAtLeast(have, want) {
+        const pa = String(have).replace(/^v/i, "").split(/[.-]/);
+        const pb = String(want).replace(/^v/i, "").split(/[.-]/);
+        for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+            const x = pa[i] || "0";
+            const y = pb[i] || "0";
+            const nx = parseInt(x, 10);
+            const ny = parseInt(y, 10);
+            if (!isNaN(nx) && !isNaN(ny) && nx !== ny) return nx > ny;
+            if (isNaN(nx) || isNaN(ny)) {
+                if (x !== y) return x > y;
+            }
+        }
+        return true;
+    }
+
     function githubPageFor(url) {
         if (typeof url !== "string") return null;
         let m = url.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/releases\/download\/([^/]+)\//);
@@ -135,10 +151,13 @@
         const isVirtual = !!e.virtual;
         let includeThemeSounds = false;
         const isUpdate = !!e.installed;
-        const installLabel = isUpdate ? "Update" : "Install";
+        const isCurrent = isUpdate && !!e.installedVersion && !!e.version
+            && versionAtLeast(e.installedVersion, e.version);
+        const installLabel = isCurrent ? "Installed" : (isUpdate ? "Update" : "Install");
 
         const actions = h("div", { cls: "browse-actions" });
-        actions.appendChild(actionBtn(installLabel, "accent", () => {
+        actions.appendChild(actionBtn(installLabel, isCurrent ? "disabled" : "accent", () => {
+            if (isCurrent) return;
             if (isVirtual) {
                 send("browseInstall", {
                     id: e.installId,
