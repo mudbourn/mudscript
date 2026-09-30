@@ -865,7 +865,6 @@
             return pos.x - f.x, pos.y - f.y
         end
 
-        -- Read one screen pixel
         ms.screen = ms.screen or {}
         ms.screen.sampleAt = function(ax, ay)
             if not ax or not ay then return nil end
@@ -896,20 +895,64 @@
             }
         end
 
-        ms.pixelColor = function(x, y, reference)
+        ms.parseHex = function(hex)
+            if type(hex) ~= "string" then return nil end
+            local h = hex:gsub("^%s*#", ""):gsub("^0[xX]", ""):gsub("%s+$", "")
+            if #h == 3 then h = h:gsub("(%x)", "%1%1") end
+            if #h ~= 6 or h:find("[^%x]") then return nil end
+            return tonumber(h:sub(1, 2), 16), tonumber(h:sub(3, 4), 16), tonumber(h:sub(5, 6), 16)
+        end
+
+        local function _colorArgs(a, b, c, ...)
+            if type(a) == "number" and type(b) == "number" and type(c) == "number" then
+                return a, b, c, ...
+            end
+            local r, g, bl = ms.parseHex(a)
+            if not r then error("ms.pixel: color must be a hex string like \"#FF5000\"", 3) end
+            return r, g, bl, b, c, ...
+        end
+
+        local function _pixelArgs(x, ...)
+            if type(x) ~= "table" then return x, ... end
+            local t = x
+            local color = t.color
+            if color == nil and t.r ~= nil then
+                return tonumber(t.x), tonumber(t.y), t.reference or t.ref,
+                    tonumber(t.r), tonumber(t.g), tonumber(t.b),
+                    tonumber(t.tolerance or t.tol), tonumber(t.timeout)
+            end
+            return tonumber(t.x), tonumber(t.y), t.reference or t.ref, color,
+                tonumber(t.tolerance or t.tol), tonumber(t.timeout)
+        end
+
+        local function _pixelColor(x, y, reference)
             reference = reference or "Absolute"
             local ax, ay = ms.resolvePoint(x, y, reference)
             if not ax or not ay then return nil end
-            return ms.screen.sampleAt(ax, ay)
+            local c = ms.screen.sampleAt(ax, ay)
+            if not c then return nil end
+            return c.hex, c.r, c.g, c.b
         end
 
-        ms.pixelMatch = function(x, y, reference, r, g, b, tolerance)
+        ms.pixelColor = function(...)
+            return _pixelColor(_pixelArgs(...))
+        end
+
+        local function _pixelMatch(x, y, reference, r, g, b, tolerance)
             tolerance = tolerance or 10
-            local c = ms.pixelColor(x, y, reference)
-            if not c then return false end
-            return math.abs(c.r - r) <= tolerance
-               and math.abs(c.g - g) <= tolerance
-               and math.abs(c.b - b) <= tolerance
+            local _, cr, cg, cb = _pixelColor(x, y, reference)
+            if not cr then return false end
+            return math.abs(cr - r) <= tolerance
+               and math.abs(cg - g) <= tolerance
+               and math.abs(cb - b) <= tolerance
+        end
+
+        local function _matchArgs(x, y, reference, ...)
+            return x, y, reference, _colorArgs(...)
+        end
+
+        ms.pixelMatch = function(...)
+            return _pixelMatch(_matchArgs(_pixelArgs(...)))
         end
 
         ms.randWait = function(min, max)
@@ -957,27 +1000,24 @@
             end
         end
 
-        ms.waitPixel = function(x, y, ref, r, g, b, tol, timeout)
+        local function _waitPixel(want, x, y, ref, r, g, b, tol, timeout)
             timeout = timeout or 5000
             local deadline = hs.timer.absoluteTime() + timeout * 1000000
             while hs.timer.absoluteTime() < deadline do
-                if ms.pixelMatch(x, y, ref, r, g, b, tol or 10) then return true end
+                if _pixelMatch(x, y, ref, r, g, b, tol or 10) == want then return true end
                 ms.wait(50)
             end
             return false
         end
 
-        ms.waitNotPixel = function(x, y, ref, r, g, b, tol, timeout)
-            timeout = timeout or 5000
-            local deadline = hs.timer.absoluteTime() + timeout * 1000000
-            while hs.timer.absoluteTime() < deadline do
-                if not ms.pixelMatch(x, y, ref, r, g, b, tol or 10) then return true end
-                ms.wait(50)
-            end
-            return false
+        ms.waitPixel = function(...)
+            return _waitPixel(true, _matchArgs(_pixelArgs(...)))
         end
 
-        -- Screen text OCR via the Vision helper binary
+        ms.waitNotPixel = function(...)
+            return _waitPixel(false, _matchArgs(_pixelArgs(...)))
+        end
+
         ms.screen._ocrBin = os.getenv("HOME") .. "/.local/bin/ms_ocr_read"
 
         -- Normalise a region arg into an absolute {x,y,w,h} in screen points

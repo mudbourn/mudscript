@@ -503,7 +503,7 @@
         ms.fn.define("ms.pixelColor", ms.pixelColor, {
             label  = "Pixel Color",
             group  = "sensing",
-            info   = "Get the RGB color of a pixel",
+            info   = "Get the hex color of a pixel",
             params = {
                 {
                     name = "x",
@@ -523,7 +523,7 @@
         ms.fn.define("ms.pixelMatch", ms.pixelMatch, {
             label  = "Pixel Match",
             group  = "sensing",
-            info   = "Check if a pixel matches a color",
+            info   = "Check if a pixel matches a hex color",
             params = {
                 {
                     name = "x",
@@ -538,16 +538,8 @@
                     type = "string",
                 },
                 {
-                    name = "r",
-                    type = "number",
-                },
-                {
-                    name = "g",
-                    type = "number",
-                },
-                {
-                    name = "b",
-                    type = "number",
+                    name = "color",
+                    type = "string",
                 },
                 {
                     name = "tol",
@@ -559,7 +551,7 @@
         ms.fn.define("ms.waitPixel", ms.waitPixel, {
             label  = "Wait for Pixel",
             group  = "sensing",
-            info   = "Wait until a pixel matches a color",
+            info   = "Wait until a pixel matches a hex color",
             params = {
                 {
                     name = "x",
@@ -574,16 +566,8 @@
                     type = "string",
                 },
                 {
-                    name = "r",
-                    type = "number",
-                },
-                {
-                    name = "g",
-                    type = "number",
-                },
-                {
-                    name = "b",
-                    type = "number",
+                    name = "color",
+                    type = "string",
                 },
                 {
                     name = "tol",
@@ -599,7 +583,7 @@
         ms.fn.define("ms.waitNotPixel", ms.waitNotPixel, {
             label  = "Wait for Pixel Change",
             group  = "sensing",
-            info   = "Wait until a pixel no longer matches a color",
+            info   = "Wait until a pixel no longer matches a hex color",
             params = {
                 {
                     name = "x",
@@ -614,16 +598,8 @@
                     type = "string",
                 },
                 {
-                    name = "r",
-                    type = "number",
-                },
-                {
-                    name = "g",
-                    type = "number",
-                },
-                {
-                    name = "b",
-                    type = "number",
+                    name = "color",
+                    type = "string",
                 },
                 {
                     name = "tol",

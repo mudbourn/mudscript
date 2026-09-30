@@ -313,55 +313,60 @@ local sx, sy = ms.getScaled(900, 660)
 
 ### `ms.pixelColor(x, y [, reference])`
 
-Returns the colour of a single screen pixel at `(x, y)` in the given reference space. Uses the same coordinate system as `ms.Mouse`. `reference` defaults to `Absolute` if omitted.
+Returns the colour of a single screen pixel at `(x, y)` in the given reference space as a hex string such as `"#FF5000"`. Uses the same coordinate system as `ms.Mouse`. `reference` defaults to `Absolute` if omitted.
 
-Returns a table `{ r, g, b, a }` with integer values in `[0, 255]`, or `nil` if the position is off-screen or the capture fails.
+The red, green and blue channels come back as extra return values in `[0, 255]`. Returns `nil` if the position is off-screen or the capture fails.
 
 ```lua
-local c = ms.pixelColor(900, 540, WindowTL)
-if c then
-    print(c.r, c.g, c.b)   -- e.g. 255  80  0
+local hex = ms.pixelColor(900, 540, WindowTL)
+if hex == "#FF5000" then
+    -- ...
 end
 
--- At absolute screen coordinates:
-local c = ms.pixelColor(1200, 400)
+local hex, r, g, b = ms.pixelColor(1200, 400)
 ```
+
+The Window panel's element inspector shows the hex of the pixel under the cursor, ready to paste.
 
 ---
 
-### `ms.pixelMatch(x, y, reference, r, g, b [, tolerance])`
+### `ms.pixelMatch(x, y, reference, color [, tolerance])`
 
-Returns `true` if the pixel at `(x, y)` is within `tolerance` of the target colour on every channel. `tolerance` defaults to `10`. All values are `[0, 255]`.
+Returns `true` if the pixel at `(x, y)` is within `tolerance` of `color` on every channel. `color` is a hex string: `"#FF5000"`, `"FF5000"` and the short form `"#F50"` all work. `tolerance` is per channel in `[0, 255]` and defaults to `10`.
 
 ```lua
--- Is the pixel at WindowTL (900, 540) roughly orange?
-if ms.pixelMatch(900, 540, WindowTL, 255, 80, 0) then
+if ms.pixelMatch(900, 540, WindowTL, "#FF5000") then
     -- ...
 end
 
--- Tighter match for a specific UI element:
-if ms.pixelMatch(445, 37, WindowTL, 12, 200, 64, 5) then
+if ms.pixelMatch(445, 37, WindowTL, "#0CC840", 5) then
     -- ...
 end
 ```
 
-### `ms.waitPixel(x, y, ref, r, g, b [, tolerance [, timeout]])`
+### `ms.waitPixel(x, y, ref, color [, tolerance [, timeout]])`
 
-Waits until a pixel matches the expected color. Polls every 50ms. Returns `true` when matched, `false` on timeout (default 5 seconds).
+Waits until a pixel matches the hex colour. Polls every 50ms. Returns `true` when matched, `false` on timeout (default 5 seconds).
 
 ```lua
--- Wait for a button to appear (green pixel at known position)
-local found = ms.waitPixel(900, 540, WindowTL, 0, 255, 0, 10, 3000)
+local found = ms.waitPixel(900, 540, WindowTL, "#00FF00", 10, 3000)
 if found then ms.type("e") end
 ```
 
-### `ms.waitNotPixel(x, y, ref, r, g, b [, tolerance [, timeout]])`
+### `ms.waitNotPixel(x, y, ref, color [, tolerance [, timeout]])`
 
-Waits until a pixel does NOT match the expected color. Inverse of `waitPixel`. Returns `true` when the pixel changes, `false` on timeout.
+Waits until a pixel no longer matches the hex colour. Inverse of `waitPixel`. Returns `true` when the pixel changes, `false` on timeout.
 
 ```lua
--- Wait for a loading screen to disappear (white pixel turns dark)
-ms.waitNotPixel(960, 540, "Absolute", 255, 255, 255, 10, 10000)
+ms.waitNotPixel(960, 540, "Absolute", "#FFFFFF", 10, 10000)
+```
+
+### `ms.parseHex(hex)`
+
+Converts a hex colour string to `r, g, b` integers, or `nil` if the string is not a valid colour.
+
+```lua
+local r, g, b = ms.parseHex("#FF5000")
 ```
 
 ---

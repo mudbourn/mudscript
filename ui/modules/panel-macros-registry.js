@@ -303,7 +303,7 @@
                 id: "ms.pixelColor",
                 name: "ms.pixelColor",
                 sig: "ms.pixelColor(x, y, reference)",
-                desc: "Get pixel color at position.",
+                desc: "Get pixel hex color at position.",
                 category: "pixel",
                 params: [
                     { name: "x",         type: "number", label: "X",         required: true },
@@ -314,32 +314,28 @@
             {
                 id: "ms.pixelMatch",
                 name: "ms.pixelMatch",
-                sig: "ms.pixelMatch(x, y, reference, r, g, b, tolerance)",
+                sig: "ms.pixelMatch(x, y, reference, color, tolerance)",
                 desc: "Check if pixel matches color.",
                 category: "pixel",
                 params: [
                     { name: "x",         type: "number", label: "X",         required: true },
                     { name: "y",         type: "number", label: "Y",         required: true },
                     { name: "reference", type: "enum", options: MOUSE_REFS, label: "Reference", required: false },
-                    { name: "r",         type: "number", label: "R",         required: true },
-                    { name: "g",         type: "number", label: "G",         required: true },
-                    { name: "b",         type: "number", label: "B",         required: true },
+                    { name: "color",     type: "string", label: "Color (hex)", required: true },
                     { name: "tolerance", type: "number", label: "Tolerance", required: false }
                 ]
             },
             {
                 id: "ms.waitPixel",
                 name: "ms.waitPixel",
-                sig: "ms.waitPixel(x, y, ref, r, g, b, tolerance, timeout)",
+                sig: "ms.waitPixel(x, y, ref, color, tolerance, timeout)",
                 desc: "Wait until pixel matches color.",
                 category: "pixel",
                 params: [
                     { name: "x",         type: "number", label: "X",         required: true },
                     { name: "y",         type: "number", label: "Y",         required: true },
                     { name: "ref",       type: "enum", options: MOUSE_REFS, label: "Reference", required: false },
-                    { name: "r",         type: "number", label: "R",         required: true },
-                    { name: "g",         type: "number", label: "G",         required: true },
-                    { name: "b",         type: "number", label: "B",         required: true },
+                    { name: "color",     type: "string", label: "Color (hex)", required: true },
                     { name: "tolerance", type: "number", label: "Tolerance", required: false },
                     { name: "timeout",   type: "number", label: "Timeout (ms)", required: false }
                 ]
@@ -347,16 +343,14 @@
             {
                 id: "ms.waitNotPixel",
                 name: "ms.waitNotPixel",
-                sig: "ms.waitNotPixel(x, y, ref, r, g, b, tolerance, timeout)",
+                sig: "ms.waitNotPixel(x, y, ref, color, tolerance, timeout)",
                 desc: "Wait until pixel changes.",
                 category: "pixel",
                 params: [
                     { name: "x",         type: "number", label: "X",         required: true },
                     { name: "y",         type: "number", label: "Y",         required: true },
                     { name: "ref",       type: "enum", options: MOUSE_REFS, label: "Reference", required: false },
-                    { name: "r",         type: "number", label: "R",         required: true },
-                    { name: "g",         type: "number", label: "G",         required: true },
-                    { name: "b",         type: "number", label: "B",         required: true },
+                    { name: "color",     type: "string", label: "Color (hex)", required: true },
                     { name: "tolerance", type: "number", label: "Tolerance", required: false },
                     { name: "timeout",   type: "number", label: "Timeout (ms)", required: false }
                 ]

@@ -73,7 +73,7 @@
     "lua-inline-table": 1
   },
   "mac/lib/core/utilities.lua": {
-    "comment": 29,
+    "comment": 27,
     "lua-inline-table": 8,
     "marker-indent": 1,
     "marker-label": 1,
