@@ -75,13 +75,13 @@
                             math.floor(_mp.x), math.floor(_mp.y))
                     end
 
+                    local callbackData = ms._mouseCallbacks[b]
                     if BindValidity ~= 1 then
                         if not (callbackData and callbackData.system) then return false end
                     end
 
                     if not isDown then return false end
 
-                    local callbackData = ms._mouseCallbacks[b]
                     if callbackData then
                         local co = coroutine.create(callbackData.fn)
                         local ok, err = coroutine.resume(co)
