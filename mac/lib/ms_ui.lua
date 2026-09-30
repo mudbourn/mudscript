@@ -50,9 +50,12 @@ return function(ms)
             return out
         end
 
-        local function _bindDisplay(c)
+        local function _bindDisplay(c, anyMods)
             if not c then return nil end
             local parts = _modParts(c.mods)
+            if anyMods and (c.type == "key" or c.type == "combo") and parts[1] ~= "Any" then
+                table.insert(parts, 1, "Any")
+            end
             if c.type == "mods" then
                 if #parts == 0 then return "unset" end
                 return table.concat(parts, "+")
@@ -122,7 +125,7 @@ return function(ms)
                         id        = id,
                         label     = def.label,
                         group     = def.group,
-                        bind      = _bindDisplay(eff),
+                        bind      = _bindDisplay(eff, ms.bindIgnoreMods and ms.bindIgnoreMods[id]),
                         enabled   = (enabled and bindable) and true or false,
                         bindable  = bindable,
                         bindType  = eff and eff.type or nil,
@@ -155,7 +158,7 @@ return function(ms)
                             id       = id,
                             label    = def.label,
                             group    = def.group,
-                            bind     = _bindDisplay(eff),
+                            bind     = _bindDisplay(eff, ms.bindIgnoreMods and ms.bindIgnoreMods[id]),
                             parent   = directParent,
                             enabled  = (subEnabled and subBindable) and true or false,
                             bindable = subBindable,

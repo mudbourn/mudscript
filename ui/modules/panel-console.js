@@ -100,17 +100,11 @@
 
       function setConsoleDangerAck(acked) {
           _dangerAcked = (acked === true);
-          if (_dangerAcked) {
-              const el = _panel && _panel.querySelector(".danger-overlay");
-              if (el) el.classList.remove("open");
-          } else {
-              maybeShowConsoleDanger();
-          }
+          if (_dangerAcked) window.msConsoleDanger.hide();
+          else maybeShowConsoleDanger();
       }
 
       function dismissConsoleDanger() {
-          const el = _panel && _panel.querySelector(".danger-overlay");
-          if (el) el.classList.remove("open");
           _dangerAcked = true;
           try { lp.sendToHost({ action: "ackDanger" }); } catch (_) {}
           const input = document.getElementById("code-input");
@@ -119,27 +113,12 @@
 
       function maybeShowConsoleDanger() {
           if (_dangerAcked !== false) return;
-          const el = _panel && _panel.querySelector(".danger-overlay");
-          if (!el) return;
-          el.classList.add("open");
-          const btn = el.querySelector(".danger-ack");
-          if (btn) btn.focus();
+          if (!_panel || getComputedStyle(_panel).display === "none") return;
+          window.msConsoleDanger.show(dismissConsoleDanger);
       }
 
-      window.dismissConsoleDanger    = dismissConsoleDanger;
       window._maybeShowConsoleDanger = maybeShowConsoleDanger;
       window.setConsoleDangerAck     = setConsoleDangerAck;
-
-      document.addEventListener("keydown", (e) => {
-          const el = _panel && _panel.querySelector(".danger-overlay");
-          if (!el || !el.classList.contains("open")) return;
-          if (e.key === "Enter" || e.key === "Escape") {
-              e.preventDefault();
-              e.stopPropagation();
-              lp.playSlot("interact");
-              dismissConsoleDanger();
-          }
-      }, true);
   // END First-open danger notice //
 
   // Input bar //

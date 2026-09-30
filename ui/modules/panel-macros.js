@@ -256,6 +256,10 @@
 // END Secondary actions live under an overflow menu so the toolbar never clips them //
 
 // Every overflow item is icon + label so the menu reads as one consistent list //
+    function iconOnly(name) {
+        return window.icon ? window.icon(name) : "";
+    }
+
     function menuLabel(name, text) {
         return (window.icon ? window.icon(name) : "") + '<span>' + text + '</span>';
     }
@@ -320,10 +324,9 @@
     overflowMenu.appendChild(bindOptsBtn);
 
     var testBtn = document.createElement("button");
-    testBtn.className = "macro-toolbar-btn";
-    testBtn.innerHTML = menuLabel("play", "Test");
+    testBtn.className = "macro-toolbar-btn macro-icon-btn";
+    testBtn.innerHTML = iconOnly("play");
     testBtn.title = "Hide mudscript, run the macro, then come back";
-    testBtn.style.gap = "5px";
 
     var recordRow = document.createElement("div");
     recordRow.className = "macro-record-row";
@@ -335,7 +338,7 @@
 
     var recSettingsBtn = document.createElement("button");
     recSettingsBtn.className = "macro-toolbar-btn macro-record-settings-btn";
-    recSettingsBtn.textContent = "⋯";
+    recSettingsBtn.innerHTML = window.icon ? window.icon("ellipsis") : "...";
     recSettingsBtn.title = "Recording settings";
     recSettingsBtn.setAttribute("aria-label", "Recording settings");
     recordRow.appendChild(recSettingsBtn);
@@ -923,7 +926,9 @@
         _history.reset();
         var histBtns = window.msHistoryButtons(_history, "macro-toolbar-btn");
         [histBtns.undo, histBtns.redo].forEach(function(b) {
-            b.style.gap = "5px";
+            var label = b.querySelector("span");
+            if (label) label.remove();
+            b.classList.add("macro-icon-btn");
             histSlot.appendChild(b);
         });
     }
@@ -1157,6 +1162,7 @@
     function setBindList(list) {
         _bindList = Array.isArray(list) ? list : [];
         renderBindList();
+        if (window.msBindMenu) window.msBindMenu.refresh(_bindList);
     }
 
     function setMacroList(ids) {
@@ -1349,8 +1355,8 @@
     }
 
     function _resetTestBtn() {
-        testBtn.className = "macro-toolbar-btn";
-        testBtn.innerHTML = menuLabel("play", "Test");
+        testBtn.className = "macro-toolbar-btn macro-icon-btn";
+        testBtn.innerHTML = iconOnly("play");
         testBtn.disabled = false;
         _testRunning = false;
     }
@@ -1378,8 +1384,8 @@
         };
 
         _testRunning = true;
-        testBtn.className = "macro-toolbar-btn running";
-        testBtn.innerHTML = menuLabel("timer", "Running\u2026");
+        testBtn.className = "macro-toolbar-btn macro-icon-btn running";
+        testBtn.innerHTML = iconOnly("timer");
         testBtn.disabled = true;
 
         if (window.shellPost) {
@@ -1462,191 +1468,51 @@
 // END Recording options //
 
 // Recording settings menu //
-    var _recModal = null;
-
-    function _buildRecModal() {
-        var overlayEl = document.createElement("div");
-        overlayEl.className = "rec-settings-overlay";
-        overlayEl.style.cssText =
-            "position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;" +
-            "align-items:center;justify-content:center;z-index:320;opacity:0;" +
-            "pointer-events:none;transition:opacity 0.2s;";
-
-        var card = document.createElement("div");
-        card.style.cssText =
-            "background:var(--surface);border-top:2px solid var(--accent);" +
-            "border-radius:var(--radius);padding:18px 20px;width:340px;" +
-            "max-height:82vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,0.7)," +
-            "0 0 0 1px var(--border);transform:scale(0.96);transition:transform 0.2s;";
-        overlayEl.appendChild(card);
-
-        var title = document.createElement("div");
-        title.style.cssText = "font-size:14px;font-weight:700;margin-bottom:2px;";
-        title.textContent = "Recording Settings";
-        card.appendChild(title);
-
-        var sub = document.createElement("div");
-        sub.style.cssText = "font-size:11px;color:var(--text2);margin-bottom:14px;line-height:1.5;";
-        sub.textContent = "Choose what a recording captures. Applied to the next recording you start.";
-        card.appendChild(sub);
-
-        function row(label, hint, control) {
-            var r = document.createElement("div");
-            r.style.cssText =
-                "display:flex;align-items:center;justify-content:space-between;" +
-                "gap:12px;padding:9px 0;border-bottom:1px solid var(--border-dim,var(--border));";
-            var lwrap = document.createElement("div");
-            lwrap.style.cssText = "min-width:0;flex:1;";
-            var l = document.createElement("div");
-            l.style.cssText = "font-size:12px;color:var(--text);";
-            l.textContent = label;
-            lwrap.appendChild(l);
-            if (hint) {
-                var h = document.createElement("div");
-                h.style.cssText = "font-size:10px;color:var(--text3);margin-top:2px;line-height:1.4;";
-                h.textContent = hint;
-                lwrap.appendChild(h);
-            }
-            r.appendChild(lwrap);
-            r.appendChild(control);
-            card.appendChild(r);
-            return r;
-        }
-
-        function toggle(key) {
-            var wrap = document.createElement("label");
-            wrap.className = "toggle";
-            var input = document.createElement("input");
-            input.type = "checkbox";
-            input.checked = !!_recOpts[key];
-            var track = document.createElement("span"); track.className = "toggle-track";
-            var thumb = document.createElement("span"); thumb.className = "toggle-thumb";
-            wrap.appendChild(input); wrap.appendChild(track); wrap.appendChild(thumb);
-            input.addEventListener("change", function() {
-                _recOpts[key] = input.checked;
-                _saveRecOpts();
-                if (window.playSlot) playSlot("interact");
-            });
-            return wrap;
-        }
-
-        function slider(key, min, max) {
-            var wrap = document.createElement("div");
-            wrap.style.cssText = "display:flex;align-items:center;gap:10px;";
-            var input = document.createElement("input");
-            input.type = "range";
-            input.min = String(min); input.max = String(max); input.step = "1";
-            input.value = String(_recOpts[key] != null ? _recOpts[key] : min);
-            input.style.cssText = "flex:1;min-width:110px;accent-color:var(--accent);";
-            var val = document.createElement("span");
-            val.style.cssText = "font-size:12px;color:var(--text2);min-width:20px;text-align:right;font-variant-numeric:tabular-nums;";
-            val.textContent = input.value;
-            input.addEventListener("input", function() {
-                val.textContent = input.value;
-            });
-            input.addEventListener("change", function() {
-                _recOpts[key] = parseInt(input.value, 10);
-                _saveRecOpts();
-                if (window.playSlot) playSlot("interact");
-            });
-            wrap.appendChild(input);
-            wrap.appendChild(val);
-            return wrap;
-        }
-
-        function seg(key, opts) {
-            var s = document.createElement("div");
-            s.className = "seg";
-            opts.forEach(function(o) {
-                var b = document.createElement("button");
-                b.className = "seg-btn" + (_recOpts[key] === o.value ? " active" : "");
-                b.textContent = o.label;
-                b.title = o.hint || "";
-                b.addEventListener("click", function() {
-                    _recOpts[key] = o.value;
-                    _saveRecOpts();
-                    if (window.playSlot) playSlot("interact");
-                    Array.prototype.forEach.call(s.children, function(c) {
-                        c.classList.remove("active");
-                    });
-                    b.classList.add("active");
-                });
-                b.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
-                s.appendChild(b);
-            });
-            return s;
-        }
-
-        row("Record delays", "Insert wait modules for idle gaps between actions.", toggle("recordDelays"));
-        row("Key presses", "How keystrokes are captured.",
-            seg("pressMode", [
-                { value: "type",         label: "Type",    hint: "Full press+release keystroke (ms.type)" },
-                { value: "pressRelease", label: "Press",   hint: "Separate press and release with real hold timing" }
-            ]));
-        row("Record mouse buttons", "Capture left/right/middle clicks.", toggle("recordMouseButtons"));
-        row("Record mouse drags", "Capture press-move-release as a drag gesture.", toggle("recordDrags"));
-        row("Drag fidelity", "How closely a recorded drag follows your real path. Lower is coarser; higher tracks curves near 1:1. The whole gesture stays one module either way.", slider("dragGranularity", 1, 10));
-        row("Record mouse movement", "Capture free cursor motion (no button held) as moveMouse steps.", toggle("recordMouseMoves"));
-        row("Movement fidelity", "How closely recorded movement follows your real path. Lower is coarser, higher tracks curves near 1:1.", slider("moveGranularity", 1, 10));
-        row("Record window moves", "Capture moving the focused window.", toggle("recordWindowMove"));
-        var lastRow =
-        row("Record window resizes", "Capture resizing the focused window.", toggle("recordWindowResize"));
-        lastRow.style.borderBottom = "none";
-
-        var btns = document.createElement("div");
-        btns.className = "modal-btns";
-        btns.style.cssText = "display:flex;gap:8px;margin-top:16px;";
-        var resetBtn = document.createElement("button");
-        resetBtn.textContent = "Reset";
-        resetBtn.style.cssText = "flex:0 0 auto;padding:8px 12px;border-radius:var(--radius-s);" +
-            "font-size:13px;font-weight:600;background:var(--surface2);color:var(--text2);";
-        var doneBtn = document.createElement("button");
-        doneBtn.className = "primary";
-        doneBtn.textContent = "Done";
-        doneBtn.style.cssText = "flex:1;padding:8px;border-radius:var(--radius-s);" +
-            "font-size:13px;font-weight:600;background:var(--accent);color:var(--bg);";
-        btns.appendChild(resetBtn);
-        btns.appendChild(doneBtn);
-        card.appendChild(btns);
-
-        function close() {
-            overlayEl.style.opacity = "0";
-            overlayEl.style.pointerEvents = "none";
-            card.style.transform = "scale(0.96)";
-        }
-        resetBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
-        resetBtn.addEventListener("click", function() {
-            for (var k in _recOptDefaults) _recOpts[k] = _recOptDefaults[k];
-            _saveRecOpts();
-            if (window.playSlot) playSlot("back");
-            _recModal = null;
-            card.remove(); overlayEl.remove();
-            _openRecModal();
-        });
-        doneBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
-        doneBtn.addEventListener("click", function() { if (window.playSlot) playSlot("interact"); close(); });
-        overlayEl.addEventListener("click", function(e) {
-            if (e.target === overlayEl) { if (window.playSlot) playSlot("back"); close(); }
-        });
-
-        document.body.appendChild(overlayEl);
-        _recModal = { overlay: overlayEl, card: card };
-        return _recModal;
-    }
-
     function _openRecModal() {
-        var m = _recModal || _buildRecModal();
-        m.overlay.getBoundingClientRect();
-        m.overlay.style.opacity = "1";
-        m.overlay.style.pointerEvents = "all";
-        m.card.style.transform = "scale(1)";
+        function set(key) {
+            return function(v) {
+                _recOpts[key] = v;
+                _saveRecOpts();
+            };
+        }
+        window.msPopup.open({
+            title: "Recording Settings",
+            sub: "Choose what a recording captures. Applied to the next recording you start.",
+            build: function(p) {
+                p.row("Record delays", "Insert wait modules for idle gaps between actions.",
+                    p.toggle(_recOpts.recordDelays, set("recordDelays")));
+                p.row("Key presses", "How keystrokes are captured.", p.seg([
+                    { value: "type",         label: "Type",  hint: "Full press+release keystroke (ms.type)" },
+                    { value: "pressRelease", label: "Press", hint: "Separate press and release with real hold timing" },
+                ], _recOpts.pressMode, set("pressMode")));
+                p.row("Record mouse buttons", "Capture left/right/middle clicks.",
+                    p.toggle(_recOpts.recordMouseButtons, set("recordMouseButtons")));
+                p.row("Record mouse drags", "Capture press-move-release as a drag gesture.",
+                    p.toggle(_recOpts.recordDrags, set("recordDrags")));
+                p.row("Drag fidelity", "How closely a recorded drag follows your real path. Lower is coarser; higher tracks curves near 1:1. The whole gesture stays one module either way.",
+                    p.range(1, 10, _recOpts.dragGranularity, set("dragGranularity")));
+                p.row("Record mouse movement", "Capture free cursor motion (no button held) as moveMouse steps.",
+                    p.toggle(_recOpts.recordMouseMoves, set("recordMouseMoves")));
+                p.row("Movement fidelity", "How closely recorded movement follows your real path. Lower is coarser, higher tracks curves near 1:1.",
+                    p.range(1, 10, _recOpts.moveGranularity, set("moveGranularity")));
+                p.row("Record window moves", "Capture moving the focused window.",
+                    p.toggle(_recOpts.recordWindowMove, set("recordWindowMove")));
+                p.row("Record window resizes", "Capture resizing the focused window.",
+                    p.toggle(_recOpts.recordWindowResize, set("recordWindowResize")));
+                p.action(p.button("Reset", function() {
+                    for (var k in _recOptDefaults) _recOpts[k] = _recOptDefaults[k];
+                    _saveRecOpts();
+                    p.close();
+                    _openRecModal();
+                }, "back"));
+                p.spacer();
+                p.action(p.button("Done", function() { p.close(); }, "primary"));
+            },
+        });
     }
 
     recSettingsBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
-    recSettingsBtn.addEventListener("click", function() {
-        if (window.playSlot) playSlot("interact");
-        _openRecModal();
-    });
+    recSettingsBtn.addEventListener("click", _openRecModal);
 
     delMacroBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
     delMacroBtn.addEventListener("click", function() {
@@ -1730,16 +1596,16 @@
             }
             _testFromPad = false;
             if (body.ok) {
-                testBtn.className = "macro-toolbar-btn success";
+                testBtn.className = "macro-toolbar-btn macro-icon-btn success";
                 showTestToast("Macro ran successfully", "success", "check");
                 setTimeout(function() {
-                    if (!_testRunning) testBtn.className = "macro-toolbar-btn";
+                    if (!_testRunning) testBtn.className = "macro-toolbar-btn macro-icon-btn";
                 }, 2500);
             } else {
-                testBtn.className = "macro-toolbar-btn error";
+                testBtn.className = "macro-toolbar-btn macro-icon-btn error";
                 showTestToast(body.err || "Unknown error", "error", "close");
                 setTimeout(function() {
-                    if (!_testRunning) testBtn.className = "macro-toolbar-btn";
+                    if (!_testRunning) testBtn.className = "macro-toolbar-btn macro-icon-btn";
                 }, 5000);
             }
             return;

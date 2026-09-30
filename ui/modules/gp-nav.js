@@ -126,8 +126,7 @@
         }
 
         function modalOverlay() {
-            var md = document.getElementById('modal-overlay');
-            return (md && md.classList.contains('open')) ? md : null;
+            return window.msPopup ? window.msPopup.topEl() : null;
         }
 
         function mapOverlay() {
@@ -555,12 +554,9 @@
                     break;
                 case 'back':
                     var ov = activeOverlay();
-                    if (ov && ov.id === 'modal-overlay') {
-                        // Back cancels the modal through its own close path so the
-                        // pending promise resolves (a bare .open drop would strand
-                        // the caller waiting on it).
+                    if (ov && ov === modalOverlay()) {
                         sound('back');
-                        if (window.closeModal) window.closeModal(false);
+                        window.msPopup.cancelTop();
                         gpInTopbar = false;
                         setFocus(null);
                     } else if (ov) {

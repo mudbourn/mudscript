@@ -107,7 +107,7 @@
         var s = document.createElement("style");
         s.id = "gp-map-css";
         s.textContent =
-            ".gp-map-overlay { position: fixed; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center;"
+            ".gp-map-overlay { position: fixed; inset: 0; border-radius: var(--ms-window-radius, 0px); z-index: 60; display: none; align-items: center; justify-content: center;"
             + " background: rgba(0,0,0,0.55); opacity: 0; transition: opacity 0.15s ease; }"
             + ".gp-map-overlay.open { display: flex; opacity: 1; }"
             + ".gp-map-modal { display: flex; flex-direction: column; width: 640px; max-width: 92vw; max-height: 88vh;"

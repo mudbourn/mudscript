@@ -28,10 +28,28 @@
         shellPost("macros", action, body);
     }
 
+    var _live = null;
+
+    function findEntry(list, id) {
+        var hit = null;
+        (list || []).forEach(function(top) {
+            if (top.id === id) hit = top;
+            (top.subs || []).forEach(function(s) { if (s.id === id) hit = s; });
+        });
+        return hit;
+    }
+
+    function refresh(list) {
+        if (!_live || !_live.popup.isOpen()) return;
+        var e = findEntry(list, _live.id);
+        if (e) _live.popup.setSub("Bind: " + (e.bind || "Unset"));
+    }
+
     function openBindMenu(m, isSub, mode, ctx) {
         if (!window.msPopup) return;
         var editable = m.group !== "system" && !m.systemBind;
-        window.msPopup.open(m.label || m.id, "Bind: " + (m.bind || "Unset"), function(p) {
+        window.msPopup.open({ title: m.label || m.id, sub: "Bind: " + (m.bind || "Unset"), build: function(p) {
+            _live = { id: m.id, popup: p };
             if (isSub) {
                 p.row("Capture", "What the next rebind records.", p.seg([
                     { value: false, label: "Modifier only" },
@@ -83,10 +101,12 @@
                     shellPost("macros", "deleteMacro", { id: m.id });
                     ctx.onDelete(m.id);
                 });
-            }, true));
-        });
+            }, "danger"));
+            p.spacer();
+            p.action(p.button("Done", function() { p.close(); }));
+        } });
     }
 // END Bind options menu //
 
-    window.msBindMenu = { open: openBindMenu };
+    window.msBindMenu = { open: openBindMenu, refresh: refresh };
 })();

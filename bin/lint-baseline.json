@@ -195,7 +195,7 @@
     "non-ascii": 1
   },
   "ui/modules/gp-nav.js": {
-    "comment": 69
+    "comment": 66
   },
   "ui/modules/log-panel.js": {
     "comment": 38,
@@ -217,7 +217,7 @@
     "non-ascii": 4
   },
   "ui/modules/panel-macros.js": {
-    "non-ascii": 4
+    "non-ascii": 3
   },
   "ui/modules/panel-settings-builder.js": {
     "non-ascii": 2
@@ -253,8 +253,8 @@
     "non-ascii": 1
   },
   "ui/ms_console.html": {
-    "comment": 21,
-    "marker-unclosed": 4,
+    "comment": 20,
+    "marker-unclosed": 3,
     "non-ascii": 2
   },
   "ui/ms_curtain.html": {
@@ -280,9 +280,9 @@
     "font-reset-missing": 1
   },
   "ui/ms_shell.html": {
-    "comment": 60,
-    "file-length": 2376,
-    "marker-unclosed": 20,
+    "comment": 59,
+    "file-length": 2258,
+    "marker-unclosed": 19,
     "non-ascii": 3
   },
   "ui/ms_watcher.html": {

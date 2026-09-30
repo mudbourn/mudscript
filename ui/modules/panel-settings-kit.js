@@ -2,7 +2,6 @@
     "use strict";
         // State //
             let S = {};
-            let _modalResolve = null;
             let _toastTimer = null;
             let _ctxTarget = null;
         // END State //
@@ -173,6 +172,16 @@
         // END Toast //
 
         // Modal //
+            let _luaDialog = null;
+
+            function openDialog(title, msg, confirmLabel, cancelLabel, withInput, defaultVal) {
+                return window.msPopup.dialog({
+                    title, msg, confirmLabel, cancelLabel,
+                    input: withInput,
+                    defaultVal,
+                });
+            }
+
             function openModal(
                 title,
                 msg,
@@ -181,54 +190,30 @@
                 withInput = false,
                 defaultVal = "",
             ) {
-                return new Promise((resolve) => {
-                    _modalResolve = resolve;
-                    document.getElementById("modal-title").textContent = title;
-                    document.getElementById("modal-msg").textContent = msg;
-                    const inp = document.getElementById("modal-input");
-                    if (withInput) {
-                        inp.classList.add("show");
-                        inp.value = defaultVal;
-                        setTimeout(() => inp.focus(), 100);
-                    } else {
-                        inp.classList.remove("show");
-                    }
-                    document.getElementById("modal-confirm").style.display = "";
-                    document.getElementById("modal-cancel").style.display = "";
-                    const keysBox = document.getElementById("modal-keys");
-                    keysBox.innerHTML = "";
-                    keysBox.style.display = "none";
-                    document.getElementById("modal-confirm").textContent =
-                        confirmLabel;
-                    document.getElementById("modal-cancel").textContent =
-                        cancelLabel;
-                    const ov = document.getElementById("modal-overlay");
-                    ov.inert = false;
-                    ov.classList.add("open");
-                });
+                return openDialog(title, msg, confirmLabel, cancelLabel, withInput, defaultVal).result;
             }
             function closeModal(confirmed) {
-                const val = document.getElementById("modal-input").value;
-                const ov = document.getElementById("modal-overlay");
-                ov.classList.remove("open");
-                ov.inert = true;
-                if (_modalResolve) {
-                    _modalResolve({ confirmed, value: val });
-                    _modalResolve = null;
-                }
+                if (_luaDialog && _luaDialog.isOpen()) _luaDialog.finish(confirmed);
             }
             window.openModal = openModal;
             window.closeModal = closeModal;
 
             function openLuaModal(d) {
-                openModal(
+                if (_luaDialog && _luaDialog.isOpen()) {
+                    _luaDialog.stale = true;
+                    _luaDialog.finish(false);
+                }
+                const dlg = openDialog(
                     d.title || "",
                     d.msg || "",
                     d.confirm || "OK",
                     d.cancel || "Cancel",
                     !!d.hasInput,
                     d.inputDefault || "",
-                ).then((r) => {
+                );
+                _luaDialog = dlg;
+                dlg.result.then((r) => {
+                    if (dlg.stale) return;
                     sendToHost({
                         action: "modalResult",
                         confirmed: r.confirmed,
@@ -239,82 +224,17 @@
             window.openLuaModal = openLuaModal;
 
             function updateLuaModal(d) {
-                if (d.title !== undefined)
-                    document.getElementById("modal-title").textContent = d.title;
-                if (d.msg !== undefined)
-                    document.getElementById("modal-msg").textContent = d.msg;
-                if (d.confirm !== undefined)
-                    document.getElementById("modal-confirm").textContent =
-                        d.confirm;
-                if (d.cancel !== undefined)
-                    document.getElementById("modal-cancel").textContent =
-                        d.cancel;
-                if (d.showConfirm !== undefined)
-                    document.getElementById("modal-confirm").style.display =
-                        d.showConfirm ? "" : "none";
-                if (d.showCancel !== undefined)
-                    document.getElementById("modal-cancel").style.display =
-                        d.showCancel ? "" : "none";
-                if (d.keys !== undefined) {
-                    const box = document.getElementById("modal-keys");
-                    box.innerHTML = "";
-                    box.style.display = "flex";
-                    const arr = Array.isArray(d.keys) ? d.keys : [];
-                    if (arr.length === 0) {
-                        const ph = document.createElement("kbd");
-                        ph.className = "modal-key placeholder";
-                        ph.textContent = "...";
-                        box.appendChild(ph);
-                    } else {
-                        arr.forEach((k, i) => {
-                            if (i > 0) {
-                                const plus = document.createElement("span");
-                                plus.className = "modal-key-plus";
-                                plus.textContent = "+";
-                                box.appendChild(plus);
-                            }
-                            const cap = document.createElement("kbd");
-                            cap.className = "modal-key";
-                            cap.textContent = k;
-                            box.appendChild(cap);
-                        });
-                    }
-                }
+                const dlg = _luaDialog;
+                if (!dlg || !dlg.isOpen()) return;
+                if (d.title !== undefined) dlg.setTitle(d.title);
+                if (d.msg !== undefined) dlg.setSub(d.msg);
+                if (d.confirm !== undefined) dlg.setConfirmLabel(d.confirm);
+                if (d.cancel !== undefined) dlg.setCancelLabel(d.cancel);
+                if (d.showConfirm !== undefined) dlg.showConfirm(d.showConfirm);
+                if (d.showCancel !== undefined) dlg.showCancel(d.showCancel);
+                if (d.keys !== undefined) dlg.setKeys(d.keys);
             }
             window.updateLuaModal = updateLuaModal;
-
-            document
-                .getElementById("modal-overlay")
-                .addEventListener("click", (e) => {
-                    if (e.target === e.currentTarget) closeModal(false);
-                });
-            document.addEventListener("keydown", (e) => {
-                const overlay = document.getElementById("modal-overlay");
-                if (!overlay || !overlay.classList.contains("open")) return;
-                if (e.key === "Enter") {
-                    if (document.activeElement === document.getElementById("modal-input")) return;
-                    e.preventDefault();
-                    playSlot("interact");
-                    closeModal(true);
-                }
-                if (e.key === "Escape") {
-                    e.preventDefault();
-                    playSlot("back");
-                    closeModal(false);
-                }
-            });
-            document
-                .getElementById("modal-input")
-                .addEventListener("keydown", (e) => {
-                    if (e.key === "Enter") {
-                        playSlot("interact");
-                        closeModal(true);
-                    }
-                    if (e.key === "Escape") {
-                        playSlot("back");
-                        closeModal(false);
-                    }
-                });
         // END Modal //
 
         // Shutdown //
