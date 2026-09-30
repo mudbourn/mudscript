@@ -263,10 +263,12 @@
                 parts[#parts + 1] = numArg(x1, 0)
                 parts[#parts + 1] = numArg(y1, 0)
                 local op = tostring(p.operation or ""):lower()
-                if op == "drag" or p.x2 ~= nil or p.y2 ~= nil then
+                local hold = numArg(p.hold, 50)
+                if op == "drag" or p.x2 ~= nil or p.y2 ~= nil or hold ~= "50" then
                     parts[#parts + 1] = numArg(p.x2, 0)
                     parts[#parts + 1] = numArg(p.y2, 0)
                 end
+                if hold ~= "50" then parts[#parts + 1] = hold end
                 return indent(lvl) .. "ms.Mouse(" .. table.concat(parts, ", ") .. ")"
             end
 

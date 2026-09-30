@@ -178,12 +178,13 @@
             {
                 id: "ms.Mouse",
                 name: "ms.Mouse",
-                sig: "ms.Mouse(operation, button, reference, x1, y1, x2, y2)",
+                sig: "ms.Mouse(operation, button, reference, x1, y1, x2, y2, holdMs)",
                 desc: "Unified mouse API (click, move, drag at coordinates).",
                 category: "mouse",
                 params: [
                     { name: "operation", type: "enum", options: MOUSE_OPS,  label: "Operation", required: true },
                     { name: "button",    type: "enum", options: MOUSE_BTNS, label: "Button",    required: true },
+                    { name: "hold",      type: "number", unit: "ms", default: 50, label: "Hold (ms)", required: false },
                     { name: "reference", type: "enum", options: MOUSE_REFS, label: "Reference", required: true },
                     { name: "x1",        type: "number",  label: "X1",                          required: true },
                     { name: "y1",        type: "number",  label: "Y1",                          required: true },

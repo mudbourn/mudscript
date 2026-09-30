@@ -786,12 +786,13 @@
             var params = {};
             (fn.params || []).forEach(function(p) {
                 if (p.type === "mods") params[p.name] = [];
-                else if (p.type === "number") params[p.name] = 0;
+                else if (p.type === "number") params[p.name] = p.default != null ? p.default : 0;
                 else if (p.type === "enum") params[p.name] = enumDefault(p);
                 else params[p.name] = "";
             });
             return { action: fn.name, params: params };
         }
+        _canvas.defFor = buildDefaultDef;
         function beforeSidAt(clientY) {
             var root = _canvas._root;
             var blocks = root.children;
@@ -852,6 +853,12 @@
         var t = e.target;
         if (t && t.closest && t.closest("input, textarea, [contenteditable='true']")) return;
         var mod = e.metaKey || e.ctrlKey;
+        var hk = _history && window.msHistoryKey(e);
+        if (hk) {
+            e.preventDefault();
+            if (_history[hk]() && window.playSlot) playSlot("interact");
+            return;
+        }
         if (mod && (e.key === "a" || e.key === "A")) {
             e.preventDefault();
             _canvas.selectAll();
@@ -859,7 +866,7 @@
         }
         if (mod && (e.key === "v" || e.key === "V")) {
             e.preventDefault();
-            _canvas.pasteAfter();
+            if (!(e.shiftKey && _canvas.pasteInside())) _canvas.pasteAfter();
             _macroDirty = true;
             updateSaveBtnState();
             return;
@@ -878,6 +885,10 @@
             _canvas.cutSelected();
             _macroDirty = true;
             updateSaveBtnState();
+        } else if (mod && (e.key === "d" || e.key === "g")) {
+            e.preventDefault();
+            if (e.key === "d") _canvas.duplicateSelected();
+            else _canvas.openWrapMenu();
         } else if (e.key === "Delete" || e.key === "Backspace") {
             e.preventDefault();
             _canvas.removeSelected();
@@ -885,6 +896,35 @@
             updateSaveBtnState();
         }
     });
+
+    var _history = window.createHistory && window.createHistory({
+        limit: 256,
+        capture: function() {
+            return {
+                steps: _canvas.serialize(),
+                cls: _currentMacroClass,
+                cooldown: _currentMacroCooldown,
+                shared: _currentMacroShared,
+            };
+        },
+        restore: function(snap) {
+            if (_toolEditor && _toolEditor._open) _toolEditor.close();
+            _canvas.load(snap.steps);
+            setMacroClass(snap.cls);
+            _currentMacroCooldown = snap.cooldown;
+            cooldownInput.value = snap.cooldown != null ? String(snap.cooldown) : "";
+            _currentMacroShared = snap.shared;
+            sharedInput.value = snap.shared;
+            _macroDirty = true;
+            updateSaveBtnState();
+        },
+    });
+    if (_history) {
+        _history.reset();
+        var histBtns = window.msHistoryButtons(_history, "macro-toolbar-btn");
+        overflowMenu.insertBefore(histBtns.redo, testBtn);
+        overflowMenu.insertBefore(histBtns.undo, histBtns.redo);
+    }
 
     var _toolEditor = null;
     if (window.ToolEditor) {
@@ -1266,6 +1306,7 @@
             sharedInput.value = "";
             _macroDirty = false;
             updateSaveBtnState();
+            if (_history) _history.reset();
             updateBindBtn();
             return;
         }
@@ -1286,6 +1327,7 @@
         sharedInput.value = _currentMacroShared;
         _macroDirty = false;
         updateSaveBtnState();
+        if (_history) _history.reset();
         macroSelect.value = def.id;
         updateBindBtn();
     }
@@ -1373,11 +1415,13 @@
         sharedInput.value = "";
         _macroDirty = false;
         updateSaveBtnState();
+        if (_history) _history.reset();
         refreshMacroList();
     }
 
     function updateSaveBtnState() {
         saveBtn.style.opacity = _macroDirty ? "1" : "0.5";
+        if (_macroDirty && _history) _history.record();
     }
 // END Show the macro's effective bind //
 
@@ -1397,6 +1441,7 @@
         sharedInput.value = "";
         _macroDirty = false;
         updateSaveBtnState();
+        if (_history) _history.reset();
         macroSelect.value = "";
         updateBindBtn();
     });

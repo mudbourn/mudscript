@@ -99,17 +99,13 @@
                         "row-sub row-compact",
                     );
 
-                body.appendChild(
-                    row(
-                        "Type",
-                        "What kind of control to add",
-                        seg(typeLabels, draft.type, (v) => {
-                            draft.type = v;
-                            renderDynamic();
-                            updatePreview();
-                        }),
-                    ),
-                );
+                const typeSeg = () => seg(typeLabels, draft.type, (v) => {
+                    draft.type = v;
+                    renderDynamic();
+                    updatePreview();
+                });
+                let typeCtl = typeSeg();
+                body.appendChild(row("Type", "What kind of control to add", typeCtl));
 
                 body.appendChild(divider());
                 const dyn = h("div", { cls: "setting-builder-dyn" });
@@ -292,6 +288,7 @@
                                     draft.target,
                                     (v) => {
                                         draft.target = v;
+                                        updatePreview();
                                     },
                                 ),
                                 "row-sub",
@@ -351,7 +348,35 @@
                     );
                 }
 
+                const undoHistory = window.createHistory && window.createHistory({
+                    limit: 64,
+                    capture: () => ({ draft: draft, editKey: editKey }),
+                    restore: (snap) => {
+                        Object.assign(draft, snap.draft);
+                        editKey = snap.editKey;
+                        primaryBtn.textContent = editKey ? "Update Setting" : "Add Setting";
+                        const next = typeSeg();
+                        typeCtl.replaceWith(next);
+                        typeCtl = next;
+                        syncIdentityInputs();
+                        renderDynamic();
+                        updatePreview();
+                    },
+                });
+                const onHistoryKey = (e) => {
+                    if (!body.isConnected) {
+                        document.removeEventListener("keydown", onHistoryKey);
+                        return;
+                    }
+                    const hk = body.getClientRects().length && window.msHistoryKey(e);
+                    if (!hk) return;
+                    e.preventDefault();
+                    if (undoHistory[hk]()) playSlot("interact");
+                };
+                if (undoHistory) document.addEventListener("keydown", onHistoryKey);
+
                 function updatePreview() {
+                    if (undoHistory) undoHistory.record();
                     preview.innerHTML = "";
                     const def = buildDef();
                     try {
@@ -365,6 +390,7 @@
 
                 renderDynamic();
                 updatePreview();
+                if (undoHistory) undoHistory.reset();
             }
 
             const _dragSvg = '<svg class="icon" viewBox="0 0 24 24" fill="none" '

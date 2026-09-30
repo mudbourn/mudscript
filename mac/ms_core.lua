@@ -1865,13 +1865,10 @@
                 assert(BTNS[button] ~= nil, "ms.Mouse: unknown button '"      .. tostring(button)     .. "'")
                 assert(REFS[reference],    "ms.Mouse: unknown reference '"   .. tostring(reference)  .. "'")
 
-                local x1, y1, x2, y2
-                local _a, _b, _c, _d, _e = ...
-                if type(_a) == "boolean" then
-                    x1, y1, x2, y2 = _b, _c, _d, _e
-                else
-                    x1, y1, x2, y2 = _a, _b, _c, _d
-                end
+                local args = { ... }
+                local o = type(args[1]) == "boolean" and 1 or 0
+                local x1, y1, x2, y2 = args[o + 1], args[o + 2], args[o + 3], args[o + 4]
+                local hold = tonumber(args[o + 5]) or 50
 
                 do
                     local parts = {
@@ -1943,23 +1940,23 @@
 
                 local function singleClick(pos)
                     post(downT, pos)
-                    ms.wait(50)
+                    ms.wait(hold)
                     post(upT, pos)
                 end
 
                 if     operation == "Move"        then moveTo(pos1)
                 elseif operation == "Click"       then moveTo(pos1)
-                ms.wait(50)
+                if not follow then ms.wait(50) end
                 singleClick(pos1)
                 elseif operation == "DoubleClick" then
                     moveTo(pos1)
-                    ms.wait(50)
+                    if not follow then ms.wait(50) end
                     singleClick(pos1)
                     ms.wait(50)
                     singleClick(pos1)
                 elseif operation == "TripleClick" then
                     moveTo(pos1)
-                    ms.wait(50)
+                    if not follow then ms.wait(50) end
                     for i = 1, 3 do singleClick(pos1)
                     if i < 3 then ms.wait(50) end end
                 elseif operation == "Drag"        then

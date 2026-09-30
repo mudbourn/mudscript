@@ -123,7 +123,7 @@
   },
   "mac/ms_core.lua": {
     "comment": 93,
-    "file-length": 6998,
+    "file-length": 6995,
     "lua-inline-table": 31,
     "marker-blank-after-open": 2,
     "marker-blank-before-end": 5,
@@ -248,7 +248,7 @@
     "font-reset-missing": 1
   },
   "ui/ms_shell.html": {
-    "comment": 61,
+    "comment": 60,
     "file-length": 2509,
     "marker-unclosed": 20,
     "non-ascii": 3

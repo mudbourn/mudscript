@@ -108,6 +108,9 @@
 
     function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
 
+    var EMPTY_CLIP = "empty, click to paste";
+    if (window.ICONS) window.ICONS["paste-in"] = '<path d="M15 10L20 15L15 20M4 4V11C4 13.2091 5.79086 15 8 15H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+
 // ToolCanvas class //
     function ToolCanvas(container, opts) {
         this._el = container;
@@ -474,6 +477,20 @@
         });
         acts.appendChild(pt);
 
+        if (this._isContainer(step)) {
+            var pin = document.createElement("div");
+            pin.className = "tool-action-btn paste";
+            pin.title = step.action === "if" ? "Paste module inside (then branch)" : "Paste module inside";
+            pin.innerHTML = window.icon ? window.icon("paste-in") : "";
+            pin.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
+            pin.addEventListener("click", function(e) {
+                e.stopPropagation();
+                if (window.playSlot) playSlot("interact");
+                self.pasteInto(step._sid);
+            });
+            acts.appendChild(pin);
+        }
+
         var db = document.createElement("div");
         db.className = "tool-action-btn del";
         db.title = "Delete module";
@@ -577,7 +594,11 @@
         if (steps.length === 0) {
             var emp = document.createElement("div");
             emp.className = "tool-nest-body-empty";
-            emp.textContent = "empty";
+            emp.textContent = this._clipboard ? EMPTY_CLIP : "empty";
+            emp.addEventListener("click", function(e) {
+                e.stopPropagation();
+                if (self.pasteInto(parent._sid, branch) && window.playSlot) playSlot("interact");
+            });
             body.appendChild(emp);
         } else {
             for (var i=0;i<steps.length;i++) body.appendChild(this._renderTool(steps[i]));
@@ -921,7 +942,10 @@
         this._strip(clones);
         try { navigator.clipboard.writeText(JSON.stringify(clones.length === 1 ? clones[0] : clones)); } catch(e) {}
         this._clipboard = clones;
-        if (this._root) this._root.classList.add("has-clip");
+        if (this._root) {
+            this._root.classList.add("has-clip");
+            this._root.querySelectorAll(".tool-nest-body-empty").forEach(function(el) { el.textContent = EMPTY_CLIP; });
+        }
         return true;
     };
     ToolCanvas.prototype.copyStep = function(sid) {
@@ -957,58 +981,17 @@
 // END Clipboard //
 
 // Paste the clipboard modules after `afterId` //
-    ToolCanvas.prototype.pasteAfterId = function(afterId) {
-        if (!this._clipboard) return false;
-        var entries = Array.isArray(this._clipboard) ? this._clipboard : [this._clipboard];
-        if (!entries.length) return false;
+    ToolCanvas.prototype._insertClones = function(list, at, sources) {
         var newIds = [];
-        var insertAt = afterId ? this._findIdx(this._tools, afterId) : -1;
-        var atTop = (insertAt === -1);
-        for (var i = 0; i < entries.length; i++) {
-            var clone = deepClone(entries[i]);
-            clone._sid = nextToolId();
-            this._map[clone._sid] = clone;
-            if (clone.then) this._assignIds(clone.then);
-            if (clone.else) this._assignIds(clone.else);
-            if (clone.body) this._assignIds(clone.body);
-            if (atTop) this._tools.splice(i, 0, clone);
-            else this._tools.splice(insertAt + 1 + i, 0, clone);
-            newIds.push(clone._sid);
-        }
-        this._setSelection(newIds);
-        this._render();
-        this._applySelectionClasses();
-        this._emitSelection();
-        if (this._root) this._root.classList.add("has-clip");
-        this._fireChange();
-        return true;
-    };
-    ToolCanvas.prototype.pasteAfter = function() {
-        var ids = this._selList();
-        return this.pasteAfterId(ids.length ? ids[ids.length - 1] : null);
-    };
-// END Paste the clipboard modules after `afterId` //
-
-// Clone the selected blocks in place //
-    ToolCanvas.prototype.duplicateSelected = function() {
-        var ids = this._selList();
-        if (!ids.length) return false;
-        var afterId = ids[ids.length - 1];
-        var insertAt = this._findIdx(this._tools, afterId);
-        var atTop = (insertAt === -1);
-        var newIds = [];
-        for (var i = 0; i < ids.length; i++) {
-            var src = this._map[ids[i]];
-            if (!src) continue;
-            var clone = deepClone(src);
+        for (var i = 0; i < sources.length; i++) {
+            var clone = deepClone(sources[i]);
             this._strip([clone]);
             clone._sid = nextToolId();
             this._map[clone._sid] = clone;
             if (clone.then) this._assignIds(clone.then);
             if (clone.else) this._assignIds(clone.else);
             if (clone.body) this._assignIds(clone.body);
-            if (atTop) this._tools.splice(newIds.length, 0, clone);
-            else this._tools.splice(insertAt + 1 + newIds.length, 0, clone);
+            list.splice(at + i, 0, clone);
             newIds.push(clone._sid);
         }
         if (!newIds.length) return false;
@@ -1019,7 +1002,107 @@
         this._fireChange();
         return newIds[newIds.length - 1];
     };
+    ToolCanvas.prototype._clipEntries = function() {
+        if (!this._clipboard) return [];
+        return Array.isArray(this._clipboard) ? this._clipboard : [this._clipboard];
+    };
+    ToolCanvas.prototype.pasteAfterId = function(afterId) {
+        var entries = this._clipEntries();
+        if (!entries.length) return false;
+        var loc = afterId ? this._locate(afterId) : null;
+        return !!this._insertClones(loc ? loc.list : this._tools, loc ? loc.idx + 1 : 0, entries);
+    };
+    ToolCanvas.prototype.pasteAfter = function() {
+        var ids = this._selList();
+        return this.pasteAfterId(ids.length ? ids[ids.length - 1] : null);
+    };
+    ToolCanvas.prototype.pasteInto = function(parentSid, branch) {
+        var parent = this._map[parentSid];
+        var entries = this._clipEntries();
+        if (!parent || !this._isContainer(parent) || !entries.length) return false;
+        branch = branch || (parent.action === "if" ? "then" : "body");
+        if (!parent[branch]) parent[branch] = [];
+        return !!this._insertClones(parent[branch], parent[branch].length, entries);
+    };
+    ToolCanvas.prototype.pasteInside = function() {
+        var ids = this._selList();
+        return ids.length ? this.pasteInto(ids[ids.length - 1]) : false;
+    };
+// END Paste the clipboard modules after `afterId` //
+
+// Clone the selected blocks in place //
+    ToolCanvas.prototype.duplicateSelected = function() {
+        var ids = this._selList();
+        var loc = ids.length ? this._locate(ids[ids.length - 1]) : null;
+        if (!loc) return false;
+        var sources = [];
+        for (var i = 0; i < ids.length; i++) { if (this._map[ids[i]]) sources.push(this._map[ids[i]]); }
+        return this._insertClones(loc.list, loc.idx + 1, sources);
+    };
 // END Clone the selected blocks in place //
+
+// Wrap the selected siblings in a new container //
+    var WRAP_ACTIONS = ["if", "while", "for", "repeat"];
+
+    ToolCanvas.prototype.wrapSelected = function(def) {
+        var ids = this._selList();
+        var first = ids.length ? this._locate(ids[0]) : null;
+        if (!first || !def) return false;
+        var list = first.list;
+        var idxs = [];
+        for (var i = 0; i < ids.length; i++) {
+            var loc = this._locate(ids[i]);
+            if (loc && loc.list === list) idxs.push(loc.idx);
+        }
+        idxs.sort(function(a, b) { return a - b; });
+        var box = deepClone(def);
+        seedContainer(box);
+        box._sid = nextToolId();
+        this._map[box._sid] = box;
+        var branch = box.action === "if" ? "then" : "body";
+        for (var k = idxs.length - 1; k >= 0; k--) box[branch].unshift(list.splice(idxs[k], 1)[0]);
+        list.splice(idxs[0], 0, box);
+        this._setSelection([box._sid]);
+        this._render();
+        this._applySelectionClasses();
+        this._emitSelection();
+        this._fireChange();
+        return box._sid;
+    };
+
+    ToolCanvas.prototype.openWrapMenu = function() {
+        var self = this;
+        var ids = this._selList();
+        if (!ids.length || !this.defFor) return false;
+        var anchor = this._root.querySelector('.tool-block[data-sid="' + ids[0] + '"]');
+        var r = (anchor || this._root).getBoundingClientRect();
+        var menu = document.createElement("div");
+        menu.className = "macro-overflow-menu";
+        menu.style.cssText = "display:flex;flex-direction:column;position:fixed;z-index:1000;left:" + (r.left + 24) + "px;top:" + (r.bottom + 2) + "px";
+        var close = function() {
+            menu.remove();
+            document.removeEventListener("mousedown", outside, true);
+            document.removeEventListener("keydown", onKey, true);
+        };
+        var outside = function(e) { if (!menu.contains(e.target)) close(); };
+        var onKey = function(e) { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); } };
+        WRAP_ACTIONS.forEach(function(action) {
+            var b = document.createElement("button");
+            b.className = "macro-toolbar-btn";
+            b.innerHTML = (_svgCache[iconFor(action)] || "") + "<span>Wrap in " + action + "</span>";
+            b.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
+            b.addEventListener("click", function() {
+                close();
+                if (self.wrapSelected(self.defFor(action)) && window.playSlot) playSlot("interact");
+            });
+            menu.appendChild(b);
+        });
+        document.body.appendChild(menu);
+        document.addEventListener("mousedown", outside, true);
+        document.addEventListener("keydown", onKey, true);
+        return true;
+    };
+// END Wrap the selected siblings in a new container //
 
     window.msSvgCache = _svgCache;
     window.msFetchSVG = _fetchSVG;

@@ -157,9 +157,11 @@ ms.multiPress({"a", "b"}, 100, {"shift"}) -- Shift+A, Shift+B
 
 ## Mouse Actions
 
-### `ms.Mouse(operation, button, reference, x1, y1 [, x2, y2])`
+### `ms.Mouse(operation, button, reference, x1, y1 [, x2, y2 [, holdMs]])`
 
 Unified, named-constant mouse API. All arguments are validated at call time, typos error immediately.
+
+`holdMs` sets how long each click holds the button down (default 50). Pass `0, 0` for `x2, y2` to set it on a click, e.g. `ms.Mouse(Click, Left, Follow, 0, 0, 0, 0, 10)`. A click that does not move the cursor (`Follow`, or `Mouse` at 0,0) skips the 50ms settle wait before pressing.
 
 #### Operations (first argument)
 

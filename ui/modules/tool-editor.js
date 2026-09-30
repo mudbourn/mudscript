@@ -705,7 +705,7 @@
 
             for (const key of keys) {
                 const def = defs[key];
-                const value = tool.params ? tool.params[key] : undefined;
+                const value = tool.params && tool.params[key] !== undefined ? tool.params[key] : def.default;
                 const row = this._buildParamRow(key, def, value, tool._sid);
                 if (row) this._formEl.appendChild(row);
             }
@@ -728,7 +728,7 @@
                             // Live-sourced
                             defs[p.name] = { type: "select", options: self._choiceOptions(p, tool) };
                         } else {
-                            defs[p.name] = { type: p.type };
+                            defs[p.name] = { type: p.type, unit: p.unit, default: p.default };
                         }
                     });
                     return defs;
@@ -801,7 +801,7 @@
 
             const label = document.createElement("div");
             label.className = "tool-editor-label";
-            label.textContent = key;
+            label.textContent = def.unit ? key + " (" + def.unit + ")" : key;
             row.appendChild(label);
 
             const control = document.createElement("div");

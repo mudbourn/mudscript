@@ -371,7 +371,7 @@
                     _paramValues[p.name] = [];
                     _modState = { ctrl: false, alt: false, shift: false, cmd: false };
                 } else if (p.type === "number") {
-                    _paramValues[p.name] = 0;
+                    _paramValues[p.name] = p.default != null ? p.default : 0;
                 } else if (p.type === "boolean") {
                     _paramValues[p.name] = false;
                 } else if (p.type === "enum") {
