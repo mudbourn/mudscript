@@ -43,6 +43,43 @@
   "mac/install.sh": {
     "comment": 10
   },
+  "mac/lib/core/bind_controller.lua": {
+    "comment": 1,
+    "lua-inline-table": 1
+  },
+  "mac/lib/core/bind_system.lua": {
+    "comment": 2,
+    "lua-inline-table": 19
+  },
+  "mac/lib/core/compiler_bridge.lua": {
+    "comment": 10
+  },
+  "mac/lib/core/keyboard.lua": {
+    "comment": 9,
+    "marker-indent": 1,
+    "marker-label": 1,
+    "marker-orphan-end": 1,
+    "non-ascii": 2
+  },
+  "mac/lib/core/mouse.lua": {
+    "comment": 19,
+    "lua-inline-table": 2,
+    "marker-blank-after-open": 1,
+    "marker-blank-before-end": 1,
+    "marker-body-indent": 1
+  },
+  "mac/lib/core/safety_nets.lua": {
+    "comment": 5,
+    "lua-inline-table": 1
+  },
+  "mac/lib/core/utilities.lua": {
+    "comment": 29,
+    "lua-inline-table": 8,
+    "marker-indent": 1,
+    "marker-label": 1,
+    "marker-orphan-end": 1,
+    "non-ascii": 2
+  },
   "mac/lib/ms_alert.lua": {
     "comment": 5
   },
@@ -122,16 +159,11 @@
     "lua-inline-table": 1
   },
   "mac/ms_core.lua": {
-    "comment": 93,
-    "file-length": 6995,
-    "lua-inline-table": 31,
-    "marker-blank-after-open": 2,
-    "marker-blank-before-end": 5,
-    "marker-body-indent": 4,
-    "marker-indent": 6,
-    "marker-label": 7,
-    "marker-orphan-end": 2,
-    "non-ascii": 4
+    "comment": 18,
+    "marker-blank-before-end": 1,
+    "marker-body-indent": 3,
+    "marker-indent": 4,
+    "marker-label": 4
   },
   "plugins/HIDInject.spoon/README.md": {
     "semicolon": 1
