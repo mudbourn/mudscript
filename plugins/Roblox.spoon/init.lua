@@ -5,7 +5,7 @@ local obj = {}
 obj.__index = obj
 
 obj.name    = "Roblox"
-obj.version = "0.2.1"
+obj.version = "0.2.2"
 obj.author  = "mudbourn"
 obj.license = "MIT"
 
@@ -77,7 +77,6 @@ obj.license = "MIT"
 
 local _sensWatcher = nil
 local _sensTimer   = nil
-local _sensSeen    = nil
 local _cacheTimer  = nil
 
 -- Settings Reader --
@@ -272,12 +271,10 @@ function obj:init()
     -- END Camera Sensitivity --
 
     -- Sensitivity Tether --
-        local function syncSensitivity(force)
+        local function syncSensitivity()
             if ms.settings.get("robloxSyncSensitivity") == false then return end
             local sens = effectiveSensitivity()
             if type(sens) ~= "number" or sens <= 0 then return end
-            if sens == _sensSeen and not force then return end
-            _sensSeen = sens
             if ms._camSens ~= sens then
                 if ms.settings.get("cameraSensitivity") ~= nil then
                     pcall(ms.settings.set, "cameraSensitivity", sens)
@@ -294,7 +291,7 @@ function obj:init()
             default = true,
             save    = true,
             section = "roblox",
-            onChange = function() pcall(syncSensitivity, true) end,
+            onChange = function() pcall(syncSensitivity) end,
         })
 
         if _sensWatcher then _sensWatcher:stop() end
@@ -305,7 +302,7 @@ function obj:init()
 
         if _sensTimer then _sensTimer:stop() end
         _sensTimer = hs.timer.doEvery(10, function() pcall(syncSensitivity) end)
-        pcall(syncSensitivity, true)
+        pcall(syncSensitivity)
     -- END Sensitivity Tether --
 
     -- Cache Cleaner Toggle --
