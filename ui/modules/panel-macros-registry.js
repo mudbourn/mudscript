@@ -7,6 +7,7 @@
         var MOUSE_REFS = [
             { value: "Absolute",     label: "Absolute (screen coords)" },
             { value: "Mouse",        label: "Mouse (relative to cursor)" },
+            { value: "Follow",       label: "Follow cursor (no move)" },
             { value: "WindowTL",     label: "Window - Top-Left" },
             { value: "WindowTR",     label: "Window - Top-Right" },
             { value: "WindowBL",     label: "Window - Bottom-Left" },

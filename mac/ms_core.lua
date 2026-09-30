@@ -574,6 +574,7 @@
             Unscaled    = true
             Absolute     = "Absolute"
             Mouse        = "Mouse"
+            Follow       = "Follow"
             WindowTL     = "WindowTL"
             WindowTR     = "WindowTR"
             WindowBL     = "WindowBL"
@@ -1853,7 +1854,7 @@
                     Button5=4,
                 }
                 local REFS = {
-                    Absolute=true,   Mouse=true,
+                    Absolute=true,   Mouse=true,     Follow=true,
                     WindowTL=true,   WindowTR=true,  WindowBL=true,
                     WindowBR=true,   WindowCenter=true,
                     ScreenTL=true,   ScreenTR=true,  ScreenBL=true,
@@ -1921,8 +1922,7 @@
                     dragT = hs.eventtap.event.types.otherMouseDragged
                 end
 
-                local follow = reference == "Mouse" and (x1 or 0) == 0 and (y1 or 0) == 0 and x2 == nil
-
+                local follow = operation ~= "Drag" and (reference == "Follow" or (reference == "Mouse" and (x1 or 0) == 0 and (y1 or 0) == 0 and (x2 or 0) == 0 and (y2 or 0) == 0))
                 local function post(evType, pos)
                     if follow then pos = hs.mouse.absolutePosition() end
                     local ev = hs.eventtap.event.newMouseEvent(evType, pos)
@@ -2252,9 +2252,9 @@
                 local f   = win and win:frame()
                 local s   = hs.screen.mainScreen():frame()
                 if     reference == "Absolute"     then return x, y
-                elseif reference == "Mouse"        then
+                elseif reference == "Mouse" or reference == "Follow" then
                     local p = hs.mouse.absolutePosition()
-                    return p.x + x, p.y + y
+                    return p.x + (x or 0), p.y + (y or 0)
                 elseif reference == "WindowTL"     then
                     if not f then return x, y end
                     return f.x + x,         f.y + y

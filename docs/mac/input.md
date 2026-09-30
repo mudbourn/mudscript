@@ -183,6 +183,7 @@ Unified, named-constant mouse API. All arguments are validated at call time, typ
 |----------|-------------------|
 | `Absolute` | Raw screen pixels. |
 | `Mouse` | Offset from current cursor position. |
+| `Follow` | Clicks wherever the cursor is at each press and release, and never moves it. Offsets are ignored. Not for `Drag`. |
 | `WindowTL` | From Roblox window top-left. |
 | `WindowTR` | From Roblox window top-right. |
 | `WindowBL` | From Roblox window bottom-left. |
@@ -201,6 +202,7 @@ Coordinates are raw pixel offsets from the reference origin. To fit a macro to y
 ```lua
 ms.Mouse(Click,   Left,  WindowTL, 900, 660)
 ms.Mouse(Move,    Left,  Mouse,    0,   0)
+ms.Mouse(Click,   Left,  Follow)
 ms.Mouse(Drag,    Left,  Absolute, 100, 100, 300, 300)
 ms.Mouse(Press,   Left,  WindowTL, 467, 52)
 ms.Mouse(Release, Right, WindowCenter, 0, 0)

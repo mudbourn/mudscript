@@ -118,7 +118,7 @@ These are plain globals available from `ms_macros.lua`.
 
 **Buttons:** `Left`, `Right`, `Center`, `Button4`, `Button5`
 
-**References:** `Absolute`, `Mouse`, `WindowTL`, `WindowTR`, `WindowBL`, `WindowBR`, `WindowCenter`, `ScreenTL`, `ScreenTR`, `ScreenBL`, `ScreenBR`, `ScreenCenter`
+**References:** `Absolute`, `Mouse`, `Follow`, `WindowTL`, `WindowTR`, `WindowBL`, `WindowBR`, `WindowCenter`, `ScreenTL`, `ScreenTR`, `ScreenBL`, `ScreenBR`, `ScreenCenter`
 
 ---
 

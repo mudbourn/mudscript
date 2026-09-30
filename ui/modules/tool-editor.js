@@ -20,7 +20,7 @@
       "ms.cam":           { dx: "number", dy: "number" },
       "ms.Mouse":         { operation: { type: "select", options: ["Move","Click","DoubleClick","TripleClick","Drag","Press","Release"] },
                             button:    { type: "select", options: ["Left","Right","Center","Button4","Button5"] },
-                            reference: { type: "select", options: ["Absolute","Mouse","WindowTL","WindowTR","WindowBL","WindowBR","WindowCenter","ScreenTL","ScreenTR","ScreenBL","ScreenBR","ScreenCenter"] },
+                            reference: { type: "select", options: ["Absolute","Mouse","Follow","WindowTL","WindowTR","WindowBL","WindowBR","WindowCenter","ScreenTL","ScreenTR","ScreenBL","ScreenBR","ScreenCenter"] },
                             x1: "number", y1: "number", x2: "number", y2: "number" },
       "ms.click":         { button: { type: "select", options: ["Left","Right","Center","Button4","Button5"] },
                             x: "number", y: "number" },
