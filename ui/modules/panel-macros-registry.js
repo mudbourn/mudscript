@@ -684,10 +684,10 @@
                 id: "repeat",
                 name: "repeat",
                 sig: "repeat ... until <condition>",
-                desc: "Loop the nested modules until a Lua condition becomes true (runs at least once).",
+                desc: "Loop the nested modules until a Lua condition becomes true (runs at least once). A plain number runs that many times.",
                 category: "logic",
                 params: [
-                    { name: "condition", type: "condition", label: "Until", required: false }
+                    { name: "condition", type: "condition", label: "Until or count", required: false }
                 ]
             },
             {

@@ -664,7 +664,12 @@
                 end
                 _loopDepth = _loopDepth - 1
                 if not hasWait(step.body) then lines[#lines + 1] = indent(lvl + 1) .. "ms.wait(0)" end
-                lines[#lines + 1] = indent(lvl) .. "until " .. cond
+                local count = tonumber(cond)
+                if count then
+                    lines[#lines + 1] = indent(lvl) .. "until " .. fc .. " >= " .. math.max(1, math.floor(count))
+                else
+                    lines[#lines + 1] = indent(lvl) .. "until " .. cond
+                end
                 lines[#lines + 1] = indent(lvl) .. "ms.log('repeat', " .. string.format("%q", cond) .. ", " .. fc .. ")"
                 return table.concat(lines, "\n")
             end

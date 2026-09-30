@@ -1131,7 +1131,11 @@
         loadMacro(id);
     });
 
-    nameInput.addEventListener("keydown", function(e) { e.stopPropagation(); });
+    nameInput.addEventListener("keydown", function(e) {
+        var mod = e.metaKey || e.ctrlKey;
+        if (mod && !e.shiftKey && /^[sfn]$/i.test(e.key)) return;
+        e.stopPropagation();
+    });
     nameInput.addEventListener("input", function() {
         M.macroDirty = true;
         updateSaveBtnState();

@@ -139,10 +139,10 @@
                             end
                         end
                         for pattern, fns in pairs(_busSubs) do
-                            local starPos = pattern:find("%*$")
-                            if starPos then
-                                local prefix = pattern:sub(1, starPos - 1)
-                                if topic:sub(1, #prefix) == prefix then
+                            if pattern ~= topic and pattern:find("*", 1, true) then
+                                local lp = pattern:gsub("[%^%$%(%)%%%.%[%]%+%-%?]", "%%%0")
+                                lp = lp:gsub("%*$", "\1"):gsub("%*", "[^:]*"):gsub("\1$", ".*")
+                                if topic:match("^" .. lp .. "$") then
                                     for fn, _ in pairs(fns) do
                                         local ok, err = pcall(fn, topic, payload)
                                         if not ok then

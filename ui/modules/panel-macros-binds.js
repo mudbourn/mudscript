@@ -291,11 +291,15 @@
                 }
 
                 var name = nameInput.value.trim() || M.currentMacroId;
+                var prev = M.currentMacroDef || {};
+                var group = (prev.group && classFromGroup(prev.group) === M.currentMacroClass)
+                    ? prev.group
+                    : "visual - " + M.currentMacroClass;
                 var def = {
                     id: M.currentMacroId,
                     name: name,
-                    author: "User",
-                    group: "visual - " + M.currentMacroClass,
+                    author: prev.author || "User",
+                    group: group,
                     steps: M.canvas.serialize()
                 };
                 if (M.currentMacroDef && M.currentMacroDef.bind) {

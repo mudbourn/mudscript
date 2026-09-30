@@ -270,7 +270,7 @@ Registers a custom panel section that appears **below the Tools section** in dec
 |-------|----------|-------------|
 | `id` | yes | Unique section identifier. |
 | `title` | yes | Header text shown in the panel. |
-| `icon` | - | Emoji prepended to the title. |
+| `icon` | - | Icon name from `ui/svg` (for example `settings`) drawn before the title. Unknown names are ignored. |
 | `items` | yes | Array of item definitions, same fields as `ms.settings.define`. |
 
 Items inside `items` with a `key` are automatically reachable via `ms.settings.get` / `ms.settings.set`.

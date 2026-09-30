@@ -798,8 +798,8 @@
             }
 
             function userSectionGroup(meta, items) {
-                const title = meta.icon
-                    ? meta.icon + " " + (meta.title || "")
+                const title = (meta.icon && window.ICONS && window.ICONS[meta.icon])
+                    ? h("span", {}, window.iconNode(meta.icon, "icon-inline"), " " + (meta.title || ""))
                     : (meta.title || "");
                 const wrap = section(meta.id, title, (body) => {
                     const n = renderItemsCollapsed(body, items);
