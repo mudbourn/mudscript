@@ -1391,7 +1391,7 @@
                 _resetTestBtn();
                 showTestToast("Test run timed out", "error");
             }
-        }, 30000);
+        }, 35000);
     });
 
     var _isRecording = false;

@@ -142,9 +142,24 @@
                     end
                     if not body then report(false, "no macro definition")
                     return end
+                    local function cancelTestRuns()
+                        for co, ctx in pairs(ms._coroContext or {}) do
+                            local root = ctx.callStack and ctx.callStack[1]
+                            if type(root) == "string" and root:sub(1, 5) == "test:" then
+                                ctx.cancelled = true
+                                ms._coroContext[co] = nil
+                                if ms._activeContexts then ms._activeContexts[ctx] = nil end
+                            end
+                        end
+                    end
                     local function run()
                         local callOk, cerr = pcall(ms.compiler.testRun, body, report)
                         if not callOk then report(false, tostring(cerr)) end
+                        hs.timer.doAfter(30, function()
+                            if reported then return end
+                            cancelTestRuns()
+                            report(false, "Test run timed out")
+                        end)
                     end
                     if body.hideShell and ms.shell and ms._shellState and ms._shellState.visible then
                         hid = true
