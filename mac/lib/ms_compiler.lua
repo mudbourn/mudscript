@@ -5,6 +5,7 @@
         local dataDir    = home .. "/.hammerspoon/data"
         local jsonPath   = dataDir .. "/ms_macros_visual.json"
         local luaPath    = dataDir .. "/ms_macros_visual.lua"
+        local STAMP      = "-- Compiler: 2"
 
         ms.compiler = {}
 
@@ -142,16 +143,156 @@
                 return tostring(default)
             end
 
+            local ARG_ORDER = {
+                ["ms.toggle"] = {
+                    "key",
+                    "mods",
+                },
+                ["ms.multiPress"] = {
+                    "keys",
+                    "delayMs",
+                    "mods",
+                },
+                ["ms.randWait"] = {
+                    "min",
+                    "max",
+                },
+                ["ms.jitter"] = {
+                    "base",
+                    "jitterMs",
+                },
+                ["ms.waitApp"] = {
+                    "appName",
+                    "timeout",
+                },
+                ["ms.waitNotApp"] = {
+                    "appName",
+                    "timeout",
+                },
+                ["ms.window"] = {
+                    "operation",
+                    "x",
+                    "y",
+                    "w",
+                    "h",
+                },
+                ["ms.windowPos"] = {
+                    "appName",
+                },
+                ["ms.pixelColor"] = {
+                    "x",
+                    "y",
+                    "reference",
+                },
+                ["ms.pixelMatch"] = {
+                    "x",
+                    "y",
+                    "reference",
+                    "color",
+                    "tolerance",
+                },
+                ["ms.waitPixel"] = {
+                    "x",
+                    "y",
+                    "ref",
+                    "color",
+                    "tolerance",
+                    "timeout",
+                },
+                ["ms.waitNotPixel"] = {
+                    "x",
+                    "y",
+                    "ref",
+                    "color",
+                    "tolerance",
+                    "timeout",
+                },
+                ["ms.ocr"] = {
+                    "x",
+                    "y",
+                    "w",
+                    "h",
+                },
+                ["ms.readNumber"] = {
+                    "x",
+                    "y",
+                    "w",
+                    "h",
+                },
+                ["ms.findText"] = {
+                    "text",
+                    "x",
+                    "y",
+                    "w",
+                    "h",
+                },
+                ["ms.waitText"] = {
+                    "text",
+                    "x",
+                    "y",
+                    "w",
+                    "h",
+                    "timeout",
+                },
+                ["ms.appRunning"] = {
+                    "appName",
+                },
+                ["ms.appIsFront"] = {
+                    "appName",
+                },
+                ["ms.focus"] = {
+                    "appName",
+                },
+                ["ms.keystate"] = {
+                    "key",
+                },
+                ["ms.mousestate"] = {
+                    "button",
+                },
+                ["ms.padstate"] = {
+                    "button",
+                },
+                ["ms.padaxis"] = {
+                    "axis",
+                },
+                ["ms.sound"] = {
+                    "path",
+                    "async",
+                },
+                ["ms.playSlot"] = {
+                    "slotId",
+                },
+                ["ms.setVolume"] = {
+                    "level",
+                },
+                ["ms.screenshot"] = {
+                    "path",
+                },
+                ["ms.notify"] = {
+                    "title",
+                    "subTitle",
+                    "infoText",
+                },
+                ["ms.setMacros"] = {
+                    "state",
+                },
+            }
+
             local function buildArgs(params, argOrder)
                 if not params or not argOrder then return "" end
-                local parts = {}
-                for _, key in ipairs(argOrder) do
-                    local v = params[key]
-                    if v ~= nil then
-                        parts[#parts + 1] = serialize(v)
-                    end
+                if params.color == nil and type(params.r) == "number"
+                    and type(params.g) == "number" and type(params.b) == "number" then
+                    params.color = string.format("#%02X%02X%02X", params.r, params.g, params.b)
                 end
-                return table.concat(parts, ", ")
+                local parts = {}
+                local last = 0
+                for i, key in ipairs(argOrder) do
+                    local v = params[key]
+                    if v == "" then v = nil end
+                    if v ~= nil then last = i end
+                    parts[i] = v == nil and "nil" or serialize(v)
+                end
+                return table.concat(parts, ", ", 1, last)
             end
         -- END Helpers --
 
@@ -553,6 +694,9 @@
             local function genericEmitter(step, lvl)
                 local action = step.action
                 local p = step.params or {}
+                if ARG_ORDER[action] then
+                    return indent(lvl) .. action .. "(" .. buildArgs(p, ARG_ORDER[action]) .. ")"
+                end
                 if p.args then
                     local parts = {}
                     for _, v in ipairs(p.args) do
@@ -743,6 +887,7 @@
                 lines[#lines + 1] = "-- AUTO-GENERATED by ms.compiler (DO NOT EDIT BY HAND) --"
                 lines[#lines + 1] = "-- Source: data/ms_macros_visual.json"
                 lines[#lines + 1] = "-- Rebuild: ms.compiler.rebuild()"
+                lines[#lines + 1] = STAMP
                 lines[#lines + 1] = "-- END AUTO-GENERATED --"
                 lines[#lines + 1] = ""
                 lines[#lines + 1] = "-- Creator Credits --"
@@ -916,6 +1061,15 @@
                 end
                 local rawSrc = f:read("*all")
                 f:close()
+
+                if not rawSrc:find(STAMP, 1, true) and hs.fs.attributes(jsonPath)
+                    and pcall(ms.compiler.rebuild) then
+                    local rf = io.open(luaPath, "r")
+                    if rf then
+                        rawSrc = rf:read("*all")
+                        rf:close()
+                    end
+                end
 
                 if ms.auditMacros then
                     local auditErrs = ms.auditMacros(rawSrc)

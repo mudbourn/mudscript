@@ -912,19 +912,6 @@
             return r, g, bl, b, c, ...
         end
 
-        local function _pixelArgs(x, ...)
-            if type(x) ~= "table" then return x, ... end
-            local t = x
-            local color = t.color
-            if color == nil and t.r ~= nil then
-                return tonumber(t.x), tonumber(t.y), t.reference or t.ref,
-                    tonumber(t.r), tonumber(t.g), tonumber(t.b),
-                    tonumber(t.tolerance or t.tol), tonumber(t.timeout)
-            end
-            return tonumber(t.x), tonumber(t.y), t.reference or t.ref, color,
-                tonumber(t.tolerance or t.tol), tonumber(t.timeout)
-        end
-
         local function _pixelColor(x, y, reference)
             reference = reference or "Absolute"
             local ax, ay = ms.resolvePoint(x, y, reference)
@@ -935,7 +922,7 @@
         end
 
         ms.pixelColor = function(...)
-            return _pixelColor(_pixelArgs(...))
+            return _pixelColor(...)
         end
 
         local function _pixelMatch(x, y, reference, r, g, b, tolerance)
@@ -952,7 +939,7 @@
         end
 
         ms.pixelMatch = function(...)
-            return _pixelMatch(_matchArgs(_pixelArgs(...)))
+            return _pixelMatch(_matchArgs(...))
         end
 
         ms.randWait = function(min, max)
@@ -1003,7 +990,7 @@
         local function _waitPixel(want, x, y, ref, r, g, b, tol, timeout)
             timeout = timeout or 5000
             local deadline = hs.timer.absoluteTime() + timeout * 1000000
-            while hs.timer.absoluteTime() < deadline do
+            while timeout <= 0 or hs.timer.absoluteTime() < deadline do
                 if _pixelMatch(x, y, ref, r, g, b, tol or 10) == want then return true end
                 ms.wait(50)
             end
@@ -1011,11 +998,11 @@
         end
 
         ms.waitPixel = function(...)
-            return _waitPixel(true, _matchArgs(_pixelArgs(...)))
+            return _waitPixel(true, _matchArgs(...))
         end
 
         ms.waitNotPixel = function(...)
-            return _waitPixel(false, _matchArgs(_pixelArgs(...)))
+            return _waitPixel(false, _matchArgs(...))
         end
 
         ms.screen._ocrBin = os.getenv("HOME") .. "/.local/bin/ms_ocr_read"

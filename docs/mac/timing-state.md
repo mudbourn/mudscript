@@ -346,7 +346,7 @@ end
 
 ### `ms.waitPixel(x, y, ref, color [, tolerance [, timeout]])`
 
-Waits until a pixel matches the hex colour. Polls every 50ms. Returns `true` when matched, `false` on timeout (default 5 seconds).
+Waits until a pixel matches the hex colour. Polls every 50ms. Returns `true` when matched, `false` on timeout (default 5 seconds). A `timeout` of `0` waits with no limit.
 
 ```lua
 local found = ms.waitPixel(900, 540, WindowTL, "#00FF00", 10, 3000)
