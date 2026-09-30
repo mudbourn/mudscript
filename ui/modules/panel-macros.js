@@ -165,16 +165,10 @@
     });
     toolbar.appendChild(nameInput);
 
-    var bindLabel = document.createElement("span");
-    bindLabel.style.cssText = "font-family:inherit;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-left:8px;margin-right:4px";
-    bindLabel.textContent = "Bind";
-    toolbar.appendChild(bindLabel);
-
-    var bindBtn = document.createElement("button");
-    bindBtn.className = "bind-pill unset";
-    bindBtn.textContent = "UNSET";
-    bindBtn.title = "Click to capture a bind for this macro";
-    toolbar.appendChild(bindBtn);
+    var histSlot = document.createElement("div");
+    histSlot.className = "macro-hist-slot";
+    histSlot.style.cssText = "display:flex;gap:4px;margin-left:8px";
+    toolbar.appendChild(histSlot);
 
     var _currentMacroClass = "main";
     var _currentMacroCooldown = null;
@@ -241,7 +235,7 @@
     overflowWrap.className = "macro-overflow";
     var overflowBtn = document.createElement("button");
     overflowBtn.className = "macro-toolbar-btn macro-overflow-btn";
-    overflowBtn.textContent = "⋯";
+    overflowBtn.innerHTML = window.icon ? window.icon("ellipsis") : "...";
     overflowBtn.title = "More actions";
     var overflowMenu = document.createElement("div");
     overflowMenu.className = "macro-overflow-menu";
@@ -319,11 +313,17 @@
     overflowMenu.appendChild(flowGroupRow);
     overflowMenu.appendChild(flowDivider);
 
+    var bindOptsBtn = document.createElement("button");
+    bindOptsBtn.className = "macro-toolbar-btn";
+    bindOptsBtn.innerHTML = menuLabel("keyboard", "Bind Options");
+    bindOptsBtn.title = "Rebind, toggle, and link this macro";
+    overflowMenu.appendChild(bindOptsBtn);
+
     var testBtn = document.createElement("button");
     testBtn.className = "macro-toolbar-btn";
     testBtn.innerHTML = menuLabel("play", "Test");
-    testBtn.title = "Test Run current macro";
-    overflowMenu.appendChild(testBtn);
+    testBtn.title = "Hide mudscript, run the macro, then come back";
+    testBtn.style.gap = "5px";
 
     var recordRow = document.createElement("div");
     recordRow.className = "macro-record-row";
@@ -922,9 +922,12 @@
     if (_history) {
         _history.reset();
         var histBtns = window.msHistoryButtons(_history, "macro-toolbar-btn");
-        overflowMenu.insertBefore(histBtns.redo, testBtn);
-        overflowMenu.insertBefore(histBtns.undo, histBtns.redo);
+        [histBtns.undo, histBtns.redo].forEach(function(b) {
+            b.style.gap = "5px";
+            histSlot.appendChild(b);
+        });
     }
+    histSlot.appendChild(testBtn);
 
     var _toolEditor = null;
     if (window.ToolEditor) {
@@ -989,7 +992,7 @@
         return Promise.resolve(ok);
     }
 
-    function bindPill(text, onClick, title) {
+    function bindPill(text, onClick, title, onMenu) {
         var b = document.createElement("button");
         b.className = "bind-pill" + (text ? "" : " unset");
         b.textContent = text || "Unset";
@@ -1002,148 +1005,25 @@
             if (window.playSlot) playSlot("interact");
             onClick();
         });
+        if (onMenu) b.addEventListener("contextmenu", function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            onMenu();
+        });
         return b;
     }
 // END Themed delete confirmation //
 
-// Candidate macros this one can be tethered to //
-    function linkTargets(m) {
-        var exclude = {};
-        exclude[m.id] = true;
-        (function walk(node) {
-            (node.subs || []).forEach(function(s) { exclude[s.id] = true; walk(s); });
-        })(m);
-        var out = [];
-        _bindList.forEach(function(top) {
-            function consider(x) {
-                if (exclude[x.id]) return;
-                if (x.group === "system" || x.systemBind) return;
-                out.push({ value: x.id, label: x.label || x.id, group: top.label || top.id });
-            }
-            consider(top);
-            (top.subs || []).forEach(consider);
+// Bind list //
+    function openBindMenu(m, isSub, mode) {
+        window.msBindMenu.open(m, isSub, mode, {
+            list:          function() { return _bindList; },
+            confirmDelete: confirmDelete,
+            onDelete:      function(id) {
+                _bindList = _bindList.filter(function(x) { return x.id !== id; });
+                renderBindList();
+            },
         });
-        return out;
-    }
-
-
-    function linkMenuItems(m) {
-        return linkTargets(m).map(function(o) {
-            return {
-                icon:  "",
-                label: (m.parent === o.value ? "✓ " : "") + o.label,
-                action: function() {
-                    shellPost("macros", "bindToMacro", {
-                        action:   "bindToMacro",
-                        id:       m.id,
-                        targetId: o.value,
-                    });
-                },
-            };
-        });
-    }
-// END Candidate macros this one can be tethered to //
-
-// Opens the per //
-    function openBindMenu(m, isSub, mode, x, y) {
-        var kit = window.msUI;
-        if (!kit || typeof kit.showCtxMenu !== "function") return;
-        var items = [];
-
-        if (m.group !== "system" && !m.systemBind) {
-            items.push({
-                icon:  "",
-                label: m.enabled ? "Disable macro" : "Enable macro",
-                action: function() {
-                    shellPost("macros", "setMacroEnabled", {
-                        action: "setMacroEnabled",
-                        id:     m.id,
-                        value:  !m.enabled,
-                    });
-                    if (window.playSlot) playSlot(m.enabled ? "toggleOff" : "toggleOn");
-                },
-            });
-        }
-
-        if (isSub) {
-            items.push({
-                icon:  "",
-                label: "Re-attach to parent",
-                action: function() {
-                    shellPost("macros", "clearModifier", {
-                        action: "clearModifier",
-                        id:     m.id,
-                    });
-                },
-            });
-        } else {
-            items.push({
-                icon:  "",
-                label: "Reset to default bind",
-                action: function() {
-                    shellPost("macros", "resetBind", {
-                        action:     "resetBind",
-                        id:         m.id,
-                        systemBind: m.systemBind || false,
-                    });
-                },
-            });
-        }
-
-        if (isSub) {
-            items.push({
-                icon:  "",
-                label: mode.full ? "Switch to modifier only" : "Switch to full trigger",
-                action: function() { mode.full = !mode.full; },
-            });
-        }
-
-        if (m.group !== "system" && !m.systemBind
-            && (m.bindType === "key" || m.bindType === "combo")) {
-            items.push({
-                icon:  "",
-                label: (m.ignoreMods ? "✓ " : "") + "Ignore extra modifiers",
-                action: function() {
-                    shellPost("macros", "setBindIgnoreMods", {
-                        action: "setBindIgnoreMods",
-                        id:     m.id,
-                        value:  !m.ignoreMods,
-                    });
-                },
-            });
-        }
-
-        if (m.group !== "system" && !m.systemBind) {
-            var targets = linkMenuItems(m);
-            if (targets.length) {
-                items.push({
-                    icon:  "",
-                    label: (m.parent ? "Change linked macro..." : "Link to another macro..."),
-                    action: function() { kit.showCtxMenu(x, y, targets, m.label || m.id); },
-                });
-            }
-        }
-
-        if (m.group !== "system" && !m.systemBind) {
-            items.push({
-                icon:  "",
-                label: "Delete macro",
-                danger: true,
-                action: function() {
-                    confirmDelete(m.label || m.id).then(function(ok) {
-                        if (!ok) return;
-                        if (window.playSlot) playSlot("back");
-                        shellPost("macros", "deleteMacro", { id: m.id });
-                        _bindList = _bindList.filter(function(x) { return x.id !== m.id; });
-                        renderBindList();
-                    });
-                },
-            });
-        }
-
-        if (!items.length) return;
-        if (window.playSlot) playSlot("interact");
-        kit.showCtxMenu(x, y, items, m.label || m.id);
     }
 
     function bindRow(m, isSub) {
@@ -1177,7 +1057,7 @@
             }
         }, isSub
             ? "Click to rebind - capture mode is set in the ⋯ menu"
-            : "Click to rebind"));
+            : "Click to rebind", function() { openBindMenu(m, isSub, mode); }));
 
         var moreBtn = document.createElement("button");
         moreBtn.className = "bind-act bind-more";
@@ -1189,8 +1069,7 @@
         moreBtn.addEventListener("click", function(e) {
             e.preventDefault();
             e.stopPropagation();
-            var rect = moreBtn.getBoundingClientRect();
-            openBindMenu(m, isSub, mode, rect.right, rect.bottom);
+            openBindMenu(m, isSub, mode);
         });
         acts.appendChild(moreBtn);
 
@@ -1249,7 +1128,7 @@
             return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
         });
     }
-// END Opens the per //
+// END Bind list //
 
 // Same markup as msUI.section //
     function bindSection(title, desc, rows) {
@@ -1278,7 +1157,6 @@
     function setBindList(list) {
         _bindList = Array.isArray(list) ? list : [];
         renderBindList();
-        updateBindBtn();
     }
 
     function setMacroList(ids) {
@@ -1307,7 +1185,6 @@
             _macroDirty = false;
             updateSaveBtnState();
             if (_history) _history.reset();
-            updateBindBtn();
             return;
         }
         if (window.shellPost) {
@@ -1329,40 +1206,26 @@
         updateSaveBtnState();
         if (_history) _history.reset();
         macroSelect.value = def.id;
-        updateBindBtn();
     }
 // END Same markup as msUI.section //
 
-// Show the macro's effective bind //
-    function updateBindBtn() {
-        var text = "";
-        for (var i = 0; i < _bindList.length; i++) {
-            if (_bindList[i].id === _currentMacroId) { text = _bindList[i].bind || ""; break; }
-        }
-        if (!text && _currentMacroDef && _currentMacroDef.bind) {
-            var b = _currentMacroDef.bind;
-            if (b.type === "mouse") text = "Mouse " + b.button;
-            else if (b.type === "mods") text = (b.mods || []).join("+");
-            else if (b.key) text = (b.mods || []).concat([b.key]).join("+");
-        }
-        bindBtn.textContent = text || "Unset";
-        bindBtn.className = "bind-pill" + (text ? "" : " unset");
-    }
-
-    bindBtn.addEventListener("mouseenter", function() {
-        if (window.playSlot) playSlot("hover");
-    });
-    bindBtn.addEventListener("click", function() {
-        if (window.playSlot) playSlot("interact");
-        if (!_currentMacroId || _macroDirty) {
+// Bind options and saving //
+    function openCurrentBindMenu() {
+        var found = null;
+        _bindList.forEach(function(top) {
+            if (top.id === _currentMacroId) found = { m: top, sub: false };
+            (top.subs || []).forEach(function(s) {
+                if (s.id === _currentMacroId) found = { m: s, sub: true };
+            });
+        });
+        if (!found) {
             showTestToast("Save the macro before binding it", "error");
             return;
         }
-        shellPost("macros", "startRebind", {
-            action: "startRebind",
-            id:     _currentMacroId,
-        });
-    });
+        openBindMenu(found.m, found.sub, { full: false });
+    }
+
+    bindOptsBtn.addEventListener("click", openCurrentBindMenu);
 
     function saveMacro() {
         if (!_currentMacroId) {
@@ -1423,7 +1286,7 @@
         saveBtn.style.opacity = _macroDirty ? "1" : "0.5";
         if (_macroDirty && _history) _history.record();
     }
-// END Show the macro's effective bind //
+// END Bind options and saving //
 
 // Wire toolbar buttons //
     newBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
@@ -1443,7 +1306,6 @@
         updateSaveBtnState();
         if (_history) _history.reset();
         macroSelect.value = "";
-        updateBindBtn();
     });
 
     saveBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
@@ -1494,8 +1356,11 @@
     }
 
     testBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
+    var _testFromPad = false;
+
     testBtn.addEventListener("click", function() {
         if (_testRunning) return;
+        _testFromPad = testBtn.classList.contains("gp-focus");
         var steps = _canvas.serialize();
         if (!steps || steps.length === 0) {
             if (window.playSlot) playSlot("back");
@@ -1509,6 +1374,7 @@
             id: macroId,
             name: nameInput.value.trim() || macroId,
             steps: steps,
+            hideShell: true,
         };
 
         _testRunning = true;
@@ -1838,8 +1704,8 @@
             updateSaveBtnState();
             refreshMacroList();
             refreshBindList();
-            showTestToast("\u2717 Save failed to compile: "
-                + ((body && body.err) || "Unknown error"), "error");
+            showTestToast("Save failed to compile: "
+                + ((body && body.err) || "Unknown error"), "error", "close");
             return;
         }
         if (action === "bindList" && Array.isArray(body)) {
@@ -1858,15 +1724,20 @@
         }
         if (action === "testRunResult" && body) {
             _resetTestBtn();
+            if (_testFromPad && window.gpSetFocus) {
+                testBtn.dataset.gpBack = ".tool-block[data-sid]";
+                window.gpSetFocus(testBtn);
+            }
+            _testFromPad = false;
             if (body.ok) {
                 testBtn.className = "macro-toolbar-btn success";
-                showTestToast("\u2713 Macro ran successfully", "success");
+                showTestToast("Macro ran successfully", "success", "check");
                 setTimeout(function() {
                     if (!_testRunning) testBtn.className = "macro-toolbar-btn";
                 }, 2500);
             } else {
                 testBtn.className = "macro-toolbar-btn error";
-                showTestToast("\u2717 " + (body.err || "Unknown error"), "error");
+                showTestToast(body.err || "Unknown error", "error", "close");
                 setTimeout(function() {
                     if (!_testRunning) testBtn.className = "macro-toolbar-btn";
                 }, 5000);

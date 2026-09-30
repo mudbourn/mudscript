@@ -125,19 +125,35 @@
 
                 ms.bus.on("ui:macros:testRun", function(_, body)
                     local reported = false
-                    local function report(ok, err)
-                        if reported then return end
-                        reported = true
+                    local hid = false
+                    local function send(ok, err)
                         local res = hs.json.encode({
                             ok = ok and true or false,
                             err = err or "",
                         })
                         _macroShellEval("if(window.shellReceive)shellReceive('macros','testRunResult'," .. res .. ")")
                     end
+                    local function report(ok, err)
+                        if reported then return end
+                        reported = true
+                        if not hid then return send(ok, err) end
+                        ms.shell.show()
+                        hs.timer.doAfter(0.15, function() send(ok, err) end)
+                    end
                     if not body then report(false, "no macro definition")
                     return end
-                    local callOk, cerr = pcall(ms.compiler.testRun, body, report)
-                    if not callOk then report(false, tostring(cerr)) end
+                    local function run()
+                        local callOk, cerr = pcall(ms.compiler.testRun, body, report)
+                        if not callOk then report(false, tostring(cerr)) end
+                    end
+                    if body.hideShell and ms.shell and ms._shellState and ms._shellState.visible then
+                        hid = true
+                        ms.shell.hide()
+                        local fadeMs = (ms._theme and ms._theme.fadeMs) or 250
+                        hs.timer.doAfter(fadeMs / 1000 + 0.2, run)
+                    else
+                        run()
+                    end
                 end)
 
                 do

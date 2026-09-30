@@ -378,7 +378,6 @@
                 ScreenTL=true,   ScreenTR=true,  ScreenBL=true,
                 ScreenBR=true,   ScreenCenter=true,
             }
-            if ms.dev then ms.devtools:flushAll() end
             assert(OPS[operation],     "ms.Mouse: unknown operation '"  .. tostring(operation)  .. "'")
             assert(BTNS[button] ~= nil, "ms.Mouse: unknown button '"      .. tostring(button)     .. "'")
             assert(REFS[reference],    "ms.Mouse: unknown reference '"   .. tostring(reference)  .. "'")

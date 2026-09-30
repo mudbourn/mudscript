@@ -91,11 +91,13 @@ return function(ms, ctx)
                         return false
                     end
                     ms._macroMetaFromHand = ms.macroMeta ~= nil
-                    if ms.compiler and ms.compiler.paths
-                        and hs.fs.attributes(ms.compiler.paths.json) then
-                        local rebOk, rebErr = pcall(ms.compiler.rebuild)
-                        if not rebOk then
-                            print("ms.compiler.rebuild (reload): " .. tostring(rebErr))
+                    if ms.vars and ms.vars.reload then ms.vars.reload() end
+                    if ms.compiler and ms.compiler.paths then
+                        if hs.fs.attributes(ms.compiler.paths.json) then
+                            local rebOk, rebErr = pcall(ms.compiler.rebuild)
+                            if not rebOk then
+                                print("ms.compiler.rebuild (reload): " .. tostring(rebErr))
+                            end
                         end
                         local ldOk, ldErr = pcall(ms.compiler.load)
                         if not ldOk then

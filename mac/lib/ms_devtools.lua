@@ -1212,7 +1212,6 @@ return function(ms)
 
     function MsDevTools:flushCam(label) end
     function MsDevTools:flushWait(label) end
-    function MsDevTools:flushAll(label) end
 
     function MsDevTools:setTraceSuppress(val)
         _traceSuppress = val

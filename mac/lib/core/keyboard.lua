@@ -268,7 +268,6 @@
         -- END Key logging --
 
             ms.press = function(key, mods)
-                if ms.dev then ms.devtools:flushAll() end
                 local keyCode = getCode(key)
                 if not keyCode then
                     print("Error: Could not find keyCode for " .. tostring(key))
@@ -291,7 +290,6 @@
             end
 
             ms.release = function(key, mods)
-                if ms.dev then ms.devtools:flushAll() end
                 local keyCode = getCode(key)
                 if not keyCode then return end
                 local durationStr = ""
@@ -327,7 +325,6 @@
             end
 
             ms.type = function(key, mods, holdMs)
-                if ms.dev then ms.devtools:flushAll() end
                 local _hold = holdMs or 15
                 if ms.dev then
                     local modsStr = (mods and #mods > 0) and (" [" .. table.concat(mods, "+") .. "]") or ""

@@ -225,7 +225,6 @@
                     ms.dev._pushMouseState = function() end
 
                     ms.devtools = {
-                        flushAll         = function() end,
                         flushCam         = function() end,
                         flushWait        = function() end,
                         flushKey         = function() end,
@@ -1046,8 +1045,6 @@
                             ms._coroContext[co] = nil
                             if ctx then ms._activeContexts[ctx] = nil end
                             if ms.dev then ms.devtools:stopTrace(co) end
-                            local flushLabel = ctx and ctx.callStack and ctx.callStack[1]
-                            if ms.dev then ms.devtools:flushAll(flushLabel) end
                         end
                     end)
                     if ms._branchTrace then ms.devtools:flushTraceBuffer(co) end

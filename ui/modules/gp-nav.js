@@ -581,6 +581,12 @@
                         var list = focusables();
                         var back = gpLastFocus[panelKey()];
                         setFocus(back && list.indexOf(back) !== -1 ? back : null);
+                    } else if (gpFocusEl && gpFocusEl.dataset && gpFocusEl.dataset.gpBack) {
+                        var sc2 = scope();
+                        var dest = sc2 && sc2.querySelector(gpFocusEl.dataset.gpBack);
+                        delete gpFocusEl.dataset.gpBack;
+                        sound('back');
+                        setFocus(dest && isVisible(dest) ? dest : null);
                     } else if (gpFocusEl) {
                         sound('back');
                         setFocus(null);

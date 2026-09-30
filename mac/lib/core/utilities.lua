@@ -119,7 +119,6 @@
                     if ms.dev then ms.devtools:stopTrace(co) end
                     ms._coroContext[co]    = nil
                     ms._activeContexts[ctx] = nil
-                    if ms.dev then ms.devtools:flushAll(ctx and ctx.callStack and ctx.callStack[1]) end
                 end
             end
         end
@@ -242,6 +241,12 @@
             end
 
             ms.vars = {}
+
+            ms.vars.reload = function()
+                store.defs = {}
+                store.vals = {}
+                loaded = false
+            end
 
             -- Read a helper var live
             ms.vars.get = function(name)
@@ -404,7 +409,6 @@
                     if ms.dev then ms.devtools:stopTrace(co) end
                     ms._coroContext[co] = nil
                     ms._activeContexts[ctx] = nil
-                    if ms.dev then ms.devtools:flushAll(ctx.callStack and ctx.callStack[1]) end
                 end
             end
             if not id then
@@ -418,7 +422,6 @@
         end
 
         ms.copy = function(text)
-            if ms.dev then ms.devtools:flushAll() end
             if ms.dev._watcherPanel then
                 ms.devtools:watcherStep("copy")
             end
@@ -429,7 +432,6 @@
         end
 
         ms.paste = function()
-            if ms.dev then ms.devtools:flushAll() end
             if ms.dev._watcherPanel then
                 ms.devtools:watcherStep("paste")
             end
@@ -466,8 +468,6 @@
 
             ms._activeContexts = {}
             ms._coroContext     = {}
-
-            if ms.dev then ms.devtools:flushAll() end
 
             for keyCode, entry in pairs(ms._macroHeldKeys) do
                 local ev = hs.eventtap.event.newKeyEvent(entry.mods, keyCode, false)
@@ -676,7 +676,6 @@
         end
 
         ms.sound = function(path, async, device)
-            if ms.dev then ms.devtools:flushAll() end
             if path and not path:match("[/\\]") then
                 path = ms.sounds[path] or ms.macroSounds[path] or path
             end
@@ -727,7 +726,6 @@
                                 if ms.dev then ms.devtools:stopTrace(co) end
                                 ms._coroContext[co] = nil
                                 if ctx then ms._activeContexts[ctx] = nil end
-                                if ms.dev then ms.devtools:flushAll() end
                             end
                         end
                     end)

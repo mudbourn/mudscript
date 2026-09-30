@@ -89,7 +89,7 @@
   },
   "mac/lib/ms_devtools.lua": {
     "comment": 21,
-    "file-length": 2582,
+    "file-length": 2581,
     "marker-blank-after-open": 1,
     "marker-unclosed": 1
   },
@@ -120,7 +120,7 @@
     "marker-unclosed": 1
   },
   "mac/lib/ms_shell.lua": {
-    "comment": 28,
+    "comment": 24,
     "lua-inline-table": 3
   },
   "mac/lib/ms_ui.lua": {
@@ -217,7 +217,7 @@
     "non-ascii": 4
   },
   "ui/modules/panel-macros.js": {
-    "non-ascii": 7
+    "non-ascii": 4
   },
   "ui/modules/panel-settings-builder.js": {
     "non-ascii": 2
@@ -281,7 +281,7 @@
   },
   "ui/ms_shell.html": {
     "comment": 60,
-    "file-length": 2509,
+    "file-length": 2376,
     "marker-unclosed": 20,
     "non-ascii": 3
   },

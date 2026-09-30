@@ -684,6 +684,15 @@
         // END Accessibility //
 
         // Settings Group //
+            function emptyState(body, title, hint) {
+                body.appendChild(groupLabel(title));
+                const r = h("div", { cls: "row" });
+                const lbl = h("div", { cls: "row-label" });
+                lbl.appendChild(h("small", {}, hint));
+                r.appendChild(lbl);
+                body.appendChild(r);
+            }
+
             function buildSettings(body) {
                 const items = P.filterByOrigin(S.userSettings || [])
                     .filter(isDefaultSection);
@@ -692,25 +701,16 @@
                         renderUserItem(body, item);
                     }
                 } else {
-                    body.appendChild(groupLabel("No settings defined."));
-                    const r = h("div", { cls: "row" });
-                    const lbl = h("div", { cls: "row-label" });
-                    lbl.appendChild(
-                        h(
-                            "small",
-                            {},
-                            "Use ms.settings.define() in ms_macros.lua, or build settings with the builder.",
-                        ),
-                    );
-                    r.appendChild(lbl);
-                    body.appendChild(r);
+                    emptyState(body, "No settings defined.",
+                        "Use ms.settings.define() in ms_macros.lua, or build settings with the builder.");
                 }
             }
 
             function buildFunctions(body) {
                 const items = P.filterByOrigin(S.userFunctions || []);
                 if (!items.length) {
-                    body.appendChild(groupLabel("No functions defined."));
+                    emptyState(body, "No functions defined.",
+                        "Build a function tool in the Function tab, or with the builder.");
                     return;
                 }
                 for (const fn of items) {
@@ -750,7 +750,8 @@
             function buildVariables(body) {
                 const items = P.filterByOrigin(S.userVariables || []);
                 if (!items.length) {
-                    body.appendChild(groupLabel("No variables defined."));
+                    emptyState(body, "No variables defined.",
+                        "Declare a helper variable in the Variable tab.");
                     return;
                 }
                 for (const v of items) {

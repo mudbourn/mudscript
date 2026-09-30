@@ -322,17 +322,6 @@
                         return
                     end
 
-                    -- DIAGNOSTIC: bridge self-test driven from Lua via postMessage.
-                    if panel == "_shell" and action == "selfTest" then
-                        local b = body or {}
-                        print(string.format(
-                            "[shell] BRIDGE SELF-TEST RECEIVED: hasChrome=%s webkitType=%s hasMsgHandlers=%s",
-                            tostring(b.hasChrome), tostring(b.webkitType), tostring(b.hasMsgHandlers)))
-                        -- Reliable second signal to hydrate the panels.
-                        _hydrateShell()
-                        return
-                    end
-
                     if panel == "_shell" and action == "ready" then
                         _hydrateShell()
                         if ms._shellState and ms._shellState.visible and _shellView then
@@ -655,25 +644,6 @@
                     _shellView:evaluateJavaScript("applyTheme(" .. themeJson .. ")")
                 end)
 
-                -- DIAGNOSTIC: bridge self-test probe, handled by action "selfTest" above.
-                hs.timer.doAfter(0.6, function()
-                    if not _shellView then return end
-                    pcall(function() _shellView:evaluateJavaScript([[
-                        (function(){
-                          try{
-                            var cw = window.chrome && window.chrome.webview;
-                            var payload = {
-                              hasChrome: !!cw,
-                              webkitType: typeof window.webkit,
-                              hasMsgHandlers: !!(window.webkit && window.webkit.messageHandlers)
-                            };
-                            if(cw){ cw.postMessage(JSON.stringify(
-                              {panel:'_shell', action:'selfTest', body:payload})); }
-                          }catch(e){}
-                        })();
-                    ]]) end)
-                end)
-
                 if ms.bus then
                     ms.bus.on("panel:poppedIn", function(data)
                         if data and data.id then
@@ -749,7 +719,6 @@
 
         -- show --
             ms.shell.show = function()
-                print("[shell] TRACE show() ENTER visible=" .. tostring(ms._shellState and ms._shellState.visible))
                 if ms._restarting or ms._shuttingDown then return end
                 if not (ms._shellState and ms._shellState.visible) then
                     local front = hs.application.frontmostApplication()
@@ -822,7 +791,6 @@
 
         -- hide --
             ms.shell.hide = function()
-                print("[shell] TRACE hide() ENTER visible=" .. tostring(ms._shellState and ms._shellState.visible))
                 pcall(function() ms.shell.osk.hide() end)
                 if _shellView then
                     if _shellFadeTimer then
@@ -864,17 +832,11 @@
         -- toggle --
             ms.shell.toggle = function()
                 local isOpen = ms._shellState and ms._shellState.visible
-                -- DIAGNOSTIC: live timer count + toggle wall-time.
-                local _tc = (hs.timer._activeCount and hs.timer._activeCount()) or -1
-                local _t0 = hs.timer.secondsSinceEpoch()
                 if _shellView and isOpen then
                     ms.shell.hide()
                 else
                     ms.shell.show()
                 end
-                local _dt = (hs.timer.secondsSinceEpoch() - _t0) * 1000
-                print(string.format("[shell] toggle %s: liveTimers=%d, took %.1fms",
-                    isOpen and "hide" or "show", _tc, _dt))
             end
         -- END --
 

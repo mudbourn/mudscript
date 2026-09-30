@@ -36,7 +36,7 @@
                     if (item.icon) {
                         const ico = document.createElement("span");
                         ico.className = "ctx-icon";
-                        ico.textContent = item.icon;
+                        ico.innerHTML = window.icon ? window.icon(item.icon) : "";
                         row.appendChild(ico);
                     }
                     const lbl = document.createElement("span");
