@@ -12,7 +12,6 @@ on:
       - bin/lint.mjs
       - bin/lint-baseline.json
       - mac/lib/**/*.lua
-      - win/ms_core_v2.ahk
   workflow_dispatch:
 
 permissions:
@@ -26,7 +25,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       mac: ${{ steps.filter.outputs.mac }}
-      win: ${{ steps.filter.outputs.win }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -40,22 +38,17 @@ jobs:
           echo "$CHANGED"
 
           MAC=false
-          WIN=false
 
           # mac/ or shared ui/ changes -> build macOS
           if echo "$CHANGED" | grep -qE "^(mac/|ui/)"; then MAC=true; fi
-          # win/ or shared ui/ changes -> build Windows
-          if echo "$CHANGED" | grep -qE "^(win/|ui/)"; then WIN=true; fi
 
-          # workflow_dispatch always builds both
+          # workflow_dispatch always builds
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             MAC=true
-            WIN=true
           fi
 
           echo "mac=$MAC" >> $GITHUB_OUTPUT
-          echo "win=$WIN" >> $GITHUB_OUTPUT
-          echo "mac=$MAC  win=$WIN"
+          echo "mac=$MAC"
 
   # ============================================================================
   # UI lint - block hardcoded theme values and native macOS controls
@@ -228,190 +221,11 @@ jobs:
           if-no-files-found: warn
 
   # ============================================================================
-  # Build Windows
-  # ============================================================================
-  build-windows:
-    needs: [check, ui-lint]
-    if: needs.check.outputs.win == 'true'
-    runs-on: windows-latest
-
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: main
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-
-      - name: Check if build can be skipped
-        id: skip-check
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Find the latest pre-release tag
-          $prevTag = git tag -l 'pre-*' --sort=-v:refname | Select-Object -First 1
-          Write-Output "Previous tag: $(if ($prevTag) { $prevTag } else { '<none>' })"
-
-          if (-not $prevTag) {
-            "skip=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8NoBOM
-            Write-Output "No previous pre-release - building"
-            exit 0
-          }
-
-          # Check if any Windows source files changed since that tag
-          $winDiff = git diff --name-only $prevTag HEAD -- win/ ui/ profiles/Default/ MANIFEST.json README.md 2>$null
-          if ($winDiff) { $winDiff = $winDiff | Where-Object { $_ -ne "" } }
-
-          if (-not $winDiff -or $winDiff.Count -eq 0) {
-            "skip=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8NoBOM
-            Write-Output "OK: Windows sources unchanged since $prevTag - skipping build"
-          } else {
-            "skip=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8NoBOM
-            Write-Output "CHANGED: Windows sources changed - rebuilding"
-            $winDiff | ForEach-Object { Write-Output "  $_" }
-          }
-          exit 0
-
-      - name: Download lib dependencies
-        if: steps.skip-check.outputs.skip != 'true'
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/vnd.github.v3+json" }
-          mkdir lib -Force
-          $wv2 = Invoke-RestMethod "https://raw.githubusercontent.com/thqby/ahk2_lib/master/WebView2/WebView2.ahk" -Headers $headers
-          $wv2 = $wv2.Replace('..\ComVar.ahk', 'ComVar.ahk').Replace('..\Promise.ahk', 'Promise.ahk')
-          [System.IO.File]::WriteAllText("$pwd\lib\WebView2.ahk", $wv2, [System.Text.UTF8Encoding]::new($false))
-          mkdir lib\WebView2 -Force
-          $github = "https://api.github.com/repos/thqby/ahk2_lib/contents/WebView2"
-          $items = Invoke-RestMethod $github -Headers $headers
-          foreach ($item in $items) {
-            if ($item.type -eq 'file') {
-              $out = "lib\WebView2\$($item.name)"
-              Invoke-WebRequest -Uri $item.download_url -OutFile $out -UseBasicParsing -Headers $headers
-            }
-          }
-          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/thqby/ahk2_lib/master/ComVar.ahk" -OutFile "lib\ComVar.ahk" -UseBasicParsing -Headers $headers
-          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/thqby/ahk2_lib/master/Promise.ahk" -OutFile "lib\Promise.ahk" -UseBasicParsing -Headers $headers
-          Write-Output "Dependencies downloaded."
-
-      - name: Build Windows package
-        if: steps.skip-check.outputs.skip != 'true'
-        shell: pwsh
-        run: |
-          $buildNum = "${{ github.run_number }}"
-          $dist = "mudscript-pre-$buildNum"
-          mkdir $dist
-          & .\win\bin\generate_icon.ps1
-          Copy-Item "win\install.bat","win\init.ahk","win\_ms_main.ahk","win\ms_core_v2.ahk","win\ms_macros.ahk","MANIFEST.json","README.md" "$dist\"
-          Copy-Item -Recurse "ui","win\lib","win\bin","data" "$dist\"
-          Copy-Item -Recurse "sounds" "$dist\" -ErrorAction SilentlyContinue
-          Copy-Item -Recurse "profiles" "$dist\" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse "$dist\bin\*.sh","$dist\bin\*.plist","$dist\bin\*.swift","$dist\bin\hidinject","$dist\Spoons" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse "$dist\*.lua","$dist\install.sh","$dist\.gitignore" -ErrorAction SilentlyContinue
-
-          # Stamp MANIFEST.json with pre-release version
-          $manifestPath = Join-Path $dist "MANIFEST.json"
-          if (Test-Path $manifestPath) {
-            $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
-            $baseVer = if ($manifest.version) { $manifest.version } else { "0.0.0" }
-            # Strip any existing pre-release suffix (e.g. 1.2.8-pre.31 -> 1.2.8)
-            $baseVer = $baseVer -replace '-pre[\.\-]\d+$',''
-            # Bump patch version (1.2.7 -> 1.2.8)
-            $parts = $baseVer -split '\.'
-            $parts[-1] = [int]$parts[-1] + 1
-            $bumped = $parts -join '.'
-            # Count commits since last stable tag
-            $lastStable = git tag -l 'v*' --sort=-v:refname | Select-Object -First 1
-            if ($lastStable) {
-              $buildRel = [int](git rev-list --count "$lastStable..HEAD")
-            } else {
-              $buildRel = [int]$buildNum
-            }
-            if ($buildRel -lt 1) { $buildRel = 1 }
-            $preVer = "$bumped-pre.$buildRel"
-            $manifest.version = $preVer
-            $manifest | ConvertTo-Json -Depth 10 | Set-Content $manifestPath -NoNewline
-            Write-Output "Stamped MANIFEST.json: $baseVer -> $preVer"
-          }
-
-          $archive = "mudscript-windows-pre-$buildNum.zip"
-          Compress-Archive -Path "$dist\*" -DestinationPath $archive -Force
-          "archive=$archive" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8NoBOM
-          Write-Output "Package: $archive"
-
-      - name: Download previous artifact
-        if: steps.skip-check.outputs.skip == 'true'
-        id: download-prev
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $prevTag = git tag -l 'pre-*' --sort=-v:refname | Select-Object -First 1
-          $prevNum = $prevTag -replace 'pre-',''
-          $archive = "mudscript-windows-pre-$prevNum.zip"
-          $ErrorActionPreference = 'SilentlyContinue'
-          gh release download --repo "${{ github.repository }}" --pattern $archive --dir "$env:TEMP\prev-artifact" 2>$null
-          if ($? -and (Test-Path "$env:TEMP\prev-artifact\$archive")) {
-            Copy-Item "$env:TEMP\prev-artifact\$archive" "mudscript-windows-pre-${{ github.run_number }}.zip"
-            Write-Output "Reusing: $archive"
-          } else {
-            Write-Output "Asset not found in $prevTag - will build fresh"
-            "download_failed=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8NoBOM
-          }
-          exit 0
-
-      - name: Build Windows package (fallback)
-        if: steps.skip-check.outputs.skip == 'true' && steps.download-prev.outputs.download_failed == 'true'
-        shell: pwsh
-        run: |
-          $buildNum = "${{ github.run_number }}"
-          $dist = "mudscript-pre-$buildNum"
-          mkdir $dist
-          & .\win\bin\generate_icon.ps1
-          Copy-Item "win\install.bat","win\init.ahk","win\_ms_main.ahk","win\ms_core_v2.ahk","win\ms_macros.ahk","MANIFEST.json","README.md" "$dist\"
-          Copy-Item -Recurse "ui","win\lib","win\bin","data" "$dist\"
-          Copy-Item -Recurse "sounds" "$dist\" -ErrorAction SilentlyContinue
-          Copy-Item -Recurse "profiles" "$dist\" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse "$dist\bin\*.sh","$dist\bin\*.plist","$dist\bin\*.swift","$dist\bin\hidinject","$dist\Spoons" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse "$dist\*.lua","$dist\install.sh","$dist\.gitignore" -ErrorAction SilentlyContinue
-
-          $manifestPath = Join-Path $dist "MANIFEST.json"
-          if (Test-Path $manifestPath) {
-            $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
-            $baseVer = if ($manifest.version) { $manifest.version } else { "0.0.0" }
-            $baseVer = $baseVer -replace '-pre[\.\-]\d+$',''
-            $parts = $baseVer -split '\.'
-            $parts[-1] = [int]$parts[-1] + 1
-            $bumped = $parts -join '.'
-            $lastStable = git tag -l 'v*' --sort=-v:refname | Select-Object -First 1
-            if ($lastStable) {
-              $buildRel = [int](git rev-list --count "$lastStable..HEAD")
-            } else {
-              $buildRel = [int]$buildNum
-            }
-            if ($buildRel -lt 1) { $buildRel = 1 }
-            $preVer = "$bumped-pre.$buildRel"
-            $manifest.version = $preVer
-            $manifest | ConvertTo-Json -Depth 10 | Set-Content $manifestPath -NoNewline
-          }
-
-          Compress-Archive -Path "$dist\*" -DestinationPath "mudscript-windows-pre-$buildNum.zip" -Force
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-pre-${{ github.run_number }}
-          path: mudscript-windows-pre-${{ github.run_number }}.zip
-          if-no-files-found: warn
-
-  # ============================================================================
   # Pre-release - create a tagged pre-release with whatever was built
   # ============================================================================
   prerelease:
-    needs: [build-macos, build-windows]
-    if: always() && (needs.build-macos.result == 'success' || needs.build-windows.result == 'success')
+    needs: [build-macos]
+    if: needs.build-macos.result == 'success'
     runs-on: ubuntu-latest
 
     steps:
@@ -445,7 +259,6 @@ jobs:
           # Determine which platforms were built
           BUILT=""
           echo "$ASSETS" | grep -q "macos" && BUILT="${BUILT}macOS "
-          echo "$ASSETS" | grep -q "windows" && BUILT="${BUILT}Windows"
           BUILT=$(echo "$BUILT" | xargs)  # trim
 
           CHANGES=$(git log --oneline $(git rev-list --tags --max-count=1 2>/dev/null || echo HEAD~5)..HEAD 2>/dev/null | head -20 || echo "No changes.")

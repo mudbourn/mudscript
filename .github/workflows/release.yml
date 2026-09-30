@@ -318,8 +318,6 @@ jobs:
           ### Install
           Extract the zip, run \`bash install.sh\`
 
-          > **Windows users:** The Windows build is in early testing.
-          > Switch mudscript's update channel to **Testing** or grab a pre-release from the [Releases](https://github.com/${{ github.repository }}/releases) page.
           EOF
 
           echo "file=release-notes.md" >> "$GITHUB_OUTPUT"
