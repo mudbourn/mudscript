@@ -29,8 +29,7 @@ macro never acts on last session's numbers.
 
 ## Sensitivity Tether
 
-The combat macros scale every camera move by `REF_SENS / curSens`, where
-`REF_SENS` is the 1.5 baseline the macros were calibrated at and `curSens` is
+Macros that scale camera moves to the player's sensitivity read
 `ms._camSens`. Left alone that only tracks the manual **Camera Sensitivity**
 slider, so a player whose real in-game sensitivity differs silently mis-rotates
 every spin (the classic "super jump won't land"). The **Sync Sensitivity From

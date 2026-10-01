@@ -594,13 +594,6 @@
             __call = function(_, dx, dy)
                 if not _camActivated then _activateCam() end
 
-                local curSens = ms._camSens or REF_SENS
-                if curSens > 0 and curSens ~= REF_SENS then
-                    local scale = REF_SENS / curSens
-                    dx = dx * scale
-                    dy = dy * scale
-                end
-
                 dx = math.floor(dx + 0.5)
                 dy = math.floor(dy + 0.5)
 

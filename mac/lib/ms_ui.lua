@@ -423,7 +423,6 @@ return function(ms)
 
             local themeFonts = {}
             for _, fam in ipairs({
-                "Almendra",
                 "Palatino",
                 "Georgia",
                 "Helvetica",

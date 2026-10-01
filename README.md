@@ -232,7 +232,5 @@ Icons from [Lucide](https://lucide.dev/) and [Kenney input-prompts pack](https:/
 
 Sound effects sourced from [The Spriters Resource](https://www.spriters-resource.com/):
 
-- **Custom/macro sounds**: [Devil May Cry 3 (PS2)](https://sounds.spriters-resource.com/playstation_2/dmc3/asset/393835/)
 - **Default sound pack**: [Windows 10 Beta Sound Effects](https://sounds.spriters-resource.com/pc_computer/windows10builtinapplications/asset/565854/), [PS2 System BIOS](https://sounds.spriters-resource.com/playstation_2/systembios/asset/430102/), [PSP System BIOS](https://sounds.spriters-resource.com/psp/systembios/asset/446911/), [PS4 System BIOS](https://sounds.spriters-resource.com/playstation_4/systembios/asset/520633/), [Xbox 360 System BIOS](https://sounds.spriters-resource.com/xbox_360/systembios/asset/493534/)
 
-Custom Theme Font: [Almendra](https://fonts.google.com/specimen/Almendra) by Ana Sanfelippo, via [Google Fonts](https://fonts.google.com/) (OFL).

@@ -85,7 +85,6 @@ return function(ms)
         end
         notice = 0
         loadfinish = 0
-        REF_SENS = REF_SENS or 1.5
         Move        = "Move"
         Click       = "Click"
         DoubleClick = "DoubleClick"

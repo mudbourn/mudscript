@@ -279,15 +279,29 @@ Items inside `items` with a `key` are automatically reachable via `ms.settings.g
 
 ```lua
 ms.menu.define({
-    id = "combatOptions", title = "Combat Options",
+    id = "extraOptions",
+    title = "Extra Options",
     items = {
-        { type = "toggle",     key = "autoParry",   label = "Auto Parry",   default = false,
-          onChange = function(v) end },
+        {
+            type = "toggle",
+            key = "autoRepeat",
+            label = "Auto Repeat",
+            default = false,
+            onChange = function(v) end
+        },
         { type = "divider" },
-        { type = "slider",     key = "parryWindow", label = "Parry Window",
-          min = 10, max = 200, step = 5, default = 80, unit = "ms",
-          onChange = function(v) end },
-    },
+        {
+            type = "slider",
+            key = "repeatDelay",
+            label = "Repeat Delay",
+            min = 10,
+            max = 200,
+            step = 5,
+            default = 80,
+            unit = "ms",
+            onChange = function(v) end
+        }
+    }
 })
 ```
 

@@ -590,7 +590,6 @@
                     local f = win:frame()
                     local screen = win:screen():frame()
                     local currentRatio = f.w / f.h
-                    local currentSens = ms._camSens or 1.5
                     local output = {
                         "--- TARGET WINDOW DEBUG INFO ---",
                         string.format("Window Title: %s", win:title()),
@@ -600,12 +599,10 @@
                         "-------------------------",
                         string.format("Monitor Size: %.0f x %.0f", screen.w, screen.h),
                         string.format("Aspect Ratio: %.2f", currentRatio),
-                        string.format("Camera Sensitivity: %.2f", currentSens),
                         "-------------------------"
                     }
                     print(table.concat(output, "\n"))
                     ms.alert(string.format("Window: %.0f x %.0f | Ratio: %.2f", f.w, f.h, currentRatio), 4)
-                    ms.alert("Camera Sensitivity: " .. string.format("%.2f", currentSens), 4)
                     if currentRatio < 4/3 then
                         ms.alert("Warning: Ratio too narrow.", 8)
                     end

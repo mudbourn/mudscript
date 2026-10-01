@@ -87,17 +87,6 @@ The toggle state (`ms._octaneMode`) persists across reloads via settings, so it'
 
 ---
 
-## Global Constants
-
-### Camera
-
-| Constant | Value | Description |
-|----------|-------|-------------|
-| `REF_SENS` | `1.5` | Reference camera sensitivity (used to derive `cachedMult`) |
-| `CUR_CAM_SENS` | *(user setting)* | Current in-game sensitivity. Set via Settings > Camera Sensitivity |
-
----
-
 ### Target application
 
 | API | Description |

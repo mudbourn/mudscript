@@ -89,7 +89,7 @@ A system font name or a relative path (from `~/.hammerspoon/`) to a local font f
 { "font": "ui/fonts/MyFont.ttf" }
 ```
 
-Supported file extensions: `.ttf`, `.otf`, `.woff`, `.woff2`. If a file path is given, a `@font-face` rule is injected dynamically. The font name in CSS falls back to `Almendra to Palatino to Georgia to serif`.
+Supported file extensions: `.ttf`, `.otf`, `.woff`, `.woff2`. If a file path is given, a `@font-face` rule is injected dynamically. The font name in CSS falls back to Arial, Helvetica, then sans-serif.
 
 ---
 
