@@ -83,4 +83,14 @@ jobs:
           N=$(jq '.entries | length' registry/index.json)
           git commit -m "registry: sign index ($N $([ "$N" = 1 ] && echo entry || echo entries))" \
             || { echo "Nothing to commit."; exit 0; }
-          git push
+
+          for attempt in 1 2 3; do
+            git push && exit 0
+            git fetch origin main
+            if ! git diff --quiet HEAD~1 origin/main -- registry/index.json; then
+              echo "ERROR: registry/index.json changed upstream after checkout. Re-run to sign the new index."
+              exit 1
+            fi
+            git rebase origin/main
+          done
+          exit 1
