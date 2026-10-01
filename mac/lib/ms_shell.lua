@@ -108,16 +108,26 @@
         -- END --
 
         -- probe --
-            ms.shell.probe = function(expr, cb)
+            ms.shell.probe = function(expr, cb, panelId)
                 local out = os.getenv("HOME") .. "/.hammerspoon/data/probe.txt"
                 local js = "(function(){try{var r=(" .. tostring(expr) .. ");"
                     .. "return typeof r==='string'?r:JSON.stringify(r,null,1);}"
                     .. "catch(e){return 'probe error: '+e;}})()"
-                if not (_shellView and _shellReady) then
+                local view = _shellView
+                if panelId then
+                    view = ms.shell.getPopOutView and ms.shell.getPopOutView(panelId)
+                    if not view then
+                        if cb then cb("probe: no popout for " .. tostring(panelId)) end
+                        return
+                    end
+                elseif not _shellReady then
+                    view = nil
+                end
+                if not view then
                     if cb then cb("probe: shell not ready") end
                     return
                 end
-                _shellView:evaluateJavaScript(js, function(result, err)
+                view:evaluateJavaScript(js, function(result, err)
                     local text = tostring(result or (err and err.NSLocalizedDescription) or err or "")
                     local f = io.open(out, "w")
                     if f then

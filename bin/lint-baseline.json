@@ -198,10 +198,6 @@
   "ui/modules/panel-theme.js": {
     "comment": 28
   },
-  "ui/modules/tool-block.js": {
-    "comment": 31,
-    "marker-orphan-end": 1
-  },
   "ui/modules/tool-editor.js": {
     "comment": 11,
     "marker-unclosed": 1
@@ -217,7 +213,7 @@
     "marker-unclosed": 3
   },
   "ui/ms_curtain.html": {
-    "comment": 30,
+    "comment": 29,
     "font-reset-missing": 1,
     "marker-unclosed": 3
   },
@@ -230,7 +226,7 @@
     "marker-unclosed": 2
   },
   "ui/ms_loading.html": {
-    "comment": 41,
+    "comment": 40,
     "font-reset-missing": 1
   },
   "ui/ms_osk.html": {

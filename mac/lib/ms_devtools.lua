@@ -1194,9 +1194,6 @@ return function(ms)
         self:macroLog(msg, label)
     end
 
-    function MsDevTools:flushCam(label) end
-    function MsDevTools:flushWait(label) end
-
     function MsDevTools:setTraceSuppress(val)
         _traceSuppress = val
     end

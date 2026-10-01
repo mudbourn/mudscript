@@ -2,7 +2,6 @@
     return function(ms)
         ms.scroll = function(direction, clicks)
             if ms.dev._watcherPanel then
-                ms.devtools:flushCam()
                 ms.devtools:watcherStep("scroll " .. tostring(direction)
                     .. (clicks and clicks > 1 and " \xc3\x97" .. clicks or ""))
             end

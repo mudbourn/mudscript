@@ -417,9 +417,14 @@
                 return n + "=" + vars[n];
             }).join("  ");
             var sel = "button, input, textarea, select, [contenteditable=true], [role=button]";
-            var els = [root].filter(function(el) {
-                return el.matches && el.matches(sel);
-            }).concat(Array.prototype.slice.call(root.querySelectorAll(sel)));
+            var all = [root].concat(Array.prototype.slice.call(root.querySelectorAll("*")));
+            var els = all.filter(function(el) {
+                if (!el.matches || el.closest("svg")) return false;
+                if (el.matches(sel)) return true;
+                return Array.prototype.some.call(el.childNodes, function(n) {
+                    return n.nodeType === 3 && n.nodeValue.trim() !== "";
+                });
+            });
             els.forEach(function(el) {
                 if (!shown(el) || parked(el)) return;
                 var t = (el.type || "").toLowerCase();
@@ -435,7 +440,7 @@
             auditFonts(list(sel || "body")[0] || document.body, function(kind, el, msg) {
                 out.push(path(el) + "\n    " + msg);
             });
-            return "fonts: " + out.length + " control(s) off theme font\n" + out.join("\n");
+            return "fonts: " + out.length + " element(s) off theme font\n" + out.join("\n");
         }
     // END Audit //
 

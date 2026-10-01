@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, join, extname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { build as buildIcons } from "./gen-icons.mjs";
 
 // Setup //
     const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -58,6 +59,8 @@ import { fileURLToPath } from "node:url";
         "css-line-comment": "// is not a CSS comment and drops the next rule.",
         "undefined-call": "Calls a name this file never declares and no ui file makes global. Declare it, or share it on a window namespace.",
         "font-reset-missing": "Page lacks button, input, textarea, select { font: inherit } so controls fall back to the system font.",
+        "icons-stale": "ui/modules/icons.js is out of date with ui/svg. Run node bin/gen-icons.mjs.",
+        "arg-order-drift": "Compiler ARG_ORDER does not match the builder registry params for this function.",
     };
 // END Setup //
 
@@ -1079,6 +1082,78 @@ import { fileURLToPath } from "node:url";
 // END Undefined Call Rule //
 
 // Lint Runner //
+    function registryParams() {
+        const src = readFileSync(join(ROOT, "ui", "modules", "panel-macros-registry.js"), "utf8");
+
+        const out = {};
+
+        const entry = /id:\s*"(ms\.[\w.]+)"[\s\S]*?params:\s*\[([\s\S]*?)\n\s*\]/g;
+
+        let m;
+
+        while ((m = entry.exec(src))) {
+            if (out[m[1]]) continue;
+
+            out[m[1]] = [...m[2].matchAll(/name:\s*"(\w+)"/g)].map((x) => x[1]);
+        }
+
+        return out;
+    }
+
+    function checkArgOrder(ctx) {
+        const params = registryParams();
+
+        const start = ctx.lines.findIndex((l) => /local ARG_ORDER = \{/.test(l));
+
+        if (start < 0) return;
+
+        let name = null;
+
+        let nameLine = 0;
+
+        let args = [];
+
+        const flush = () => {
+            if (!name) return;
+
+            const want = params[name];
+
+            if (want && want.join(",") !== args.join(",")) ctx.report("arg-order-drift", nameLine, `compiler (${args.join(", ")}) vs registry (${want.join(", ")})`);
+
+            name = null;
+        };
+
+        for (let i = start + 1; i < ctx.lines.length; i++) {
+            const line = ctx.lines[i];
+
+            const open = line.match(/^\s*\["(ms\.[\w.]+)"\]\s*=\s*\{/);
+
+            if (open) {
+                flush();
+
+                name = open[1];
+
+                nameLine = i;
+
+                args = [];
+                continue;
+            }
+
+            const arg = line.match(/^\s*"(\w+)",?\s*$/);
+
+            if (arg && name) {
+                args.push(arg[1]);
+                continue;
+            }
+
+            if (/^\s*\}\s*$/.test(line) && !name) break;
+
+            if (/^\s*\},?\s*$/.test(line)) flush();
+        }
+
+        flush();
+    }
+
     function lintFile(rel, styled, globals) {
         const src = readFileSync(join(ROOT, rel), "utf8");
 
@@ -1108,6 +1183,10 @@ import { fileURLToPath } from "node:url";
         if (lang !== "md") checkComments(ctx);
 
         if (lang === "lua") checkLua(ctx);
+
+        if (rel === "mac/lib/ms_compiler.lua") checkArgOrder(ctx);
+
+        if (rel === "ui/modules/icons.js" && src !== buildIcons()) report("icons-stale", 0);
 
         if (/^ui\/.*\.(js|html|css)$/.test(rel)) {
             checkUi(ctx);

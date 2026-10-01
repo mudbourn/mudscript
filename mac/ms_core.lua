@@ -226,8 +226,6 @@
                     ms.dev._pushMouseState = function() end
 
                     ms.devtools = {
-                        flushCam         = function() end,
-                        flushWait        = function() end,
                         flushKey         = function() end,
                         watcherStep      = function() end,
                         macroLog         = function() end,
@@ -515,10 +513,6 @@
                 local co, isMain = coroutine.running()
                 if co and not isMain then
                     local ctx = ms._coroContext[co]
-                    if ms.dev and not ms.devtools:getTraceSuppress() then
-                        ms.devtools:flushCam()
-                    end
-
                     if ms.dev then
                         ms.devtools:accWait(tonumber(ms_time) or 0, ms._getCallChain())
                     end
