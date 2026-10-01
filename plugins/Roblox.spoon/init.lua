@@ -5,7 +5,7 @@ local obj = {}
 obj.__index = obj
 
 obj.name    = "Roblox"
-obj.version = "0.2.2"
+obj.version = "0.2.3"
 obj.author  = "mudbourn"
 obj.license = "MIT"
 
@@ -77,6 +77,7 @@ obj.license = "MIT"
 
 local _sensWatcher = nil
 local _sensTimer   = nil
+local _calibratedAt = nil
 local _cacheTimer  = nil
 
 -- Settings Reader --
@@ -199,6 +200,10 @@ function obj:init()
             settingBool     = readBool,
 
             sensitivity     = function() return effectiveSensitivity() end,
+            calibrate       = function(sens)
+                local n = tonumber(sens)
+                _calibratedAt = (n and n > 0) and n or nil
+            end,
             gamepadSens     = function() return readNumber("GamepadCameraSensitivity") end,
             framerateCap    = function() return readNumber("FramerateCap") end,
             graphicsQuality = function() return readNumber("GraphicsQualityLevel") end,
@@ -251,6 +256,14 @@ function obj:init()
             onChange = function() armAntiTimeout() end,
         })
     -- END Anti-Timeout --
+
+    -- Camera Scale --
+        ms._camScale = function()
+            local live = ms._camSens
+            if not _calibratedAt or type(live) ~= "number" or live <= 0 then return nil end
+            return _calibratedAt / live
+        end
+    -- END Camera Scale --
 
     -- Camera Sensitivity --
         -- Manual camera-sensitivity slider
@@ -428,6 +441,8 @@ function obj:stop()
         pcall(function() ms.setTargetApp(nil) end)
     end
     ms.roblox = nil
+    ms._camScale = nil
+    _calibratedAt = nil
     return self
 end
 

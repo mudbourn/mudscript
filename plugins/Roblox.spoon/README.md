@@ -19,6 +19,7 @@ macro never acts on last session's numbers.
 |----------|---------|
 | `ms.roblox.setting(key)` / `.settingNumber(key)` / `.settingBool(key)` | Any UserGameSettings key. |
 | `ms.roblox.sensitivity()` | `MouseSensitivity` |
+| `ms.roblox.calibrate(sens)` | declare the sensitivity a pack's camera moves were tuned at |
 | `ms.roblox.gamepadSens()` | `GamepadCameraSensitivity` |
 | `ms.roblox.framerateCap()` | `FramerateCap` |
 | `ms.roblox.graphicsQuality()` / `.savedQuality()` | quality levels |
@@ -28,6 +29,11 @@ macro never acts on last session's numbers.
 | `ms.roblox.activate()` | focus the Roblox window |
 
 ## Sensitivity Tether
+
+A pack declares the sensitivity its camera values were tuned at with
+`ms.roblox.calibrate(1.5)`. Every `ms.cam` move is then scaled by
+`calibrated / live`, where live is `ms._camSens`. A pack that never calls
+`calibrate` is not scaled. Disabling the plugin removes the scaling.
 
 Macros that scale camera moves to the player's sensitivity read
 `ms._camSens`. Left alone that only tracks the manual **Camera Sensitivity**

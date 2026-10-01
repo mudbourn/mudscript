@@ -594,6 +594,12 @@
             __call = function(_, dx, dy)
                 if not _camActivated then _activateCam() end
 
+                local scale = ms._camScale and ms._camScale()
+                if scale and scale > 0 and scale ~= 1 then
+                    dx = dx * scale
+                    dy = dy * scale
+                end
+
                 dx = math.floor(dx + 0.5)
                 dy = math.floor(dy + 0.5)
 
