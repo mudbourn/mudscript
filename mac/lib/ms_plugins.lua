@@ -127,6 +127,11 @@
                     end,
                 })
 
+                overrides.setTargetApp = function(name)
+                    ms.offerTargetApp(name)
+                    record(dir, function() ms.withdrawTargetApp(name) end)
+                end
+
                 overrides.tools = subProxy(ms.tools, {
                     define = function(def)
                         local out = ms.tools.define(def)

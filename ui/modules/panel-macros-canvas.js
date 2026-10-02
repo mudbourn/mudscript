@@ -1183,6 +1183,54 @@
     };
 // END Wrap the selected siblings in a new container //
 
+// Unwrap selected containers into their parent list //
+    ToolCanvas.prototype.unwrapSelected = function() {
+        var self = this;
+        var ids = this._selList().filter(function(sid, _, all) {
+            var step = self._map[sid];
+            if (!step || !self._isContainer(step)) return false;
+            for (var i = 0; i < all.length; i++) { if (all[i] !== sid && self._isDesc(all[i], sid)) return false; }
+            return true;
+        });
+        if (!ids.length) return false;
+        var freed = [];
+        ids.forEach(function(sid) {
+            var box = self._map[sid];
+            var loc = self._locate(sid);
+            if (!loc) return;
+            var kids = box.action === "if"
+                ? (box.then || []).concat(box.else || [])
+                : (box.body || []);
+            Array.prototype.splice.apply(loc.list, [loc.idx, 1].concat(kids));
+            delete self._map[sid];
+            delete self._collapsed[sid];
+            kids.forEach(function(k) { freed.push(k._sid); });
+        });
+        this._setSelection(freed);
+        this._render();
+        this._applySelectionClasses();
+        this._emitSelection();
+        this._fireChange();
+        return true;
+    };
+// END Unwrap selected containers into their parent list //
+
+// Collapse or expand every container //
+    ToolCanvas.prototype.setAllCollapsed = function(want) {
+        var self = this, changed = false;
+        (function walk(list) {
+            for (var i = 0; i < list.length; i++) {
+                var s = list[i];
+                if (self._isContainer(s) && self.setCollapsed(s._sid, want)) changed = true;
+                if (s.then) walk(s.then);
+                if (s.else) walk(s.else);
+                if (s.body) walk(s.body);
+            }
+        })(this._tools);
+        return changed;
+    };
+// END Collapse or expand every container //
+
     window.msSvgCache = _svgCache;
     window.msFetchSVG = _fetchSVG;
 })();

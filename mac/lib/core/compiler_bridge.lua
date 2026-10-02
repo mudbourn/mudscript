@@ -107,6 +107,23 @@
                     _macroShellEval("if(window.macroLab)macroLab.setMeta(" .. json .. ")")
                 end)
 
+                local function _pushTargetApp()
+                    local ok, json = pcall(hs.json.encode, ms._targetAppState())
+                    if ok then
+                        _macroShellEval("if(window.macroLab)macroLab.setTargetApp(" .. json .. ")")
+                    end
+                end
+
+                ms.bus.on("ui:macros:getTargetApp", function()
+                    _pushTargetApp()
+                end)
+
+                ms.bus.on("ui:macros:setTargetApp", function(_, body)
+                    if type(body) ~= "table" then return end
+                    ms.setTargetApp(body.name)
+                    _pushTargetApp()
+                end)
+
                 ms.bus.on("ui:macros:clipboard", function(_, body)
                     if type(body) == "table" and type(body.text) == "string" then
                         pcall(function() hs.pasteboard.setContents(body.text) end)

@@ -559,6 +559,7 @@
         local _camRebalancing = false
         local _camAnchor  = nil
         local _camActivated = false
+        local _camTransforms = {}
 
         local function _updateCamAnchor()
             local win = ms.getTargetWin()
@@ -594,10 +595,13 @@
             __call = function(_, dx, dy)
                 if not _camActivated then _activateCam() end
 
-                local scale = ms._camScale and ms._camScale()
-                if scale and scale > 0 and scale ~= 1 then
-                    dx = dx * scale
-                    dy = dy * scale
+                local transform = ms._targetApp and _camTransforms[ms._targetApp]
+                if transform then
+                    local ok, tx, ty = pcall(transform, dx, dy)
+                    if ok and type(tx) == "number" and type(ty) == "number" then
+                        dx = tx
+                        dy = ty
+                    end
                 end
 
                 dx = math.floor(dx + 0.5)
@@ -652,6 +656,14 @@
             _camTotalX = 0
             _camTotalY = 0
             _camRebalancing = false
+        end
+
+        ms.cam.setTransform = function(app, fn)
+            assert(type(app) == "string" and app ~= "",
+                "ms.cam.setTransform: app must be a non-empty string")
+            assert(fn == nil or type(fn) == "function",
+                "ms.cam.setTransform: fn must be a function or nil")
+            _camTransforms[app] = fn
         end
 
         ms.cam.reset = function()

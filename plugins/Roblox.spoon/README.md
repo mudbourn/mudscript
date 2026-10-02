@@ -31,17 +31,16 @@ macro never acts on last session's numbers.
 ## Sensitivity Tether
 
 A pack declares the sensitivity its camera values were tuned at with
-`ms.roblox.calibrate(1.5)`. Every `ms.cam` move is then scaled by
-`calibrated / live`, where live is `ms._camSens`. A pack that never calls
-`calibrate` is not scaled. Disabling the plugin removes the scaling.
+`ms.roblox.calibrate(1.5)`. The plugin registers an `ms.cam.setTransform`
+for Roblox that scales every move by `calibrated / live`, where live is the
+**Camera Sensitivity** slider. Roblox's camera turn is linear in sensitivity, so
+the ratio is exact. A pack that never calls `calibrate` is not scaled, and
+disabling the plugin removes the transform.
 
-Macros that scale camera moves to the player's sensitivity read
-`ms._camSens`. Left alone that only tracks the manual **Camera Sensitivity**
-slider, so a player whose real in-game sensitivity differs silently mis-rotates
-every spin (the classic "super jump won't land"). The **Sync Sensitivity From
-Roblox** toggle ties `ms._camSens` to Roblox's live saved sensitivity so the
-calibration always matches the setting actually in effect, and mirrors the value
-onto the visible `cameraSensitivity` slider when a pack defines one.
+The **Sync Sensitivity From Roblox** toggle is off by default. When on, it copies
+Roblox's saved sensitivity onto the slider whenever the settings file changes.
+Roblox only writes that file when the app closes, so a sensitivity changed
+mid-session is not picked up until Roblox quits.
 
 Reading the live value: the in-game slider writes the legacy scalar
 `MouseSensitivity`, which Roblox mirrors into per-view `Vector2` blocks

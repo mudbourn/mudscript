@@ -5,7 +5,7 @@ local obj = {}
 obj.__index = obj
 
 obj.name    = "Roblox"
-obj.version = "0.2.4"
+obj.version = "0.3.0"
 obj.author  = "mudbourn"
 obj.license = "MIT"
 
@@ -258,15 +258,15 @@ function obj:init()
     -- END Anti-Timeout --
 
     -- Camera Scale --
-        ms._camScale = function()
-            local live = ms._camSens
-            if not _calibratedAt or type(live) ~= "number" or live <= 0 then return nil end
-            return _calibratedAt / live
-        end
+        ms.cam.setTransform(TARGET_APP, function(dx, dy)
+            local live = tonumber(ms.settings.get("cameraSensitivity"))
+            if not _calibratedAt or not live or live <= 0 then return dx, dy end
+            local scale = _calibratedAt / live
+            return dx * scale, dy * scale
+        end)
     -- END Camera Scale --
 
     -- Camera Sensitivity --
-        -- Manual camera-sensitivity slider
         ms.settings.define({
             type    = "slider",
             key     = "cameraSensitivity",
@@ -277,9 +277,6 @@ function obj:init()
             default = 1.5,
             save    = true,
             section = "roblox",
-            onChange = function(val)
-                ms._camSens = val
-            end,
         })
     -- END Camera Sensitivity --
 
@@ -288,11 +285,8 @@ function obj:init()
             if ms.settings.get("robloxSyncSensitivity") ~= true then return end
             local sens = effectiveSensitivity()
             if type(sens) ~= "number" or sens <= 0 then return end
-            if ms._camSens ~= sens then
-                if ms.settings.get("cameraSensitivity") ~= nil then
-                    pcall(ms.settings.set, "cameraSensitivity", sens)
-                end
-                ms._camSens = sens
+            if ms.settings.get("cameraSensitivity") ~= sens then
+                pcall(ms.settings.set, "cameraSensitivity", sens)
             end
         end
 
@@ -456,11 +450,8 @@ function obj:stop()
         _cacheTimer = nil
     end
     pcall(function() ms.antiTimeoutStop() end)
-    if ms._targetApp == "Roblox" then
-        pcall(function() ms.setTargetApp(nil) end)
-    end
+    pcall(ms.cam.setTransform, TARGET_APP, nil)
     ms.roblox = nil
-    ms._camScale = nil
     _calibratedAt = nil
     return self
 end

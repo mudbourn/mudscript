@@ -12,7 +12,7 @@ ms.macroMeta = {
     website = "https://...",
 }
 
--- 1b. Target application (optional, default "Roblox")
+-- 1b. Target application (optional, overrides the Manager picker)
 ms.setTargetApp("Roblox")   -- macros enable when this app is focused; nil = global mode
 
 -- 2. Pack settings (optional, declare before macro functions)

@@ -5,7 +5,7 @@ local obj = {}
 obj.__index = obj
 
 obj.name    = "Minecraft"
-obj.version = "0.1.0"
+obj.version = "0.1.1"
 obj.author  = "mudbourn"
 obj.license = "MIT"
 
@@ -212,9 +212,6 @@ function obj:stop()
     if self._state and self._state.ws then
         pcall(function() self._state.ws:close() end)
         self._state.ws = nil
-    end
-    if ms._targetApp == "Minecraft" then
-        pcall(function() ms.setTargetApp(nil) end)
     end
     ms.mc = nil
     return self

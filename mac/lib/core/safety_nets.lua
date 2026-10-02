@@ -10,6 +10,9 @@
                    or k == "registry" or k == "devtools" then
                         error("ms_macros.lua: ms." .. k .. " is not accessible from macros.", 2)
                     end
+                    if k == "setTargetApp" then
+                        return ms._declareTargetApp
+                    end
                     if k == "key" then
                         return function(mods, key, swallow, pressFn, releaseFn)
                             return ms.key(mods, key, swallow, pressFn, releaseFn, false)
@@ -235,6 +238,7 @@
             if not chunk then
                 error("ms_macros.lua: failed to load: " .. tostring(loadErr))
             end
+            ms._targetAppDeclared = nil
             ms._defineOrigin = "pack"
             local ok, runErr = pcall(chunk)
             ms._defineOrigin = nil
@@ -243,6 +247,7 @@
             end
 
             ms._macroMetaFromHand = ms.macroMeta ~= nil
+            if ms._applyTargetApp then ms._applyTargetApp() end
             if not ms.macroMeta then
                 print("Warning: ms_macros.lua did not set ms.macroMeta.")
                 hs.timer.doAfter(0.5, function()

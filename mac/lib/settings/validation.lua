@@ -79,7 +79,6 @@ return function(ms, ctx)
                 if num and num >= 0.1 and num <= 4 then
                     ms._pendingUserSettings = ms._pendingUserSettings or {}
                     ms._pendingUserSettings["cameraSensitivity"] = num
-                    ms._camSens = num
                 end
             end
             if data.frameLevel ~= nil then
@@ -180,6 +179,12 @@ return function(ms, ctx)
                 ms._pendingUserSettings["antiTimeoutEnabled"] = (data.antiTimeoutEnabled == true)
             end
             if data.macroLabEnabled ~= nil then ms._macroLabEnabled = (data.macroLabEnabled == true) end
+            if type(data.targetApp) == "string" and data.targetApp ~= "" then
+                ms._targetAppSetting = data.targetApp
+            elseif data.targetApp == false then
+                ms._targetAppSetting = false
+            end
+            if ms._applyTargetApp then ms._applyTargetApp() end
             if data.testingSource == "release" or data.testingSource == "artifact" then
                 ms._testingSource = data.testingSource
             end
@@ -343,6 +348,7 @@ return function(ms, ctx)
                 swallowHotkeys     = ms._swallowHotkeys or false,
                 updateAlertsDisabled = ms._updateAlertsDisabled or false,
                 macroLabEnabled    = ms._macroLabEnabled ~= false,
+                targetApp          = ms._targetAppSetting,
                 consoleDangerAck = ms._consoleDangerAck or false,
                 editMacrosAck    = ms._editMacrosAck or false,
                 quickReloaded    = ms._quickReloaded or 0,

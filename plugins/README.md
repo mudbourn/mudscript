@@ -19,7 +19,9 @@ Then reload Hammerspoon and enable it in Settings >> Plugins.
 ## Contract every plugin follows
 
 - Register only through `ms` (`ms.bind`, `ms.bus`, `ms.key`, `ms.settings`,
-  `ms.tools`, `ms.setTargetApp`, ...). Anything registered directly with
+  `ms.tools`, `ms.setTargetApp`, `ms.cam.setTransform`, ...). A plugin's
+  `ms.setTargetApp` only offers the app: the user's choice in Macros > Manager
+  and a handwritten `ms_macros.lua` declaration both outrank it. Anything registered directly with
   Hammerspoon (`hs.hotkey.bind`, `hs.timer.new`) is invisible to teardown and
   keeps firing after the plugin is switched off.
 - Do setup in `obj:init()` and undo the rest in `obj:stop()` - the proxy unwinds

@@ -347,6 +347,18 @@
 
     overflowMenu.appendChild(recordRow);
 
+    var collapseAllBtn = document.createElement("button");
+    collapseAllBtn.className = "macro-toolbar-btn";
+    collapseAllBtn.innerHTML = menuLabel("chevup", "Collapse All");
+    collapseAllBtn.title = "Collapse every container (Cmd+[)";
+    overflowMenu.appendChild(collapseAllBtn);
+
+    var expandAllBtn = document.createElement("button");
+    expandAllBtn.className = "macro-toolbar-btn";
+    expandAllBtn.innerHTML = menuLabel("chevdown", "Expand All");
+    expandAllBtn.title = "Expand every container (Cmd+])";
+    overflowMenu.appendChild(expandAllBtn);
+
     var delMacroBtn = document.createElement("button");
     delMacroBtn.className = "macro-toolbar-btn danger";
     delMacroBtn.innerHTML = menuLabel("trash", "Delete");
@@ -498,6 +510,24 @@
     }, "Credits baked into your visual macros (ms.macroMeta)");
     var metaDesc = metaCard.querySelector(".section-desc");
     bindsScroll.insertBefore(metaCard, bindList);
+
+    var targetSelect = window.createSelect({
+        className: "input-sm",
+        minWidth: 180,
+        searchable: true,
+        searchPlaceholder: "Search apps",
+        options: [{ value: "", label: "None" }],
+        value: "",
+        onChange: function(v) {
+            if (window.shellPost) shellPost("macros", "setTargetApp", { name: v || null });
+        },
+    });
+    var targetRow = _kit.row("Target App", "Binds only fire while this app is focused", targetSelect);
+    var targetCard = _kit.section("macro-target", "Target App", function(body) {
+        body.appendChild(targetRow);
+    }, "The app your macros drive");
+    var targetDesc = targetCard.querySelector(".section-desc");
+    bindsScroll.insertBefore(targetCard, bindList);
 
     M.macroLib = [];
     var packList;
@@ -661,7 +691,24 @@
     updateMetaSaveBtn();
 
     function refreshMeta() {
-        if (window.shellPost) shellPost("macros", "getMeta", {});
+        if (window.shellPost) {
+            shellPost("macros", "getMeta", {});
+            shellPost("macros", "getTargetApp", {});
+        }
+    }
+
+    function setTargetApp(state) {
+        state = state || {};
+        var opts = [{ value: "", label: "None" }];
+        (state.options || []).forEach(function(n) { opts.push({ value: n, label: n }); });
+        targetSelect.setOptions(opts);
+        targetSelect.value = state.current || "";
+        var declared = !!state.declared;
+        targetSelect.classList.toggle("meta-input-locked", declared);
+        targetSelect.style.pointerEvents = declared ? "none" : "";
+        targetDesc.textContent = declared
+            ? "Declared in your handwritten ms_macros.lua (read-only)"
+            : "The app your macros drive";
     }
 
     function setMeta(meta) {
@@ -913,6 +960,11 @@
             }
             return;
         }
+        if (mod && !e.shiftKey && (e.key === "[" || e.key === "]")) {
+            e.preventDefault();
+            if (M.canvas.setAllCollapsed(e.key === "[") && window.playSlot) playSlot("interact");
+            return;
+        }
         if (e.key === "Escape" && M.canvas.hasSelection()) {
             e.preventDefault();
             M.canvas.clearSelection();
@@ -927,10 +979,16 @@
             M.canvas.cutSelected();
             M.macroDirty = true;
             updateSaveBtnState();
+        } else if (mod && e.shiftKey && (e.key === "g" || e.key === "G")) {
+            e.preventDefault();
+            if (M.canvas.unwrapSelected() && window.playSlot) playSlot("interact");
         } else if (mod && (e.key === "d" || e.key === "g")) {
             e.preventDefault();
             if (e.key === "d") M.canvas.duplicateSelected();
             else M.canvas.openWrapMenu();
+        } else if (e.altKey && !mod && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+            e.preventDefault();
+            if (M.canvas.stepSelection(e.key === "ArrowUp" ? -1 : 1) && window.playSlot) playSlot("interact");
         } else if (e.key === "Delete" || e.key === "Backspace") {
             e.preventDefault();
             M.canvas.removeSelected();
@@ -1083,6 +1141,14 @@
     saveBtn.addEventListener("click", function() {
         if (window.playSlot) playSlot("interact");
         saveMacro();
+    });
+
+    [collapseAllBtn, expandAllBtn].forEach(function(b) {
+        b.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
+        b.addEventListener("click", function() {
+            if (window.playSlot) playSlot("interact");
+            M.canvas.setAllCollapsed(b === collapseAllBtn);
+        });
     });
 
     editFileBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
@@ -1262,6 +1328,7 @@
         refreshBinds: refreshBindList,
         focusSystemBinds: focusSystemBinds,
         setMeta: setMeta,
+        setTargetApp: setTargetApp,
         refreshMeta: refreshMeta,
         addTool: function(def) { M.canvas.addTool(def); closeFnOverlay(); },
         setToolList: function(list) {

@@ -349,6 +349,12 @@ The horizontal delta comes first. There is no `ms.cam.move`.
 
 ---
 
+### `ms.cam.setTransform(app, fn)`
+
+Registers `fn(dx, dy) -> dx, dy` for `app`. While `app` is the target app, every `ms.cam` move runs through `fn` before it is rounded and posted. Pass `nil` to remove it. Core never transforms on its own: a game plugin owns its sensitivity model and registers the conversion here. With no transform for the target app, moves are sent as written.
+
+---
+
 ### `ms.cam.reset()`
 
 Clears the accumulated `(dx, dy)` total without moving the camera. Use it when you have moved the view by other means and want `rebalance` to treat the current position as the new zero.

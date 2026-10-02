@@ -410,7 +410,7 @@ The builder also has a Break module. Inside a loop it exits the innermost loop. 
 
 ### App watcher behavior
 
-The app watcher monitors focus changes and enables/disables macros based on the **target application** set via `ms.setTargetApp()`. By default this is `"Roblox"`. Pass `nil` for global mode, macros stay enabled regardless of the focused app.
+The app watcher monitors focus changes and enables/disables macros based on the **target application** picked in **Macros > Manager** or declared with `ms.setTargetApp()`. Pass `nil` for global mode, macros stay enabled regardless of the focused app.
 
 | Event | Action |
 |-------|--------|

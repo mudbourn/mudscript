@@ -91,11 +91,17 @@ The toggle state (`ms._octaneMode`) persists across reloads via settings, so it'
 
 | API | Description |
 |-----|-------------|
-| `ms.setTargetApp(name)` | Set the target app by bundle name (e.g. `"Roblox"`, `"Minecraft"`). Pass `nil` for global mode, macros stay enabled regardless of focused app. Default: `"Roblox"`. |
+| `ms.setTargetApp(name)` | Declare the target app by name (e.g. `"Roblox"`, `"Minecraft"`). Pass `nil` for global mode, macros stay enabled regardless of focused app. |
 | `ms.getTargetWin()` | Returns the target app's main window, or `nil` if the app isn't running. Fallback to `hs.window.focusedWindow()` in coordinate functions. |
 | `ms.app()` | Returns the bundle name of the currently focused app. |
 
-Call `ms.setTargetApp()` at the top of `ms_macros.lua`, right after `ms.macroMeta`. The app watcher, window lookups, and focus restoration all follow this setting.
+The target app is a saved setting, picked under **Macros > Manager > Target App**. Three sources feed it, strongest first:
+
+1. `ms.setTargetApp()` in `ms_macros.lua`. The declaration wins while it is in the file, and the Manager picker shows it read-only.
+2. The picker in the Manager. Saved in settings, so it survives reloads.
+3. A plugin's `ms.setTargetApp()`. This only offers the app: it is used when nothing else is chosen and is withdrawn when the plugin is disabled.
+
+The app watcher, window lookups, focus restoration and `ms.cam` transforms all follow the result.
 
 ---
 

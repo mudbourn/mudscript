@@ -59,9 +59,12 @@ return function(ms)
             _autoCount = 0,
         }
 
-        ms._targetApp     = TARGET_APP or nil
-        ms._targetHandle  = ms._targetApp and hs.application.get(ms._targetApp) or nil
-        ms._targetActive  = false
+        ms._targetApp         = nil
+        ms._targetAppSetting  = nil
+        ms._targetAppDeclared = nil
+        ms._targetAppOffers   = {}
+        ms._targetHandle      = nil
+        ms._targetActive      = false
         ms._qrOptions = {
             macros = true,
             theme = true,
@@ -76,12 +79,85 @@ return function(ms)
             return (ok and win) or nil
         end
 
-        ms.setTargetApp = function(name)
-            ms._targetApp    = name or nil
-            ms._targetHandle = name and hs.application.get(name) or nil
-            if ms._targetHandle then
-                ms._targetActive = true
+        local function _cleanAppName(name)
+            if type(name) ~= "string" then return nil end
+            name = name:match("^%s*(.-)%s*$")
+            return name ~= "" and name or nil
+        end
+
+        ms._applyTargetApp = function()
+            local name = ms._targetAppDeclared
+            if not name then
+                if ms._targetAppSetting == false then
+                    name = nil
+                else
+                    name = ms._targetAppSetting or ms._targetAppOffers[1]
+                end
             end
+            ms._targetApp    = name
+            ms._targetHandle = name and hs.application.get(name) or nil
+            if ms._targetHandle then ms._targetActive = true end
+            if ms._updateCamAnchor then pcall(ms._updateCamAnchor) end
+        end
+
+        ms.setTargetApp = function(name)
+            ms._targetAppSetting = _cleanAppName(name) or false
+            ms._applyTargetApp()
+            if ms._loadComplete and ms.saveSettings then ms.saveSettings() end
+        end
+
+        ms._declareTargetApp = function(name)
+            ms._targetAppDeclared = _cleanAppName(name)
+            ms._applyTargetApp()
+        end
+
+        ms.offerTargetApp = function(name)
+            name = _cleanAppName(name)
+            if not name then return end
+            for _, n in ipairs(ms._targetAppOffers) do
+                if n == name then return end
+            end
+            table.insert(ms._targetAppOffers, name)
+            ms._applyTargetApp()
+        end
+
+        ms.withdrawTargetApp = function(name)
+            for i, n in ipairs(ms._targetAppOffers) do
+                if n == name then
+                    table.remove(ms._targetAppOffers, i)
+                    ms._applyTargetApp()
+                    return
+                end
+            end
+        end
+
+        ms._targetAppState = function()
+            local seen = {}
+            local options = {}
+            local function add(n)
+                if n and not seen[n] then
+                    seen[n] = true
+                    table.insert(options, n)
+                end
+            end
+            add(ms._targetAppSetting or nil)
+            for _, n in ipairs(ms._targetAppOffers) do add(n) end
+            local running = {}
+            for _, app in ipairs(hs.application.runningApplications()) do
+                local ok, kind = pcall(function() return app:kind() end)
+                local name = app:name()
+                if ok and kind == 1 and name and name ~= "Hammerspoon" then
+                    table.insert(running, name)
+                end
+            end
+            table.sort(running)
+            for _, n in ipairs(running) do add(n) end
+            return {
+                current  = ms._targetApp,
+                setting  = ms._targetAppSetting or nil,
+                declared = ms._targetAppDeclared,
+                options  = options,
+            }
         end
         notice = 0
         loadfinish = 0
