@@ -136,6 +136,7 @@ return function(ms, ctx)
                 ms.importedSounds = _is
             end
             if data.consoleDangerAck ~= nil then ms._consoleDangerAck = (data.consoleDangerAck == true) end
+            if data.editMacrosAck ~= nil then ms._editMacrosAck = (data.editMacrosAck == true) end
             if data.quickReloaded ~= nil then ms._quickReloaded = tonumber(data.quickReloaded) or 0 end
             if data.qrOptions and type(data.qrOptions) == "table" then
                 local qr = ms._qrOptions
@@ -343,6 +344,7 @@ return function(ms, ctx)
                 updateAlertsDisabled = ms._updateAlertsDisabled or false,
                 macroLabEnabled    = ms._macroLabEnabled ~= false,
                 consoleDangerAck = ms._consoleDangerAck or false,
+                editMacrosAck    = ms._editMacrosAck or false,
                 quickReloaded    = ms._quickReloaded or 0,
                 qrOptions        = ms._qrOptions or {
                     macros   = true,

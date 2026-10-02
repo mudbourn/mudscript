@@ -86,7 +86,7 @@ return function(ms, ctx)
             -- END --
 
             -- Editors & Windows --
-                editMacros = function()
+                editMacros = function(data)
                     local path = os.getenv("HOME") .. "/.hammerspoon/ms_macros.lua"
 
                     local function openIn(app)
@@ -97,26 +97,22 @@ return function(ms, ctx)
                         end
                     end
 
-                    local editor     = _savedEditor()
-                    local editorName  = _editorName(editor)
+                    if not (data and data.ack) and not ms._editMacrosAck then
+                        ms.playSlot("alert")
+                        ms.shell.eval("window.msEditMacrosNotice && msEditMacrosNotice.show()")
+                        return
+                    end
+                    if not ms._editMacrosAck then
+                        ms._editMacrosAck = true
+                        if ms.saveSettings then ms.saveSettings() end
+                    end
 
-                    ms.playSlot("alert")
-                    ms.ui.modal({
-                        title   = "Edit handwritten macros",
-                        msg     = "Opens ms_macros.lua, the handwritten macro suite. "
-                            .. "Visual builder macros are stored separately and are "
-                            .. "not edited here."
-                            .. (editorName and ("\n\nEditor: " .. editorName) or ""),
-                        confirm = editorName and ("Open in " .. editorName) or "Choose editor...",
-                        cancel  = "Cancel",
-                    }, function(res)
-                        if not (res and res.confirmed) then return end
-                        if editor then
-                            openIn(editor)
-                        else
-                            _pickEditor(function(app) openIn(app) end)
-                        end
-                    end)
+                    local editor = _savedEditor()
+                    if editor then
+                        openIn(editor)
+                    else
+                        _pickEditor(function(app) openIn(app) end)
+                    end
                 end,
 
                 chooseMacroEditor = function()

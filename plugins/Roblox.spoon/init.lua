@@ -5,7 +5,7 @@ local obj = {}
 obj.__index = obj
 
 obj.name    = "Roblox"
-obj.version = "0.2.3"
+obj.version = "0.2.4"
 obj.author  = "mudbourn"
 obj.license = "MIT"
 
@@ -285,7 +285,7 @@ function obj:init()
 
     -- Sensitivity Tether --
         local function syncSensitivity()
-            if ms.settings.get("robloxSyncSensitivity") == false then return end
+            if ms.settings.get("robloxSyncSensitivity") ~= true then return end
             local sens = effectiveSensitivity()
             if type(sens) ~= "number" or sens <= 0 then return end
             if ms._camSens ~= sens then
@@ -296,16 +296,36 @@ function obj:init()
             end
         end
 
+        local syncDefined = false
+
         ms.settings.define({
             type    = "toggle",
             key     = "robloxSyncSensitivity",
             label   = "Sync Sensitivity From Roblox",
-            hint    = "Tie the macro camera sensitivity to Roblox's live in-game sensitivity so spins stay calibrated (turn off to set it manually)",
-            default = true,
+            hint    = "Read the camera sensitivity from Roblox's saved settings. Roblox only writes changes when the app is closed, so a sensitivity changed mid-session is not picked up until Roblox quits",
+            default = false,
             save    = true,
             section = "roblox",
-            onChange = function() pcall(syncSensitivity) end,
+            onChange = function(on)
+                pcall(syncSensitivity)
+                if on == true and syncDefined and ms.ui and ms.ui.modal then
+                    ms.ui.modal({
+                        title   = "Roblox saves settings on close",
+                        msg     = "Roblox only writes sensitivity changes to disk when the app is closed. "
+                            .. "A sensitivity changed in-game will not sync until Roblox quits, and until then "
+                            .. "macros keep using the old value. Set Camera Sensitivity by hand if you change it mid-session.",
+                        confirm = "Turn on sync",
+                        cancel  = "Keep it off",
+                    }, function(res)
+                        if not (res and res.confirmed) then
+                            pcall(ms.settings.set, "robloxSyncSensitivity", false)
+                        end
+                    end)
+                end
+            end,
         })
+
+        syncDefined = true
 
         if _sensWatcher then _sensWatcher:stop() end
         _sensWatcher = hs.pathwatcher.new(SETTINGS_XML, function()
@@ -314,8 +334,7 @@ function obj:init()
         if _sensWatcher then _sensWatcher:start() end
 
         if _sensTimer then _sensTimer:stop() end
-        _sensTimer = hs.timer.doEvery(10, function() pcall(syncSensitivity) end)
-        pcall(syncSensitivity)
+        _sensTimer = nil
     -- END Sensitivity Tether --
 
     -- Cache Cleaner Toggle --
