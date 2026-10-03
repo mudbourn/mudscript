@@ -239,7 +239,53 @@
                 }
             }
 
+            function buildDevMode(body) {
+                const on = S.devMode === true;
+                let pillText = "Off";
+                if (on && !S.devBooted) pillText = "On, takes effect on reload";
+                else if (on) pillText = S.devIpcRunning ? "On" : "On, IPC failed";
+                body.appendChild(
+                    row(
+                        "Developer Mode",
+                        on
+                            ? "Integrity checks, the Guardian agent and the plugin library gate are off. hs.ipc is listening."
+                            : "Turns off integrity checks and the plugin library gate, and starts hs.ipc",
+                        h("span", { cls: "pill" + (on ? " danger" : ""), style: "font-weight:600" }, pillText),
+                    ),
+                );
+                body.appendChild(
+                    btnRow(
+                        on
+                            ? actionBtn("Turn Off Developer Mode", "", () =>
+                                  sendToHost({ action: "setDevMode", value: false }),
+                              )
+                            : actionBtn("Turn On Developer Mode...", "danger", async () => {
+                                  const r = await openModal(
+                                      "Developer Mode",
+                                      "Developer mode removes mudscript's protections:\n\n" +
+                                          "- Guardian stops checking file hashes at boot, and the background agent stops killing Hammerspoon on a mismatch.\n" +
+                                          "- Plugins outside the validated library can be imported and will load.\n" +
+                                          "- hs.ipc starts, so any program running as you can send Lua to Hammerspoon.\n\n" +
+                                          "Modified or malicious files will load without warning while it is on.\n\n" +
+                                          "Type developer to confirm.",
+                                      "Turn On",
+                                      "Cancel",
+                                      true,
+                                      "",
+                                  );
+                                  const v = (r.value || "").trim().toLowerCase();
+                                  if (r.confirmed && v === "developer")
+                                      sendToHost({ action: "setDevMode", value: true, confirm: v });
+                                  else if (r.confirmed)
+                                      showAlert("Confirmation did not match. Developer mode stays off.");
+                              }),
+                    ),
+                );
+            }
+
             function buildDeveloper(body) {
+                buildDevMode(body);
+                body.appendChild(divider());
                 body.appendChild(
                     btnRow(
                         actionBtn("Open Log Folder", "", () =>

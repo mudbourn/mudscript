@@ -12,9 +12,6 @@
   "mac/bin/ms_gc_read.swift": {
     "comment": 5
   },
-  "mac/bin/ms_guardian_agent.sh": {
-    "comment": 5
-  },
   "mac/bin/ms_ocr_read.swift": {
     "comment": 2
   },

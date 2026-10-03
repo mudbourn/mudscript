@@ -4,14 +4,19 @@ HAMMERSPOON_DIR="$HOME/.hammerspoon"
 TRUST="$HAMMERSPOON_DIR/data/.ms_trusted_hash"
 LOG="$HAMMERSPOON_DIR/data/guardian_agent.log"
 SENTINEL="$HAMMERSPOON_DIR/data/.ms_update_pending"
+DEVMODE="$HAMMERSPOON_DIR/data/.ms_devmode"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG"
 }
 
-# No trusted hash = uninitialized state; nothing to enforce.
 if [ ! -f "$TRUST" ]; then
     log "No trusted manifest on record - skipping check."
+    exit 0
+fi
+
+if [ -f "$DEVMODE" ]; then
+    log "Developer mode on - skipping check."
     exit 0
 fi
 
@@ -22,9 +27,7 @@ fi
 
 RAW=$(cat "$TRUST" 2>/dev/null)
 
-# Detect format: if it looks like a bare hex line, treat as old single-file format
 if echo "$RAW" | grep -qE '^[[:space:]]*[0-9a-fA-F]{64}[[:space:]]*$'; then
-    # Old format: single hash for ms_core.lua only
     CORE="$HAMMERSPOON_DIR/ms_core.lua"
     trusted=$(echo "$RAW" | tr -d '[:space:]')
     current=$(shasum -a 256 "$CORE" 2>/dev/null | awk '{print $1}')
@@ -102,10 +105,8 @@ GOT=$(echo "$FIRST" | cut -d'|' -f3)
 
 log "MISMATCH - $FILE: expected ${EXPECTED:0:16}... got ${GOT:0:16}... - killing Hammerspoon."
 
-# Kill Hammerspoon before it finishes reloading the modified config.
 killall Hammerspoon 2>/dev/null
 
-# Notify the user.
 osascript -e "display notification \"$FILE integrity error. Hammerspoon has been stopped.\nVerify the file before restarting.\" with title \"mudscript Guardian\" subtitle \"Integrity Error\" sound name \"Basso\"" 2>/dev/null
 
 exit 1

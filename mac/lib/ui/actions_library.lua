@@ -662,6 +662,19 @@ return function(ms, ctx)
                     ms.ui.refresh()
                 end,
 
+                setDevMode = function(data)
+                    if not ms.devmode then return end
+                    if data.value == true then
+                        if data.confirm ~= "developer" then return end
+                        ms.devmode.enable()
+                        ms.alert("Developer mode on.\nIntegrity checks are skipped from the next reload.", 5)
+                    else
+                        ms.devmode.disable()
+                        ms.alert("Developer mode off.\nRe-trust the current version if you changed files.", 5)
+                    end
+                    ms.ui.refresh()
+                end,
+
                 checkIntegrity = function()
                     local status, cur, trusted = ms.integrity.check()
                     if status == "trusted" then

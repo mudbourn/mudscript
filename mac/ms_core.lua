@@ -753,6 +753,21 @@
             ms.plugins.loadAll()
         -- END 13e. Plugins --
 
+        -- 13f. Developer Mode (ms.devmode) --
+            package.loaded["lib.ms_devmode"] = nil
+            local _devOk, _devErr = pcall(function() require("lib.ms_devmode")(ms) end)
+            if not _devOk then
+                print("MsDevmode: failed to load: " .. tostring(_devErr))
+                ms.devmode = {
+                    isOn            = function() return false end,
+                    ipcRunning      = function() return false end,
+                    bootedInDevMode = function() return false end,
+                    enable          = function() return false end,
+                    disable         = function() return false end,
+                }
+            end
+        -- END 13f. Developer Mode --
+
         -- 14. Safety Nets --
             package.loaded["lib.core.safety_nets"] = nil
             require("lib.core.safety_nets")(ms)

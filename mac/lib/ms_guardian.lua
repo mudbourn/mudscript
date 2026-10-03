@@ -11,6 +11,7 @@ local _obj = {
     local _corePath  = _home .. "/.hammerspoon/ms_core.lua"
     local _trustPath = _home .. "/.hammerspoon/data/.ms_trusted_hash"
     local _dataPath  = _home .. "/.hammerspoon/data/"
+    local _devPath   = _home .. "/.hammerspoon/data/.ms_devmode"
 
     local _publicKey = [[
 -----BEGIN PUBLIC KEY-----
@@ -973,10 +974,20 @@ YQIDAQAB
 
 -- Integrity Check --
     local _blocked = false
-    local _manifest = _readTrustedManifest()
-    local _fmResult, _fmFailedFile = _checkFileManifest()
+    local _devMode = hs.fs.attributes(_devPath) ~= nil
+    local _manifest = (not _devMode) and _readTrustedManifest() or nil
+    local _fmResult, _fmFailedFile
+    if _devMode then
+        _fmResult = "devmode"
+    else
+        _fmResult, _fmFailedFile = _checkFileManifest()
+    end
 
-    if _fmResult == "ok" then
+    if _fmResult == "devmode" then
+        _G._guardianDevMode = true
+        print("Guardian: developer mode is on, integrity and plugin checks skipped.")
+
+    elseif _fmResult == "ok" then
         print("Guardian: per-file manifest verified, all files intact.")
         pcall(function()
             local fm = _readFileManifest()
@@ -1032,7 +1043,7 @@ YQIDAQAB
         print("Guardian: per-file hash mismatch for " .. (_fmFailedFile or "unknown") .. ", blocking.")
     end
 
-    if not _blocked then
+    if not _blocked and not _devMode then
         local _spResult, _spName = _checkSpoons()
         if _spResult == "noledger" then
             _blocked = true

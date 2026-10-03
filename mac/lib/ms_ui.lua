@@ -492,6 +492,9 @@ return function(ms)
                 profiles                = ms.getProfiles(),
                 integrityStatus         = status,
                 integrityHash           = curHash,
+                devMode                 = ms.devmode ~= nil and ms.devmode.isOn() or false,
+                devIpcRunning           = ms.devmode ~= nil and ms.devmode.ipcRunning() or false,
+                devBooted               = ms.devmode ~= nil and ms.devmode.bootedInDevMode() or false,
                 plugins                 = (function()
                     if not (ms.package and ms.package.listPlugins) then return {} end
                     local ok, list = pcall(ms.package.listPlugins)
