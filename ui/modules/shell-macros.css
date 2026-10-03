@@ -222,7 +222,7 @@
     .macros-add-tool-btn { position: absolute; bottom: 14px; right: 14px; display: flex; align-items: center; gap: 5px; background: var(--accent); color: var(--bg); border: none; border-radius: var(--radius); font-size: 11px; font-weight: 700; padding: 7px 14px; cursor: pointer; transition: opacity 0.15s; text-transform: uppercase; letter-spacing: 0.5px; z-index: 20; box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
     .macros-add-tool-btn:hover { opacity: 0.85; }
     .macros-add-tool-btn svg { width: 12px; height: 12px; }
-    .macros-add-tool-btn svg path { fill: var(--bg); stroke: none; }
+    .macros-add-tool-btn svg path { stroke-width: 2.67; }
 /* END Binds list */
 
 /* Step Canvas */

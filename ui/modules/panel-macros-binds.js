@@ -278,6 +278,7 @@
                 openBindMenu(found.m, found.sub, { full: false });
             }
 
+            bindOptsBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
             bindOptsBtn.addEventListener("click", openCurrentBindMenu);
 
             function saveMacro() {

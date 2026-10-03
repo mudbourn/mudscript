@@ -396,7 +396,7 @@
 
     var addToolBtn = document.createElement("button");
     addToolBtn.className = "macros-add-tool-btn";
-    addToolBtn.innerHTML = (_svgCache["add"] || "+") + " Add Module";
+    addToolBtn.innerHTML = (_svgCache["plus"] || "+") + " Add Module";
     toolArea.appendChild(addToolBtn);
 
     var testToast = document.createElement("div");
@@ -1038,7 +1038,7 @@
         console.warn("[macros] ToolEditor not loaded, inline editing disabled");
     }
 
-    _fetchSVG("add").then(function(svg) {
+    _fetchSVG("plus").then(function(svg) {
         if (svg) addToolBtn.innerHTML = svg + " Add Module";
     });
     _fetchSVG("close").then(function(svg) {
