@@ -11,7 +11,6 @@ local _obj = {
     local _corePath  = _home .. "/.hammerspoon/ms_core.lua"
     local _trustPath = _home .. "/.hammerspoon/data/.ms_trusted_hash"
     local _dataPath  = _home .. "/.hammerspoon/data/"
-    local _devPath   = _home .. "/.hammerspoon/data/.ms_devmode"
 
     local _publicKey = [[
 -----BEGIN PUBLIC KEY-----
@@ -970,11 +969,34 @@ YQIDAQAB
             and _m.sha256:lower() == _cur:lower()
             and _verifyManifestSignature(_m)
     end
+    local function _devModeAuthorized()
+        local user = (os.getenv("USER") or ""):gsub("[^%w%._%-]", "")
+        if user == "" then return false end
+        local base = "/Library/Application Support/mudscript"
+        local out = hs.execute("/usr/bin/stat -f '%u %Lp %HT' " .. _shq(base) .. " "
+            .. _shq(base .. "/devmode") .. " " .. _shq(base .. "/devmode/" .. user) .. " 2>/dev/null")
+        if type(out) ~= "string" then return false end
+        local want = {
+            "Directory",
+            "Directory",
+            "Regular File",
+        }
+        local i = 0
+        for line in out:gmatch("[^\n]+") do
+            i = i + 1
+            local uid, perm, kind = line:match("^(%d+) (%d+) (.+)$")
+            if uid ~= "0" or kind ~= want[i] then return false end
+            local g = tonumber(perm:sub(-2, -2)) or 7
+            local o = tonumber(perm:sub(-1)) or 7
+            if g == 2 or g == 3 or g >= 6 or o == 2 or o == 3 or o >= 6 then return false end
+        end
+        return i == 3
+    end
 -- END Helpers --
 
 -- Integrity Check --
     local _blocked = false
-    local _devMode = hs.fs.attributes(_devPath) ~= nil
+    local _devMode = _devModeAuthorized()
     local _manifest = (not _devMode) and _readTrustedManifest() or nil
     local _fmResult, _fmFailedFile
     if _devMode then

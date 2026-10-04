@@ -666,13 +666,24 @@ return function(ms, ctx)
                     if not ms.devmode then return end
                     if data.value == true then
                         if data.confirm ~= "developer" then return end
-                        ms.devmode.enable()
-                        ms.alert("Developer mode on.\nIntegrity checks are skipped from the next reload.", 5)
+                        ms.devmode.enable(function(ok)
+                            if ok then
+                                ms.alert("Developer mode on.\nIntegrity checks are skipped from the next reload.", 5)
+                            else
+                                ms.alert("Developer mode was not turned on.", 3)
+                            end
+                            ms.ui.refresh()
+                        end)
                     else
-                        ms.devmode.disable()
-                        ms.alert("Developer mode off.\nRe-trust the current version if you changed files.", 5)
+                        ms.devmode.disable(function(ok)
+                            if ok then
+                                ms.alert("Developer mode off.\nRe-trust the current version if you changed files.", 5)
+                            else
+                                ms.alert("Developer mode is still on.", 3)
+                            end
+                            ms.ui.refresh()
+                        end)
                     end
-                    ms.ui.refresh()
                 end,
 
                 checkIntegrity = function()

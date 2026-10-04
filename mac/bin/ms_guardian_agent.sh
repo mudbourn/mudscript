@@ -4,7 +4,27 @@ HAMMERSPOON_DIR="$HOME/.hammerspoon"
 TRUST="$HAMMERSPOON_DIR/data/.ms_trusted_hash"
 LOG="$HAMMERSPOON_DIR/data/guardian_agent.log"
 SENTINEL="$HAMMERSPOON_DIR/data/.ms_update_pending"
-DEVMODE="$HAMMERSPOON_DIR/data/.ms_devmode"
+DEVBASE="/Library/Application Support/mudscript"
+DEVUSER=$(id -un | tr -cd 'A-Za-z0-9._-')
+
+dev_authorized() {
+    [ -n "$DEVUSER" ] || return 1
+    local out
+    out=$(/usr/bin/stat -f '%u %Lp %HT' "$DEVBASE" "$DEVBASE/devmode" "$DEVBASE/devmode/$DEVUSER" 2>/dev/null) || return 1
+    printf '%s\n' "$out" | awk '
+        BEGIN { split("Directory|Directory|Regular File", want, "|") }
+        {
+            n++
+            uid = $1; perm = $2
+            kind = $3; for (i = 4; i <= NF; i++) kind = kind " " $i
+            g = substr(perm, length(perm) - 1, 1) + 0
+            o = substr(perm, length(perm), 1) + 0
+            if (uid != "0" || kind != want[n]) bad = 1
+            if (g == 2 || g == 3 || g >= 6 || o == 2 || o == 3 || o >= 6) bad = 1
+        }
+        END { exit (bad || n != 3) }
+    '
+}
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG"
@@ -15,7 +35,7 @@ if [ ! -f "$TRUST" ]; then
     exit 0
 fi
 
-if [ -f "$DEVMODE" ]; then
+if dev_authorized; then
     log "Developer mode on - skipping check."
     exit 0
 fi
