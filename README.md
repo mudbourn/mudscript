@@ -224,7 +224,7 @@ mudscript is open-source under the [MIT License](LICENSE). Contributions are wel
 
 ## Credits
 
-Built with [Hammerspoon](https://www.hammerspoon.org/).
+Built for [Hammerspoon](https://www.hammerspoon.org/).
 
 Icons from [Lucide](https://lucide.dev/) and [Kenney input-prompts pack](https://kenney-assets.itch.io/input-prompts).
 
