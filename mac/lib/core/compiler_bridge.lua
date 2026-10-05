@@ -812,14 +812,24 @@
                     end
                 end)
 
-                -- Helper var declaration (disk-persistent shared variables).
+                local function _handOwnsVar(name)
+                    for _, v in ipairs(ms.vars.list()) do
+                        if v.name == name then return v.origin == "pack" end
+                    end
+                    return false
+                end
+
                 ms.bus.on("ui:tools:saveHelperVar", function(_, body)
                     if type(body) ~= "table" or not body.def then return end
-                    local ok, err = ms.vars.define(body.def)
+                    local ok, err
+                    if _handOwnsVar(body.def.name) then
+                        ok, err = false, "'" .. tostring(body.def.name) .. "' is declared in your handwritten ms_macros.lua, edit it there"
+                    else
+                        ok, err = ms.vars.define(body.def)
+                    end
                     if ok then
                         print("ms.vars.define: '" .. tostring(body.def.name) .. "' saved")
                         if ms.bus and ms.bus.emit then pcall(ms.bus.emit, "ui:macros:listTools") end
-                        -- Rebuild and push UI state so the Variable list includes the new var
                         if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
                         if ms.ui and ms.ui.refresh then pcall(ms.ui.refresh) end
                         _macroShellEval("if(window.shellReceive)shellReceive('tools','helperVarSaved',{})")
@@ -830,6 +840,10 @@
 
                 ms.bus.on("ui:tools:deleteHelperVar", function(_, body)
                     if type(body) ~= "table" or not body.name then return end
+                    if _handOwnsVar(body.name) then
+                        print("ms.vars.remove: '" .. tostring(body.name) .. "' is declared in ms_macros.lua, not removed")
+                        return
+                    end
                     local ok = ms.vars.remove(body.name)
                     if ok then
                         if ms.bus and ms.bus.emit then pcall(ms.bus.emit, "ui:macros:listTools") end

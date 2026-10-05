@@ -1005,14 +1005,30 @@
                 if key then
                     if rootUsed[key] then
                         local other = rootUsed[key]
-                        conflicted[id] = true
-                        conflicted[other] = true
+                        local visual = (ms.compiler and ms.compiler._registeredIds) or {}
                         local l1 = ms.registry._defs[id].label
                         local l2 = ms.registry._defs[other].label
-                        hs.timer.doAfter(0, function()
-                            ms.alert("Bind conflict: \"" .. l1 .. "\" and \"" .. l2
-                                .. "\" share the same input.\nBoth disabled. Right-click the macro in the Macros panel > Rebind to resolve.", 10)
-                        end)
+                        if visual[id] and not visual[other] then
+                            conflicted[id] = true
+                            hs.timer.doAfter(0, function()
+                                ms.alert("Bind conflict: \"" .. l1 .. "\" shares its input with \"" .. l2
+                                    .. "\" from ms_macros.lua.\nThe visual macro is disabled. Rebind it in the Macros panel.", 10)
+                            end)
+                        elseif visual[other] and not visual[id] then
+                            conflicted[other] = true
+                            rootUsed[key] = id
+                            hs.timer.doAfter(0, function()
+                                ms.alert("Bind conflict: \"" .. l2 .. "\" shares its input with \"" .. l1
+                                    .. "\" from ms_macros.lua.\nThe visual macro is disabled. Rebind it in the Macros panel.", 10)
+                            end)
+                        else
+                            conflicted[id] = true
+                            conflicted[other] = true
+                            hs.timer.doAfter(0, function()
+                                ms.alert("Bind conflict: \"" .. l1 .. "\" and \"" .. l2
+                                    .. "\" share the same input.\nBoth disabled. Right-click the macro in the Macros panel > Rebind to resolve.", 10)
+                            end)
+                        end
                     else
                         rootUsed[key] = id
                     end

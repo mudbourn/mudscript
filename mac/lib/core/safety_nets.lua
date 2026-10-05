@@ -1,5 +1,25 @@
 -- core/safety_nets (Safety Nets) --
     return function(ms)
+        ms._captureHandMeta = function()
+            local hand = nil
+            if type(ms.macroMeta) == "table" then
+                for _, field in ipairs({
+                    "name",
+                    "version",
+                    "author",
+                    "website",
+                }) do
+                    local v = ms.macroMeta[field]
+                    if type(v) == "string" and v ~= "" then
+                        hand = hand or {}
+                        hand[field] = v
+                    end
+                end
+            end
+            ms._macroMetaHand = hand
+            ms._macroMetaFromHand = hand ~= nil
+        end
+
         do
             local macrosPath = os.getenv("HOME") .. "/.hammerspoon/ms_macros.lua"
 
@@ -21,6 +41,27 @@
                         return function(button, swallow, clickFn)
                             return ms.mouse(button, swallow, clickFn, false)
                         end
+                    elseif k == "fn" then
+                        return setmetatable({}, {
+                            __index = function(_, fk)
+                                if fk == "define" then
+                                    return function(id, fn, opts)
+                                        if ms._loadingVisual and type(id) == "string"
+                                            and ms.fn.registry._defs[id] then
+                                            print("ms.fn.define: skipping duplicate id '"
+                                                .. id .. "', already registered "
+                                                .. "(handwritten tools win over visual).")
+                                            return
+                                        end
+                                        return ms.fn.define(id, fn, opts)
+                                    end
+                                end
+                                return ms.fn[fk]
+                            end,
+                            __call = function(_, ...)
+                                return ms.fn(...)
+                            end,
+                        })
                     elseif k == "bind" then
                         return setmetatable({}, {
                             __index = function(_, bk)
@@ -77,7 +118,14 @@
                 end,
                 __newindex = function(t, k, v)
                     if k == "macroMeta" then
-                        if ms._macroMetaLocked then return end
+                        if ms._macroMetaLocked and type(v) == "table" then
+                            local hand = ms._macroMetaHand or {}
+                            local merged = {}
+                            for field, val in pairs(v) do merged[field] = val end
+                            for field, val in pairs(hand) do merged[field] = val end
+                            rawset(ms, k, merged)
+                            return
+                        end
                         rawset(ms, k, v)
                     else
                         error("ms_macros.lua: unauthorized write to ms." .. tostring(k)
@@ -246,7 +294,7 @@
                 error("ms_macros.lua: error during execution: " .. tostring(runErr))
             end
 
-            ms._macroMetaFromHand = ms.macroMeta ~= nil
+            ms._captureHandMeta()
             if ms._applyTargetApp then ms._applyTargetApp() end
             if not ms.macroMeta then
                 print("Warning: ms_macros.lua did not set ms.macroMeta.")

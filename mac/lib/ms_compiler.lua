@@ -1067,6 +1067,10 @@
                     end
                     ms.compiler._registeredFnIds = nil
                 end
+                local _defBefore = {}
+                if ms.registry then
+                    for id in pairs(ms.registry._defs) do _defBefore[id] = true end
+                end
                 local _fnBefore = {}
                 if ms.fn and ms.fn.registry then
                     for _, id in ipairs(ms.fn.registry._defList) do _fnBefore[id] = true end
@@ -1128,7 +1132,9 @@
                 end
 
                 ms._macroMetaLocked = ms._macroMetaFromHand == true
+                ms._loadingVisual = true
                 local ok, runErr = pcall(chunk)
+                ms._loadingVisual = false
                 ms._macroMetaLocked = false
                 if not ok then
                     print("ms.compiler.load: execution error: " .. tostring(runErr))
@@ -1137,7 +1143,9 @@
                 end
 
                 local reg = {}
-                for _, id in ipairs(ms.compiler.list()) do reg[id] = true end
+                for _, id in ipairs(ms.compiler.list()) do
+                    if not _defBefore[id] and ms.registry._defs[id] then reg[id] = true end
+                end
                 ms.compiler._registeredIds = reg
 
                 -- Remember ms.fn ids that appeared this load
@@ -1462,16 +1470,14 @@
         -- END Function tools --
 
         -- Meta (pack credits: name / author / website) --
-            ms.compiler.getMeta = function()
-                if ms._macroMetaFromHand and type(ms.macroMeta) == "table" then
-                    return {
-                        name    = ms.macroMeta.name    or "",
-                        version = ms.macroMeta.version or "",
-                        author  = ms.macroMeta.author  or "",
-                        website = ms.macroMeta.website or "",
-                        owned   = true,
-                    }
-                end
+            local META_FIELDS = {
+                "name",
+                "version",
+                "author",
+                "website",
+            }
+
+            local function readJsonMeta()
                 local f = io.open(jsonPath, "r")
                 if not f then return {} end
                 local raw = f:read("*all")
@@ -1480,22 +1486,34 @@
                 if not ok or type(data) ~= "table" or type(data.meta) ~= "table" then
                     return {}
                 end
-                return {
-                    name    = data.meta.name    or "",
-                    version = data.meta.version or "",
-                    author  = data.meta.author  or "",
-                    website = data.meta.website or "",
-                    owned   = false,
+                return data.meta
+            end
+
+            ms.compiler.getMeta = function()
+                local hand = ms._macroMetaHand or {}
+                local stored = readJsonMeta()
+                local out = {
+                    locked = {},
                 }
+                local claimed = 0
+                for _, field in ipairs(META_FIELDS) do
+                    if hand[field] then
+                        out[field] = hand[field]
+                        out.locked[field] = true
+                        claimed = claimed + 1
+                    else
+                        out[field] = type(stored[field]) == "string" and stored[field] or ""
+                    end
+                end
+                out.owned = claimed == #META_FIELDS
+                return out
             end
 
             ms.compiler.setMeta = function(meta)
                 assert(type(meta) == "table", "ms.compiler.setMeta: meta must be a table")
 
-                if ms._macroMetaFromHand then
-                    print("ms.compiler.setMeta: ignored, handwritten ms_macros.lua owns the pack credits")
-                    return false, "handwritten"
-                end
+                local hand = ms._macroMetaHand or {}
+                local stored = readJsonMeta()
 
                 local data = { macros = {} }
                 local f = io.open(jsonPath, "r")
@@ -1509,12 +1527,11 @@
                     end
                 end
 
-                data.meta = {
-                    name    = type(meta.name)    == "string" and meta.name    or "",
-                    version = type(meta.version) == "string" and meta.version or "",
-                    author  = type(meta.author)  == "string" and meta.author  or "",
-                    website = type(meta.website) == "string" and meta.website or "",
-                }
+                data.meta = {}
+                for _, field in ipairs(META_FIELDS) do
+                    local src = hand[field] and stored or meta
+                    data.meta[field] = type(src[field]) == "string" and src[field] or ""
+                end
 
                 os.execute("mkdir -p '" .. dataDir .. "'")
                 local jf = io.open(jsonPath, "w")

@@ -19,7 +19,7 @@ return function(ms, ctx)
                 deleteProfile = function(data)
                     if not data.name then return end
                     local targetName = ms.sanitizeName(data.name)
-                    local activeName = ms.macroMeta and ms.sanitizeName(ms.macroMeta.name or "") or ""
+                    local activeName = ms.activeProfile and ms.activeProfile() or ""
                     if targetName == "" or targetName == activeName then return end
                     local dir = profilesPath .. targetName
                     if not hs.fs.attributes(dir) then return end
@@ -44,7 +44,7 @@ return function(ms, ctx)
                 end,
 
                 clearProfiles = function()
-                    local activeName = ms.macroMeta and ms.sanitizeName(ms.macroMeta.name or "") or ""
+                    local activeName = ms.activeProfile and ms.activeProfile() or ""
                     if activeName == "" then return end
                     if not hs.fs.attributes(profilesPath) then return end
                     local deleted = 0
@@ -459,8 +459,7 @@ return function(ms, ctx)
                     local ok, names = pcall(ms.getProfiles)
                     if not ok or type(names) ~= "table" then names = {} end
                     local active = (ms.alignedProfile and ms.alignedProfile())
-                        or (ms.macroMeta and ms.macroMeta.name and ms.sanitizeName
-                            and ms.sanitizeName(ms.macroMeta.name)) or ""
+                        or (ms.activeProfile and ms.activeProfile()) or ""
                     local entries = {}
                     for _, n in ipairs(names) do
                         entries[#entries + 1] = { name = n, active = (n == active) }

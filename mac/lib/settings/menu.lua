@@ -813,9 +813,9 @@ return function(ms, ctx)
 
             local function buildProfilesSubmenu()
                 local sub = {}
-                local currentName = ms.macroMeta and ms.macroMeta.name
+                local currentName = ms.activeProfile and ms.activeProfile() or ""
                 local profiles = getProfiles()
-                if currentName then
+                if currentName ~= "" then
                     table.insert(sub, {
                         title = "Active:  " .. currentName,
                         disabled = true,

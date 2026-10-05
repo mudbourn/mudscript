@@ -722,13 +722,26 @@
         M.metaDirty  = false;
 
         M.metaOwned = meta.owned === true;
-        [_metaName, _metaVersion, _metaAuthor, _metaWebsite].forEach(function(f) {
-            f.input.readOnly = M.metaOwned;
-            f.input.classList.toggle("meta-input-locked", M.metaOwned);
+        var locked = meta.locked || {};
+        var anyLocked = false;
+        [
+            [_metaName, "name"],
+            [_metaVersion, "version"],
+            [_metaAuthor, "author"],
+            [_metaWebsite, "website"],
+        ].forEach(function(pair) {
+            var isLocked = locked[pair[1]] === true;
+            if (isLocked) anyLocked = true;
+            pair[0].input.readOnly = isLocked;
+            pair[0].input.classList.toggle("meta-input-locked", isLocked);
+            pair[0].input.title = isLocked ? "Set in your handwritten ms_macros.lua" : "";
         });
-        metaDesc.textContent = M.metaOwned
-            ? "Sourced from your handwritten ms_macros.lua (read-only)"
-            : "Credits baked into your visual macros (ms.macroMeta)";
+        if (M.metaOwned)
+            metaDesc.textContent = "Sourced from your handwritten ms_macros.lua (read-only)";
+        else if (anyLocked)
+            metaDesc.textContent = "Greyed fields come from your handwritten ms_macros.lua";
+        else
+            metaDesc.textContent = "Credits baked into your visual macros (ms.macroMeta)";
         metaSaveRow.style.display = M.metaOwned ? "none" : "";
         updateMetaSaveBtn();
     }

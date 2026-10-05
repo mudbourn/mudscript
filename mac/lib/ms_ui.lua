@@ -488,7 +488,7 @@ return function(ms)
                 bundleSoundsWithTheme   = ms.bundleSoundsWithTheme ~= false,
                 soundPresets            = soundPresets,
                 currentProfile          = (ms.alignedProfile and ms.alignedProfile())
-                    or (meta.name and ms.sanitizeName(meta.name)) or "",
+                    or (ms.activeProfile and ms.activeProfile()) or "",
                 profiles                = ms.getProfiles(),
                 integrityStatus         = status,
                 integrityHash           = curHash,

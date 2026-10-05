@@ -161,6 +161,12 @@ return function(ms, ctx)
             return captured.macroMeta
         end
 
+        local function activeProfile()
+            local marked = ms.package and ms.package.getActiveProfile and ms.package.getActiveProfile()
+            if marked then return sanitizeName(marked) end
+            return ms.macroMeta and sanitizeName(ms.macroMeta.name or "") or ""
+        end
+
         ms._profilesDirty = true
         local _profilesCache = nil
         local function getProfiles()
@@ -180,7 +186,7 @@ return function(ms, ctx)
                     end
                 end
             end
-            local activeName = ms.macroMeta and sanitizeName(ms.macroMeta.name or "") or ""
+            local activeName = activeProfile()
             if activeName ~= "" and hs.fs.attributes(profilesPath .. activeName) then
                 local found = false
                 for _, p in ipairs(list) do
@@ -229,9 +235,8 @@ return function(ms, ctx)
                     return
                 end
             end
-            local currentName = sanitizeName(
-                (ms.macroMeta and ms.macroMeta.name) or "unnamed"
-            )
+            local currentName = activeProfile()
+            if currentName == "" then currentName = "unnamed" end
             -- Flush live state to ms_settings.json before archiving it below
             pcall(ms.saveSettings)
             hs.fs.mkdir(profilesPath)
@@ -746,9 +751,9 @@ return function(ms, ctx)
         end
 
         local function saveCurrentProfile()
-            local name = ms.macroMeta and ms.macroMeta.name
-            if not name or name == "" then
-                ms.alert("Cannot save: current profile has no name.\nSet ms.macroMeta = { name = \"...\" } in your macros file.", 5)
+            local name = activeProfile()
+            if name == "" then
+                ms.alert("Cannot save: no profile is active.\nUse Save as New Profile instead.", 5)
                 return
             end
             local folderName = sanitizeName(name)
@@ -811,25 +816,7 @@ return function(ms, ctx)
             end)
         end
 
-        -- Rewrite the name field inside a macros file's ms.macroMeta table
-        local function rewriteMacroMetaName(path, newName)
-            local f = io.open(path, "r")
-            if not f then return false end
-            local src = f:read("*all"); f:close()
-            local i = src:find("macroMeta")
-            if not i then return false end
-            local safe = tostring(newName):gsub('[\\"]', "")
-            local repl = "name%1\"" .. (safe:gsub("%%", "%%%%")) .. "\""
-            local head, tail = src:sub(1, i - 1), src:sub(i)
-            local newTail, n = tail:gsub('name(%s*=%s*)"[^"]*"', repl, 1)
-            if n == 0 then return false end
-            local g = io.open(path, "w")
-            if not g then return false end
-            g:write(head .. newTail); g:close()
-            return true
-        end
-
-        -- Rename a profile: its folder, macros credit, and same-named packs
+        -- Rename a profile: its folder, active marker and same-named packs
         local function renameProfile(oldName, newName)
             local oldFolder = sanitizeName(oldName or "")
             newName = type(newName) == "string" and newName:gsub("^%s+", ""):gsub("%s+$", "") or ""
@@ -847,19 +834,10 @@ return function(ms, ctx)
                 end
             end
 
-            local activeName = ms.macroMeta and sanitizeName(ms.macroMeta.name or "") or ""
-            local isActive = (oldFolder == activeName)
+            local isActive = (oldFolder == activeProfile())
 
-            if isActive then
-                rewriteMacroMetaName(macrosPath, newFolder)
-                ms.macroMeta = ms.macroMeta or {}
-                ms.macroMeta.name = newFolder
-            end
             if newFolder ~= oldFolder and hs.fs.attributes(profilesPath .. oldFolder) then
                 os.rename(profilesPath .. oldFolder, profilesPath .. newFolder)
-            end
-            if not isActive then
-                rewriteMacroMetaName(profilesPath .. newFolder .. "/ms_macros.lua", newFolder)
             end
 
             -- Keep the profile's same-named packs aligned as the slug follows
@@ -870,12 +848,8 @@ return function(ms, ctx)
                 end
             end
 
-            -- Carry the active-profile marker to the new name
-            if ms.package and ms.package.getActiveProfile and ms.package.setActiveProfile then
-                local cur = ms.package.getActiveProfile()
-                if cur and sanitizeName(cur) == oldFolder then
-                    pcall(ms.package.setActiveProfile, newFolder)
-                end
+            if isActive and ms.package and ms.package.setActiveProfile then
+                pcall(ms.package.setActiveProfile, newFolder)
             end
 
             ms._profilesDirty = true
@@ -895,7 +869,8 @@ return function(ms, ctx)
 
         local function exportProfilePkg()
             local sq = function(s) return "'" .. s:gsub("'", "'\\''") .. "'" end
-            local name = sanitizeName((ms.macroMeta and ms.macroMeta.name) or "unnamed")
+            local name = activeProfile()
+            if name == "" then name = "unnamed" end
             local outName = name .. ".mspkg"
             local outPath = os.getenv("HOME") .. "/Downloads/" .. outName
             local tmpDir  = archivePath .. "mspkg_export/"
@@ -1383,10 +1358,8 @@ return function(ms, ctx)
 
         -- The profile the live setup is "on", from the explicit active marker
         local function alignedProfile()
-            if not (ms.package and ms.package.getActiveProfile) then return "" end
-            local active = ms.package.getActiveProfile()
-            if not active or active == "" then return "" end
-            active = sanitizeName(active)
+            local active = activeProfile()
+            if active == "" then return "" end
             for _, p in ipairs(getProfiles()) do
                 if p == active then return p end
             end
@@ -1396,6 +1369,7 @@ return function(ms, ctx)
         ms.sanitizeName       = sanitizeName
         ms.getProfiles        = getProfiles
         ms.alignedProfile     = alignedProfile
+        ms.activeProfile      = activeProfile
         ms.switchProfile      = switchProfile
         ms.importProfile      = importProfile
         ms.importProfilePkg   = importProfilePkg

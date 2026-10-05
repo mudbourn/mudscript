@@ -97,6 +97,11 @@ return function(ms, ctx)
             return def
         end
 
+        local function _shadowedByHand(key)
+            local live = key and ms._userSettingIndex and ms._userSettingIndex[key]
+            return type(live) == "table" and live.authored ~= true
+        end
+
         ms._loadAuthoredSettings = function()
             ms._authoredSettings = {}
             local f = io.open(authoredPath, "r")
@@ -179,14 +184,16 @@ return function(ms, ctx)
 
             table.remove(ms._authoredSettings, foundAt)
 
-            if ms._userSettingIndex then ms._userSettingIndex[key] = nil end
-            if ms._userSettingVals  then ms._userSettingVals[key]  = nil end
-            if ms._pendingUserSettings then ms._pendingUserSettings[key] = nil end
-            if ms._userSettingDefs then
-                for i = #ms._userSettingDefs, 1, -1 do
-                    local d = ms._userSettingDefs[i]
-                    if type(d) == "table" and d.key == key then
-                        table.remove(ms._userSettingDefs, i)
+            if not _shadowedByHand(key) then
+                if ms._userSettingIndex then ms._userSettingIndex[key] = nil end
+                if ms._userSettingVals  then ms._userSettingVals[key]  = nil end
+                if ms._pendingUserSettings then ms._pendingUserSettings[key] = nil end
+                if ms._userSettingDefs then
+                    for i = #ms._userSettingDefs, 1, -1 do
+                        local d = ms._userSettingDefs[i]
+                        if type(d) == "table" and d.key == key and d.authored then
+                            table.remove(ms._userSettingDefs, i)
+                        end
                     end
                 end
             end
@@ -285,6 +292,9 @@ return function(ms, ctx)
             end
             if not foundAt then
                 return false, "'" .. oldKey .. "' is not an authored setting"
+            end
+            if _shadowedByHand(oldKey) then
+                return false, "'" .. oldKey .. "' is defined in your handwritten ms_macros.lua, edit it there"
             end
             if def.key ~= oldKey and ms._userSettingIndex
                 and ms._userSettingIndex[def.key] then

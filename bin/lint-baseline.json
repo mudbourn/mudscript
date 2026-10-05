@@ -42,7 +42,7 @@
     "lua-inline-table": 19
   },
   "mac/lib/core/compiler_bridge.lua": {
-    "comment": 10
+    "comment": 8
   },
   "mac/lib/core/keyboard.lua": {
     "comment": 9,
@@ -125,13 +125,12 @@
     "marker-blank-before-end": 1
   },
   "mac/lib/settings/profiles.lua": {
-    "comment": 31,
+    "comment": 29,
     "lua-inline-table": 11,
     "marker-blank-before-end": 3,
     "marker-indent": 1,
     "marker-label": 1,
-    "marker-orphan-end": 1,
-    "semicolon": 2
+    "marker-orphan-end": 1
   },
   "mac/lib/settings/validation.lua": {
     "comment": 2,

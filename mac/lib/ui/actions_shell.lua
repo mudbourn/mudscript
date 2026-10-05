@@ -90,7 +90,7 @@ return function(ms, ctx)
                         end)
                         return false
                     end
-                    ms._macroMetaFromHand = ms.macroMeta ~= nil
+                    if ms._captureHandMeta then ms._captureHandMeta() end
                     if ms.vars and ms.vars.reload then ms.vars.reload() end
                     if ms.compiler and ms.compiler.paths then
                         if hs.fs.attributes(ms.compiler.paths.json) then
