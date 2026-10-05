@@ -739,8 +739,11 @@ return function(ms, ctx)
                     })
                     ms.integrity.trustCurrent()
                     ms.integrity.invalidateCache()
-                    ms.alert("Updated to v" .. newVersion .. ".\\nReloading in 3 seconds\\xe2\\x80\\xa6", 5, true)
-                    hs.timer.doAfter(3, function() hs.reload() end)
+                    if ms.restart then
+                        ms.restart({ update = newVersion })
+                    else
+                        hs.reload()
+                    end
                 end)
             end)
         end
@@ -892,8 +895,11 @@ return function(ms, ctx)
                     })
                     ms.integrity.trustCurrent()
                     ms.integrity.invalidateCache()
-                    ms.alert("Updated to v" .. newVersion .. ".\\nReloading in 3 seconds\\xe2\\x80\\xa6", 5, true)
-                    hs.timer.doAfter(3, function() hs.reload() end)
+                    if ms.restart then
+                        ms.restart({ update = newVersion })
+                    else
+                        hs.reload()
+                    end
                 end)
             end)
         end

@@ -211,7 +211,7 @@ return function(ms, ctx)
             _matchShellFrame(_warmView)
         end
 
-        local function _exitCurtain(mode, onShow, onReady)
+        local function _exitCurtain(mode, onShow, onReady, detail)
             local function finishReady()
                 pcall(onReady)
             end
@@ -260,6 +260,7 @@ return function(ms, ctx)
 
             local octane = ms._octaneMode and "true" or "false"
             local theme  = hs.json.encode(ms._theme or {})
+            local note   = string.format("%q", detail or "")
 
             local function present()
                 armFading()
@@ -273,7 +274,7 @@ return function(ms, ctx)
 
                 local shown = pcall(function()
                     view:evaluateJavaScript("applyTheme(" .. theme .. ");"
-                        .. string.format("showCurtain(%q, %s);", mode, octane))
+                        .. string.format("showCurtain(%q, %s, %s);", mode, octane, note))
                 end)
 
                 ms._exitCurtainLive = shown and _warmLive and not ms._octaneMode
@@ -330,7 +331,7 @@ return function(ms, ctx)
         local _activeMode
         local _forcingExit = false
 
-        local function _exit(mode, slot, finish)
+        local function _exit(mode, slot, finish, detail)
             local _finished = false
             local function finishOnce()
                 if _finished then return end
@@ -370,7 +371,7 @@ return function(ms, ctx)
                 hs.timer.doAfter(hold, function()
                     _dropCurtain(finishOnce)
                 end)
-            end)
+            end, detail)
         end
 
         local RESTART_SENTINEL   = hs.configdir .. "/data/.ms_restart_pending"
@@ -457,19 +458,20 @@ return function(ms, ctx)
             end)
         end
 
-        ms.restart = function()
+        ms.restart = function(opts)
             if ms._restarting or ms._shuttingDown then return end
             ms._restarting = true
+            local mode = (opts and opts.update) and "update" or "restart"
             ms.dev.log({
                 type = "system",
-                event = "restart_start",
+                event = mode .. "_start",
             })
 
             _armExternalHardKill("restart")
 
-            _exit("restart", "restart", function()
+            _exit(mode, "restart", function()
                 if hs.relaunch then hs.relaunch() else hs.reload() end
-            end)
+            end, opts and opts.update and ("v" .. tostring(opts.update)) or nil)
         end
 
         ms.forceExit = function()
