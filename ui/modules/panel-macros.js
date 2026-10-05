@@ -944,8 +944,22 @@
         if (mod && !e.shiftKey && (e.key === "f" || e.key === "F")) {
             e.preventDefault();
             if (window.playSlot) playSlot("interact");
+            var wasOpen = overlay.classList.contains("open");
             openFnOverlay();
-            if (window.fnPicker && window.fnPicker.focusSearch) window.fnPicker.focusSearch();
+            if (!window.fnPicker || !window.fnPicker.focusSearch) return;
+            if (wasOpen) {
+                window.fnPicker.focusSearch();
+                return;
+            }
+            var focused = false;
+            var focusOnce = function() {
+                if (focused) return;
+                focused = true;
+                overlay.removeEventListener("transitionend", focusOnce);
+                window.fnPicker.focusSearch();
+            };
+            overlay.addEventListener("transitionend", focusOnce);
+            setTimeout(focusOnce, 300);
             return;
         }
         var t = e.target;

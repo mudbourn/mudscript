@@ -770,7 +770,17 @@ return function(ms, ctx)
 
                 openURL = function(data) if data.url then hs.urlevent.openURL(data.url) end end,
 
-                checkForUpdate = function()
+                checkForUpdate = function(data)
+                    if not (data and data.ack) and not ms._updateAck then
+                        ms.playSlot("alert")
+                        local chan = (ms._updateChannel == "testing") and "testing" or "stable"
+                        ms.shell.eval("window.msUpdateNotice && msUpdateNotice.show(" .. string.format("%q", chan) .. ")")
+                        return
+                    end
+                    if not ms._updateAck then
+                        ms._updateAck = true
+                        if ms.saveSettings then ms.saveSettings() end
+                    end
                     if ms._updateChannel == "testing" then
                         ms.integrity.updateBeta()
                     else

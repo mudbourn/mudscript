@@ -1171,22 +1171,8 @@ return function(ms, ctx)
                                 return
                             end
                         end
-                        local _chan = (ms._updateChannel == "testing") and "testing" or "stable"
-                        ms.playSlot("interact")
-                        ms.ui.modal({
-                            title   = "Check for Update",
-                            msg     = "Channel: " .. _chan .. "\nDownload and apply the latest ms_core.lua from GitHub?\n\nThe current file will be backed up to backups/ and Hammerspoon will reload.",
-                            confirm = "Update",
-                            cancel  = "Cancel",
-                        }, function(r)
-                            if r.confirmed then
-                                if ms._updateChannel == "testing" then
-                                    ms.integrity.updateBeta()
-                                else
-                                    ms.integrity.update()
-                                end
-                            end
-                        end)
+                        if not ms._updateAck then ms.ui.show() end
+                        ms.ui._actions.checkForUpdate()
                     end },
                     {
                         title = (ms._updateAlertsDisabled and "\xe2\x9c\x97" or "\xe2\x9c\x93")
