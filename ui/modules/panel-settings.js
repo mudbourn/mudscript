@@ -203,14 +203,17 @@
                 body.appendChild(
                     row(
                         "Windows Mode",
-                        "Use Windows key conventions: Ctrl for copy and paste, "
-                            + "and Alt shown in shortcut hints instead of the Mac option symbol",
+                        S.windowsHost
+                            ? "Always on when running on Windows"
+                            : "Use Windows key conventions: Ctrl for copy and paste, "
+                                + "and Alt shown in shortcut hints instead of the Mac option symbol",
                         toggle(S.windowsMode ?? false, (e) =>
                             sendToHost({
                                 action: "setWindowsMode",
                                 value: e.target.checked,
                             }),
                         ),
+                        S.windowsHost ? "disabled" : "",
                     ),
                 );
                 body.appendChild(divider());

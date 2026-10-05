@@ -142,7 +142,7 @@
     <script>
     (function() {
         document.addEventListener('keydown', function(e) {
-            if ((e.metaKey || e.ctrlKey) && (e.key === 'p' || e.key === 'P')) e.preventDefault();
+            if (msMod(e) && (e.key === 'p' || e.key === 'P')) e.preventDefault();
         }, true);
         try { window.print = function() {}; } catch (e) {}
         document.addEventListener('focusin', function(e) {

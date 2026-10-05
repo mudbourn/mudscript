@@ -473,6 +473,7 @@ return function(ms)
                 socdEnabled             = ms.socdEnabled or false,
                 socdMode                = ms.socdMode or "lastWins",
                 windowsMode             = ms.windowsMode or false,
+                windowsHost             = ms.windowsHost or false,
                 gamepadEnabled          = ms.gamepadEnabled or false,
                 gamepadConnected        = ms._gamepadConnected or false,
                 gamepadControllers      = ms._gamepadControllers or {},

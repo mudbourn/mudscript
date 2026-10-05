@@ -350,13 +350,13 @@
     var collapseAllBtn = document.createElement("button");
     collapseAllBtn.className = "macro-toolbar-btn";
     collapseAllBtn.innerHTML = menuLabel("chevup", "Collapse All");
-    collapseAllBtn.title = "Collapse every container (Cmd+[)";
+    collapseAllBtn.title = msKeyLabel("Collapse every container (Cmd+[)");
     overflowMenu.appendChild(collapseAllBtn);
 
     var expandAllBtn = document.createElement("button");
     expandAllBtn.className = "macro-toolbar-btn";
     expandAllBtn.innerHTML = menuLabel("chevdown", "Expand All");
-    expandAllBtn.title = "Expand every container (Cmd+])";
+    expandAllBtn.title = msKeyLabel("Expand every container (Cmd+])");
     overflowMenu.appendChild(expandAllBtn);
 
     var delMacroBtn = document.createElement("button");
@@ -929,7 +929,7 @@
 
     document.addEventListener("keydown", function(e) {
         if (!builderSection.classList.contains("active")) return;
-        var mod = e.metaKey || e.ctrlKey;
+        var mod = msMod(e);
         if (mod && !e.shiftKey && (e.key === "s" || e.key === "S")) {
             e.preventDefault();
             if (M.macroDirty && window.playSlot) playSlot("interact");
@@ -1211,7 +1211,7 @@
     });
 
     nameInput.addEventListener("keydown", function(e) {
-        var mod = e.metaKey || e.ctrlKey;
+        var mod = msMod(e);
         if (mod && !e.shiftKey && /^[sfn]$/i.test(e.key)) return;
         e.stopPropagation();
     });

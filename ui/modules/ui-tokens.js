@@ -123,4 +123,21 @@
     s.textContent = css;
     var head = document.head || document.documentElement;
     head.insertBefore(s, head.firstChild);
+
+// Accelerator key //
+    function windowsKeys() {
+        if (typeof window.msWindowsMode === "boolean") return window.msWindowsMode;
+        return /Win/i.test(navigator.platform || "");
+    }
+
+    window.msMod = function (e) {
+        if (windowsKeys()) return !!e.ctrlKey;
+        return !!(e.metaKey || e.ctrlKey);
+    };
+
+    window.msKeyLabel = function (text) {
+        if (!windowsKeys()) return text;
+        return String(text).replace(/Cmd/g, "Ctrl");
+    };
+// END Accelerator key //
 })();

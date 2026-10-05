@@ -81,7 +81,7 @@
 
     // Undo and redo keys outside text fields //
         function historyKey(e) {
-            if (!(e.metaKey || e.ctrlKey) || typingTarget()) return null;
+            if (!msMod(e) || typingTarget()) return null;
             var k = e.key.toLowerCase();
             if (k === "z") return e.shiftKey ? "redo" : "undo";
             if (k === "y") return "redo";
@@ -102,7 +102,7 @@
                 b.className = cls;
                 b.innerHTML = '<svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
                     + ICON_PATHS[which] + '</svg><span>' + (which === "undo" ? "Undo" : "Redo") + '</span>';
-                b.title = which === "undo" ? "Undo (Cmd+Z)" : "Redo (Shift+Cmd+Z)";
+                b.title = msKeyLabel(which === "undo" ? "Undo (Cmd+Z)" : "Redo (Shift+Cmd+Z)").replace("Shift+Ctrl+Z", "Ctrl+Y");
                 b.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
                 b.addEventListener("click", function() {
                     if (hist[which]() && window.playSlot) playSlot("interact");

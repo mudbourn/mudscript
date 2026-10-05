@@ -376,7 +376,7 @@ return function(ms, ctx)
                 end,
 
                 setWindowsMode = function(data)
-                    ms.windowsMode = (data.value == true)
+                    ms.windowsMode = ms.windowsHost or (data.value == true)
                     ms.saveSettings()
                     ms.ui.refresh()
                 end,
@@ -537,7 +537,7 @@ return function(ms, ctx)
                         ms.saveSettings()
                         ms.socdApply()
                     elseif key == "windowsMode" then
-                        ms.windowsMode = (def.windowsMode == true)
+                        ms.windowsMode = ms.windowsHost or (def.windowsMode == true)
                         ms.saveSettings()
                     elseif key == "socdMode" then
                         ms.socdMode = def.socdMode or "lastWins"

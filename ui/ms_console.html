@@ -166,9 +166,7 @@
             .ts {
                 color: var(--text3);
                 font:
-                    10px "SF Mono",
-                    Menlo,
-                    monospace;
+                    10px var(--font-mono);
                 flex-shrink: 0;
                 padding-top: 1px;
                 min-width: 52px;
@@ -180,9 +178,7 @@
                 padding: 1px 5px;
                 border-radius: var(--radius-s);
                 font:
-                    700 10px "SF Mono",
-                    Menlo,
-                    monospace;
+                    700 10px var(--font-mono);
                 letter-spacing: 0.05em;
                 text-transform: uppercase;
                 border: 1px solid transparent;
@@ -268,9 +264,7 @@
             .entry-error .msg,
             .entry-input .msg {
                 font:
-                    12px "SF Mono",
-                    Menlo,
-                    monospace;
+                    12px var(--font-mono);
             }
 
             .entry-error .msg {
@@ -289,9 +283,7 @@
                 padding: 1px 7px;
                 border-radius: var(--radius);
                 font:
-                    700 10px "SF Mono",
-                    Menlo,
-                    monospace;
+                    700 10px var(--font-mono);
                 background: var(--surface2);
                 border: 1px solid var(--border);
                 color: var(--text2);
@@ -316,9 +308,7 @@
                 padding: 5px 8px;
                 color: var(--text);
                 font:
-                    12px "SF Mono",
-                    Menlo,
-                    monospace;
+                    12px var(--font-mono);
                 outline: none;
                 transition: border-color 0.15s;
                 user-select: text;
@@ -386,7 +376,7 @@
     <script>
     (function() {
         document.addEventListener('keydown', function(e) {
-            if ((e.metaKey || e.ctrlKey) && (e.key === 'p' || e.key === 'P')) e.preventDefault();
+            if (msMod(e) && (e.key === 'p' || e.key === 'P')) e.preventDefault();
         }, true);
         try { window.print = function() {}; } catch (e) {}
         document.addEventListener('focusin', function(e) {

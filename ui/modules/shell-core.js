@@ -407,12 +407,12 @@ document.addEventListener('keydown', function(e) {
     t.blur();
 }, true);
 document.addEventListener('keydown', function(e) {
-    if ((e.metaKey || e.ctrlKey) && (e.key === 'p' || e.key === 'P')) {
+    if (msMod(e) && (e.key === 'p' || e.key === 'P')) {
         e.preventDefault();
     }
 }, true);
 document.addEventListener('keydown', function(e) {
-    if (!e.metaKey || e.ctrlKey || e.altKey) return;
+    if (!msMod(e) || e.altKey) return;
     var k = e.key;
     var msg = null;
     if (k === '=' || k === '+') msg = { delta: 0.1 };

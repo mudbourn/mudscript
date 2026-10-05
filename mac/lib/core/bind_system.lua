@@ -725,7 +725,7 @@
         ms.fn.define("ms.paste", ms.paste, {
             label  = "Paste",
             group  = "clipboard",
-            info   = "Paste the clipboard (Cmd+V)",
+            info   = "Paste the clipboard (" .. (ms.windowsMode and "Ctrl+V" or "Cmd+V") .. ")",
             params = {},
             icon   = "save",
         })

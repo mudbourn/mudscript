@@ -1024,7 +1024,17 @@
             return _waitPixel(false, _matchArgs(...))
         end
 
-        ms.screen._ocrBin = os.getenv("HOME") .. "/.local/bin/ms_ocr_read"
+        ms.screen._ocrBin = (os.getenv("HOME") or "") .. "/.local/bin/ms_ocr_read"
+
+        local _ocrWarned = false
+
+        -- Logs the Windows OCR gap once per session
+        local function _ocrUnsupported()
+            if not _ocrWarned then
+                _ocrWarned = true
+                print("OCR is not supported on Windows yet")
+            end
+        end
 
         -- Normalise a region arg into an absolute {x,y,w,h} in screen points
         local function _resolveRegion(region)
@@ -1070,6 +1080,11 @@
         -- OCR a region, returning text and blocks
         ms.screen.ocr = function(region, opts)
             opts = opts or {}
+            if ms.windowsHost then
+                _ocrUnsupported()
+                return nil
+            end
+
             local path, rg = ms.screen.capture(region)
             if not path then return nil end
 
@@ -1139,6 +1154,11 @@
         -- Poll until text appears in the region
         ms.screen.waitText = function(text, region, timeout, opts)
             opts = opts or {}
+            if ms.windowsHost then
+                _ocrUnsupported()
+                return false
+            end
+
             timeout = timeout or 5000
             local deadline = hs.timer.absoluteTime() + timeout * 1000000
             while hs.timer.absoluteTime() < deadline do
@@ -1263,7 +1283,23 @@
         end
 
         ms.screenshot = function(path)
-            path = path or os.getenv("HOME") .. "/Desktop/screenshot_" .. os.date("%Y%m%d_%H%M%S") .. ".png"
+            if not path then
+                local name = "screenshot_" .. os.date("%Y%m%d_%H%M%S") .. ".png"
+                local dir = (os.getenv("HOME") or "") .. "/Desktop"
+
+                if ms.windowsHost then
+                    local desktop = (os.getenv("USERPROFILE") or "") .. "\\Desktop"
+
+                    if hs.fs.attributes(desktop, "mode") == "directory" then
+                        dir = desktop
+                    else
+                        dir = hs.configdir .. "/data"
+                    end
+                end
+
+                path = dir .. "/" .. name
+            end
+
             local screen = hs.screen.mainScreen()
             if not screen then return nil end
             local img = screen:snapshot()

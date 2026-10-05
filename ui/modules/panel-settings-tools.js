@@ -208,7 +208,7 @@
                     if (!host || host.offsetParent === null) return;
                     const t = e.target;
                     if (t && t.closest && t.closest("input, textarea, [contenteditable='true']")) return;
-                    const mod = e.metaKey || e.ctrlKey;
+                    const mod = msMod(e);
                     if (mod && (e.key === "a" || e.key === "A")) {
                         e.preventDefault(); _fnCanvas.selectAll(); return;
                     }

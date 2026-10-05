@@ -149,7 +149,7 @@ function createLogPanel(config) {
             const lo = Math.min(_lastClicked, idx);
             const hi = Math.max(_lastClicked, idx);
             for (let i = lo; i <= hi; i++) _selected.add(entries[i]);
-        } else if (e.metaKey || e.ctrlKey) {
+        } else if (msMod(e)) {
             if (_selected.has(row)) _selected.delete(row);
             else _selected.add(row);
         } else {
@@ -288,11 +288,11 @@ function createLogPanel(config) {
         if (container && container.style.display === "none") return;
         if (container && getComputedStyle(container).display === "none") return;
         const inInput = e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA";
-        if ((e.metaKey || e.ctrlKey) && e.key === "a" && !inInput) {
+        if ((msMod(e)) && e.key === "a" && !inInput) {
             e.preventDefault();
             _selectAll();
         }
-        if ((e.metaKey || e.ctrlKey) && e.key === "c" && !inInput && _selected.size > 0) {
+        if ((msMod(e)) && e.key === "c" && !inInput && _selected.size > 0) {
             e.preventDefault();
             _copySelected();
         }

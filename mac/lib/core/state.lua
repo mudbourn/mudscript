@@ -20,7 +20,8 @@ return function(ms)
         }
         ms.socdMode              = "lastWins"
         ms.socdEnabled           = false
-        ms.windowsMode           = (package.config:sub(1, 1) == "\\")
+        ms.windowsHost           = (package.config:sub(1, 1) == "\\")
+        ms.windowsMode           = ms.windowsHost
         ms.binds                 = {}
         ms._suppressedMacros     = {}
         ms.running   = {}

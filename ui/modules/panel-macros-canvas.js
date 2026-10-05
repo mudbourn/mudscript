@@ -739,7 +739,7 @@
 
 // Click routing //
     ToolCanvas.prototype._clickSelect = function(sid, e) {
-        var meta  = e && (e.metaKey || e.ctrlKey);
+        var meta  = e && msMod(e);
         var shift = e && e.shiftKey;
 
         if (meta) {

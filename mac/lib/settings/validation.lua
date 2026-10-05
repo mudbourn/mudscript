@@ -93,7 +93,7 @@ return function(ms, ctx)
             if data.trackpadMode     ~= nil then ms.trackpadMode           = (data.trackpadMode     == true) end
             if data.gamepadEnabled   ~= nil then ms.gamepadEnabled         = (data.gamepadEnabled   == true) end
             if data.socdEnabled      ~= nil then ms.socdEnabled            = (data.socdEnabled      == true) end
-            if data.windowsMode      ~= nil then ms.windowsMode            = (data.windowsMode      == true) end
+            if data.windowsMode      ~= nil then ms.windowsMode            = ms.windowsHost or (data.windowsMode == true) end
 
             if data.socdMode then
                 if data.socdMode == "lastWins" or data.socdMode == "neutral" or data.socdMode == "firstWins" then
