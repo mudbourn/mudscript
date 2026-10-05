@@ -137,6 +137,12 @@
               menu.style.maxHeight = "";
           }
 
+          function dismiss() {
+              if (!root.classList.contains("open")) return;
+              play("back");
+              close();
+          }
+
           function place() {
               const r   = root.getBoundingClientRect();
               const vh  = doc.documentElement.clientHeight;
@@ -230,7 +236,7 @@
           root.addEventListener("mouseenter", () => play("hover"));
           root.addEventListener("click", (e) => {
               e.stopPropagation();
-              if (root.classList.contains("open")) { close(); return; }
+              if (root.classList.contains("open")) { dismiss(); return; }
               play("interact");
               root.classList.add("open");
               _gpIndex = -1;
@@ -253,14 +259,14 @@
           }, true);
           window.addEventListener("resize", close);
           root.addEventListener("keydown", (e) => {
-              if (e.key === "Escape") close();
+              if (e.key === "Escape") dismiss();
               e.stopPropagation();
           });
           // Close on any outside press
           doc.addEventListener("pointerdown", function(e) {
               if (!root.classList.contains("open")) return;
               if (root.contains(e.target) || menu.contains(e.target)) return;
-              close();
+              dismiss();
           }, true);
 
           // Gamepad API
@@ -279,7 +285,7 @@
               if (!it) it = items.filter((x) => x.classList.contains("active"))[0] || items[0];
               if (it) it.click();
           };
-          root.gpClose = () => close();
+          root.gpClose = () => dismiss();
 
           root.setOptions(opts.options || []);
           if (opts.value !== undefined && opts.value !== null) root.value = opts.value;
