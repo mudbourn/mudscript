@@ -267,7 +267,7 @@
                                           "- Plugins outside the validated library can be imported and will load.\n" +
                                           "- hs.ipc starts, so any program running as you can send Lua to Hammerspoon.\n\n" +
                                           "Modified or malicious files will load without warning while it is on.\n\n" +
-                                          "Type developer to confirm. macOS will then ask for an administrator password, and turning it off asks again.",
+                                          "Type developer to confirm. Your system will then ask for administrator permission, and turning it off asks again.",
                                       "Turn On",
                                       "Cancel",
                                       true,

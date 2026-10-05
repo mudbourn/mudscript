@@ -1178,7 +1178,7 @@
             refreshChoices: function() { refillChoiceSelects(); },
             focusSearch: function() {
                 setTimeout(function() {
-                    searchInput.focus();
+                    searchInput.focus({ preventScroll: true });
                     searchInput.select();
                 }, 0);
             },
