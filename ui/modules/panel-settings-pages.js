@@ -587,19 +587,8 @@
                 githubBtn.style.flex = "1";
 
                 if (S.updateManifestURL || S.updateChannel === "testing") {
-                    const _chan = S.updateChannel || "stable";
-                    const updateBtn = actionBtn(
-                        "Check for Update",
-                        "",
-                        async () => {
-                            const r = await openModal(
-                                "Check for Update",
-                                "Channel: " + _chan + "\nDownload and apply the latest ms_core.lua from GitHub?\n\nThe current file will be backed up to backups/ and Hammerspoon will reload.",
-                                "Update",
-                            );
-                            if (r.confirmed)
-                                sendToHost({ action: "checkForUpdate" });
-                        },
+                    const updateBtn = actionBtn("Check for Update", "", () =>
+                        sendToHost({ action: "checkForUpdate" }),
                     );
                     body.appendChild(btnRow(aboutBtn, updateBtn));
                 } else {

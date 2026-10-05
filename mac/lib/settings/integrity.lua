@@ -397,6 +397,29 @@ return function(ms, ctx)
             end
             return false
         end
+
+        local function _preBuild(tag)
+            local n = type(tag) == "string" and tag:match("^pre%-(%d+)$")
+            return n and tonumber(n) or nil
+        end
+
+        local function _localManifest()
+            local lf = io.open(os.getenv("HOME") .. "/.hammerspoon/MANIFEST.json", "r")
+            if not lf then return nil end
+            local ok, lm = pcall(hs.json.decode, lf:read("*all"))
+            lf:close()
+            return ok and type(lm) == "table" and lm or nil
+        end
+
+        local function _testingIsNewer(info)
+            local lm = _localManifest()
+            if not lm or not lm.version then return true end
+            if info.build then
+                if tonumber(lm.build) then return info.build > tonumber(lm.build) end
+                return true
+            end
+            return _remoteIsNewer(lm.version, info.version)
+        end
         -- END Version comparison helpers --
 
         -- _fetchReleaseInfo [GitHub Releases API helper] --
@@ -445,17 +468,27 @@ return function(ms, ctx)
                         if callback then pcall(callback, nil) end
                         return
                     end
-                    release = data[1]
-                    local bestIdx = 1
-                    for i = 2, #data do
-                        if _remoteIsNewer(
-                            data[bestIdx].tag_name or "",
-                            data[i].tag_name or ""
-                        ) then
-                            bestIdx = i
+                    local bestPre, bestStable
+                    for _, rel in ipairs(data) do
+                        local n = _preBuild(rel.tag_name)
+                        if n then
+                            if not bestPre or n > _preBuild(bestPre.tag_name) then
+                                bestPre = rel
+                            end
+                        elseif rel.tag_name and not rel.draft then
+                            if not bestStable
+                                or _remoteIsNewer(bestStable.tag_name, rel.tag_name)
+                            then
+                                bestStable = rel
+                            end
                         end
                     end
-                    release = data[bestIdx]
+                    release = bestPre or bestStable
+                    if bestPre and bestStable
+                        and (bestStable.published_at or "") > (bestPre.published_at or "")
+                    then
+                        release = bestStable
+                    end
                 end
                 if not release or not release.tag_name then
                     ms.dev.log({
@@ -487,8 +520,11 @@ return function(ms, ctx)
                 end
                 local tagName = release.tag_name
                 local version = tagName:gsub("^v", "")
+                local build = _preBuild(tagName)
+                if build then version = "pre." .. build end
                 if callback then pcall(callback, {
                     version     = version,
+                    build       = build,
                     downloadUrl = downloadUrl,
                     tagName     = tagName,
                 }) end
@@ -740,7 +776,7 @@ return function(ms, ctx)
                     ms.integrity.trustCurrent()
                     ms.integrity.invalidateCache()
                     if ms.restart then
-                        ms.restart({ update = newVersion })
+                        ms.restart({ update = "v" .. newVersion })
                     else
                         hs.reload()
                     end
@@ -782,22 +818,15 @@ return function(ms, ctx)
                 end
                 local newVersion = info.version
 
-                local _localVer
-                do
-                    local lf = io.open(os.getenv("HOME") .. "/.hammerspoon/MANIFEST.json", "r")
-                    if lf then
-                        local ok, lm = pcall(hs.json.decode, lf:read("*all"))
-                        lf:close()
-                        if ok and lm and lm.version then _localVer = lm.version end
-                    end
-                end
-                if _localVer and not _remoteIsNewer(_localVer, newVersion) then
-                    ms.alert("Already on the latest testing version (v" .. _localVer .. ").", 4, true)
+                if not _testingIsNewer(info) then
+                    local lm = _localManifest() or {}
+                    ms.alert("Already on the latest testing version (v" .. tostring(lm.version) .. ").", 4, true)
                     return
                 end
 
+                local label = info.build and ("build " .. info.build) or ("v" .. newVersion)
                 local bundleURL  = info.downloadUrl
-                ms.alert("Downloading v" .. newVersion .. " bundle\xe2\x80\xa6", 4, true)
+                ms.alert("Downloading " .. label .. " bundle\xe2\x80\xa6", 4, true)
                 ms.dev.log({
                     type    = "system",
                     event   = "update_download_start",
@@ -896,7 +925,7 @@ return function(ms, ctx)
                     ms.integrity.trustCurrent()
                     ms.integrity.invalidateCache()
                     if ms.restart then
-                        ms.restart({ update = newVersion })
+                        ms.restart({ update = label })
                     else
                         hs.reload()
                     end
@@ -965,7 +994,7 @@ return function(ms, ctx)
                     return
                 end
                 local remoteVersion = info.version
-                if _remoteIsNewer(localVersion, remoteVersion) then
+                if _testingIsNewer(info) then
                     ms.dev.log({
                         type     = "system",
                         event    = "update_available",

@@ -471,7 +471,7 @@ return function(ms, ctx)
 
             _exit(mode, "restart", function()
                 if hs.relaunch then hs.relaunch() else hs.reload() end
-            end, opts and opts.update and ("v" .. tostring(opts.update)) or nil)
+            end, opts and opts.update and tostring(opts.update) or nil)
         end
 
         ms.forceExit = function()

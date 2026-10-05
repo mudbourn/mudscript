@@ -143,7 +143,7 @@ jobs:
             # Ensure at least 1
             BUILD_REL=$((BUILD_REL > 0 ? BUILD_REL : 1))
             PRE_VER="${BUMPED}-pre.${BUILD_REL}"
-            jq --arg v "$PRE_VER" '.version = $v' "$DIST/MANIFEST.json" > "$DIST/MANIFEST.json.tmp"
+            jq --arg v "$PRE_VER" --argjson b "$BUILD_NUM" '.version = $v | .build = $b' "$DIST/MANIFEST.json" > "$DIST/MANIFEST.json.tmp"
             mv "$DIST/MANIFEST.json.tmp" "$DIST/MANIFEST.json"
             echo "Stamped MANIFEST.json: $BASE_VER -> $PRE_VER"
           fi
@@ -204,7 +204,7 @@ jobs:
             fi
             BUILD_REL=$((BUILD_REL > 0 ? BUILD_REL : 1))
             PRE_VER="${BUMPED}-pre.${BUILD_REL}"
-            jq --arg v "$PRE_VER" '.version = $v' "$DIST/MANIFEST.json" > "$DIST/MANIFEST.json.tmp"
+            jq --arg v "$PRE_VER" --argjson b "$BUILD_NUM" '.version = $v | .build = $b' "$DIST/MANIFEST.json" > "$DIST/MANIFEST.json.tmp"
             mv "$DIST/MANIFEST.json.tmp" "$DIST/MANIFEST.json"
           fi
 

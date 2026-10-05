@@ -136,6 +136,7 @@ return function(ms, ctx)
             end
             if data.consoleDangerAck ~= nil then ms._consoleDangerAck = (data.consoleDangerAck == true) end
             if data.editMacrosAck ~= nil then ms._editMacrosAck = (data.editMacrosAck == true) end
+            if data.updateAck ~= nil then ms._updateAck = (data.updateAck == true) end
             if data.quickReloaded ~= nil then ms._quickReloaded = tonumber(data.quickReloaded) or 0 end
             if data.qrOptions and type(data.qrOptions) == "table" then
                 local qr = ms._qrOptions
@@ -351,6 +352,7 @@ return function(ms, ctx)
                 targetApp          = ms._targetAppSetting,
                 consoleDangerAck = ms._consoleDangerAck or false,
                 editMacrosAck    = ms._editMacrosAck or false,
+                updateAck        = ms._updateAck or false,
                 quickReloaded    = ms._quickReloaded or 0,
                 qrOptions        = ms._qrOptions or {
                     macros   = true,

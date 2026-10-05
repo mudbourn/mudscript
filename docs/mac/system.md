@@ -55,14 +55,18 @@ Available via **Settings > Developer > Trust Current Version**. The item is grey
 
 ### `ms.integrity.update()`
 
-Full async update flow. Triggered via **Settings > Help > Check for Update**.
+Full async update flow. Triggered via **Settings > Help > Check for Update**. The first update shows a one-time notice that explains what an update replaces. After you acknowledge it (`updateAck` in settings) the button updates directly.
 
-1. Fetches `MANIFEST.json` from `ms._updateManifestURL` over HTTPS (HTTP is rejected)
-2. Verifies the RSA-2048 signature in the manifest against the built-in public key, aborts on invalid signature
-3. Downloads `ms_core.lua` from the `url` field in the manifest
-4. Compares the downloaded file's SHA-256 to the `sha256` field, installs regardless (logs a warning if stale)
-5. Backs up the current `ms_core.lua` to `backups/ms_core_<timestamp>.lua.bak`
-6. Installs the new file, updates `.ms_trusted_hash`, re-stamps the local `MANIFEST.json`, reloads after 3 seconds
+1. Fetches the latest release from the GitHub Releases API and picks its `mudscript-macos-*.zip` asset
+2. Downloads and extracts the bundle
+3. Verifies the RSA-2048 signature in the bundle's `MANIFEST.json`, aborts on an invalid signature
+4. Backs up each replaced item (`ms_core.lua`, `init.lua`, `lib`, `templates`, `ui`, `bin`, `Spoons`) to `backups/` with a timestamp
+5. Installs the new files. Macros, profiles and settings are kept
+6. Trusts the new core and restarts through the exit curtain in update mode, which shows the new version
+
+### `ms.integrity.updateBeta()`
+
+The same flow on the testing channel. It reads the newest `pre-N` pre-release, or the newest stable release if that was published later. A testing bundle stamps `build` into `MANIFEST.json`, and the update is offered when the remote build number is higher than the installed one.
 
 ---
 
