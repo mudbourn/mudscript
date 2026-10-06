@@ -155,10 +155,7 @@
     nameInput.className = "macro-name-input";
     nameInput.type = "text";
     nameInput.placeholder = "Macro name";
-    nameInput.setAttribute("spellcheck", "false");
-    nameInput.setAttribute("autocomplete", "off");
-    nameInput.setAttribute("autocorrect", "off");
-    nameInput.setAttribute("autocapitalize", "off");
+    window.msTextHints(nameInput);
     nameInput.addEventListener("mouseenter", function() {
         if (window.playSlot) playSlot("hover");
     });
@@ -277,7 +274,7 @@
     cooldownInput.step = "50";
     cooldownInput.placeholder = "1000";
     cooldownInput.title = "Milliseconds the macro stays locked after it fires. Re-triggers within this window are ignored. Blank uses the default of 1000.";
-    cooldownInput.setAttribute("spellcheck", "false");
+    window.msTextHints(cooldownInput);
     cooldownInput.addEventListener("input", function() {
         var raw = cooldownInput.value.trim();
         M.currentMacroCooldown = raw === "" ? null : Math.max(0, parseInt(raw, 10) || 0);
@@ -296,8 +293,7 @@
     sharedInput.type = "text";
     sharedInput.placeholder = "solo";
     sharedInput.title = "Macros sharing a group name never run at the same time. Blank keeps this macro isolated to itself.";
-    sharedInput.setAttribute("spellcheck", "false");
-    sharedInput.setAttribute("autocomplete", "off");
+    window.msTextHints(sharedInput);
     sharedInput.addEventListener("input", function() {
         var clean = sharedInput.value.replace(/[^A-Za-z0-9_ -]/g, "");
         if (clean !== sharedInput.value) sharedInput.value = clean;

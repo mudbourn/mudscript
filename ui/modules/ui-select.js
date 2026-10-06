@@ -73,10 +73,6 @@
               searchInput = doc.createElement("input");
               searchInput.type = "text";
               searchInput.placeholder = opts.searchPlaceholder || "Search...";
-              searchInput.setAttribute("spellcheck", "false");
-              searchInput.setAttribute("autocomplete", "off");
-              searchInput.setAttribute("autocorrect", "off");
-              searchInput.setAttribute("autocapitalize", "off");
               searchWrap.appendChild(searchInput);
               menu.appendChild(searchWrap);
               entriesWrap = doc.createElement("div");
