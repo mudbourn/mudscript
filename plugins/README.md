@@ -37,6 +37,10 @@ Then reload Hammerspoon and enable it in Settings >> Plugins.
 - **HIDInject.spoon** - opt-in HID injection: `ms.hid.*` input functions that
   post directly to the target app process, for games that ignore global event
   posts. Not present in base mudscript; uninstalling removes the capability.
+- **VirtualPad.spoon** - controller input simulation: clones the connected
+  controller as a virtual HID device, seizes the real one and forwards its input
+  merged with `ms.vpad.*` presses, stick and trigger values. Needs SIP off with
+  `amfi_get_out_of_my_way=0x1`. Builds its helper into `~/.local/bin` on load.
 - **Minecraft.spoon** - declares Minecraft as target; live client data
   (`ms.mc.health()`, `.durabilityPct(slot)`, `.hasItem(id)`, ...) via the
   `ms-mc-bridge` mod over a loopback WebSocket. Requires that mod running in the

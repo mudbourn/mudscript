@@ -230,9 +230,90 @@
             end
         end
 
+        ms.gamepadFeed = function(ev)
+            if type(ev) ~= "table" or not ev.e then return end
+            ms._gamepadCallbacks = ms._gamepadCallbacks or {}
+            if ev.e == "connect" then
+                _gamepadAddController(ev)
+                if ms.dev and ms.dev._watcherPanel then
+                    ms.devtools:watcherStep("gamepad connected: " .. (ev.c or "?"))
+                end
+                _gamepadStatusChanged()
+            elseif ev.e == "disconnect" then
+                _gamepadRemoveController(ev)
+                _gamepadStatusChanged()
+            elseif ev.e == "press" then
+                ms._gamepadHeld[ev.b] = true
+                local rebindCb = ms._gamepadCallbacks._rebind
+                if rebindCb then
+                    rebindCb(ev.b, "press", ms._gamepadHeld)
+                else
+                    local navCb = ms._gamepadCallbacks._nav
+                    local consumed = false
+                    if navCb then
+                        local okN, res = pcall(navCb, "press", ev.b, ms._gamepadHeld)
+                        consumed = okN and res == true
+                    end
+                    if not consumed then
+                        local best, bestN = nil, -1
+                        for _, bnd in ipairs(ms._gamepadBinds) do
+                            if bnd.set[ev.b] then
+                                local all = true
+                                for k in pairs(bnd.set) do
+                                    if not ms._gamepadHeld[k] then all = false break end
+                                end
+                                if all and bnd.n > bestN then best, bestN = bnd, bnd.n end
+                            end
+                        end
+                        if best then
+                            local co = coroutine.create(best.fn)
+                            local ok2, err = coroutine.resume(co)
+                            if not ok2 then print("ms.gamepad callback error: " .. tostring(err)) end
+                        end
+                    end
+                end
+            elseif ev.e == "release" then
+                ms._gamepadHeld[ev.b] = nil
+                local rebindCb = ms._gamepadCallbacks._rebind
+                if rebindCb then
+                    rebindCb(ev.b, "release", ms._gamepadHeld)
+                else
+                    local navCb = ms._gamepadCallbacks._nav
+                    if navCb then pcall(navCb, "release", ev.b, ms._gamepadHeld) end
+                end
+            elseif ev.e == "trigger" then
+                ms._gamepadAxes[ev.b] = tonumber(ev.v) or 0
+            elseif ev.e == "move" then
+                ms._gamepadAxes[ev.b] = {
+                    x = tonumber(ev.x) or 0,
+                    y = tonumber(ev.y) or 0,
+                }
+                local navCb = ms._gamepadCallbacks._nav
+                if navCb then pcall(navCb, "move", ev.b, ev.x, ev.y) end
+            end
+        end
+
+        ms.gamepadSetExternal = function(on)
+            on = on and true or false
+            if ms._gamepadExternal == on then return end
+            ms._gamepadExternal = on
+            ms._gamepadControllers = {}
+            ms._gamepadHeld = {}
+            ms._gamepadAxes = {}
+            _gamepadStatusChanged()
+            if not on and ms._gamepadTask then
+                local binds = ms._gamepadBinds
+                local cbs = ms._gamepadCallbacks
+                ms._gamepadTask:terminate()
+                ms._gamepadTask = nil
+                ms.gamepadStart()
+                ms._gamepadBinds = binds
+                ms._gamepadCallbacks = cbs
+            end
+        end
+
         ms.gamepadStart = function()
             if ms._gamepadTask then return end
-            -- Native gamepad reader binary path
             local _isWin = package.config:sub(1, 1) == "\\"
             local bin = os.getenv("HOME") .. "/.local/bin/ms_gc_read" .. (_isWin and ".exe" or "")
             ms._gamepadCallbacks = {}
@@ -241,70 +322,10 @@
             ms._gamepadAxes = {}
             ms._gamepadTask = hs.task.new(bin, function() end, function(task, stdOut, stdErr)
                 if not stdOut or stdOut == "" then return true end
-                -- Decode stdout line by line
                 for line in stdOut:gmatch("[^\r\n]+") do
                     local ok, ev = pcall(function() return hs.json.decode(line) end)
-                    if ok and ev and ev.e then
-                        if ev.e == "connect" then
-                            _gamepadAddController(ev)
-                            if ms.dev and ms.dev._watcherPanel then
-                                ms.devtools:watcherStep("gamepad connected: " .. (ev.c or "?"))
-                            end
-                            _gamepadStatusChanged()
-                        elseif ev.e == "disconnect" then
-                            _gamepadRemoveController(ev)
-                            _gamepadStatusChanged()
-                        elseif ev.e == "press" then
-                            ms._gamepadHeld[ev.b] = true
-                            local rebindCb = ms._gamepadCallbacks._rebind
-                            if rebindCb then
-                                rebindCb(ev.b, "press", ms._gamepadHeld)
-                            else
-                                -- Nav layer claims the event by returning true
-                                local navCb = ms._gamepadCallbacks._nav
-                                local consumed = false
-                                if navCb then
-                                    local okN, res = pcall(navCb, "press", ev.b, ms._gamepadHeld)
-                                    consumed = okN and res == true
-                                end
-                                if not consumed then
-                                    -- Fire the largest held chord including the just-pressed button
-                                    local best, bestN = nil, -1
-                                    for _, bnd in ipairs(ms._gamepadBinds) do
-                                        if bnd.set[ev.b] then
-                                            local all = true
-                                            for k in pairs(bnd.set) do
-                                                if not ms._gamepadHeld[k] then all = false break end
-                                            end
-                                            if all and bnd.n > bestN then best, bestN = bnd, bnd.n end
-                                        end
-                                    end
-                                    if best then
-                                        local co = coroutine.create(best.fn)
-                                        local ok2, err = coroutine.resume(co)
-                                        if not ok2 then print("ms.gamepad callback error: " .. tostring(err)) end
-                                    end
-                                end
-                            end
-                        elseif ev.e == "release" then
-                            ms._gamepadHeld[ev.b] = nil
-                            local rebindCb = ms._gamepadCallbacks._rebind
-                            if rebindCb then
-                                rebindCb(ev.b, "release", ms._gamepadHeld)
-                            else
-                                local navCb = ms._gamepadCallbacks._nav
-                                if navCb then pcall(navCb, "release", ev.b, ms._gamepadHeld) end
-                            end
-                        elseif ev.e == "trigger" then
-                            ms._gamepadAxes[ev.b] = tonumber(ev.v) or 0
-                        elseif ev.e == "move" then
-                            ms._gamepadAxes[ev.b] = {
-                                x = tonumber(ev.x) or 0,
-                                y = tonumber(ev.y) or 0,
-                            }
-                            local navCb = ms._gamepadCallbacks._nav
-                            if navCb then pcall(navCb, "move", ev.b, ev.x, ev.y) end
-                        end
+                    if ok and ev and ev.e and not ms._gamepadExternal then
+                        ms.gamepadFeed(ev)
                     end
                 end
                 return true
