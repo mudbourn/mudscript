@@ -705,7 +705,7 @@
                     }
                 } else {
                     emptyState(body, "No settings defined.",
-                        "Use ms.settings.define() in ms_macros.lua, or build settings with the builder.");
+                        "Use ms.settings.define() in ms_macros.lua, or add one in the Setting tab.");
                 }
             }
 
@@ -713,7 +713,7 @@
                 const items = P.filterByOrigin(S.userFunctions || []);
                 if (!items.length) {
                     emptyState(body, "No functions defined.",
-                        "Build a function tool in the Function tab, or with the builder.");
+                        "Make one in the Function tab. Any macro can call it, and you can run it from here.");
                     return;
                 }
                 for (const fn of items) {
@@ -754,7 +754,7 @@
                 const items = P.filterByOrigin(S.userVariables || []);
                 if (!items.length) {
                     emptyState(body, "No variables defined.",
-                        "Declare a helper variable in the Variable tab.");
+                        "Add one in the Variable tab, or with ms.vars.define() in ms_macros.lua. Every macro shares its value, and you can change it from here.");
                     return;
                 }
                 for (const v of items) {
