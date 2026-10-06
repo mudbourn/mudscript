@@ -64,10 +64,7 @@
         var searchInput = document.createElement("input");
         searchInput.type = "text";
         searchInput.placeholder = "Search modules\u2026";
-        searchInput.setAttribute("spellcheck", "false");
-        searchInput.setAttribute("autocomplete", "off");
-        searchInput.setAttribute("autocorrect", "off");
-        searchInput.setAttribute("autocapitalize", "off");
+        window.msTextHints(searchInput);
         searchBox.appendChild(searchInput);
         listPane.appendChild(searchBox);
 

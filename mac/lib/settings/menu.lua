@@ -1217,6 +1217,52 @@ return function(ms, ctx)
             end
         -- END Help submenu --
 
+        -- Windows host submenu --
+            local function buildWindowsHostSubmenu()
+                local appDir = hs.processInfo.resourcePath
+                local config = os.getenv("HOME") .. "/.hammerspoon"
+                local runKey = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+
+                local function tray(args)
+                    local argv = {
+                        "-NoProfile",
+                        "-ExecutionPolicy",
+                        "Bypass",
+                        "-WindowStyle",
+                        "Hidden",
+                        "-File",
+                        appDir .. "\\tray.ps1",
+                    }
+                    for _, a in ipairs(args) do argv[#argv + 1] = a end
+                    hs.task.new("powershell.exe", nil, argv):start()
+                end
+
+                local autostart = (hs.execute('reg query "' .. runKey .. '" /v Mudspoon 2>/dev/null') or "")
+                    :find("Mudspoon", 1, true) ~= nil
+
+                return {
+                    {
+                        title = "Open Boot Log",
+                        fn = function() os.execute("open -t '" .. config .. "/hammerspoon.log'") end,
+                    },
+                    {
+                        title = "Open Config Folder",
+                        fn = function() os.execute("open '" .. config .. "'") end,
+                    },
+                    {
+                        title = "Send Bug Report",
+                        fn = function() tray({ "-BugReport" }) end,
+                    },
+                    { title = "-" },
+                    {
+                        title = "Start at Login",
+                        checked = autostart,
+                        fn = function() tray({ "-Autostart", autostart and "off" or "on" }) end,
+                    },
+                }
+            end
+        -- END Windows host submenu --
+
         -- Main menu --
             local function _buildMenuItems()
                 return {
@@ -1301,6 +1347,12 @@ return function(ms, ctx)
                 return soundItems
             end
             local freshItems = _buildMenuItems()
+            if ms.windowsHost then
+                table.insert(freshItems, {
+                    title = "Hammerspoon",
+                    menu = buildWindowsHostSubmenu(),
+                })
+            end
             if ms._menuOpen then _wrapFns(freshItems) end
             return freshItems
         -- END Main menu --

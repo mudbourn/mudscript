@@ -312,8 +312,7 @@
                         input = p.add(el("input", "ms-pop-input"));
                         input.type = "text";
                         input.value = opts.defaultVal || "";
-                        input.setAttribute("autocomplete", "off");
-                        input.setAttribute("spellcheck", "false");
+                        window.msTextHints(input);
                         setTimeout(function() { input.focus(); }, 100);
                     }
                     p.actions.classList.add("fill");

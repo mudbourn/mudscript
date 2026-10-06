@@ -135,6 +135,30 @@
         return !!(e.metaKey || e.ctrlKey);
     };
 
+    // Text input hints applied per platform
+    var TEXT_HINTS = {
+        mac: {
+            spellcheck: "false",
+            autocomplete: "off",
+            autocorrect: "off",
+            autocapitalize: "off"
+        },
+        win: {
+            spellcheck: "false",
+            autocomplete: "off",
+            autocorrect: "off",
+            autocapitalize: "off"
+        }
+    };
+
+    window.msTextHints = function (el) {
+        var hints = windowsKeys() ? TEXT_HINTS.win : TEXT_HINTS.mac;
+        Object.keys(hints).forEach(function (k) {
+            el.setAttribute(k, hints[k]);
+        });
+        return el;
+    };
+
     window.msKeyLabel = function (text) {
         if (!windowsKeys()) return text;
         return String(text).replace(/Cmd/g, "Ctrl");
