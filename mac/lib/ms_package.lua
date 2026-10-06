@@ -72,12 +72,20 @@ return function(ms)
             return dir
         end
 
+        local function versionParts(v)
+            local t = {}
+            local base = tostring(v or ""):match("%d+[%d%.]*")
+            if base then
+                for n in base:gmatch("%d+") do t[#t + 1] = tonumber(n) end
+            end
+            return t
+        end
+
         local function versionLess(a, b)
-            local am = { tostring(a):match("^(%d+)%.(%d+)%.(%d+)$") }
-            local bm = { tostring(b):match("^(%d+)%.(%d+)%.(%d+)$") }
-            if #am < 3 or #bm < 3 then return false end
-            for i = 1, 3 do
-                local x, y = tonumber(am[i]), tonumber(bm[i])
+            local am, bm = versionParts(a), versionParts(b)
+            if #am == 0 or #bm == 0 then return false end
+            for i = 1, math.max(#am, #bm) do
+                local x, y = am[i] or 0, bm[i] or 0
                 if x ~= y then return x < y end
             end
             return false
@@ -365,9 +373,7 @@ return function(ms)
                      or (type(rq) == "string" and rq)
                      or nil
             if type(req) == "string" and req ~= "" then
-                local want = req:match("(%d+%.%d+%.%d+)")
-                local have = tostring(ms.version or ""):match("(%d+%.%d+%.%d+)")
-                if want and have and versionLess(have, want) then
+                if versionLess(ms.version, req) then
                     warnings[#warnings + 1] =
                         "Needs mudscript " .. req .. ", this install is " .. tostring(ms.version) .. "."
                 end
