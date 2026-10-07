@@ -63,23 +63,12 @@
                       P.buildUserSection(body, menu);
                   }
                   if (tools.fns.length) {
-                      const { h, groupLabel, actionBtn } = ui();
+                      const { h, groupLabel } = ui();
                       body.appendChild(groupLabel("Functions"));
                       for (const fn of tools.fns) {
                           const lbl = h("div", { cls: "row-label" }, fn.name || fn.id);
                           lbl.appendChild(h("small", {}, "call by id '" + fn.id + "'"));
-                          body.appendChild(h("div", { cls: "row" }, lbl,
-                              actionBtn("Call in macro", "", () => {
-                                  if (window.macroLab && window.macroLab.addTool) {
-                                      window.macroLab.addTool({
-                                          action: "call_fn",
-                                          params: { name: fn.id },
-                                      });
-                                      pop.close();
-                                  } else {
-                                      P.showAlert("Open a macro in the Macros panel first.");
-                                  }
-                              })));
+                          body.appendChild(h("div", { cls: "row" }, lbl));
                       }
                   }
               },

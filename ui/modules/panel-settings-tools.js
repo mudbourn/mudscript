@@ -393,26 +393,12 @@
                 }
                 fns.forEach((fn) => {
                     const isPack = fn.source === "pack";
-                    const isPlugin = fn.source === "plugin";
-                    const callOnly = isPack || isPlugin;
                     const r = h("div", { cls: "row row-sub" });
                     const lbl = h("div", { cls: "row-label" }, fn.name || fn.id);
                     if (isPack) lbl.appendChild(h("small", {}, "from pack - call by id '" + fn.id + "'"));
-                    else if (isPlugin) lbl.appendChild(h("small", {}, "from plugin - call by id '" + fn.id + "'"));
                     r.appendChild(lbl);
                     const controls = h("div", { style: "display:flex;gap:6px" });
-                    if (callOnly) {
-                        controls.appendChild(actionBtn("Call in macro", "", () => {
-                            if (window.macroLab && window.macroLab.addTool) {
-                                window.macroLab.addTool({
-                                    action: "call_fn",
-                                    params: { name: fn.id },
-                                });
-                            } else {
-                                showAlert("Open a macro in the Macros panel first.");
-                            }
-                        }));
-                    } else {
+                    if (!isPack) {
                         controls.appendChild(actionBtn("Edit", "", () => {
                             sendToTools("getFunction", { id: fn.id });
                         }));
