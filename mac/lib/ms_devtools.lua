@@ -7,7 +7,7 @@ return function(ms)
     MsDevTools.version = "1.0"
 
     MsDevTools.archiveLimit = 15
-    MsDevTools.logDir       = "~/Documents/ms_dev_logs/"
+    MsDevTools.logDir       = "~/.hammerspoon/logs/"
     MsDevTools.branchTrace  = true
 
     local function _pushToPanel(panelView, panelId, js)
@@ -40,8 +40,7 @@ return function(ms)
     local S = {}
 
     local _home       = os.getenv("HOME")
-    local _devLogDir  = _home .. "/Documents/"
-    local _devBaseDir = _devLogDir .. "ms_dev_logs/"
+    local _devBaseDir = _home .. "/.hammerspoon/logs/"
     local _devBase    = "file://" .. _home .. "/.hammerspoon/ui/"
 
     local _jsonDir, _readDir

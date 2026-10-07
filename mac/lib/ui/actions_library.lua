@@ -760,9 +760,9 @@ return function(ms, ctx)
 
             -- Integrity & Updates --
                 openDevLogs = function()
-                    local logDir = os.getenv("HOME") .. "/Documents/ms_dev_logs/"
+                    local logDir = os.getenv("HOME") .. "/.hammerspoon/logs/"
                     hs.fs.mkdir(logDir)
-                    os.execute("open " .. logDir)
+                    os.execute("open '" .. logDir .. "'")
                 end,
 
                 trustCurrentVersion = function()

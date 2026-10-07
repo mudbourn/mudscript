@@ -4,10 +4,12 @@ import IOKit.hid
 
 let virtualSerial = "ms-vpad"
 
+let outQueue = DispatchQueue(label: "ms_vpad.out")
+
 func emit(_ obj: [String: Any]) {
-    guard let data = try? JSONSerialization.data(withJSONObject: obj) else { return }
-    FileHandle.standardOutput.write(data)
-    FileHandle.standardOutput.write("\n".data(using: .utf8)!)
+    guard var data = try? JSONSerialization.data(withJSONObject: obj) else { return }
+    data.append(0x0A)
+    outQueue.async { FileHandle.standardOutput.write(data) }
 }
 
 // Descriptor Parser //
@@ -281,7 +283,7 @@ func emit(_ obj: [String: Any]) {
             device = dev
             let del = Delegate(real: real)
             delegate = del
-            let (stream, cont) = AsyncStream<Data>.makeStream()
+            let (stream, cont) = AsyncStream<Data>.makeStream(bufferingPolicy: .bufferingNewest(2))
             queue = cont
             Task {
                 await dev.activate(delegate: del)

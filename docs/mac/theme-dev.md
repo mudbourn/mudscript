@@ -286,7 +286,7 @@ Assign sounds to these slots via **Settings > Sound**. The `hover` and `interact
 
 ### Log file
 
-All events are appended to `~/Documents/ms_dev.log` as newline-delimited JSON:
+Events are appended per category (`input`, `macro`, `system`, `error`, `console`) to `~/.hammerspoon/logs/json/ms_dev_<category>.log` as newline-delimited JSON, with a readable copy in `~/.hammerspoon/logs/readable/`. Older sessions are archived to `~/.hammerspoon/backups/logs/`.
 
 ```json
 {"ts":"14:23:45","type":"print","msg":"Hello world"}
