@@ -315,6 +315,11 @@ return function(ms, ctx)
                                 )
                             end
                             ms.ui.refresh()
+                            if ms.plugins and ms.plugins.reportImport then
+                                pcall(function()
+                                    ms.plugins.reportImport(result)
+                                end)
+                            end
                         end)
                     end
 
@@ -403,12 +408,16 @@ return function(ms, ctx)
 
                 browseInstall = function(data)
                     if not (data and data.id and ms.registry and ms.registry.download
-                            and ms.package and ms.package.install) then return end
+                            and ms.package and ms.package.install) then
+                        if data and data.onDone then pcall(data.onDone, false) end
+                        return
+                    end
                     local label = data.label or data.id
 
                     ms.registry.download(data.id, function(path, derr)
                         if not path then
                             ms.alert("Download failed:\n" .. tostring(derr), 5)
+                            if data.onDone then pcall(data.onDone, false) end
                             return
                         end
                         local result, err = ms.package.install(path, {
@@ -418,23 +427,36 @@ return function(ms, ctx)
                             id            = data.id,
                         })
                         hs.timer.doAfter(0.15, function()
-                            if not result then
-                                ms.alert("Install failed:\n" .. tostring(err), 5)
-                                return
-                            end
-                            if ms._soundsDirty then ms._discoverSounds() end
-                            if ms.loadTheme then ms.loadTheme() end
-                            ms.playSlot("update")
-                            ms.alert(
-                                (result.manifest.name or label) .. " installed (" ..
-                                #result.installed .. " files).", 4, true
-                            )
-                            ms._profilesDirty = true
-                            ms.ui.markDirty()
-                            ms.ui.refresh()
+                            local installed = false
+                            local good, perr = pcall(function()
+                                if not result then
+                                    ms.alert("Install failed:\n" .. tostring(err), 5)
+                                    return
+                                end
+                                if ms._soundsDirty then ms._discoverSounds() end
+                                if ms.loadTheme then ms.loadTheme() end
+                                ms.playSlot("update")
+                                ms.alert(
+                                    (result.manifest.name or label) .. " installed (" ..
+                                    #result.installed .. " files).", 4, true
+                                )
+                                ms._profilesDirty = true
+                                ms.ui.markDirty()
+                                ms.ui.refresh()
+                                installed = true
 
-                            if ms.ui._actions and ms.ui._actions.browseList then
-                                pcall(ms.ui._actions.browseList, {})
+                                if ms.ui._actions and ms.ui._actions.browseList then
+                                    pcall(ms.ui._actions.browseList, {})
+                                end
+                            end)
+                            if not good then print("browseInstall: " .. tostring(perr)) end
+
+                            if data.onDone then
+                                pcall(data.onDone, installed)
+                            elseif installed and ms.plugins and ms.plugins.reportImport then
+                                pcall(function()
+                                    ms.plugins.reportImport(result)
+                                end)
                             end
                         end)
                     end)

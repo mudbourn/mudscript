@@ -1257,7 +1257,12 @@ return function(ms, ctx)
                     {
                         title = "Start at Login",
                         checked = autostart,
-                        fn = function() tray({ "-Autostart", autostart and "off" or "on" }) end,
+                        fn = function()
+                            tray({
+                                "-Autostart",
+                                autostart and "off" or "on",
+                            })
+                        end,
                     },
                 }
             end

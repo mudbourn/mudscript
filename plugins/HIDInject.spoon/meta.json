@@ -4,5 +4,6 @@
   "version": "0.1.0",
   "author": "mudbourn",
   "website": "https://mudbourn.info",
-  "description": "Opt-in HID injection. Adds ms.hid.* input functions that post directly to the target app process (CGEventPostToPSN) instead of the global event stream. Not present in base mudscript; uninstalling removes the capability entirely."
+  "description": "Opt-in HID injection. Adds ms.hid.* input functions that post directly to the target app process (CGEventPostToPSN) instead of the global event stream. Not present in base mudscript; uninstalling removes the capability entirely.",
+  "provides": ["hid"]
 }

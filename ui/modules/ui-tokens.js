@@ -135,7 +135,6 @@
         return !!(e.metaKey || e.ctrlKey);
     };
 
-    // Text input hints applied per platform
     var TEXT_HINTS = {
         mac: {
             spellcheck: "false",

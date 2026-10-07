@@ -244,6 +244,19 @@ YQIDAQAB
             if not ms.package.spec(raw.type) then return bad("unknown type " .. tostring(raw.type)) end
             if raw.url ~= nil and not urlAllowed(raw.url) then return bad("download URL not permitted") end
 
+            local rq = raw.requires
+            local rqVersion = type(rq) == "string" and rq
+                or (type(rq) == "table" and type(rq.mudscript) == "string" and rq.mudscript)
+                or nil
+            local function strList(v)
+                if type(v) ~= "table" then return nil end
+                local out = {}
+                for _, x in ipairs(v) do
+                    if type(x) == "string" and x ~= "" then out[#out + 1] = x end
+                end
+                return #out > 0 and out or nil
+            end
+
             return {
                 id          = raw.id,
                 type        = raw.type,
@@ -255,7 +268,9 @@ YQIDAQAB
                 sha256      = raw.sha256:lower(),
                 url         = raw.url,
                 size        = tonumber(raw.size) or nil,
-                requires    = type(raw.requires) == "string" and raw.requires or nil,
+                requires    = rqVersion,
+                requiresPlugins = type(rq) == "table" and strList(rq.plugins) or nil,
+                provides    = strList(raw.provides),
                 components  = type(raw.components) == "table" and raw.components or nil,
                 trust       = raw.trust == "trusted" and "trusted" or "community",
             }

@@ -188,7 +188,10 @@ function obj:init()
 
         local function install(onDone)
             hs.fs.mkdir(BIN_DIR)
-            for _, name in ipairs({ "ms_vpad.exe", "SDL2.dll" }) do
+            for _, name in ipairs({
+                "ms_vpad.exe",
+                "SDL2.dll",
+            }) do
                 local src = bundleDir() .. "/bin/" .. name
                 local dst = BIN_DIR .. "/" .. name
                 local srcTime = mtime(src)

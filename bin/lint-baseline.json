@@ -19,7 +19,7 @@
     "comment": 37
   },
   "mac/bin/registry_publish.sh": {
-    "comment": 12
+    "comment": 5
   },
   "mac/bin/registry_sign.sh": {
     "comment": 7
@@ -51,7 +51,7 @@
     "marker-orphan-end": 1
   },
   "mac/lib/core/mouse.lua": {
-    "comment": 19,
+    "comment": 15,
     "lua-inline-table": 2,
     "marker-blank-after-open": 1,
     "marker-blank-before-end": 1,
@@ -62,7 +62,6 @@
     "lua-inline-table": 1
   },
   "mac/lib/core/utilities.lua": {
-    "comment": 27,
     "lua-inline-table": 8,
     "marker-indent": 1,
     "marker-label": 1,
@@ -176,7 +175,7 @@
     "comment": 2
   },
   "ui/modules/gp-nav.js": {
-    "comment": 66
+    "comment": 62
   },
   "ui/modules/log-panel.js": {
     "comment": 37,

@@ -365,6 +365,9 @@ return function(ms, ctx)
 
             ms.playSlot("update")
             ms.alert("Switched to \"" .. targetName .. "\".", 3, true)
+            if ms.plugins and ms.plugins.scheduleOffer then
+                pcall(ms.plugins.scheduleOffer)
+            end
             ms.ui.markDirty()
             ms.ui.refresh()
             -- Repaint the Installed Library shelves

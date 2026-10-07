@@ -114,7 +114,11 @@
                             end,
                         })
                     end
-                    return ms[k]
+                    local v = ms[k]
+                    if v == nil and ms.plugins and ms.plugins.noteMissing and type(k) == "string" then
+                        pcall(ms.plugins.noteMissing, k)
+                    end
+                    return v
                 end,
                 __newindex = function(t, k, v)
                     if k == "macroMeta" then

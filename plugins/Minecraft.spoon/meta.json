@@ -4,5 +4,6 @@
   "version": "0.1.0",
   "author": "mudbourn",
   "website": "https://mudbourn.info",
-  "description": "Declares Minecraft as the macro target and exposes live client data (health, hunger, inventory, armor durability, held item, options, crosshair target) via the ms-mc-bridge mod over a loopback WebSocket."
+  "description": "Declares Minecraft as the macro target and exposes live client data (health, hunger, inventory, armor durability, held item, options, crosshair target) via the ms-mc-bridge mod over a loopback WebSocket.",
+  "provides": ["mc"]
 }

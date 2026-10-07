@@ -867,6 +867,9 @@
                             ms.alert(msg, _TOAST_HOLD, true, { priority = "low" })
                         end
                     end)
+                    _G._loadTimers.announceDeps = hs.timer.doAfter(_TOAST_LEAD + 9, function()
+                        if ms.plugins and ms.plugins.noticeMissing then pcall(ms.plugins.noticeMissing) end
+                    end)
                     ms.loading.applyTheme()
                     ms._loadComplete = true
                     pcall(function() ms.prewarmExitCurtain() end)

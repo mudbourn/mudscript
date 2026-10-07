@@ -302,6 +302,9 @@ return function(ms, ctx)
 
             applyDropped(installed)
             ms.package.librarySetActive(kind, slug)
+            if kind == "macro" and ms.plugins and ms.plugins.scheduleOffer then
+                pcall(ms.plugins.scheduleOffer)
+            end
 
             return {
                 kind      = kind,

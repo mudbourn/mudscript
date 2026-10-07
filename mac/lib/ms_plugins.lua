@@ -11,6 +11,10 @@
             _undo  = {},
         }
 
+        local _noted = {}
+        local _cache = nil
+        local _offerTimer = nil
+
         -- Helpers --
             local function shortName(dir) return (dir:gsub("%.spoon$", "")) end
 
@@ -156,6 +160,368 @@
             end
         -- END Recording Proxy --
 
+        -- Dependencies --
+            local CORE_NAMES = { macroMeta = true }
+
+            local STATE_TEXT = {
+                loaded        = "loaded",
+                disabled      = "installed but disabled",
+                unverified    = "installed but not verified",
+                notLoaded     = "installed but not loaded",
+                notInstalled  = "not installed",
+                unknown       = "unknown",
+            }
+
+            local function readMeta(dir)
+                local f = io.open(_spoons .. "/" .. dir .. "/meta.json", "r")
+                if not f then return nil end
+                local raw = f:read("*all")
+                f:close()
+                local ok, doc = pcall(hs.json.decode, raw)
+                if ok and type(doc) == "table" then return doc end
+                return nil
+            end
+
+            local function collect(useCache)
+                if useCache and _cache then return _cache.byNs, _cache.byId end
+                local byNs   = {}
+                local byId   = {}
+                local rows   = {}
+
+                if ms.package and ms.package.listPlugins then
+                    local ok, list = pcall(ms.package.listPlugins)
+                    for _, p in ipairs(ok and type(list) == "table" and list or {}) do
+                        local meta  = readMeta(p.dir)
+                        local state = "notLoaded"
+                        if ms.plugins.loaded[p.dir] then
+                            state = "loaded"
+                        elseif not p.enabled then
+                            state = "disabled"
+                        elseif p.status ~= "ok" then
+                            state = "unverified"
+                        end
+                        local row = {
+                            id    = (meta and meta.id) or p.id,
+                            name  = (meta and meta.name) or p.name,
+                            dir   = p.dir,
+                            state = state,
+                        }
+                        rows[#rows + 1] = row
+                        if row.id then byId[row.id] = row end
+                        local provides = meta and meta.provides
+                        for _, ns in ipairs(type(provides) == "table" and provides or {}) do
+                            if type(ns) == "string" and not byNs[ns] then byNs[ns] = row end
+                        end
+                    end
+                end
+
+                if ms.registry and ms.registry.list then
+                    local ok, entries = pcall(ms.registry.list, { type = "plugin" })
+                    for _, e in ipairs(ok and type(entries) == "table" and entries or {}) do
+                        local row = byId[e.id]
+                        if not row then
+                            row = {
+                                id    = e.id,
+                                name  = e.name,
+                                state = "notInstalled",
+                            }
+                            byId[e.id] = row
+                        end
+                        for _, ns in ipairs(type(e.provides) == "table" and e.provides or {}) do
+                            if type(ns) == "string" and not byNs[ns] then byNs[ns] = row end
+                        end
+                    end
+                end
+
+                _cache = {
+                    byNs = byNs,
+                    byId = byId,
+                }
+                return byNs, byId
+            end
+
+            local function stripComments(source)
+                local src = source:gsub("%-%-%[(=*)%[.-%]%1%]", ""):gsub("%-%-[^\n]*", "")
+                return src
+            end
+
+            ms.plugins.stateText = function(state)
+                return STATE_TEXT[state] or STATE_TEXT.unknown
+            end
+
+            ms.plugins.scanDeps = function(source, opts)
+                opts = opts or {}
+                local out = {}
+                if type(source) ~= "string" then return out end
+
+                local byNs = collect()
+                local seen = {}
+                local src  = stripComments(source)
+
+                for start, ns, pos in src:gmatch("()%f[%w_]ms%.([%a_][%w_]*)()") do
+                    local prev = start > 1 and src:sub(start - 1, start - 1) or ""
+                    if not seen[ns] and prev ~= "." and prev ~= ":" then
+                        seen[ns] = true
+                        local assigned = src:match("^%s*=[^=]", pos) ~= nil
+                        local row = byNs[ns]
+                        if assigned or CORE_NAMES[ns] then
+                            row = nil
+                        elseif row then
+                            if row.state ~= "loaded" or opts.all then
+                                out[#out + 1] = {
+                                    namespace = ns,
+                                    id        = row.id,
+                                    name      = row.name,
+                                    dir       = row.dir,
+                                    state     = row.state,
+                                }
+                            end
+                        elseif ms[ns] == nil then
+                            out[#out + 1] = {
+                                namespace = ns,
+                                state     = "unknown",
+                            }
+                        end
+                    end
+                end
+
+                table.sort(out, function(a, b) return a.namespace < b.namespace end)
+                return out
+            end
+
+            ms.plugins.scanFiles = function(paths, opts)
+                local out  = {}
+                local seen = {}
+                for _, path in ipairs(paths or {}) do
+                    local f = io.open(path, "r")
+                    if f then
+                        local raw = f:read("*all")
+                        f:close()
+                        for _, dep in ipairs(ms.plugins.scanDeps(raw, opts)) do
+                            if not seen[dep.namespace] then
+                                seen[dep.namespace] = true
+                                out[#out + 1] = dep
+                            end
+                        end
+                    end
+                end
+                return out
+            end
+
+            ms.plugins.macroPaths = function()
+                return {
+                    _hsDir .. "/ms_macros.lua",
+                    _hsDir .. "/data/ms_macros_visual.lua",
+                }
+            end
+
+            ms.plugins.statusById = function(id)
+                local _, byId = collect()
+                local row = byId[id]
+                if row then return row end
+                return {
+                    id    = id,
+                    name  = id,
+                    state = "unknown",
+                }
+            end
+
+            ms.plugins.missingFromManifest = function(manifest)
+                local out = {}
+                local rq  = type(manifest) == "table" and manifest.requires
+                local ids = type(rq) == "table" and rq.plugins
+                for _, id in ipairs(type(ids) == "table" and ids or {}) do
+                    if type(id) == "string" then
+                        local row = ms.plugins.statusById(id)
+                        if row.state ~= "loaded" then out[#out + 1] = row end
+                    end
+                end
+                return out
+            end
+
+            ms.plugins.depLines = function(rows)
+                local lines = {}
+                for _, row in ipairs(rows or {}) do
+                    lines[#lines + 1] = "Needs plugin: " .. tostring(row.name or row.id)
+                        .. " (" .. ms.plugins.stateText(row.state) .. ")"
+                end
+                return lines
+            end
+
+            ms.plugins.otherWarnings = function(warnings)
+                local out = {}
+                for _, w in ipairs(type(warnings) == "table" and warnings or {}) do
+                    if type(w) == "string" and not w:find("^Needs plugin:") then
+                        out[#out + 1] = w
+                    end
+                end
+                return out
+            end
+
+            ms.plugins.offer = function(rows, notes)
+                rows  = rows or {}
+                notes = notes or {}
+                if #rows == 0 and #notes == 0 then return end
+                if not (ms.ui and ms.ui.modal) then return end
+
+                local installs, enables = {}, {}
+                for _, r in ipairs(rows) do
+                    if r.state == "notInstalled" then
+                        installs[#installs + 1] = r
+                    elseif r.state == "disabled" then
+                        enables[#enables + 1] = r
+                    end
+                end
+
+                local lines = {}
+                for _, n in ipairs(notes) do lines[#lines + 1] = n end
+                for _, l in ipairs(ms.plugins.depLines(rows)) do lines[#lines + 1] = l end
+
+                local actionable = #installs + #enables > 0
+                local confirm = "OK"
+                if #installs > 0 and #enables > 0 then
+                    confirm = "Install and enable"
+                elseif #installs > 0 then
+                    confirm = "Install"
+                elseif #enables > 0 then
+                    confirm = "Enable"
+                end
+
+                local function show(tries)
+                    if ms.ui._modalCallback and tries < 20 then
+                        hs.timer.doAfter(0.25, function() show(tries + 1) end)
+                        return
+                    end
+                    ms.ui.modal({
+                        title   = #rows > 0 and "Plugins needed" or "Import notes",
+                        msg     = table.concat(lines, "\n"),
+                        confirm = confirm,
+                        cancel  = actionable and "Later" or "Close",
+                    }, function(res)
+                        if not (actionable and res and res.confirmed) then return end
+                        local actions = ms.ui._actions or {}
+                        local enabled, installed, failed = {}, {}, {}
+
+                        if ms.package and ms.package.setPluginEnabled then
+                            for _, r in ipairs(enables) do
+                                ms.package.setPluginEnabled(r.dir, true)
+                                enabled[#enabled + 1] = r.name or r.id
+                            end
+                        end
+
+                        local function finish()
+                            _cache = nil
+                            if ms.plugins.apply then pcall(ms.plugins.apply) end
+                            if ms.ui.markDirty then pcall(ms.ui.markDirty) end
+                            if ms.ui.refresh then pcall(ms.ui.refresh) end
+
+                            local parts = {}
+                            if #installed > 0 then parts[#parts + 1] = "Installed: " .. table.concat(installed, ", ") end
+                            if #enabled > 0 then parts[#parts + 1] = "Enabled: " .. table.concat(enabled, ", ") end
+                            if #failed > 0 then parts[#parts + 1] = "Failed: " .. table.concat(failed, ", ") end
+                            if #parts > 0 then ms.alert(table.concat(parts, "\n"), 5, true) end
+                        end
+
+                        local i = 0
+                        local function nextInstall(ok)
+                            local prev = installs[i]
+                            if prev then
+                                local name = prev.name or prev.id
+                                if ok then
+                                    installed[#installed + 1] = name
+                                    local row = ms.plugins.statusById(prev.id)
+                                    if row.dir and ms.package and ms.package.setPluginEnabled then
+                                        ms.package.setPluginEnabled(row.dir, true)
+                                        enabled[#enabled + 1] = name
+                                    end
+                                else
+                                    failed[#failed + 1] = name
+                                end
+                            end
+                            i = i + 1
+                            local r = installs[i]
+                            if not (r and actions.browseInstall) then
+                                finish()
+                                return
+                            end
+                            actions.browseInstall({
+                                id     = r.id,
+                                label  = r.name,
+                                onDone = nextInstall,
+                            })
+                        end
+                        nextInstall()
+                    end)
+                end
+                show(0)
+            end
+
+            ms.plugins.reportImport = function(result)
+                local manifest = type(result) == "table" and result.manifest or nil
+                ms.plugins.offer(
+                    ms.plugins.missingFromManifest(manifest),
+                    ms.plugins.otherWarnings(type(result) == "table" and result.warnings or nil)
+                )
+            end
+
+            ms.plugins.scheduleOffer = function()
+                if _offerTimer then _offerTimer:stop() end
+                _offerTimer = hs.timer.doAfter(0.5, function()
+                    _offerTimer = nil
+                    pcall(ms.plugins.offerForActive)
+                end)
+            end
+
+            ms.plugins.offerForActive = function()
+                local rows = {}
+                local seen = {}
+                for _, dep in ipairs(ms.plugins.scanFiles(ms.plugins.macroPaths())) do
+                    if dep.id and dep.state ~= "unknown" and not seen[dep.id] then
+                        seen[dep.id] = true
+                        rows[#rows + 1] = dep
+                    end
+                end
+                ms.plugins.offer(rows)
+            end
+
+            ms.plugins.noticeMissing = function()
+                local lines = {}
+                local seen  = {}
+                for _, dep in ipairs(ms.plugins.scanFiles(ms.plugins.macroPaths())) do
+                    if dep.state ~= "unknown" and dep.id and not seen[dep.id] then
+                        seen[dep.id] = true
+                        lines[#lines + 1] = tostring(dep.name or dep.id)
+                            .. " (" .. ms.plugins.stateText(dep.state) .. ")"
+                    end
+                end
+                if #lines == 0 then return end
+                ms.alert(
+                    "Macros need plugins:\n" .. table.concat(lines, "\n")
+                        .. "\nOpen Settings > Plugins or Browse.",
+                    8,
+                    true,
+                    { priority = "low" }
+                )
+            end
+
+            ms.plugins.noteMissing = function(ns)
+                if _noted[ns] then return end
+                _noted[ns] = true
+
+                local byNs = collect(true)
+                local row  = byNs[ns]
+                if not row or row.state == "loaded" then return end
+
+                local tail = "which is " .. ms.plugins.stateText(row.state)
+                if row.state == "disabled" then
+                    tail = tail .. ", enable it in Settings > Plugins"
+                end
+                local msg = "ms." .. ns .. " comes from the " .. tostring(row.name or row.id)
+                    .. " plugin, " .. tail
+                print(msg)
+            end
+        -- END Dependencies --
+
         -- Load --
             ms.plugins.load = function(dir)
                 if not (ms.package and ms.package.validSpoonName
@@ -203,6 +569,8 @@
                 end
 
                 ms.plugins.loaded[dir] = true
+                _noted = {}
+                _cache = nil
                 ms.plugins.failed[dir] = nil
                 return true
             end
@@ -250,6 +618,8 @@
                 package.loaded[short] = nil
                 if _G.spoon then _G.spoon[short] = nil end
                 ms.plugins.loaded[dir] = nil
+                _noted = {}
+                _cache = nil
 
                 if ms.ui and ms.ui.markDirty then pcall(ms.ui.markDirty) end
                 return true
@@ -258,6 +628,7 @@
 
         -- Apply --
             ms.plugins.apply = function()
+            _cache = nil
                 if not (ms.package and ms.package.listPlugins) then return end
                 for _, p in ipairs(ms.package.listPlugins()) do
                     local running = ms.plugins.loaded[p.dir] == true

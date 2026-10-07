@@ -26,17 +26,6 @@
       "trust": "trusted"
     },
     {
-      "id": "plugin-roblox",
-      "type": "plugin",
-      "name": "Roblox",
-      "version": "0.3.0",
-      "author": "mudbourn",
-      "sha256": "78629b3eccae86daf538338945b2af155bf0dd65f97281dcbc12088bf38999b0",
-      "url": "https://github.com/mudbourn/mudscript/releases/download/packages/Roblox.mspkg",
-      "size": 8861,
-      "trust": "trusted"
-    },
-    {
       "id": "plugin-virtualpad",
       "type": "plugin",
       "name": "VirtualPad",
@@ -47,6 +36,20 @@
       "size": 736845,
       "provides": [
         "vpad"
+      ],
+      "trust": "trusted"
+    },
+    {
+      "id": "plugin-roblox",
+      "type": "plugin",
+      "name": "Roblox",
+      "version": "0.3.1",
+      "author": "mudbourn",
+      "sha256": "a9f055071b8db0d3b3196c03b76c0f3731d6163a76a616d569c772ac69eafa3d",
+      "url": "https://github.com/mudbourn/mudscript/releases/download/packages/Roblox.mspkg",
+      "size": 8878,
+      "provides": [
+        "roblox"
       ],
       "trust": "trusted"
     }

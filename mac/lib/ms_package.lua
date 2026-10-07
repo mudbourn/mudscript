@@ -379,6 +379,13 @@ return function(ms)
                 end
             end
 
+            if ms.plugins and ms.plugins.missingFromManifest then
+                local rows = ms.plugins.missingFromManifest(manifest)
+                for _, line in ipairs(ms.plugins.depLines(rows)) do
+                    warnings[#warnings + 1] = line
+                end
+            end
+
             return warnings
         end
     -- END Fingerprint --
@@ -544,6 +551,31 @@ return function(ms)
             end
             if not opts.out or opts.out == "" then return nil, "No output path." end
 
+            local requires = opts.requires
+            if kind ~= "plugin" and ms.plugins and ms.plugins.scanFiles then
+                local srcs = {}
+                for rel, src in pairs(opts.files) do
+                    if tostring(rel):match("%.lua$") then srcs[#srcs + 1] = src end
+                end
+                local ids, seen = {}, {}
+                for _, dep in ipairs(ms.plugins.scanFiles(srcs, { all = true })) do
+                    if dep.id and dep.id ~= opts.id and not seen[dep.id] then
+                        seen[dep.id] = true
+                        ids[#ids + 1] = dep.id
+                    end
+                end
+                if #ids > 0 then
+                    local base = {}
+                    if type(requires) == "table" then
+                        for k, v in pairs(requires) do base[k] = v end
+                    elseif type(requires) == "string" then
+                        base.mudscript = requires
+                    end
+                    base.plugins = base.plugins or ids
+                    requires = base
+                end
+            end
+
             local staging = tempDir("pack")
             local manifest = {
                 formatVersion = FORMAT_VERSION,
@@ -555,7 +587,7 @@ return function(ms)
                 description   = opts.description,
                 created       = os.date("!%Y-%m-%dT%H:%M:%SZ"),
                 platform      = ms.package.fingerprint(),
-                requires      = opts.requires,
+                requires      = requires,
                 contents      = {},
             }
 

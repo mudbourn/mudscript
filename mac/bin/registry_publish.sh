@@ -16,7 +16,6 @@ DO_UPLOAD=true
 DO_SIGN=false
 DRY_RUN=false
 KEY_FILE=""
-# Metadata overrides, only used when packing a .spoon (a .mspkg carries its own).
 P_NAME=""
 P_VERSION=""
 P_AUTHOR=""
@@ -94,7 +93,6 @@ case "$PKG" in
         SPOON_BASE="${SPOON_NAME%.spoon}"       # Foo
         INIT="$SPOON_DIR/init.lua"
 
-        # Metadata: --flags win, else sniff the Spoon's init.lua, else a default.
         sniff() {  # $1 = lua field (version/name/author/homepage) -> quoted value
             [ -f "$INIT" ] || return 0
             grep -oE "\\.$1[[:space:]]*=[[:space:]]*\"[^\"]*\"" "$INIT" 2>/dev/null \
@@ -105,6 +103,9 @@ case "$PKG" in
         PK_AUTHOR="${P_AUTHOR:-$(sniff author)}"
         PK_WEBSITE="${P_WEBSITE:-$(sniff homepage)}"
         PK_DESCRIPTION="$P_DESCRIPTION"
+        if [ -f "$SPOON_DIR/meta.json" ]; then
+            PROVIDES="$(jq -c '(.provides // []) | if type=="array" then map(select(type=="string")) else [] end' "$SPOON_DIR/meta.json" 2>/dev/null || echo '[]')"
+        fi
 
         TMPROOT="$(mktemp -d)"
         trap 'rm -rf "$TMPROOT"' EXIT
@@ -113,8 +114,6 @@ case "$PKG" in
         cp -R "$SPOON_DIR" "$STAGE/Spoons/$SPOON_NAME"
         find "$STAGE/Spoons/$SPOON_NAME" \( -name '.DS_Store' -o -name '._*' \) -delete 2>/dev/null || true
 
-        # contents: { "Spoons/Foo.spoon/rel": sha256 }. The client re-verifies
-        # each of these on install, so the hashes must match the staged bytes.
         CONTENTS="$(cd "$STAGE" && find Spoons -type f | LC_ALL=C sort | while IFS= read -r rel; do
             h="$(shasum -a 256 "$rel" | cut -c1-64 | tr '[:upper:]' '[:lower:]')"
             printf '%s\t%s\n' "$rel" "$h"
@@ -164,7 +163,8 @@ VERSION="$(field version)"
 AUTHOR="$(field author)"
 WEBSITE="$(field website)"
 DESCRIPTION="$(field description)"
-REQUIRES="$(field requires)"
+REQUIRES="$(printf '%s' "$MANIFEST" | jq -r '.requires | if type=="string" then . elif type=="object" then (.mudscript // "" | if type=="string" then . else "" end) else "" end')"
+REQUIRES_PLUGINS="$(printf '%s' "$MANIFEST" | jq -c '(.requires.plugins // []) | if type=="array" then map(select(type=="string")) else [] end' 2>/dev/null || echo '[]')"
 MANIFEST_ID="$(field id)"
 
 [ -n "$TYPE" ] || { echo "ERROR: manifest has no type."; exit 1; }
@@ -202,14 +202,18 @@ ENTRY="$(jq -n \
     --arg id "$ID" --arg type "$TYPE" --arg name "$NAME" --arg version "$VERSION" \
     --arg author "$AUTHOR" --arg description "$DESCRIPTION" --arg website "$WEBSITE" \
     --arg sha256 "$SHA" --arg url "$ASSET_URL" --argjson size "$SIZE" \
-    --arg requires "$REQUIRES" --arg trust "$TRUST" --argjson components "$COMPONENTS" '
+    --arg requires "$REQUIRES" --argjson reqPlugins "$REQUIRES_PLUGINS" --argjson provides "${PROVIDES:-[]}" --arg trust "$TRUST" --argjson components "$COMPONENTS" '
     {id: $id, type: $type, name: $name}
     + (if $version     != "" then {version: $version}         else {} end)
     + (if $author      != "" then {author: $author}           else {} end)
     + (if $description != "" then {description: $description}  else {} end)
     + (if $website     != "" then {website: $website}         else {} end)
     + {sha256: $sha256, url: $url, size: $size}
-    + (if $requires    != "" then {requires: $requires}       else {} end)
+    + (if ($reqPlugins | length) > 0
+        then {requires: ((if $requires != "" then {mudscript: $requires} else {} end) + {plugins: $reqPlugins})}
+        elif $requires != "" then {requires: $requires}
+        else {} end)
+    + (if ($provides | length) > 0 then {provides: $provides} else {} end)
     + (if ($components | length) > 0 then {components: $components} else {} end)
     + {trust: $trust}
 ')"
@@ -245,9 +249,6 @@ if [ "$DO_UPLOAD" = true ]; then
             --notes "Registry package binaries. Managed by registry_publish.sh." \
             >/dev/null
     fi
-    # gh uploads under the file's own basename, so when normalisation changed
-    # the name, stage a copy under the intended name rather than letting GitHub
-    # pick. Same bytes, predictable URL.
     UP="$PKG"; STAGE=""
     if [ "$ASSET" != "$ASSET_SRC" ]; then
         STAGE="$(mktemp -d)"

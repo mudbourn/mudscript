@@ -178,7 +178,6 @@
             return nil
         end
 
-        -- ms.callFn(id) invokes a named function tool inline
         ms.callFn = function(id)
             if type(id) ~= "string" then return end
             local function callable(f)
@@ -186,19 +185,15 @@
                     or (type(f) == "table" and getmetatable(f)
                         and getmetatable(f).__call)
             end
-            -- First a registered function tool (builder-authored).
             local def = ms.fn and ms.fn.registry and ms.fn.registry._defs[id]
             if def and callable(def.fn) then return def.fn() end
-            -- Then any bound macro from the pack, by its bind id
             local wired = ms.bind and ms.bind._wires and ms.bind._wires[id]
             if callable(wired) then return wired() end
-            -- Then a tool registered via ms.tools.define
             local tool = ms._toolIndex and ms._toolIndex[id]
             if tool and callable(tool.run) then return tool.run() end
             print("ms.callFn: no function tool or macro named '" .. tostring(id) .. "'")
         end
 
-        -- ms.vars, disk-persistent shared helper variables
         do
             local varsPath = os.getenv("HOME")
                 .. "/.hammerspoon/data/ms_helpervars.json"
@@ -248,7 +243,6 @@
                 loaded = false
             end
 
-            -- Read a helper var live
             ms.vars.get = function(name)
                 ensureLoaded()
                 if type(name) ~= "string" then return nil end
@@ -260,7 +254,6 @@
                 return v
             end
 
-            -- Write a helper var and persist
             ms.vars.set = function(name, value)
                 ensureLoaded()
                 if type(name) ~= "string"
@@ -270,7 +263,6 @@
                 return store.vals[name]
             end
 
-            -- Declare (or update) a helper var from the Tools panel.
             ms.vars.define = function(def)
                 ensureLoaded()
                 if type(def) ~= "table" then return false, "definition must be a table" end
@@ -287,7 +279,6 @@
                     default = def.default,
                     label   = type(def.label) == "string" and def.label or name,
                     hint    = type(def.hint) == "string" and def.hint or nil,
-                    -- Where the declaration came from, for the Tools filter
                     origin  = def.origin or ms._defineOrigin or "user",
                 }
                 if store.vals[name] == nil then
@@ -308,7 +299,6 @@
                 return true
             end
 
-            -- List declarations (with live values) for the builder.
             ms.vars.list = function()
                 ensureLoaded()
                 local out = {}
@@ -441,7 +431,6 @@
             ms.type("v", { ms.windowsMode and "ctrl" or "cmd" })
         end
 
-        -- Expand {name} tokens in a string at runtime against helper vars
         ms.interp = function(s)
             if type(s) ~= "string" then return s end
             if not s:find("{", 1, true) then return s end
@@ -658,7 +647,6 @@
                 end
             end
 
-            -- Warn once when slot assignments no longer resolve
             local missing = 0
             for _, name in pairs(ms.soundAssign or {}) do
                 if type(name) == "string" and name ~= ""
@@ -757,7 +745,6 @@
             return s
         end
 
-        -- Only accept a resolved path that still exists on disk
         local function _slotPathExists(p)
             return type(p) == "string" and hs.fs.attributes(p) ~= nil
         end
@@ -792,7 +779,6 @@
             if ms._octaneMode and ms._octaneMuteSounds then return false end
             if not ms._startupSoundDone and slotId ~= "load" and slotId ~= "themeLoaded" and slotId ~= "updateAvailable" and slotId ~= "settingsOpen" and slotId ~= "settingsClose" then return false end
             ms._slotHandles = ms._slotHandles or {}
-            -- Do not stop the slot's previous play before starting the new one
             local path
             for _, id in ipairs(ms.soundSlotChain(slotId)) do
                 path = _resolveSlot(id)
@@ -1028,7 +1014,6 @@
 
         local _ocrWarned = false
 
-        -- Logs the Windows OCR gap once per session
         local function _ocrUnsupported()
             if not _ocrWarned then
                 _ocrWarned = true
@@ -1036,7 +1021,6 @@
             end
         end
 
-        -- Normalise a region arg into an absolute {x,y,w,h} in screen points
         local function _resolveRegion(region)
             local f = hs.screen.mainScreen():frame()
             if type(region) ~= "table" then
@@ -1053,11 +1037,9 @@
             }
         end
 
-        -- Capture a region to a temp PNG
         ms.screen.capture = function(region)
             local rg = _resolveRegion(region)
             if not rg.w or not rg.h or rg.w < 1 or rg.h < 1 then return nil end
-            -- Pick the screen the region originates on
             local scr = hs.screen.mainScreen()
             for _, s in ipairs(hs.screen.allScreens()) do
                 local f = s:frame()
@@ -1069,7 +1051,6 @@
             end
             local snap = scr:snapshot(hs.geometry.rect(rg.x, rg.y, rg.w, rg.h))
             if not snap then return nil end
-            -- Drop the empty base file, keeping the .png sibling
             local base = os.tmpname()
             os.remove(base)
             local path = base .. ".png"
@@ -1077,7 +1058,6 @@
             return path, rg
         end
 
-        -- OCR a region, returning text and blocks
         ms.screen.ocr = function(region, opts)
             opts = opts or {}
             if ms.windowsHost then
@@ -1104,7 +1084,6 @@
                 return nil
             end
 
-            -- Pixels-per-point from the helper's reported pixel width
             local sx = (data.w or rg.w) / rg.w
             local sy = (data.h or rg.h) / rg.h
             if sx == 0 then sx = 1 end
@@ -1128,7 +1107,6 @@
             return { text = table.concat(texts, "\n"), blocks = blocks }
         end
 
-        -- OCR a region and pull the first number out of it
         ms.screen.readNumber = function(region, opts)
             local res = ms.screen.ocr(region, opts)
             if not res then return nil end
@@ -1137,7 +1115,6 @@
             return match and tonumber(match) or nil
         end
 
-        -- Find on-screen text and return its center
         ms.screen.findText = function(text, region, opts)
             if not text or text == "" then return nil end
             local res = ms.screen.ocr(region, opts)
@@ -1151,7 +1128,6 @@
             return nil
         end
 
-        -- Poll until text appears in the region
         ms.screen.waitText = function(text, region, timeout, opts)
             opts = opts or {}
             if ms.windowsHost then
@@ -1173,13 +1149,11 @@
             return false
         end
 
-        -- Pixel scanning aliases under ms.screen.*
         ms.screen.pixelColor   = ms.pixelColor
         ms.screen.pixelMatch   = ms.pixelMatch
         ms.screen.waitPixel    = ms.waitPixel
         ms.screen.waitNotPixel = ms.waitNotPixel
 
-        -- Flat positional wrappers for the visual builder
         local function _regionFromArgs(x, y, w, h)
             if not w or w <= 0 or not h or h <= 0 then return nil end
             return { x = x or 0, y = y or 0, w = w, h = h }
@@ -1323,12 +1297,10 @@
             local startX, startY = startPos.x, startPos.y
             local dx = targetX - startX
             local dy = targetY - startY
-            -- Zero-distance or near-instant move: jump and return
             if durationMs <= 16 or (dx == 0 and dy == 0) then
                 hs.mouse.absolutePosition({ x = targetX, y = targetY })
                 return
             end
-            -- Animate synchronously, frame by frame
             local frameMs = 16
             local steps = math.max(1, math.floor(durationMs / frameMs + 0.5))
             for step = 1, steps do
