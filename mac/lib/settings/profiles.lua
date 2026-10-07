@@ -200,7 +200,11 @@ return function(ms, ctx)
             local seen = {}
             if ms.plugins and ms.plugins.scanFiles then
                 local paths = {}
-                for _, rel in ipairs({ "ms_macros.lua", "data/ms_macros_visual.lua" }) do
+                local rels = {
+                    "ms_macros.lua",
+                    "data/ms_macros_visual.lua",
+                }
+                for _, rel in ipairs(rels) do
                     local path = ms.profile.path(rel, name)
                     if path then paths[#paths + 1] = path end
                 end

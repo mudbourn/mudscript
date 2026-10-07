@@ -586,6 +586,7 @@ return function(ms)
                 if pending ~= "" then
                     moveToBackup(pending)
                     os.remove(rootDir .. "/.pending-root-move")
+                    os.remove(rootDir .. "/.backup")
                     note("finished an interrupted root move into " .. pending)
                 end
                 if leftovers() then

@@ -28,7 +28,7 @@
     "comment": 2
   },
   "mac/install.sh": {
-    "comment": 10
+    "comment": 1
   },
   "mac/lib/core/bind_controller.lua": {
     "comment": 1,
