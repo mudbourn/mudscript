@@ -179,12 +179,36 @@
         ms._gamepadBinds = {}
         ms._gamepadAxes = {}
 
-        -- Normalize a gamepad bind config to a list of button names
+        local _GP_RANK = {
+            l3 = 1,
+            r3 = 2,
+            l2 = 3,
+            r2 = 4,
+            l1 = 5,
+            r1 = 6,
+            a = 7,
+            b = 8,
+            x = 9,
+            y = 10,
+            up = 11,
+            down = 12,
+            left = 13,
+            right = 14,
+            menu = 15,
+            options = 16,
+            home = 17,
+        }
+
         ms.gpButtons = function(c)
             if type(c) ~= "table" then return {} end
             if type(c.buttons) == "table" and #c.buttons > 0 then
                 local l = {}
                 for _, b in ipairs(c.buttons) do l[#l + 1] = b end
+                table.sort(l, function(p, q)
+                    local rp, rq = _GP_RANK[p] or 99, _GP_RANK[q] or 99
+                    if rp ~= rq then return rp < rq end
+                    return tostring(p) < tostring(q)
+                end)
                 return l
             end
             if c.button then return { c.button } end

@@ -392,7 +392,7 @@
             emitters["ms.alert"] = function(step, lvl)
                 local p = step.params or {}
                 local args = serialize(p.message or p.msg or "")
-                if p.duration then args = args .. ", " .. tostring(p.duration) end
+                if tonumber(p.duration) then args = args .. ", " .. tostring(tonumber(p.duration) / 1000) end
                 return indent(lvl) .. "ms.alert(" .. args .. ")"
             end
 

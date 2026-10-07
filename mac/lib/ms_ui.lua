@@ -922,7 +922,10 @@ return function(ms)
                             gpHeldCount = gpHeldCount - 1
                             if gpHeldCount <= 0 and #gpOrder > 0 then
                                 if #gpOrder > 1 then
-                                    toConfirm({ type = "gamepad", buttons = gpOrder })
+                                    toConfirm({
+                                        type = "gamepad",
+                                        buttons = ms.gpButtons({ buttons = gpOrder }),
+                                    })
                                 else
                                     toConfirm({ type = "gamepad", button = gpOrder[1] })
                                 end

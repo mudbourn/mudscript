@@ -297,6 +297,7 @@ func emit(_ obj: [String: Any]) {
         var delegate: Delegate?
         var last: [UInt8: [UInt8]] = [:]
         var buttons: Set<String> = []
+        var owned: Set<String> = []
         var axes: [String: Double] = [:]
         var reportBuf: UnsafeMutablePointer<UInt8>
         let reportSize: Int
@@ -392,8 +393,8 @@ func emit(_ obj: [String: Any]) {
             for f in fields where f.reportID == rid {
                 let at = base + f.bitOffset
                 if f.page == 0x09 {
-                    for name in buttons where buttonUsage(name, fam) == f.usage {
-                        writeBits(&out, at, f.size, 1)
+                    for name in owned where buttonUsage(name, fam) == f.usage {
+                        writeBits(&out, at, f.size, buttons.contains(name) ? 1 : 0)
                     }
                 } else if f.page == 0x01 && f.usage == 0x39 {
                     let dirs = ["up", "down", "left", "right"].map { buttons.contains($0) }
@@ -407,9 +408,9 @@ func emit(_ obj: [String: Any]) {
                         let v = f.min + Int((Double(f.max - f.min) * t).rounded())
                         writeBits(&out, at, f.size, v)
                     }
-                    for name in ["l2", "r2"] where buttons.contains(name) && axes[name] == nil {
+                    for name in ["l2", "r2"] where owned.contains(name) && axes[name] == nil {
                         if axisUsages(name, fam).contains(where: { $0.0 == f.page && $0.1 == f.usage }) {
-                            writeBits(&out, at, f.size, f.max)
+                            writeBits(&out, at, f.size, buttons.contains(name) ? f.max : f.min)
                         }
                     }
                 }
@@ -484,7 +485,10 @@ func emit(_ obj: [String: Any]) {
                 if v > 0.5 { pressed.insert(name) }
             }
             for n in pressed.subtracting(physButtons) { physical(["e": "press", "b": n]) }
-            for n in physButtons.subtracting(pressed) { physical(["e": "release", "b": n]) }
+            for n in physButtons.subtracting(pressed) {
+                if !buttons.contains(n) { owned.remove(n) }
+                physical(["e": "release", "b": n])
+            }
             physButtons = pressed
             func dz(_ v: Double) -> Double { abs(v) < 0.05 ? 0 : v }
             for side in ["l", "r"] {
@@ -595,11 +599,18 @@ func emit(_ obj: [String: Any]) {
         }
         switch cmd {
         case "btn" where parts.count == 3:
-            if parts[2] == "1" { p.buttons.insert(parts[1]) } else { p.buttons.remove(parts[1]) }
+            if parts[2] == "1" {
+                p.buttons.insert(parts[1])
+                p.owned.insert(parts[1])
+            } else {
+                p.buttons.remove(parts[1])
+                if p.physButtons.contains(parts[1]) { p.owned.insert(parts[1]) } else { p.owned.remove(parts[1]) }
+            }
         case "axis" where parts.count == 3:
             p.axes[parts[1]] = parts[2] == "off" ? nil : Double(parts[2])
         case "reset":
             p.buttons = []
+            p.owned = []
             p.axes = [:]
         default:
             return
