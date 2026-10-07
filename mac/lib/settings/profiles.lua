@@ -207,17 +207,32 @@ return function(ms, ctx)
         local auditMacros
         ms.auditMacros = function(src) return auditMacros(src) end
 
+        local function _tr(step)
+            local f = io.open(os.getenv("HOME") .. "/.hammerspoon/logs/trace.txt", "a")
+            if f then
+                f:write(os.date("%H:%M:%S ") .. tostring(step) .. "\n")
+                f:flush()
+                f:close()
+            end
+        end
+        _G.__msTrace = _tr
+
         local function hotswapLive()
             local wasQuick = ms._quickReloading
             ms._quickReloading = true
+            _tr("hs:reloadMacros")
             if ms.ui and ms.ui._actions and ms.ui._actions.reloadMacros then
                 pcall(ms.ui._actions.reloadMacros)
             end
+            _tr("hs:loadTheme")
             if ms.loadTheme then pcall(ms.loadTheme) end
+            _tr("hs:recolor")
             pcall(function() ms.alert:recolor() end)
             pcall(function() ms.dev:recolor() end)
             ms._soundsDirty = true
+            _tr("hs:sounds")
             if ms._discoverSounds then pcall(ms._discoverSounds) end
+            _tr("hs:authored")
             if ms._loadAuthoredSettings then pcall(ms._loadAuthoredSettings) end
             if ms._defineAuthoredSettings then pcall(ms._defineAuthoredSettings) end
             if ms._loadAuthoredMenus then pcall(ms._loadAuthoredMenus) end
@@ -347,6 +362,7 @@ return function(ms, ctx)
                 target = targetName,
             })
 
+            _tr("sw:hotswap")
             hotswapLive()
 
             if ms.package and ms.package.reconcileActive then
@@ -357,15 +373,19 @@ return function(ms, ctx)
                 end
             end
 
+            _tr("sw:setActive")
             if ms.package and ms.package.setActiveProfile then
                 pcall(ms.package.setActiveProfile, targetName)
             end
 
+            _tr("sw:alert")
             ms.playSlot("update")
             ms.alert("Switched to \"" .. targetName .. "\".", 3, true)
+            _tr("sw:offer")
             if ms.plugins and ms.plugins.scheduleOffer then
                 pcall(ms.plugins.scheduleOffer)
             end
+            _tr("sw:refresh")
             ms.ui.markDirty()
             ms.ui.refresh()
             if ms.ui._actions and ms.ui._actions.libraryList then
@@ -375,6 +395,10 @@ return function(ms, ctx)
             end
             if ms.shell and ms.shell.eval then
                 pcall(ms.shell.eval, "if(window.shellReceive)shellReceive('macros','profileSwitched',{})")
+            end
+            _tr("sw:done")
+            for _, d in ipairs({ 0.1, 0.3, 0.6, 1, 2 }) do
+                hs.timer.doAfter(d, function() _tr("tick " .. d) end)
             end
         end
 

@@ -285,15 +285,10 @@ return function(ms)
                         size = hs.fs.attributes(outPath, "size") or 0,
                         hash = hash,
                     }
-                    local all = B.list()
-                    local found = false
-                    for _, e in ipairs(all) do
-                        if e.id == id then
-                            found = true
-                            break
-                        end
+                    local all = { entry }
+                    for _, e in ipairs(B.list()) do
+                        if e.id ~= id then all[#all + 1] = e end
                     end
-                    if not found then all[#all + 1] = entry end
                     writeIndex(all)
                     B.prune(id, protectId)
                     finish(true, {
