@@ -36,12 +36,12 @@
       "id": "profile-combat-warriors-macros-profile",
       "type": "profile",
       "name": "Combat Warriors Macros profile",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "mudbourn",
       "website": "https://mudbourn.info",
-      "sha256": "8dd2a3263398483b6f0277187ea55ec90b957d30a2bdd8987ed4cf38eca68a2a",
+      "sha256": "35f3b5e74c0658f59908c4974f09af868d3a4c5d5fc8923e0c9156b59e1fbcd3",
       "url": "https://github.com/mudbourn/mudscript/releases/download/profile-combat-warriors-macros-profile/Combat.Warriors.Macros-profile.mspkg",
-      "size": 3689321,
+      "size": 3689314,
       "requires": {
         "plugins": [
           "plugin-roblox"
@@ -52,21 +52,21 @@
           "includesSounds": false,
           "name": "Combat Warriors Macros",
           "url": "https://github.com/mudbourn/mudscript/releases/download/profile-combat-warriors-macros-profile/combat-warriors-macros-theme.mspkg",
-          "sha256": "7cf6979e8759e65f4a9536b8ffb37637867cd0ffdae4f32b67c964e618027c90",
-          "size": 74582
+          "sha256": "b195df946a67a9559696505f95b55082b7867578b312de9521a3ed92700a56d6",
+          "size": 74580
         },
         "sound": {
           "present": true,
           "name": "Combat Warriors Macros",
           "url": "https://github.com/mudbourn/mudscript/releases/download/profile-combat-warriors-macros-profile/combat-warriors-macros-sound.mspkg",
-          "sha256": "9f86b49abe1482d0dcee1e2c876965d743386d4dd5c383b2eafc6880899e0e0b",
-          "size": 3607797
+          "sha256": "a98137bd336d5dfce005b3d73b82330a558d8b379dc3947371c3c4e54d64c8e1",
+          "size": 3607786
         },
         "macro": {
           "present": true,
           "name": "Combat Warriors Macros",
           "url": "https://github.com/mudbourn/mudscript/releases/download/profile-combat-warriors-macros-profile/combat-warriors-macros-macro.mspkg",
-          "sha256": "40aa8668ab07a564f44ec63021dd4a91cfdb4dcab1ac8a20f137e0401a7d0fb3",
+          "sha256": "1eadb36b70a7755bbff422e0c8ac1c0edea9130d8728916b692dd452ca11dac5",
           "size": 268213
         }
       },
