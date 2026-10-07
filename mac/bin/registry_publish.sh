@@ -277,6 +277,8 @@ if [ "$TYPE" = "profile" ] && [ -z "$FORMAT" ]; then
         ' > "$CSTAGE/mspkg.json"
 
         CSLUG="$(slug "$CNAME")"
+        CSLUG="${CSLUG%-${K}s}"
+        CSLUG="${CSLUG%-$K}"
         [ -n "$CSLUG" ] || CSLUG="$(slug "$ID")"
         CASSET="$CSLUG-$K.mspkg"
         ( cd "$CSTAGE" && zip -qq -r -X "$UPLOAD_DIR/$CASSET" . )

@@ -274,16 +274,19 @@ return function(ms, ctx)
                     local out = dir:gsub("/$", "") .. "/" .. base .. "-" .. kind .. ".mspkg"
 
                     local componentNames = nil
-                    if kind == "profile" and namedProfile and ms.package.getProfilePacks
-                            and ms.package.libraryList then
+                    if kind == "profile" and ms.package.libraryList then
                         componentNames = {}
-                        local packs = ms.package.getProfilePacks(namedProfile) or {}
+                        local packs = (namedProfile and ms.package.getProfilePacks
+                            and ms.package.getProfilePacks(namedProfile)) or {}
                         for _, k in ipairs({
                             "theme",
                             "sound",
                             "macro",
                         }) do
-                            componentNames[k] = namedProfile
+                            if not namedProfile and ms.package.libraryGetActive then
+                                packs[k] = ms.package.libraryGetActive(k)
+                            end
+                            componentNames[k] = base
                             if packs[k] then
                                 for _, rec in ipairs(ms.package.libraryList(k)) do
                                     if rec.slug == packs[k] and type(rec.name) == "string" and rec.name ~= "" then
