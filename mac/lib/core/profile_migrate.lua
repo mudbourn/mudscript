@@ -130,8 +130,15 @@ return function(ms)
             return out
         end
 
+        local skipped = {}
+
         local function note(msg)
             print("[profile_migrate] " .. tostring(msg))
+        end
+
+        local function skip(msg)
+            skipped[#skipped + 1] = msg
+            note("skipped: " .. msg)
         end
     -- END Helpers --
 
@@ -398,9 +405,15 @@ return function(ms)
             if not ok then return nil, err end
             used[active] = true
             for _, entry in ipairs(archived) do
-                if not used[entry] then
+                if entry == active then
+                    if hasLive then skip("stale archive folder for the active profile \"" .. entry .. "\"") end
+                else
                     local target = safeName(entry)
-                    if target and not used[target] then
+                    if not target then
+                        skip("archived folder \"" .. entry .. "\" has an unusable name")
+                    elseif used[target] then
+                        skip("archived folder \"" .. entry .. "\" duplicates \"" .. target .. "\"")
+                    else
                         ok, err = stageFromArchive(target, entry, pairsOut)
                         if not ok then return nil, err end
                         used[target] = true
@@ -460,7 +473,10 @@ return function(ms)
         local function finishStage(active, bk)
             local ok = writeBin(stageDir .. "/.active", active .. "\n")
             if not ok then return false, "cannot write .active" end
-            if bk then writeBin(stageDir .. "/.backup", bk .. "\n") end
+            if bk then
+                writeBin(stageDir .. "/.backup", bk .. "\n")
+                writeBin(stageDir .. "/.pending-root-move", bk .. "\n")
+            end
             if not writeBin(stageDir .. "/.layout", "2\n") then return false, "cannot write .layout" end
             return true
         end
@@ -482,6 +498,7 @@ return function(ms)
             if not ok then return nil, err end
             os.remove(rootDir .. "/.backup")
             moveToBackup(bk)
+            os.remove(rootDir .. "/.pending-root-move")
             return bk
         end
 
@@ -492,6 +509,11 @@ return function(ms)
             local legacy = hasAnythingToMigrate(archived)
 
             local bk = nil
+            local function dropBackup()
+                if bk and not exists(bk .. "/profiles-old") then
+                    run("/bin/rm -rf " .. sq(bk))
+                end
+            end
             if legacy then
                 bk = backupRoot .. "/migration-" .. os.date("%Y-%m-%d_%H%M%S")
                 local n = 1
@@ -501,30 +523,40 @@ return function(ms)
                     bk = base .. "_" .. n
                 end
                 local ok, err = safetyCopy(bk, archived)
-                if not ok then return nil, err end
+                if not ok then
+                    dropBackup()
+                    return nil, err
+                end
             end
 
             local pairsOut, berr = buildStage(active, archived, hasLive)
             if not pairsOut then
                 run("/bin/rm -rf " .. sq(stageDir))
+                dropBackup()
                 return nil, berr
             end
 
             local vok, verr = verify(pairsOut)
             if not vok then
                 run("/bin/rm -rf " .. sq(stageDir))
+                dropBackup()
                 return nil, verr
             end
 
             local fok, ferr = finishStage(active, bk)
             if not fok then
                 run("/bin/rm -rf " .. sq(stageDir))
+                dropBackup()
                 return nil, ferr
             end
 
-            local sok, serr = swapIn(bk or (backupRoot .. "/migration-empty-" .. os.date("%Y-%m-%d_%H%M%S")))
+            local swapBk = bk or (backupRoot .. "/migration-empty-" .. os.date("%Y-%m-%d_%H%M%S"))
+            local sok, serr = swapIn(swapBk)
             if not sok then
                 run("/bin/rm -rf " .. sq(stageDir))
+                if not exists(swapBk .. "/profiles-old") then
+                    run("/bin/rm -rf " .. sq(swapBk))
+                end
                 return nil, serr
             end
             os.remove(rootDir .. "/.backup")
@@ -533,6 +565,8 @@ return function(ms)
                 local _, failed = moveToBackup(bk)
                 if failed > 0 then
                     note("warning: " .. failed .. " root item(s) could not be moved into " .. bk)
+                else
+                    os.remove(rootDir .. "/.pending-root-move")
                 end
             end
             return bk
@@ -548,6 +582,12 @@ return function(ms)
 
         local function execute()
             if layoutNow() >= 2 then
+                local pending = trimmed(readBin(rootDir .. "/.pending-root-move"))
+                if pending ~= "" then
+                    moveToBackup(pending)
+                    os.remove(rootDir .. "/.pending-root-move")
+                    note("finished an interrupted root move into " .. pending)
+                end
                 if leftovers() then
                     note("warning: root profile files found on a v2 layout, leaving them alone")
                     return {
@@ -601,6 +641,10 @@ return function(ms)
     if result.status == "migrated" then
         local label = result.backup and result.backup:match("([^/]+)$") or "backups"
         ms._profileMigrationNotice = "Profiles moved to the new folder layout. Backup in backups/" .. label .. "."
+        if #skipped > 0 then
+            ms._profileMigrationNotice = ms._profileMigrationNotice
+                .. "\nSkipped: " .. table.concat(skipped, ", ") .. "."
+        end
     end
     return result
 end

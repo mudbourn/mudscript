@@ -174,6 +174,7 @@ return function(ms, ctx)
                 return false, "profile not found"
             end
             local srcDir = ms.profile.dir(target)
+            if not srcDir then return false, "profile not found" end
             os.execute("rm -rf " .. sq(tmpDir))
             os.execute("mkdir -p " .. sq(tmpDir))
             if not hs.fs.attributes(srcDir .. "/ms_macros.lua") then

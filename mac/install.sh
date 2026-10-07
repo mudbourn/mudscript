@@ -61,6 +61,36 @@ fi
 PROFILE_ROOT_FILES="ms_macros.lua data/ms_settings.json data/ms_settings_default.json data/ms_theme.json data/ms_macros_visual.json data/ms_macros_visual.lua data/ms_authored.json data/ms_authored_menus.json data/ms_helpervars.json"
 STASH="$(mktemp -d)"
 HAD_ROOT=0
+HAD_DEFAULT=0
+V2_NO_DEFAULT=0
+RESTORED=0
+
+restore_profiles() {
+    [ "$RESTORED" = "1" ] && return 0
+    RESTORED=1
+    if [ "$HAD_DEFAULT" = "1" ] && [ -d "$STASH/ProfileDefault" ]; then
+        rm -rf "$HS/profiles/Default"
+        mkdir -p "$HS/profiles"
+        cp -Rp "$STASH/ProfileDefault" "$HS/profiles/Default"
+    fi
+    if [ "$V2_NO_DEFAULT" = "1" ]; then
+        rm -rf "$HS/profiles/Default"
+    fi
+    for f in $PROFILE_ROOT_FILES; do
+        rm -f "$HS/$f"
+    done
+    if [ "$HAD_ROOT" = "1" ] || [ -f "$HS/profiles/.layout" ]; then
+        for f in $PROFILE_ROOT_FILES; do
+            if [ -f "$STASH/root/$f" ]; then
+                mkdir -p "$HS/$(dirname "$f")"
+                cp -p "$STASH/root/$f" "$HS/$f"
+            fi
+        done
+    fi
+    rm -rf "$STASH"
+}
+trap restore_profiles EXIT
+
 for f in $PROFILE_ROOT_FILES; do
     if [ -f "$HS/$f" ]; then
         mkdir -p "$STASH/root/$(dirname "$f")"
@@ -69,26 +99,32 @@ for f in $PROFILE_ROOT_FILES; do
     fi
 done
 if [ -d "$HS/profiles/Default" ]; then
-    mv "$HS/profiles/Default" "$STASH/ProfileDefault"
+    cp -Rp "$HS/profiles/Default" "$STASH/ProfileDefault"
+    HAD_DEFAULT=1
+elif [ -f "$HS/profiles/.layout" ] && [ "$(cat "$HS/profiles/.layout" 2>/dev/null)" -ge 2 ] 2>/dev/null; then
+    for d in "$HS/profiles"/*/; do
+        if [ -f "${d}profile.json" ]; then
+            V2_NO_DEFAULT=1
+        fi
+    done
 fi
 
 if [ -f "$SCRIPT_DIR/ms_core.lua" ] && [ -f "$SCRIPT_DIR/init.lua" ]; then
     echo "3. Copying local repo to ~/.hammerspoon/ ..."
     mkdir -p "$HS"
-    cp -R "$SCRIPT_DIR"/* "$HS/"
-    # MANIFEST.json lives at the repo root (one level up from mac/)
+    for item in "$SCRIPT_DIR"/*; do
+        [ "$(basename "$item")" = "profiles" ] && continue
+        cp -R "$item" "$HS/"
+    done
     [ -f "$SCRIPT_DIR/../MANIFEST.json" ] && cp "$SCRIPT_DIR/../MANIFEST.json" "$HS/"
-    # Include default sounds from the repo root.
     if [ -d "$SCRIPT_DIR/../sounds" ]; then
         mkdir -p "$HS/sounds"
         cp "$SCRIPT_DIR/../sounds/"*.wav "$HS/sounds/" 2>/dev/null || true
     fi
-    # Include the default profile if it exists.
-    if [ -d "$SCRIPT_DIR/../profiles/Default" ]; then
+    if [ -d "$SCRIPT_DIR/../profiles/Default" ] && [ ! -d "$HS/profiles/Default" ] && [ "$V2_NO_DEFAULT" = "0" ]; then
         mkdir -p "$HS/profiles"
         cp -R "$SCRIPT_DIR/../profiles/Default" "$HS/profiles/"
     fi
-    # Include bundled .mspkg profile packs.
     for pkg in "$SCRIPT_DIR"/../*.mspkg; do
         [ -f "$pkg" ] && cp "$pkg" "$HS/"
     done
@@ -98,7 +134,6 @@ else
     echo "3. Downloading latest release from GitHub ..."
     mkdir -p "$HS"
 
-    # Try to get the latest release download URL via the GitHub API
     echo "   Checking for latest release..."
     API="https://api.github.com/repos/$REPO/releases/latest"
     ZIP_URL=$(curl -sf "$API" | grep -o '"browser_download_url": *"[^"]*macos[^"]*"' | head -1 | sed 's/.*": *"//; s/"//')
@@ -107,10 +142,8 @@ else
         echo "   Downloading: $ZIP_URL"
         TMP_FILE=$(mktemp)
         curl -sfL "$ZIP_URL" -o "$TMP_FILE"
-        # Detect format from URL
         if echo "$ZIP_URL" | grep -q '\.zip$'; then
             unzip -o "$TMP_FILE" -d "$HS" > /dev/null
-            # Move contents out of the nested mudscript-* directory if present
             NESTED=$(find "$HS" -maxdepth 1 -type d -name "mudscript-*" | head -1)
             if [ -n "$NESTED" ]; then
                 mv "$NESTED"/* "$HS/" 2>/dev/null || true
@@ -128,7 +161,6 @@ else
         curl -sfL "$ZIP_URL" -o "$TMP_FILE"
         mkdir -p "$HS-tmp"
         tar xzf "$TMP_FILE" -C "$HS-tmp" --strip-components=1
-        # Only copy macOS files
         cp -R "$HS-tmp"/* "$HS/"
         rm -rf "$HS-tmp" "$TMP_FILE"
         rm -f "$HS/install.bat" "$HS"/*.ahk
@@ -136,34 +168,19 @@ else
         echo "   OK   Repository downloaded and macOS files extracted."
     fi
 
-    # Remove the downloaded install script from the target
     rm -f "$HS/install.sh" 2>/dev/null || true
 fi
 
 echo ""
 echo "3b. Keeping profile files inside profiles/ ..."
-if [ -d "$STASH/ProfileDefault" ]; then
-    rm -rf "$HS/profiles/Default"
-    mkdir -p "$HS/profiles"
-    mv "$STASH/ProfileDefault" "$HS/profiles/Default"
-fi
-for f in $PROFILE_ROOT_FILES; do
-    rm -f "$HS/$f"
-done
-if [ "$HAD_ROOT" = "1" ] || [ -f "$HS/profiles/.layout" ]; then
-    for f in $PROFILE_ROOT_FILES; do
-        if [ -f "$STASH/root/$f" ]; then
-            mkdir -p "$HS/$(dirname "$f")"
-            cp -p "$STASH/root/$f" "$HS/$f"
-        fi
-    done
+restore_profiles
+if [ "$HAD_ROOT" = "1" ] || [ "$HAD_DEFAULT" = "1" ] || [ "$V2_NO_DEFAULT" = "1" ]; then
     echo "   OK   Existing profile files left in place."
 elif [ -f "$HS/profiles/Default/profile.json" ]; then
     printf '2\n' > "$HS/profiles/.layout"
     printf 'Default\n' > "$HS/profiles/.active"
     echo "   OK   Default profile installed."
 fi
-rm -rf "$STASH"
 
 echo ""
 echo "4. Installing OS-level Guardian ..."

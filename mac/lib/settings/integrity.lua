@@ -303,10 +303,23 @@ return function(ms, ctx)
                 os.execute("cp '" .. _mfSrc .. "' '" .. _mfDst .. "'")
             end
 
+            local _v2Profiles = false
+            do
+                local lf = io.open(hsDir .. "profiles/.layout", "r")
+                local lv = lf and tonumber(lf:read("*l")) or 0
+                if lf then lf:close() end
+                if lv >= 2 then
+                    for entry in hs.fs.dir(hsDir .. "profiles") or function() end do
+                        local at = hs.fs.attributes(hsDir .. "profiles/" .. entry)
+                        if entry:sub(1, 1) ~= "." and at and at.mode == "directory" then _v2Profiles = true end
+                    end
+                end
+            end
+
             for _, name in ipairs(templateList) do
                 local src = topDir .. name
                 local dst = hsDir .. name
-                if hs.fs.attributes(src) and not hs.fs.attributes(dst) then
+                if not _v2Profiles and hs.fs.attributes(src) and not hs.fs.attributes(dst) then
                     os.execute("mkdir -p '" .. dst:match("(.+)/[^/]+$") .. "'")
                     os.execute("cp -R '" .. src .. "' '" .. dst .. "'")
                 end

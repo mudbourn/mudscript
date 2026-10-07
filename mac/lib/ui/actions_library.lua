@@ -327,6 +327,12 @@ return function(ms, ctx)
                                     ms.plugins.reportImport(result)
                                 end)
                             end
+                            if result.manifest.type == "profile" and result.profile
+                                    and ms.plugins and ms.plugins.offerForProfile then
+                                hs.timer.doAfter(0.2, function()
+                                    pcall(ms.plugins.offerForProfile, result.profile)
+                                end)
+                            end
                         end)
                     end
 
@@ -488,6 +494,12 @@ return function(ms, ctx)
                                 elseif installed and ms.plugins and ms.plugins.reportImport then
                                     pcall(function()
                                         ms.plugins.reportImport(result)
+                                    end)
+                                end
+                                if installed and result.profile
+                                        and ms.plugins and ms.plugins.offerForProfile then
+                                    hs.timer.doAfter(0.2, function()
+                                        pcall(ms.plugins.offerForProfile, result.profile)
                                     end)
                                 end
                             end)

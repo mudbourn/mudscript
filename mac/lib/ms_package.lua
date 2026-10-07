@@ -831,6 +831,7 @@ return function(ms)
         end
 
         local function readJSONFile(path)
+            if not path then return nil end
             local raw = readFile(path)
             if not raw then return nil end
             local ok, tbl = pcall(hs.json.decode, raw)
@@ -1017,7 +1018,7 @@ return function(ms)
                     pcall(ms.backups.snapshot, "pre-update", nil, nil, folderName)
                 end
                 local oldSettings = ms.profile.path("data/ms_settings.json", folderName)
-                if hs.fs.attributes(oldSettings) then
+                if oldSettings and hs.fs.attributes(oldSettings) then
                     hs.execute("/bin/cp " .. sq(oldSettings) .. " " .. sq(building .. "/data/ms_settings.json"))
                 end
                 local keepDir = (ms.backups and ms.backups.dir and ms.backups.dir("updates") or (_hsDir .. "/backups/updates/"))
@@ -1424,11 +1425,11 @@ return function(ms)
             local files = {}
 
             local function addIf(rel, abs)
-                if fileExists(abs) then files[rel] = abs end
+                if abs and fileExists(abs) then files[rel] = abs end
             end
 
             local function addDir(relDir, absDir)
-                if not hs.fs.attributes(absDir) then return end
+                if not absDir or not hs.fs.attributes(absDir) then return end
                 for entry in hs.fs.dir(absDir) do
                     if entry ~= "." and entry ~= ".." and not entry:find("^%.")
                         and not entry:find("%.bak") then

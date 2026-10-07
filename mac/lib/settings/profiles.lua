@@ -199,10 +199,12 @@ return function(ms, ctx)
             local ids = {}
             local seen = {}
             if ms.plugins and ms.plugins.scanFiles then
-                local deps = ms.plugins.scanFiles({
-                    ms.profile.path("ms_macros.lua", name),
-                    ms.profile.path("data/ms_macros_visual.lua", name),
-                }, { all = true })
+                local paths = {}
+                for _, rel in ipairs({ "ms_macros.lua", "data/ms_macros_visual.lua" }) do
+                    local path = ms.profile.path(rel, name)
+                    if path then paths[#paths + 1] = path end
+                end
+                local deps = ms.plugins.scanFiles(paths, { all = true })
                 for _, dep in ipairs(deps) do
                     if dep.id and not seen[dep.id] then
                         seen[dep.id] = true
@@ -281,7 +283,8 @@ return function(ms, ctx)
             end
             if target == activeProfile() then return end
 
-            local tf = io.open(ms.profile.path("ms_macros.lua", target), "r")
+            local targetMacros = ms.profile.path("ms_macros.lua", target)
+            local tf = targetMacros and io.open(targetMacros, "r")
             if tf then
                 local targetSrc = tf:read("*all")
                 tf:close()
@@ -625,7 +628,9 @@ return function(ms, ctx)
             local target = sanitizeName(tostring(name or ""))
             if target == "" or not ms.profile.exists(target) then return false, "not found" end
             if target == activeProfile() then return false, "active" end
-            hs.execute("/bin/rm -rf " .. sq(ms.profile.dir(target)))
+            local targetDir = ms.profile.dir(target)
+            if not targetDir or targetDir == ms.profile.root() then return false, "not found" end
+            hs.execute("/bin/rm -rf " .. sq(targetDir))
             ms._profilesDirty = true
             return not hs.fs.attributes(ms.profile.root() .. "/" .. target)
         end

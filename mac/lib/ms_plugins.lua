@@ -322,10 +322,12 @@
             end
 
             ms.plugins.macroPaths = function(name)
-                return {
-                    ms.profile.path("ms_macros.lua", name),
-                    ms.profile.path("data/ms_macros_visual.lua", name),
-                }
+                local out = {}
+                for _, rel in ipairs({ "ms_macros.lua", "data/ms_macros_visual.lua" }) do
+                    local path = ms.profile.path(rel, name)
+                    if path then out[#out + 1] = path end
+                end
+                return out
             end
 
             ms.plugins.statusById = function(id)

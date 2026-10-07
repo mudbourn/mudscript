@@ -55,8 +55,13 @@
                         g:close()
                         os.remove(src)
                     end
-                    _mvToData("ms_settings.json")
-                    _mvToData("ms_settings_default.json")
+                    local _layoutF = io.open(_h .. "/profiles/.layout", "r")
+                    local _layoutV = _layoutF and tonumber(_layoutF:read("*l")) or 0
+                    if _layoutF then _layoutF:close() end
+                    if _layoutV < 2 then
+                        _mvToData("ms_settings.json")
+                        _mvToData("ms_settings_default.json")
+                    end
                     _mvToData(".ms_trusted_hash")
                 end
             -- END One-time migration --
@@ -1273,7 +1278,7 @@
             _G._timers.animGateCap = hs.timer.doAfter(BOOT_ANCHOR_CAP, _armInitSequence)
 
             local _migration = ms._profileMigration
-            if _migration and _migration.status ~= "current" and _migration.status ~= "fresh" then
+            if _migration and (_migration.warning or (_migration.status ~= "current" and _migration.status ~= "fresh")) then
                 _G._timers.profileMigration = hs.timer.doAfter(10, function()
                     pcall(function()
                         ms.dev.log({
@@ -1286,6 +1291,8 @@
                     end)
                     if ms._profileMigrationNotice then
                         ms.alert(ms._profileMigrationNotice, 8, true)
+                    elseif _migration.warning then
+                        ms.alert(_migration.warning, 8)
                     elseif _migration.status == "failed" then
                         ms.alert("Profile layout move failed. Running on the old layout, see the console.", 8)
                     end

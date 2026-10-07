@@ -164,12 +164,14 @@ return function(ms)
                 return legacy and (rootDir .. "/" .. legacy) or hsDir
             end
             local n = (name == nil or name == "") and P.active() or safeName(name)
-            if not n then n = P.active() end
+            if not n then return nil end
             return rootDir .. "/" .. n
         end
 
         P.path = function(rel, name)
-            return P.dir(name) .. "/" .. tostring(rel or "")
+            local dir = P.dir(name)
+            if not dir then return nil end
+            return dir .. "/" .. tostring(rel or "")
         end
 
         P.file = function(key, name)
