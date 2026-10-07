@@ -5,6 +5,11 @@ return function(ms)
     local _dataDir = _home .. "/.hammerspoon/data"
 
     local INDEX_URL     = "https://raw.githubusercontent.com/mudbourn/mudscript/main/registry/index.json"
+    local INDEX_API_URL = "https://api.github.com/repos/mudbourn/mudscript/contents/registry/index.json?ref=main"
+    local INDEX_API_HEADERS = {
+        ["Accept"]     = "application/vnd.github.raw",
+        ["User-Agent"] = "mudscript",
+    }
     local CACHE_PATH    = _dataDir .. "/ms_registry_cache.json"
     local BUNDLED_PATH  = _dataDir .. "/registry_index.json"
     local FORMAT_VERSION = 1
@@ -413,7 +418,14 @@ YQIDAQAB
             end
 
             _loading = true
-            hs.http.asyncGet(INDEX_URL, nil, function(code, body, _)
+            local function fetchIndex(onBody)
+                hs.http.asyncGet(INDEX_API_URL, INDEX_API_HEADERS, function(code, body, _)
+                    if code == 200 and decode(body) then return onBody(code, body) end
+                    hs.http.asyncGet(INDEX_URL, nil, onBody)
+                end)
+            end
+
+            fetchIndex(function(code, body)
                 if code ~= 200 then
                     _error = "Could not reach the registry (HTTP " .. tostring(code) .. ")."
                     if #_index.entries == 0 then loadLocal() end

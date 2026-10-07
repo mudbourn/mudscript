@@ -28,7 +28,7 @@ set -euo pipefail
 
 REPO="mudbourn/mudscript"
 BRANCH="main"
-RAW="https://raw.githubusercontent.com/$REPO/$BRANCH/registry/index.json"
+API="https://api.github.com/repos/$REPO/contents/registry/index.json?ref=$BRANCH"
 
 # The public key lives in the client source; find the repo to read it from.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -47,7 +47,7 @@ done
 verify_live() {
     local tmp; tmp="$(mktemp -d)"
     trap 'rm -rf "$tmp"' RETURN
-    curl -sf "$RAW" -o "$tmp/idx.json" || { echo "FAIL: could not fetch live index."; return 1; }
+    curl -sf -H "Accept: application/vnd.github.raw" -H "User-Agent: mudscript" "$API" -o "$tmp/idx.json" || { echo "FAIL: could not fetch live index."; return 1; }
     awk '/-----BEGIN PUBLIC KEY-----/{f=1} f{print} /-----END PUBLIC KEY-----/{f=0}' \
         "$KEYSRC" > "$tmp/pub.pem"
     jq -c -S '{formatVersion, generated, entries}' "$tmp/idx.json" > "$tmp/canon.txt"
@@ -95,10 +95,10 @@ done
 echo "-> Watching run ${RUN_ID} ..."
 gh run watch -R "$REPO" "$RUN_ID" --exit-status || { echo "FAIL: workflow run failed."; exit 1; }
 
-echo "-> Verifying the live signature (raw CDN can lag up to 5 minutes) ..."
-for attempt in $(seq 1 36); do
+echo "-> Verifying the live signature ..."
+for attempt in 1 2 3 4 5 6; do
     if verify_live; then exit 0; fi
-    [ "$attempt" -lt 36 ] && sleep 10
+    [ "$attempt" -lt 6 ] && sleep 5
 done
 echo "FAIL: still unverified. The run may not have signed (sign input off, or the"
 echo "      MS_SIGNING_KEY repo secret is missing). Inspect: gh run view $RUN_ID -R $REPO"
