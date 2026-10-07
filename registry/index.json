@@ -18,21 +18,6 @@
       "trust": "trusted"
     },
     {
-      "id": "plugin-virtualpad",
-      "type": "plugin",
-      "name": "VirtualPad",
-      "version": "0.1.2",
-      "author": "mudbourn",
-      "sha256": "bb40975f18bc026e80b3ed4c1334f35d4b45da5eae9d3807c93d87422429b19e",
-      "url": "https://github.com/mudbourn/mudscript/releases/download/plugin-virtualpad/VirtualPad.spoon.zip",
-      "size": 735853,
-      "format": "spoon",
-      "provides": [
-        "vpad"
-      ],
-      "trust": "trusted"
-    },
-    {
       "id": "profile-combat-warriors-macros-profile",
       "type": "profile",
       "name": "Combat Warriors Macros profile",
@@ -70,6 +55,21 @@
           "size": 268214
         }
       },
+      "trust": "trusted"
+    },
+    {
+      "id": "plugin-virtualpad",
+      "type": "plugin",
+      "name": "VirtualPad",
+      "version": "0.1.2",
+      "author": "mudbourn",
+      "sha256": "4988ed84b0d057a5bfc8129c445e75a4ee647754d177766e1d8b2d1e2d836a36",
+      "url": "https://github.com/mudbourn/mudscript/releases/download/plugin-virtualpad/VirtualPad.spoon.zip",
+      "size": 736330,
+      "format": "spoon",
+      "provides": [
+        "vpad"
+      ],
       "trust": "trusted"
     }
   ],
