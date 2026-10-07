@@ -36,12 +36,12 @@
       "id": "profile-combat-warriors-macros-profile",
       "type": "profile",
       "name": "Combat Warriors Macros profile",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "author": "mudbourn",
       "website": "https://mudbourn.info",
-      "sha256": "35f3b5e74c0658f59908c4974f09af868d3a4c5d5fc8923e0c9156b59e1fbcd3",
+      "sha256": "d138ac9f52ac543544abc19de7cda988477bf8ef0efdbba07d60f6b530e6cab0",
       "url": "https://github.com/mudbourn/mudscript/releases/download/profile-combat-warriors-macros-profile/Combat.Warriors.Macros-profile.mspkg",
-      "size": 3689314,
+      "size": 3689365,
       "requires": {
         "plugins": [
           "plugin-roblox"
@@ -50,24 +50,24 @@
       "components": {
         "theme": {
           "includesSounds": false,
-          "name": "Combat Warriors Macros",
-          "url": "https://github.com/mudbourn/mudscript/releases/download/profile-combat-warriors-macros-profile/combat-warriors-macros-theme.mspkg",
-          "sha256": "b195df946a67a9559696505f95b55082b7867578b312de9521a3ed92700a56d6",
-          "size": 74580
+          "name": "DMC Sans Theme",
+          "url": "https://github.com/mudbourn/mudscript/releases/download/profile-combat-warriors-macros-profile/dmc-sans-theme.mspkg",
+          "sha256": "16cd95683f3cef9d2b6642cbc14a556ce61cc053872e6fbe5fa011214b23fe75",
+          "size": 74577
         },
         "sound": {
           "present": true,
-          "name": "Combat Warriors Macros",
-          "url": "https://github.com/mudbourn/mudscript/releases/download/profile-combat-warriors-macros-profile/combat-warriors-macros-sound.mspkg",
-          "sha256": "a98137bd336d5dfce005b3d73b82330a558d8b379dc3947371c3c4e54d64c8e1",
-          "size": 3607786
+          "name": "DMC Sans  Sounds",
+          "url": "https://github.com/mudbourn/mudscript/releases/download/profile-combat-warriors-macros-profile/dmc-sans-sound.mspkg",
+          "sha256": "013beb7d55c3386203b760948856e5e02e26777237fdaa64c0f20dad93c13dee",
+          "size": 3607793
         },
         "macro": {
           "present": true,
           "name": "Combat Warriors Macros",
-          "url": "https://github.com/mudbourn/mudscript/releases/download/profile-combat-warriors-macros-profile/combat-warriors-macros-macro.mspkg",
-          "sha256": "1eadb36b70a7755bbff422e0c8ac1c0edea9130d8728916b692dd452ca11dac5",
-          "size": 268213
+          "url": "https://github.com/mudbourn/mudscript/releases/download/profile-combat-warriors-macros-profile/combat-warriors-macro.mspkg",
+          "sha256": "6236d40c43cb8eacaefa028f9fa6c9bca45451769f0600c6501a3ea50affe57b",
+          "size": 268215
         }
       },
       "trust": "trusted"
