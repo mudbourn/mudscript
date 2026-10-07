@@ -13,6 +13,7 @@
                 scroll.innerHTML = "";
 
                 for (const menu of S.userMenus || []) {
+                    if (menu.plugin) continue;
                     if (active && !toolOriginMatches(menu.origin)) continue;
                     const title = menu.icon
                         ? menu.icon + " " + menu.title
@@ -130,9 +131,9 @@
             }
             window.renderToolsPanel = renderToolsPanel;
 
-            const TOOL_FILTER_ORDER = ["all", "user", "pack", "plugin"];
+            const TOOL_FILTER_ORDER = ["all", "user", "pack"];
             const TOOL_FILTER_LABEL = {
-                all: "All", user: "Visual", pack: "Hand", plugin: "Plugin",
+                all: "All", user: "Visual", pack: "Hand",
             };
             window._toolsFilter = window._toolsFilter || "all";
             function toolOriginMatches(origin) {
@@ -140,7 +141,7 @@
                 return (origin || "pack") === window._toolsFilter;
             }
             function filterByOrigin(arr) {
-                return (arr || []).filter((x) => toolOriginMatches(x && x.origin));
+                return (arr || []).filter((x) => x && !x.plugin && toolOriginMatches(x.origin));
             }
             function syncToolsFilterBtn() {
                 const btn = document.getElementById("toolsFilterToggle");
@@ -372,7 +373,7 @@
 
             function fillFunctionList(host) {
                 host.innerHTML = "";
-                let fns = window.msMacroFunctions || [];
+                let fns = (window.msMacroFunctions || []).filter((fn) => !fn.plugin);
                 if (window._toolsFilter && window._toolsFilter !== "all") {
                     fns = fns.filter((fn) => {
                         const origin = fn.source === "pack" ? "pack"

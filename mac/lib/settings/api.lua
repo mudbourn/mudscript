@@ -9,8 +9,8 @@ return function(ms, ctx)
             ms.settings.define = function(def)
                 assert(type(def) == "table",
                     "ms.settings.define: argument must be a table")
-                -- Stamp where this def came from so the Tools panel can filter
                 if def._origin == nil then def._origin = ms._defineOrigin or "user" end
+                if def._plugin == nil then def._plugin = ms._definePlugin end
                 local t = def.type
                 assert(_SETTING_TYPES[t],
                     "ms.settings.define: unknown type '" .. tostring(t) .. "'")
@@ -130,6 +130,7 @@ return function(ms, ctx)
                 assert(type(def.items) == "table",
                     "ms.menu.define: 'items' must be a table")
                 if def._origin == nil then def._origin = ms._defineOrigin or "user" end
+                if def._plugin == nil then def._plugin = ms._definePlugin end
                 for _, item in ipairs(def.items) do
                     if type(item) == "table"
                         and type(item.key) == "string" and #item.key > 0
@@ -161,6 +162,7 @@ return function(ms, ctx)
                 assert(type(def) == "table",
                     "ms.tools.define: argument must be a table")
                 if def._origin == nil then def._origin = ms._defineOrigin or "user" end
+                if def._plugin == nil then def._plugin = ms._definePlugin end
                 assert(type(def.id) == "string" and #def.id > 0,
                     "ms.tools.define: 'id' is required")
                 assert(def.id:match("^[%a_][%w_%.]*$"),
@@ -218,6 +220,7 @@ return function(ms, ctx)
                 assert(type(def) == "table",
                     "ms.builder.define: argument must be a table")
                 if def._origin == nil then def._origin = ms._defineOrigin or "user" end
+                if def._plugin == nil then def._plugin = ms._definePlugin end
                 assert(type(def.id) == "string" and def.id:match("^ms%.[%a_][%w_%.]*$"),
                     "ms.builder.define: 'id' must be an ms.* function path")
                 assert(not ms._builderIndex[def.id],

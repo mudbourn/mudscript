@@ -770,6 +770,7 @@
                                     id     = def.id,
                                     name   = def.name or def.id,
                                     source = def._origin or "plugin",
+                                    plugin = def._plugin,
                                 }
                             end
                         end

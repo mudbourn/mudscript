@@ -303,6 +303,7 @@ return function(ms)
                     uid      = d.uid,
                     section  = d.section,
                     origin   = d._origin or "pack",
+                    plugin   = d._plugin,
                 }
                 if d.type == "slider" then
                     it.min  = d.min
@@ -418,6 +419,7 @@ return function(ms)
                     icon   = menuDef.icon,
                     items  = items,
                     origin = menuDef._origin or "pack",
+                    plugin = menuDef._plugin,
                 })
             end
 

@@ -32,6 +32,61 @@
       };
   // END Status vocabulary //
 
+  // Manage //
+      function pluginTools(dir) {
+          const settings = (S.userSettings || []).filter((it) => it.plugin === dir);
+          const menus = (S.userMenus || []).filter((m) => m.plugin === dir);
+          const fns = (window.msMacroFunctions || []).filter((fn) => fn.plugin === dir);
+          return {
+              settings,
+              menus,
+              fns,
+              count: settings.filter((it) => it.type !== "divider").length + menus.length + fns.length,
+          };
+      }
+
+      function openManage(p) {
+          const P = window.msSettings;
+          if (!window.msPopup || !P) return;
+          playSlot("interact");
+          window.msPopup.open({
+              title: p.name || p.dir,
+              sub: "Settings this plugin adds. Macros read them like any other tool.",
+              width: 520,
+              build: (pop) => {
+                  const tools = pluginTools(p.dir);
+                  const body = pop.add(document.createElement("div"));
+                  body.className = "plugin-manage";
+                  if (tools.settings.length) P.renderItemsCollapsed(body, tools.settings);
+                  for (const menu of tools.menus) {
+                      body.appendChild(ui().groupLabel(menu.title || menu.id));
+                      P.buildUserSection(body, menu);
+                  }
+                  if (tools.fns.length) {
+                      const { h, groupLabel, actionBtn } = ui();
+                      body.appendChild(groupLabel("Functions"));
+                      for (const fn of tools.fns) {
+                          const lbl = h("div", { cls: "row-label" }, fn.name || fn.id);
+                          lbl.appendChild(h("small", {}, "call by id '" + fn.id + "'"));
+                          body.appendChild(h("div", { cls: "row" }, lbl,
+                              actionBtn("Call in macro", "", () => {
+                                  if (window.macroLab && window.macroLab.addTool) {
+                                      window.macroLab.addTool({
+                                          action: "call_fn",
+                                          params: { name: fn.id },
+                                      });
+                                      pop.close();
+                                  } else {
+                                      P.showAlert("Open a macro in the Macros panel first.");
+                                  }
+                              })));
+                      }
+                  }
+              },
+          });
+      }
+  // END Manage //
+
   // Card //
       function pluginCard(p) {
           const { h, toggle, actionBtn } = ui();
@@ -91,6 +146,9 @@
 
           // Actions //
               const actions = h("div", { cls: "plugin-actions" });
+              if (pluginTools(p.dir).count) {
+                  actions.appendChild(actionBtn("Manage", "", () => openManage(p)));
+              }
               actions.appendChild(actionBtn("Remove", "danger", () =>
                   send("removePlugin", { dir: p.dir, label: p.name || p.dir })));
               if (p.website) {

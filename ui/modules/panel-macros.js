@@ -1369,6 +1369,7 @@
         },
         setFunctionList: function(list) {
             window.msMacroFunctions = Array.isArray(list) ? list : [];
+            if (window.renderPluginsPanel) window.renderPluginsPanel();
             if (window.fnPicker && window.fnPicker.setFunctionList) {
                 window.fnPicker.setFunctionList(window.msMacroFunctions);
             }
