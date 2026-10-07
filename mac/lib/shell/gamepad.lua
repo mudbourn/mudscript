@@ -269,6 +269,7 @@ return function(ms, ctx)
             if not ms.gamepadEnabled then return end
             if ms._gpOpenBind or not ms.gamepadBind then return end
             local function _toggle()
+                if not ms._hotkeysReady then return end
                 if ms.shell and ms.shell.toggle then ms.shell.toggle() end
             end
             ms._gpOpenBind = ms.gamepadBind({

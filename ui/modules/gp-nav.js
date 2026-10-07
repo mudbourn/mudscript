@@ -15,7 +15,7 @@
     //   toggleRail()   -> optional: collapse/expand the shell rail
     //   switchWindow() -> optional: the pop-out / window-switch action
 
-    var FOCUSABLE = 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"]), .row, .entry, .step, .tool-block, .fn-entry, .fn-cat-head, .ctx-item';
+    var FOCUSABLE = 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"]), .row, .entry, .step, .tool-block, .fn-entry, .fn-cat-head, .ctx-item, .ms-pop-row .toggle';
     var TOPBAR_REGION = '#header';
     var OVERLAY_SEL = '.fn-picker-overlay.open, .macro-overflow.open';
     var TAB_SEL = '.tab, .mtab, .otab, .ttab, .wtab';

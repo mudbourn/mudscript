@@ -1,11 +1,3 @@
--- Creator Credits (CREDIT YOURSELF!) --
-    ms.macroMeta = {
-        name    = "Default",
-        author  = "User"
-    }
--- END Creator Credits --
-
-
 local NewMacro1Function = ms.fn(function()
     local t = 100
         ms.type("/")

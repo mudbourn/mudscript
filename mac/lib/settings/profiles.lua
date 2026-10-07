@@ -332,10 +332,7 @@ return function(ms, ctx)
             if not hs.fs.attributes(macrosPath) then
                 local stub = io.open(macrosPath, "w")
                 if stub then
-                    stub:write(
-                        "-- New profile. Add your macros below.\n"
-                        .. "ms.macroMeta = { name = \"" .. targetName .. "\", author = \"\" }\n"
-                    )
+                    stub:write("-- New profile. Add your macros below.\n")
                     stub:close()
                 end
             end
@@ -661,17 +658,9 @@ return function(ms, ctx)
                 return
             end
 
-            -- Empty-but-valid macros: the same canonical stub the blank pack uses
             local blankSrc = (ms.package and ms.package.blankMacroSrc
-                and ms.package.blankMacroSrc(folderName))
-                or table.concat({
-                    "-- New profile. Add your macros below.",
-                    "ms.macroMeta = {",
-                    "    name   = \"" .. folderName .. "\",",
-                    "    author = \"\",",
-                    "}",
-                    "",
-                }, "\n")
+                and ms.package.blankMacroSrc())
+                or "-- New profile. Add your macros below.\n"
 
             local mf = io.open(dir .. "/ms_macros.lua", "w")
             if not mf then
@@ -710,6 +699,26 @@ return function(ms, ctx)
                         pcall(ms.package.libraryImportDir, k, dir,
                             { name = folderName, origin = "profile" })
                     end
+                end
+            end
+
+            if not seed then
+                local meta = {
+                    name    = folderName,
+                    version = "1.0.0",
+                    author  = "You",
+                    website = "",
+                }
+                local vf = io.open(dir .. "/ms_macros_visual.json", "w")
+                if vf then
+                    vf:write(hs.json.encode({
+                        macros = {},
+                        meta   = meta,
+                    }, true))
+                    vf:close()
+                end
+                if ms.compiler and ms.compiler._writeFile then
+                    pcall(ms.compiler._writeFile, {}, meta, dir .. "/ms_macros_visual.lua")
                 end
             end
 

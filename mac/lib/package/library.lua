@@ -54,15 +54,8 @@ return function(ms, ctx)
             return hs.fs.attributes(libraryDir(kind, librarySlug(slug)) .. "/meta.json") ~= nil
         end
 
-        ms.package.blankMacroSrc = function(name)
-            return table.concat({
-                "-- New profile - add your macros below.",
-                "ms.macroMeta = {",
-                "    name   = \"" .. tostring(name or "") .. "\",",
-                "    author = \"\",",
-                "}",
-                "",
-            }, "\n")
+        ms.package.blankMacroSrc = function()
+            return "-- New profile - add your macros below.\n"
         end
 
         local function readJSON(path)
@@ -418,7 +411,7 @@ return function(ms, ctx)
                 end
             elseif kind == "macro" then
                 writeFile(dir .. "/files/ms_macros.lua",
-                    ms.package.blankMacroSrc(name))
+                    ms.package.blankMacroSrc())
                 fileCount = 1
             end
 
