@@ -35,6 +35,17 @@
       "url": "https://github.com/mudbourn/mudscript/releases/download/packages/Roblox.mspkg",
       "size": 8861,
       "trust": "trusted"
+    },
+    {
+      "id": "plugin-virtualpad",
+      "type": "plugin",
+      "name": "VirtualPad",
+      "version": "0.1.0",
+      "author": "mudbourn",
+      "sha256": "e2719e35eb87d61300a5db2d95aaa9f21ada1d8a43836768e35b0fb230eeb641",
+      "url": "https://github.com/mudbourn/mudscript/releases/download/packages/VirtualPad.mspkg",
+      "size": 736830,
+      "trust": "trusted"
     }
   ],
   "signature": "wdlGJY20MOHHkacOnAecUZL41R7Jb/OaooYfSm9JZT1g7OAV12S7gdSYTVePjZEksuLGq+VPs/VHgskZ6USIsT6rk4R1Z/OKl5r5BFJDglGVQbxamzWxy2if1YnM+tYzfM+TosBcIMYF/rNn3C2h3PYPT4mzL6mb/JIqj3R0M8XkxL0T5YpIF8d1LCng/RNEVlgk+mE6Un3900upII60TiuTK5FxCXYKrkTNaePf0KtGEur7jcAxZdKBypmnLGzUHH2m0uDQ1WZIfmL2TKL26aT0TUs6cA5zLlvix0GXGEngpTUYP4Xf27dpO4X5fgby4Mhq47g+Qzk+3Zofu+dDRQ=="
