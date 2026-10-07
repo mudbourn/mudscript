@@ -1,15 +1,1 @@
-[
-  {
-    "unit" : "Unit",
-    "max" : 10,
-    "min" : 1,
-    "save" : true,
-    "key" : "TestSetting",
-    "hint" : "Just a basic slider",
-    "authored" : true,
-    "label" : "Test Setting",
-    "type" : "slider",
-    "step" : 0.10000000000000001,
-    "default" : 5
-  }
-]
+[]
