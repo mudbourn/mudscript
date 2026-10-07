@@ -13,6 +13,10 @@ obj.license = "MIT"
 
     local BIN = BIN_DIR .. "/ms_vpad" .. (IS_WIN and ".exe" or "")
 
+    local CACHE = os.getenv("HOME") .. "/.hammerspoon/data/ms_vpad_pad.json"
+
+    local SOCK = os.getenv("HOME") .. "/.hammerspoon/data/ms_vpad.sock"
+
     local BUTTONS = {
         a = true,
         b = true,
@@ -78,6 +82,9 @@ obj.license = "MIT"
 function obj:init()
     local state = {
         task      = nil,
+        sock      = nil,
+        poll      = nil,
+        replacing = false,
         build     = nil,
         ready     = false,
         pad       = nil,
@@ -101,7 +108,9 @@ function obj:init()
         end
 
         local function send(line)
-            if state.task and state.task:isRunning() then
+            if state.sock then
+                state.sock:write(line .. "\n")
+            elseif state.task and state.task:isRunning() then
                 state.task:setInput(line .. "\n")
             end
         end
@@ -118,6 +127,7 @@ function obj:init()
 
     -- Helper Process --
         local start
+        local replace
 
         local function onOutput(_, out)
             local buf = state.outBuf .. tostring(out or "")
@@ -145,6 +155,13 @@ function obj:init()
                         state.axes = {}
                         setExternal(false)
                         ms.bus.emit("vpad:lost", msg)
+                    elseif msg.e == "hello" then
+                        local built = mtime(BIN)
+                        local running = tonumber(msg.build)
+                        if built and running and built > running + 1 and not state.replacing then
+                            state.replacing = true
+                            replace()
+                        end
                     elseif msg.e == "error" then
                         state.lastError = msg.m
                     end
@@ -153,8 +170,103 @@ function obj:init()
             return true
         end
 
+        local function dropSocket()
+            if state.poll then
+                state.poll:stop()
+                state.poll = nil
+            end
+            if state.sock then
+                local sock = state.sock
+                state.sock = nil
+                pcall(function() sock:disconnect() end)
+            end
+            state.outBuf = ""
+        end
+
+        local function onHelperGone()
+            dropSocket()
+            state.ready = false
+            state.pad = nil
+            setExternal(false)
+        end
+
+        local function attach(onDone)
+            local done = false
+            local function finish(ok)
+                if done then return end
+                done = true
+                onDone(ok)
+            end
+            local sock = hs.socket.new()
+            sock:setCallback(function(data)
+                onOutput(nil, data)
+                if state.sock == sock then sock:read("\n") end
+            end)
+            sock:connect(SOCK, function()
+                if done or state.stopped then
+                    pcall(function() sock:disconnect() end)
+                    return
+                end
+                state.sock = sock
+                state.outBuf = ""
+                sock:read("\n")
+                state.poll = hs.timer.doEvery(2, function()
+                    if state.sock == sock and not sock:connected() then
+                        onHelperGone()
+                        if not state.stopped and armed() then start() end
+                    end
+                end)
+                finish(true)
+            end)
+            hs.timer.doAfter(0.5, function()
+                if state.sock ~= sock then
+                    pcall(function() sock:disconnect() end)
+                    finish(false)
+                end
+            end)
+        end
+
+        local function spawn()
+            hs.task.new("/bin/sh", nil, {
+                "-c",
+                string.format("nohup %q --cache %q --socket %q >/dev/null 2>&1 &", BIN, CACHE, SOCK),
+            }):start()
+        end
+
+        local function connectHelper(tries)
+            if state.stopped or state.sock then return end
+            attach(function(ok)
+                if ok or state.stopped then return end
+                if tries == 0 then spawn() end
+                if tries < 10 then
+                    hs.timer.doAfter(0.3, function() connectHelper(tries + 1) end)
+                else
+                    state.lastError = "helper did not start"
+                end
+            end)
+        end
+
+        local function quitHelper()
+            if state.sock then
+                send("quit")
+                onHelperGone()
+            elseif state.task then
+                quitTask(state.task)
+            end
+        end
+
+        replace = function()
+            quitHelper()
+            hs.timer.doAfter(0.5, function()
+                state.replacing = false
+                connectHelper(0)
+            end)
+        end
+
         local function launch()
-            if state.stopped or (state.task and state.task:isRunning()) then return end
+            if state.stopped then return end
+            if not IS_WIN then return connectHelper(0) end
+            if state.task and state.task:isRunning() then return end
             state.outBuf = ""
             state.task = hs.task.new(BIN, function(code)
                 state.ready = false
@@ -169,10 +281,7 @@ function obj:init()
                 if code ~= 0 and not state.stopped then
                     state.lastError = "helper exited with code " .. tostring(code)
                 end
-            end, onOutput, IS_WIN and {} or {
-                "--cache",
-                os.getenv("HOME") .. "/.hammerspoon/data/ms_vpad_pad.json",
-            })
+            end, onOutput, {})
             state.task:start()
         end
 
@@ -242,7 +351,7 @@ function obj:init()
             section = "vpad",
             onChange = function(v)
                 if v == false then
-                    if state.task then quitTask(state.task) end
+                    quitHelper()
                 else
                     start()
                 end
@@ -501,16 +610,26 @@ function obj:init()
     -- END Status Action --
 
     self._state = state
-    if armed() then start() end
+    self._quitHelper = quitHelper
+    self._dropSocket = dropSocket
+    if armed() then
+        start()
+    elseif not IS_WIN then
+        attach(function(ok) if ok then quitHelper() end end)
+    end
     return self
 end
 
-function obj:stop()
+function obj:stop(opts)
     local state = self._state
     if state then
-        state.stopped = true
         if state.build then state.build:terminate() end
-        if state.task then quitTask(state.task) end
+        if opts and opts.reload then
+            self._dropSocket()
+        else
+            self._quitHelper()
+        end
+        state.stopped = true
     end
     if ms.gamepadSetExternal then ms.gamepadSetExternal(false) end
     if self._origCancel then ms.cancelMacros = self._origCancel end

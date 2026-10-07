@@ -20,6 +20,13 @@ appears, and keeps the copy alive when the real pad disconnects. The copy then
 connects before the real pad, so games that take the first controller pick
 the copy.
 
+On macOS the helper runs detached and talks to the plugin over the Unix socket
+`~/.hammerspoon/data/ms_vpad.sock`, so it survives Hammerspoon reloads and the
+copy keeps its place ahead of the real pad. When the plugin disconnects, the
+helper drops any macro input and keeps forwarding the real pad. The plugin
+replaces the helper only when the compiled binary is newer than the running
+one. Disarming or disabling the plugin quits it.
+
 ## Windows
 
 On Windows the plugin needs the ViGEmBus driver (`winget install

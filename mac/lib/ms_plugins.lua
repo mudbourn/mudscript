@@ -614,7 +614,7 @@
                 local obj   = _G.spoon and _G.spoon[short]
 
                 if type(obj) == "table" and type(obj.stop) == "function" then
-                    local ok, err = pcall(function() obj:stop() end)
+                    local ok, err = pcall(function() obj:stop(opts) end)
                     if not ok and not opts.quiet then
                         print("Plugin " .. dir .. " stop() error: " .. tostring(err))
                     end

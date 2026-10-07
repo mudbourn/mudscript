@@ -6,11 +6,68 @@ let virtualSerial = "ms-vpad"
 
 let outQueue = DispatchQueue(label: "ms_vpad.out")
 
+let socketPath: String? = {
+    let args = CommandLine.arguments
+    guard let i = args.firstIndex(of: "--socket"), i + 1 < args.count else { return nil }
+    return args[i + 1]
+}()
+
+let buildStamp: Double = {
+    let attrs = try? FileManager.default.attributesOfItem(atPath: CommandLine.arguments[0])
+    return (attrs?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+}()
+
+var clientFD: Int32 = -1
+
 func emit(_ obj: [String: Any]) {
     guard var data = try? JSONSerialization.data(withJSONObject: obj) else { return }
     data.append(0x0A)
-    outQueue.async { FileHandle.standardOutput.write(data) }
+    outQueue.async {
+        if socketPath == nil {
+            FileHandle.standardOutput.write(data)
+        } else if clientFD >= 0 {
+            data.withUnsafeBytes { buf in
+                var off = 0
+                while off < buf.count {
+                    let n = write(clientFD, buf.baseAddress! + off, buf.count - off)
+                    if n <= 0 { break }
+                    off += n
+                }
+            }
+        }
+    }
 }
+
+// Socket Server //
+    func socketAddress(_ path: String) -> sockaddr_un {
+        var addr = sockaddr_un()
+        addr.sun_family = sa_family_t(AF_UNIX)
+        withUnsafeMutableBytes(of: &addr.sun_path) { dst in
+            let bytes = Array(path.utf8.prefix(dst.count - 1))
+            dst.copyBytes(from: bytes)
+        }
+        return addr
+    }
+
+    func withSockaddr<T>(_ addr: inout sockaddr_un, _ body: (UnsafePointer<sockaddr>, socklen_t) -> T) -> T {
+        let len = socklen_t(MemoryLayout<sockaddr_un>.size)
+        return withUnsafePointer(to: &addr) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { body($0, len) } }
+    }
+
+    func claimSocket(_ path: String) -> Int32 {
+        var addr = socketAddress(path)
+        let probe = socket(AF_UNIX, SOCK_STREAM, 0)
+        let alive = withSockaddr(&addr) { connect(probe, $0, $1) } == 0
+        close(probe)
+        if alive { exit(0) }
+        unlink(path)
+        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard fd >= 0, withSockaddr(&addr, { bind(fd, $0, $1) }) == 0, listen(fd, 4) == 0 else { exit(1) }
+        return fd
+    }
+
+    let listenFD: Int32 = socketPath.map { claimSocket($0) } ?? -1
+// END Socket Server //
 
 // Descriptor Parser //
     struct Field {
@@ -593,6 +650,10 @@ func emit(_ obj: [String: Any]) {
     func handle(_ line: String) {
         let parts = line.split(separator: " ").map(String.init)
         guard let cmd = parts.first else { return }
+        if cmd == "quit" {
+            if let path = socketPath { unlink(path) }
+            exit(0)
+        }
         guard let p = pad, p.real != nil else {
             emit(["e": "error", "m": "no controller connected"])
             return
@@ -618,15 +679,80 @@ func emit(_ obj: [String: Any]) {
         p.resend()
     }
 
-    FileHandle.standardInput.readabilityHandler = { h in
-        let data = h.availableData
-        if data.isEmpty { exit(0) }
-        guard let text = String(data: data, encoding: .utf8) else { return }
-        DispatchQueue.main.async {
-            for line in text.split(separator: "\n") { handle(String(line)) }
+    func replay() {
+        emit(["e": "hello", "build": buildStamp])
+        guard let p = pad, p.real != nil else {
+            emit(["e": "waiting"])
+            return
         }
+        emit(["e": "ready", "name": p.ident.name, "vid": p.ident.vid, "pid": p.ident.pid])
+        emit(["e": "pad", "ev": ["e": "connect", "c": p.ctype, "p": 1]])
     }
 
-    emit(["e": "waiting"])
-    RunLoop.main.run()
+    func clientGone() {
+        guard let p = pad else { return }
+        p.buttons = []
+        p.owned = []
+        p.axes = [:]
+        p.resend()
+    }
+
+    var clientSource: DispatchSourceRead?
+    var clientBuf = ""
+
+    func adopt(_ c: Int32) {
+        var on: Int32 = 1
+        setsockopt(c, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
+        clientSource?.cancel()
+        outQueue.sync { clientFD = c }
+        clientBuf = ""
+        let src = DispatchSource.makeReadSource(fileDescriptor: c, queue: .main)
+        src.setEventHandler {
+            var chunk = [UInt8](repeating: 0, count: 4096)
+            let n = read(c, &chunk, chunk.count)
+            if n <= 0 {
+                src.cancel()
+                return
+            }
+            clientBuf += String(decoding: chunk[0..<n], as: UTF8.self)
+            while let nl = clientBuf.firstIndex(of: "\n") {
+                let line = String(clientBuf[..<nl])
+                clientBuf = String(clientBuf[clientBuf.index(after: nl)...])
+                if !line.isEmpty { handle(line) }
+            }
+        }
+        src.setCancelHandler {
+            outQueue.sync { if clientFD == c { clientFD = -1 } }
+            close(c)
+            if clientSource === src {
+                clientSource = nil
+                clientGone()
+            }
+        }
+        clientSource = src
+        src.resume()
+        replay()
+    }
+
+    if listenFD >= 0 {
+        signal(SIGPIPE, SIG_IGN)
+        let acceptSource = DispatchSource.makeReadSource(fileDescriptor: listenFD, queue: .main)
+        acceptSource.setEventHandler {
+            let c = accept(listenFD, nil, nil)
+            if c >= 0 { adopt(c) }
+        }
+        acceptSource.resume()
+        withExtendedLifetime(acceptSource) { RunLoop.main.run() }
+    } else {
+        FileHandle.standardInput.readabilityHandler = { h in
+            let data = h.availableData
+            if data.isEmpty { exit(0) }
+            guard let text = String(data: data, encoding: .utf8) else { return }
+            DispatchQueue.main.async {
+                for line in text.split(separator: "\n") { handle(String(line)) }
+            }
+        }
+        emit(["e": "waiting"])
+        RunLoop.main.run()
+    }
 // END Command Input //

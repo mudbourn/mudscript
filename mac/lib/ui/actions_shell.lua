@@ -57,7 +57,10 @@ return function(ms, ctx)
 
                     if ms.plugins and ms.plugins.loaded then
                         for dir in pairs(ms.plugins.loaded) do
-                            pcall(ms.plugins.unload, dir, { quiet = true })
+                            pcall(ms.plugins.unload, dir, {
+                                quiet = true,
+                                reload = true,
+                            })
                         end
                     end
                     ms.bind.teardown()
