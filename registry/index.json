@@ -40,11 +40,14 @@
       "id": "plugin-virtualpad",
       "type": "plugin",
       "name": "VirtualPad",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "author": "mudbourn",
-      "sha256": "e2719e35eb87d61300a5db2d95aaa9f21ada1d8a43836768e35b0fb230eeb641",
+      "sha256": "e77beb52390952622dac226bdcc3ea7922db6a317e3ce544dced270293c3b632",
       "url": "https://github.com/mudbourn/mudscript/releases/download/packages/VirtualPad.mspkg",
-      "size": 736830,
+      "size": 736845,
+      "provides": [
+        "vpad"
+      ],
       "trust": "trusted"
     }
   ],
