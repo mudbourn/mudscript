@@ -39,7 +39,6 @@
                 if not silent then _doNotify(1) end
             elseif state == 0 and BindValidity ~= 0 then
                 BindValidity = 0
-                ms.cancelMacros()
                 ms.keytrack = {}
                 for _, timer in pairs(ms.running) do
                     if timer and timer.stop then timer:stop() end
@@ -50,6 +49,9 @@
                     event = "macros_disabled",
                 })
                 if not silent then _doNotify(0) end
+                if ms.ui and ms.ui.refresh then ms.ui.refresh() end
+                ms.cancelMacros()
+                return
             end
             if ms.ui and ms.ui._open then ms.ui.refresh() end
         end
