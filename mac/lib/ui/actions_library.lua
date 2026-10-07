@@ -432,6 +432,10 @@ return function(ms, ctx)
                             ms._profilesDirty = true
                             ms.ui.markDirty()
                             ms.ui.refresh()
+
+                            if ms.ui._actions and ms.ui._actions.browseList then
+                                pcall(ms.ui._actions.browseList, {})
+                            end
                         end)
                     end)
                 end,
