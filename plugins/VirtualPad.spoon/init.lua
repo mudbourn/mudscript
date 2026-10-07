@@ -169,7 +169,10 @@ function obj:init()
                 if code ~= 0 and not state.stopped then
                     state.lastError = "helper exited with code " .. tostring(code)
                 end
-            end, onOutput)
+            end, onOutput, IS_WIN and {} or {
+                "--cache",
+                os.getenv("HOME") .. "/.hammerspoon/data/ms_vpad_pad.json",
+            })
             state.task:start()
         end
 

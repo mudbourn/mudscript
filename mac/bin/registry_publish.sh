@@ -13,6 +13,7 @@ REPO=""
 TAG=""
 TRUST="trusted"
 DO_UPLOAD=true
+REPLACE=false
 DO_SIGN=false
 DRY_RUN=false
 KEY_FILE=""
@@ -40,7 +41,8 @@ Metadata (overrides the .mspkg manifest when given):
 Registry:
   --id <id>            registry entry id
   --repo <owner/repo>  GitHub repo that hosts the asset
-  --release <tag>      release tag for the assets (default: the entry id)
+  --release <tag>      release tag for the assets (default: <id>-v<version>)
+  --replace            overwrite assets already in the release
   --trust <level>      trust level (default: trusted)
 
 Steps:
@@ -70,7 +72,7 @@ while [ $# -gt 0 ]; do
         --sign)      DO_SIGN=true; shift ;;
         --key)       KEY_FILE="${2:-}"; shift 2 ;;
         --dry-run)   DRY_RUN=true; shift ;;
-        --replace)   shift ;;
+        --replace)   REPLACE=true; shift ;;
         -h|--help)   usage; exit 0 ;;
         -*)          echo "ERROR: unknown argument '$1'"; exit 2 ;;
         *)           [ -z "$PKG" ] && PKG="$1" || { echo "ERROR: only one package at a time (got extra '$1')."; exit 2; }; shift ;;
@@ -217,7 +219,9 @@ if [ -z "$ID" ]; then
     if [ -n "$MANIFEST_ID" ]; then ID="$MANIFEST_ID"; else ID="$(slug "$TYPE-$NAME")"; fi
 fi
 [ -n "$ID" ] || { echo "ERROR: could not derive an id; pass --id."; exit 1; }
-TAG="${TAG:-$ID}"
+if [ -z "$TAG" ]; then
+    if [ -n "$VERSION" ]; then TAG="$ID-v$VERSION"; else TAG="$ID"; fi
+fi
 
 SHA="$(shasum -a 256 "$PKG" | cut -c1-64 | tr '[:upper:]' '[:lower:]')"
 SIZE="$(wc -c < "$PKG" | tr -d ' ')"
@@ -357,6 +361,17 @@ if [ "$DO_UPLOAD" = true ]; then
     fi
     UPLOADS=("$UPLOAD_DIR/$ASSET")
     for CA in ${COMP_ASSETS[@]+"${COMP_ASSETS[@]}"}; do UPLOADS+=("$UPLOAD_DIR/$CA"); done
+    EXISTING="$(gh release view "$TAG" --repo "$REPO" --json assets -q '.assets[].name' 2>/dev/null || true)"
+    if [ "$REPLACE" != true ]; then
+        for U in "${UPLOADS[@]}"; do
+            if printf '%s\n' "$EXISTING" | grep -qxF "$(basename "$U")"; then
+                echo "ERROR: release '$TAG' already has $(basename "$U")."
+                echo "       Installed clients may still hold its old sha256. Bump --version,"
+                echo "       or pass --replace to overwrite it anyway."
+                exit 1
+            fi
+        done
+    fi
     echo "Uploading ${#UPLOADS[@]} asset(s) to release '$TAG'..."
     gh release upload "$TAG" "${UPLOADS[@]}" --repo "$REPO" --clobber
 else

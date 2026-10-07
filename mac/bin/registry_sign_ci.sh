@@ -95,10 +95,10 @@ done
 echo "-> Watching run ${RUN_ID} ..."
 gh run watch -R "$REPO" "$RUN_ID" --exit-status || { echo "FAIL: workflow run failed."; exit 1; }
 
-echo "-> Verifying the live signature (raw CDN may lag a few seconds) ..."
-for attempt in 1 2 3 4 5; do
+echo "-> Verifying the live signature (raw CDN can lag up to 5 minutes) ..."
+for attempt in $(seq 1 36); do
     if verify_live; then exit 0; fi
-    [ "$attempt" -lt 5 ] && sleep 4
+    [ "$attempt" -lt 36 ] && sleep 10
 done
 echo "FAIL: still unverified. The run may not have signed (sign input off, or the"
 echo "      MS_SIGNING_KEY repo secret is missing). Inspect: gh run view $RUN_ID -R $REPO"

@@ -209,20 +209,21 @@ func emit(_ obj: [String: Any]) {
 
 // Virtual Pad //
     final class Delegate: HIDVirtualDeviceDelegate, @unchecked Sendable {
-        let real: IOHIDDevice
-        init(real: IOHIDDevice) { self.real = real }
+        var real: IOHIDDevice?
 
         func hidVirtualDevice(_ device: HIDVirtualDevice, receivedSetReportRequestOfType type: HIDReportType, id: HIDReportID?, data: Data) throws {
             let t: IOHIDReportType = type == .feature ? kIOHIDReportTypeFeature : kIOHIDReportTypeOutput
             let rid = CFIndex(id?.rawValue ?? 0)
             data.withUnsafeBytes { raw in
                 guard let p = raw.bindMemory(to: UInt8.self).baseAddress else { return }
+                guard let real = self.real else { return }
                 _ = IOHIDDeviceSetReport(real, t, rid, p, data.count)
             }
         }
 
         func hidVirtualDevice(_ device: HIDVirtualDevice, receivedGetReportRequestOfType type: HIDReportType, id: HIDReportID?, maxSize: size_t) throws -> Data {
             let t: IOHIDReportType = type == .feature ? kIOHIDReportTypeFeature : (type == .input ? kIOHIDReportTypeInput : kIOHIDReportTypeOutput)
+            guard let real = self.real else { return Data() }
             var buf = [UInt8](repeating: 0, count: max(maxSize, 1))
             var len = CFIndex(buf.count)
             let rid = CFIndex(id?.rawValue ?? 0)
@@ -232,8 +233,63 @@ func emit(_ obj: [String: Any]) {
         }
     }
 
+    struct Identity: Codable, Equatable {
+        var descriptor: Data
+        var vid: Int
+        var pid: Int
+        var name: String
+        var maker: String?
+        var version: Int
+        var bluetooth: Bool
+        var reportSize: Int
+
+        init(descriptor: Data, vid: Int, pid: Int, name: String, maker: String?, version: Int, bluetooth: Bool, reportSize: Int) {
+            self.descriptor = descriptor
+            self.vid = vid
+            self.pid = pid
+            self.name = name
+            self.maker = maker
+            self.version = version
+            self.bluetooth = bluetooth
+            self.reportSize = reportSize
+        }
+
+        init?(real: IOHIDDevice) {
+            guard let desc = IOHIDDeviceGetProperty(real, kIOHIDReportDescriptorKey as CFString) as? Data else { return nil }
+            descriptor = desc
+            vid = (IOHIDDeviceGetProperty(real, kIOHIDVendorIDKey as CFString) as? Int) ?? 0
+            pid = (IOHIDDeviceGetProperty(real, kIOHIDProductIDKey as CFString) as? Int) ?? 0
+            name = (IOHIDDeviceGetProperty(real, kIOHIDProductKey as CFString) as? String) ?? "Controller"
+            maker = IOHIDDeviceGetProperty(real, kIOHIDManufacturerKey as CFString) as? String
+            version = (IOHIDDeviceGetProperty(real, kIOHIDVersionNumberKey as CFString) as? Int) ?? 0
+            bluetooth = (IOHIDDeviceGetProperty(real, kIOHIDTransportKey as CFString) as? String ?? "").lowercased().contains("bluetooth")
+            reportSize = max((IOHIDDeviceGetProperty(real, kIOHIDMaxInputReportSizeKey as CFString) as? Int) ?? 64, 1)
+        }
+
+        func sameController(_ o: Identity) -> Bool {
+            descriptor == o.descriptor && vid == o.vid && pid == o.pid
+        }
+    }
+
+    let cachePath: String? = {
+        let args = CommandLine.arguments
+        guard let i = args.firstIndex(of: "--cache"), i + 1 < args.count else { return nil }
+        return args[i + 1]
+    }()
+
+    func loadIdentity() -> Identity? {
+        guard let path = cachePath, let data = FileManager.default.contents(atPath: path) else { return nil }
+        return try? JSONDecoder().decode(Identity.self, from: data)
+    }
+
+    func saveIdentity(_ id: Identity) {
+        guard let path = cachePath, let data = try? JSONEncoder().encode(id) else { return }
+        FileManager.default.createFile(atPath: path, contents: data)
+    }
+
     final class Pad {
-        let real: IOHIDDevice
+        var real: IOHIDDevice?
+        let ident: Identity
         let fam: Family
         let fields: [Field]
         let usesIDs: Bool
@@ -253,43 +309,36 @@ func emit(_ obj: [String: Any]) {
         var emittedAt: [String: UInt64] = [:]
         var pendingEv: [String: [String: Any]] = [:]
 
-        init?(real: IOHIDDevice) {
-            self.real = real
-            guard let desc = IOHIDDeviceGetProperty(real, kIOHIDReportDescriptorKey as CFString) as? Data else { return nil }
-            let vid = (IOHIDDeviceGetProperty(real, kIOHIDVendorIDKey as CFString) as? Int) ?? 0
-            let pid = (IOHIDDeviceGetProperty(real, kIOHIDProductIDKey as CFString) as? Int) ?? 0
-            let name = (IOHIDDeviceGetProperty(real, kIOHIDProductKey as CFString) as? String) ?? "Controller"
-            let maker = IOHIDDeviceGetProperty(real, kIOHIDManufacturerKey as CFString) as? String
-            let version = (IOHIDDeviceGetProperty(real, kIOHIDVersionNumberKey as CFString) as? Int) ?? 0
-            let transportName = (IOHIDDeviceGetProperty(real, kIOHIDTransportKey as CFString) as? String ?? "").lowercased()
-            reportSize = max((IOHIDDeviceGetProperty(real, kIOHIDMaxInputReportSizeKey as CFString) as? Int) ?? 64, 1)
+        init?(ident id: Identity) {
+            ident = id
+            reportSize = id.reportSize
             reportBuf = UnsafeMutablePointer<UInt8>.allocate(capacity: reportSize)
-            fam = family(vid: vid)
+            fam = family(vid: id.vid)
             ctype = fam == .xbox ? "xbox" : (fam == .sony ? "ds4" : "generic")
-            let parsed = parseInputFields([UInt8](desc))
+            let parsed = parseInputFields([UInt8](id.descriptor))
             fields = parsed.fields
             usesIDs = parsed.usesIDs
             padRIDs = Set(fields.filter { $0.page == 0x01 || $0.page == 0x09 }.map { $0.reportID })
-            let transport: HIDDeviceTransport = transportName.contains("bluetooth") ? .bluetooth : .usb
             let props = HIDVirtualDevice.Properties(
-                descriptor: desc,
-                vendorID: UInt32(vid),
-                productID: UInt32(pid),
-                transport: transport,
-                product: name,
-                manufacturer: maker,
-                versionNumber: UInt64(version),
+                descriptor: id.descriptor,
+                vendorID: UInt32(id.vid),
+                productID: UInt32(id.pid),
+                transport: id.bluetooth ? .bluetooth : .usb,
+                product: id.name,
+                manufacturer: id.maker,
+                versionNumber: UInt64(id.version),
                 serialNumber: virtualSerial
             )
             guard let dev = HIDVirtualDevice(properties: props) else {
                 emit(["e": "error", "m": "virtual device refused (entitlement or AMFI)"])
+                reportBuf.deallocate()
                 return nil
             }
             device = dev
             if fam == .sony && usesIDs && padRIDs.contains(1) {
                 simpleLen = neutral(for: 1).count
             }
-            let del = Delegate(real: real)
+            let del = Delegate()
             delegate = del
             let (stream, cont) = AsyncStream<Data>.makeStream(bufferingPolicy: .bufferingNewest(2))
             queue = cont
@@ -299,8 +348,23 @@ func emit(_ obj: [String: Any]) {
                     try? await dev.dispatchInputReport(data: report, timestamp: SuspendingClock.now)
                 }
             }
-            emit(["e": "ready", "name": name, "vid": vid, "pid": pid])
+            emit(["e": "virtual", "name": id.name])
+        }
+
+        func bind(_ d: IOHIDDevice) {
+            real = d
+            delegate?.real = d
+            emit(["e": "ready", "name": ident.name, "vid": ident.vid, "pid": ident.pid])
             emit(["e": "pad", "ev": ["e": "connect", "c": ctype, "p": 1]])
+        }
+
+        func unbind() {
+            real = nil
+            delegate?.real = nil
+            last = [:]
+            physButtons = []
+            physAxes = [:]
+            resend()
         }
 
         deinit {
@@ -471,33 +535,42 @@ func emit(_ obj: [String: Any]) {
     }
 
     let inputCallback: IOHIDReportCallback = { _, _, _, _, _, report, length in
-        guard let p = pad else { return }
+        guard let p = pad, p.real != nil else { return }
         p.onReal(Array(UnsafeBufferPointer(start: report, count: length)))
     }
 
     func attach(_ d: IOHIDDevice) {
-        guard pad == nil, !isVirtual(d) else { return }
+        guard pad?.real == nil, !isVirtual(d) else { return }
+        guard let id = Identity(real: d) else { return }
         guard IOHIDDeviceOpen(d, IOOptionBits(kIOHIDOptionsTypeSeizeDevice)) == kIOReturnSuccess else {
             emit(["e": "error", "m": "could not seize controller"])
             return
         }
-        guard let p = Pad(real: d) else {
+        if let p = pad, !p.ident.sameController(id) { pad = nil }
+        if pad == nil { pad = Pad(ident: id) }
+        guard let p = pad else {
             IOHIDDeviceClose(d, IOOptionBits(kIOHIDOptionsTypeNone))
             return
         }
-        pad = p
+        saveIdentity(id)
+        p.bind(d)
         IOHIDDeviceRegisterInputReportCallback(d, p.reportBuf, p.reportSize, inputCallback, nil)
         p.resend()
     }
 
     func detach(_ d: IOHIDDevice) {
         guard let p = pad, p.real == d else { return }
-        pad = nil
+        p.unbind()
         emit(["e": "pad", "ev": ["e": "disconnect", "c": p.ctype, "p": 1]])
         emit(["e": "lost"])
         if let next = (IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice>)?.first(where: { $0 != d && !isVirtual($0) }) {
             attach(next)
         }
+    }
+
+    if let id = loadIdentity(), let p = Pad(ident: id) {
+        pad = p
+        p.resend()
     }
 
     let matching: [[String: Any]] = [
@@ -516,7 +589,7 @@ func emit(_ obj: [String: Any]) {
     func handle(_ line: String) {
         let parts = line.split(separator: " ").map(String.init)
         guard let cmd = parts.first else { return }
-        guard let p = pad else {
+        guard let p = pad, p.real != nil else {
             emit(["e": "error", "m": "no controller connected"])
             return
         }

@@ -14,6 +14,12 @@ forwarded through the copy with macro input merged on top, so the game sees one
 controller. Unplugging the pad tears the copy down, and quitting the helper
 hands the real pad back to the system.
 
+The helper saves the pad's identity to `~/.hammerspoon/data/ms_vpad_pad.json`.
+On the next start it creates the copy from that file before the real pad
+appears, and keeps the copy alive when the real pad disconnects. The copy then
+connects before the real pad, so games that take the first controller pick
+the copy.
+
 ## Windows
 
 On Windows the plugin needs the ViGEmBus driver (`winget install
