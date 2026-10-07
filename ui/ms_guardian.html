@@ -82,7 +82,6 @@
                 z-index: 1;
             }
 
-            /* -- Drag region -- */
             #titlebar {
                 height: 36px;
                 -webkit-app-region: drag;
@@ -101,7 +100,6 @@
                 color: var(--text2);
             }
 
-            /* -- Layout -- */
             #wrap {
                 display: flex;
                 flex-direction: column;
@@ -111,7 +109,6 @@
                 overflow: hidden;
             }
 
-            /* -- Icon + heading -- */
             #heading {
                 display: flex;
                 align-items: flex-start;
@@ -143,7 +140,6 @@
                 color: var(--text2);
             }
 
-            /* -- Hash box -- */
             #hashes {
                 background: var(--surface2);
                 border: 1px solid var(--border);
@@ -169,7 +165,6 @@
                 letter-spacing: 0.5px;
             }
 
-            /* -- Warning text -- */
             #warning {
                 font-size: 12px;
                 color: var(--text2);
@@ -180,9 +175,6 @@
                 scrollbar-color: var(--border) transparent;
             }
 
-            /* Left unstyled, WebKit draws its stock light scrollbar here, which
-               is the one thing on this window that ignores the theme. Matches
-               the log panes in ms_console / ms_shell. */
             #warning::-webkit-scrollbar {
                 width: 5px;
             }
@@ -200,7 +192,6 @@
                 color: var(--text);
             }
 
-            /* -- Buttons -- */
             #buttons {
                 display: flex;
                 gap: 8px;
@@ -249,7 +240,6 @@
                 background: color-mix(in srgb, var(--accent) 40%, transparent);
             }
 
-            /* -- Preview badge (hidden by default, shown via setPreviewMode()) -- */
             #preview-badge {
                 display: none;
                 position: absolute;
@@ -270,7 +260,6 @@
                 display: block;
             }
 
-            /* -- Steps -- */
             .step {
                 display: none;
                 flex-direction: column;
@@ -290,82 +279,81 @@
         </div>
         <div id="wrap">
             <!-- Step 1: Mismatch warning -->
-            <div id="step1" class="step active">
-                <div id="heading">
-                    <div id="icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="17" r="1" fill="currentColor"/><path d="M12 10L12 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.44722 18.1056L10.2111 4.57771C10.9482 3.10361 13.0518 3.10362 13.7889 4.57771L20.5528 18.1056C21.2177 19.4354 20.2507 21 18.7639 21H5.23607C3.7493 21 2.78231 19.4354 3.44722 18.1056Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-                    <div id="heading-text">
-                        <h1>Integrity check failed</h1>
-                        <p>
-                            One or more system files have been modified.
-                            Because of this, mudscript did not load, so no
-                            macros or key bindings are active.
-                        </p>
+                <div id="step1" class="step active">
+                    <div id="heading">
+                        <div id="icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="17" r="1" fill="currentColor"/><path d="M12 10L12 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.44722 18.1056L10.2111 4.57771C10.9482 3.10361 13.0518 3.10362 13.7889 4.57771L20.5528 18.1056C21.2177 19.4354 20.2507 21 18.7639 21H5.23607C3.7493 21 2.78231 19.4354 3.44722 18.1056Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                        <div id="heading-text">
+                            <h1>Integrity check failed</h1>
+                            <p>
+                                One or more system files have been modified.
+                                Because of this, mudscript did not load, so no
+                                macros or key bindings are active.
+                            </p>
+                        </div>
                     </div>
-                </div>
 
-                <div id="hashes">
-                    <div>
-                        <span class="label">Expected</span>
-                        <span class="hash" id="hash-trusted">,</span>
+                    <div id="hashes">
+                        <div>
+                            <span class="label">Expected</span>
+                            <span class="hash" id="hash-trusted">,</span>
+                        </div>
+                        <div>
+                            <span class="label">Current</span>
+                            <span class="hash" id="hash-current">,</span>
+                        </div>
                     </div>
-                    <div>
-                        <span class="label">Current</span>
-                        <span class="hash" id="hash-current">,</span>
+
+                    <div id="warning">
+                        If you did <strong>not</strong> make this change, stop.
+                        Your files may have been tampered with.<br /><br />
+                        If you made this change yourself, click
+                        <strong>Delete Hash &amp; Reload</strong> to clear the
+                        baseline. mudscript will reload
+                        <strong>without protection</strong> until re-trusted.
                     </div>
-                </div>
 
-                <div id="warning">
-                    If you did <strong>not</strong> make this change, stop.
-                    Your files may have been tampered with.<br /><br />
-                    If you made this change yourself, click
-                    <strong>Delete Hash &amp; Reload</strong> to clear the
-                    baseline. mudscript will reload
-                    <strong>without protection</strong> until re-trusted.
+                    <div id="buttons">
+                        <button class="accent" onclick="repair()">Update &amp; Repair</button>
+                        <button onclick="keepBlocked()">Keep Blocked</button>
+                        <button class="danger" onclick="showConfirm()">
+                            Delete Hash &amp; Reload
+                        </button>
+                    </div>
+                    <div id="repair-status" style="display:none; font-size:11px; color:var(--text2); margin-top:6px; padding:6px 10px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); line-height:1.5;"></div>
                 </div>
-
-                <div id="buttons">
-                    <button class="accent" onclick="repair()">Update &amp; Repair</button>
-                    <button onclick="keepBlocked()">Keep Blocked</button>
-                    <button class="danger" onclick="showConfirm()">
-                        Delete Hash &amp; Reload
-                    </button>
-                </div>
-                <div id="repair-status" style="display:none; font-size:11px; color:var(--text2); margin-top:6px; padding:6px 10px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); line-height:1.5;"></div>
-            </div>
+            <!-- END Step 1 -->
 
             <!-- Step 2: Confirmation -->
-            <div id="step2" class="step">
-                <div id="heading">
-                    <div id="icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="17" r="1" fill="currentColor"/><path d="M12 10L12 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.44722 18.1056L10.2111 4.57771C10.9482 3.10361 13.0518 3.10362 13.7889 4.57771L20.5528 18.1056C21.2177 19.4354 20.2507 21 18.7639 21H5.23607C3.7493 21 2.78231 19.4354 3.44722 18.1056Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-                    <div id="heading-text">
-                        <h1>Delete trusted hash?</h1>
-                        <p>This cannot be undone from this screen.</p>
+                <div id="step2" class="step">
+                    <div id="heading">
+                        <div id="icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="17" r="1" fill="currentColor"/><path d="M12 10L12 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.44722 18.1056L10.2111 4.57771C10.9482 3.10361 13.0518 3.10362 13.7889 4.57771L20.5528 18.1056C21.2177 19.4354 20.2507 21 18.7639 21H5.23607C3.7493 21 2.78231 19.4354 3.44722 18.1056Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                        <div id="heading-text">
+                            <h1>Delete trusted hash?</h1>
+                            <p>This cannot be undone from this screen.</p>
+                        </div>
+                    </div>
+
+                    <div id="warning" style="flex: 1">
+                        From this point on mudscript will load
+                        <strong>any version</strong> of its code without warning,
+                        including maliciously modified files.<br /><br />
+                        You are on your own. Proceed only if you know what you are
+                        doing.
+                    </div>
+
+                    <div id="buttons">
+                        <button onclick="cancelConfirm()">Cancel</button>
+                        <button class="danger" onclick="confirmDelete()">
+                            Delete. I understand the risk
+                        </button>
                     </div>
                 </div>
-
-                <div id="warning" style="flex: 1">
-                    From this point on mudscript will load
-                    <strong>any version</strong> of its code without warning,
-                    including maliciously modified files.<br /><br />
-                    You are on your own. Proceed only if you know what you are
-                    doing.
-                </div>
-
-                <div id="buttons">
-                    <button onclick="cancelConfirm()">Cancel</button>
-                    <button class="danger" onclick="confirmDelete()">
-                        Delete. I understand the risk
-                    </button>
-                </div>
-            </div>
+            <!-- END Step 2 -->
         </div>
 
         <script>
             "use strict";
 
-            // -- Theme --
-            // Called by the Spoon via evaluateJavaScript once the page loads,
-            // with the parsed ms_theme.json object as the argument.
             function applyTheme(t) {
                 if (!t) return;
                 const r = document.documentElement.style;
@@ -378,9 +366,7 @@
                 set("--accent", t.accent);
                 set("--danger", t.danger);
                 set("--text", t.text);
-                // Derive --border from hover at 55% opacity.
                 if (t.hover) r.setProperty("--border", t.hover + "8c");
-                // Derive --text2 from text at 75% opacity.
                 if (t.text) r.setProperty("--text2", t.text + "bf");
                 if (typeof t.radius === "number")
                     r.setProperty("--radius", t.radius + "px");
@@ -388,7 +374,6 @@
                     document.body.style.fontFamily = `"${t.font}", Arial, Helvetica, sans-serif`;
             }
 
-            // Suppress native right-click context menu.
             document.addEventListener("contextmenu", (e) => e.preventDefault());
 
             function sendToHost(msg) {
@@ -404,7 +389,6 @@
                 }
             }
 
-            // -- Drag to move window --
             let _drag = null;
             document.addEventListener("mousedown", (e) => {
                 if (e.button !== 0 || e.target.tagName === "BUTTON") return;
@@ -427,10 +411,6 @@
                 _drag = null;
             });
 
-            // Guarded because setFailure below may have replaced the hash rows
-            // with a different failure's detail list. Only one of the two ever
-            // drives a given window, but an unguarded lookup here would throw
-            // inside a navigationCallback, where nothing surfaces the error.
             function setHashes(trusted, current) {
                 const t = document.getElementById("hash-trusted");
                 const c = document.getElementById("hash-current");
@@ -438,12 +418,6 @@
                 if (c) c.textContent = current;
             }
 
-            // -- Dynamic failure copy --
-            // This window started as the integrity screen and its markup is
-            // still that screen's default, so a host that says nothing gets
-            // exactly what it always got. setFailure retargets it: same frame,
-            // same theming, different failure. Everything below writes through
-            // textContent, the copy is host-supplied, so it is never markup.
             function setFailure(spec) {
                 if (typeof spec === "string") {
                     try {
@@ -454,8 +428,6 @@
                 }
                 if (!spec || typeof spec !== "object") return;
 
-                // #warning, #buttons and #heading each appear in both steps;
-                // scope every lookup to step 1 so the confirm step is untouched.
                 const step1 = document.getElementById("step1");
 
                 if (spec.titlebar)
@@ -479,7 +451,6 @@
                         label.className = "label";
                         label.textContent = r.label || "";
                         const value = document.createElement("span");
-                        // Hashes want the mono treatment; a file path does not.
                         if (r.mono !== false) value.className = "hash";
                         value.textContent =
                             r.value === undefined || r.value === null
@@ -510,8 +481,6 @@
                         const btn = document.createElement("button");
                         if (a.style) btn.className = a.style;
                         btn.textContent = a.label || "";
-                        // "confirm" and "repair" drive this page's own steps;
-                        // anything else is a bare message for the host.
                         btn.onclick = () => {
                             if (a.action === "confirm") showConfirm();
                             else if (a.action === "repair") repair();

@@ -63,18 +63,9 @@
   "mac/lib/ms_alert.lua": {
     "comment": 5
   },
-  "mac/lib/ms_compiler.lua": {
-    "comment": 22,
-    "lua-inline-table": 1
-  },
   "mac/lib/ms_devtools.lua": {
     "comment": 11,
     "marker-unclosed": 1
-  },
-  "mac/lib/ms_guardian.lua": {
-    "comment": 8,
-    "lua-inline-table": 1,
-    "marker-body-indent": 2
   },
   "mac/lib/ms_loading.lua": {
     "comment": 1
@@ -96,11 +87,6 @@
   "mac/lib/ms_ui.lua": {
     "lua-inline-table": 6,
     "semicolon": 4
-  },
-  "mac/lib/settings/integrity.lua": {
-    "comment": 2,
-    "lua-inline-table": 1,
-    "marker-body-indent": 8
   },
   "mac/lib/settings/menu.lua": {
     "marker-blank-before-end": 1
@@ -185,10 +171,6 @@
     "comment": 28,
     "font-reset-missing": 1,
     "marker-unclosed": 3
-  },
-  "ui/ms_guardian.html": {
-    "comment": 31,
-    "marker-unclosed": 2
   },
   "ui/ms_keys.html": {
     "comment": 29,

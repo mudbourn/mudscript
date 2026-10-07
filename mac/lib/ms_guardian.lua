@@ -1,4 +1,3 @@
--- MsGuardian pre-load integrity check
 return function()
 
 local _obj = {
@@ -12,26 +11,25 @@ local _obj = {
     local _trustPath = _home .. "/.hammerspoon/data/.ms_trusted_hash"
     local _dataPath  = _home .. "/.hammerspoon/data/"
 
-    local _publicKey = [[
------BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3pyxWISHUScKsmK0fyqA
-QWUU0nzYEVpRYD+kRkZsL5AGqpjfNqfOky5bacE1jPXgu9LGz+b1pq1tuyZotvK/
-FrMeQDCmGWiu5RXAqsyg0iN1c1CHSvWAT40xi6g54u9ot9LMfzmBETlwWd4QoXOA
-OnT3KW0aia1EoyUjjNIRk6iv6pxi+BjHnGKoID6pAl9de+WASt/DETgCuKhQ7o/Y
-iGn43A9ZutKUfkV+Muu1RcTy62zbXcQrzK3cyLl0M7gfTm0YWPzaf+d3ATNnq/9j
-/952QfmXjVSGhU3EBxlEM6NWstNSNuaTWSMCcbcH+va/AMOHK1rRKQ3IOdzjYcQm
-YQIDAQAB
------END PUBLIC KEY-----
-]]
+    local _publicKey = table.concat({
+        "-----BEGIN PUBLIC KEY-----",
+        "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3pyxWISHUScKsmK0fyqA",
+        "QWUU0nzYEVpRYD+kRkZsL5AGqpjfNqfOky5bacE1jPXgu9LGz+b1pq1tuyZotvK/",
+        "FrMeQDCmGWiu5RXAqsyg0iN1c1CHSvWAT40xi6g54u9ot9LMfzmBETlwWd4QoXOA",
+        "OnT3KW0aia1EoyUjjNIRk6iv6pxi+BjHnGKoID6pAl9de+WASt/DETgCuKhQ7o/Y",
+        "iGn43A9ZutKUfkV+Muu1RcTy62zbXcQrzK3cyLl0M7gfTm0YWPzaf+d3ATNnq/9j",
+        "/952QfmXjVSGhU3EBxlEM6NWstNSNuaTWSMCcbcH+va/AMOHK1rRKQ3IOdzjYcQm",
+        "YQIDAQAB",
+        "-----END PUBLIC KEY-----",
+        "",
+    }, "\n")
 -- END Paths --
 
 -- Helpers --
-    -- Shell-quote a path
     local function _shq(p)
         return "'" .. tostring(p):gsub("\\", "/"):gsub("'", "'\\''") .. "'"
     end
 
-    -- Probe for the available hash tool
     local _hashCmd
     local function _hashTool()
         if _hashCmd ~= nil then return _hashCmd end
@@ -44,7 +42,6 @@ YQIDAQAB
         return _hashCmd
     end
 
-    -- Parse the leading 64 hex from a hash line
     local function _parseHash(s)
         if type(s) ~= "string" then return nil end
         local h = s:gsub("^\\", ""):match("^(%x+)")
@@ -81,7 +78,6 @@ YQIDAQAB
         return out
     end
 
-    -- Canonical JSON matching jq -c -S
     local function _canonEscape(s)
         return (s:gsub('[%z\1-\31\\"]', function(c)
             local b = string.byte(c)
@@ -124,12 +120,10 @@ YQIDAQAB
         return "null"
     end
 
-    -- Ensure the data dir via the POSIX shell
     local function _ensureDataDir()
         hs.execute("mkdir -p " .. _shq(_dataPath))
     end
 
-    -- Write bare bytes
     local function _writeBin(path, body)
         local f = io.open(path, "wb")
         if not f then return false end
@@ -393,159 +387,159 @@ YQIDAQAB
     end
 
     -- Added-file check, scoped to Spoons/ --
-    local _ledgerPath = _dataPath .. ".ms_plugin_ledger.json"
-    local _spoonsDir  = _home .. "/.hammerspoon/Spoons"
+        local _ledgerPath = _dataPath .. ".ms_plugin_ledger.json"
+        local _spoonsDir  = _home .. "/.hammerspoon/Spoons"
 
-    local function _hashSpoonTree(absDir)
-        local tool = _hashTool()
-        if not tool then return nil end
-        local out, ok = hs.execute(
-            "cd " .. _shq(absDir) .. " && find . -type f ! -name '.DS_Store' " ..
-            "! -name '._*' ! -path './__MACOSX/*' " ..
-            "-exec " .. tool .. " {} + 2>/dev/null | LC_ALL=C sort -k2 | " .. tool
-        )
-        if not ok or not out then return nil end
-        return _parseHash(out)
-    end
+        local function _hashSpoonTree(absDir)
+            local tool = _hashTool()
+            if not tool then return nil end
+            local out, ok = hs.execute(
+                "cd " .. _shq(absDir) .. " && find . -type f ! -name '.DS_Store' " ..
+                "! -name '._*' ! -path './__MACOSX/*' " ..
+                "-exec " .. tool .. " {} + 2>/dev/null | LC_ALL=C sort -k2 | " .. tool
+            )
+            if not ok or not out then return nil end
+            return _parseHash(out)
+        end
 
-    local function _installedSpoons()
-        local found = {}
-        if not hs.fs.attributes(_spoonsDir) then return found end
-        for name in hs.fs.dir(_spoonsDir) do
-            if name:sub(1, 1) ~= "." and name:match("%.spoon$") then
-                local abs = _spoonsDir .. "/" .. name
-                local attr = hs.fs.attributes(abs)
-                if attr and attr.mode == "directory" then
-                    found[name] = _hashSpoonTree(abs)
+        local function _installedSpoons()
+            local found = {}
+            if not hs.fs.attributes(_spoonsDir) then return found end
+            for name in hs.fs.dir(_spoonsDir) do
+                if name:sub(1, 1) ~= "." and name:match("%.spoon$") then
+                    local abs = _spoonsDir .. "/" .. name
+                    local attr = hs.fs.attributes(abs)
+                    if attr and attr.mode == "directory" then
+                        found[name] = _hashSpoonTree(abs)
+                    end
                 end
             end
+            return found
         end
-        return found
-    end
 
-    local function _readLedger()
-        local f = io.open(_ledgerPath, "r")
-        if not f then return nil end
-        local raw = f:read("*all")
-        f:close()
-        if not raw or raw == "" then return nil end
-        local ok, tbl = pcall(hs.json.decode, raw)
-        if ok and type(tbl) == "table" and type(tbl.plugins) == "table" then
-            return tbl
-        end
-        return nil
-    end
-
-    local function _writeLedger(tbl)
-        local ok, json = pcall(hs.json.encode, tbl)
-        if not ok then return false end
-        local f = io.open(_ledgerPath, "w")
-        if not f then return false end
-        f:write(json .. "\n")
-        f:close()
-        return true
-    end
-
-    local function _checkSpoons()
-        local installed = _installedSpoons()
-        local ledger    = _readLedger()
-
-        if not ledger then
-            local first = nil
-            for name in pairs(installed) do
-                if not first or name < first then first = name end
+        local function _readLedger()
+            local f = io.open(_ledgerPath, "r")
+            if not f then return nil end
+            local raw = f:read("*all")
+            f:close()
+            if not raw or raw == "" then return nil end
+            local ok, tbl = pcall(hs.json.decode, raw)
+            if ok and type(tbl) == "table" and type(tbl.plugins) == "table" then
+                return tbl
             end
-            if first then return "noledger", first end
+            return nil
+        end
 
-            _writeLedger({
-                version   = 1,
-                createdAt = os.date("!%Y-%m-%dT%H:%M:%SZ"),
-                plugins   = {},
-            })
+        local function _writeLedger(tbl)
+            local ok, json = pcall(hs.json.encode, tbl)
+            if not ok then return false end
+            local f = io.open(_ledgerPath, "w")
+            if not f then return false end
+            f:write(json .. "\n")
+            f:close()
+            return true
+        end
+
+        local function _checkSpoons()
+            local installed = _installedSpoons()
+            local ledger    = _readLedger()
+
+            if not ledger then
+                local first = nil
+                for name in pairs(installed) do
+                    if not first or name < first then first = name end
+                end
+                if first then return "noledger", first end
+
+                _writeLedger({
+                    version   = 1,
+                    createdAt = os.date("!%Y-%m-%dT%H:%M:%SZ"),
+                    plugins   = {},
+                })
+                return "ok"
+            end
+
+            for name, hash in pairs(installed) do
+                local rec = ledger.plugins[name]
+                if type(rec) ~= "table" or type(rec.hash) ~= "string" then
+                    return "unknown", name
+                end
+                if hash and hash:lower() ~= rec.hash:lower() then
+                    return "unknown", name
+                end
+            end
+
             return "ok"
         end
 
-        for name, hash in pairs(installed) do
-            local rec = ledger.plugins[name]
-            if type(rec) ~= "table" or type(rec.hash) ~= "string" then
-                return "unknown", name
-            end
-            if hash and hash:lower() ~= rec.hash:lower() then
-                return "unknown", name
-            end
+        local function _unknownSpoonSpec(name)
+            return {
+                titlebar = "mudscript :// Unrecognized Plugin",
+                height   = 430,
+                title    = "Unrecognized plugin",
+                lead     = "A plugin in Spoons/ was not installed through mudscript, "
+                        .. "or has changed since it was. Because of this, mudscript did "
+                        .. "not load, so no macros or key bindings are active.",
+                rows     = {
+                    {
+                        label = "Plugin",
+                        value = "Spoons/" .. tostring(name),
+                    },
+                },
+                warning  = {
+                    "Plugins run as code, so an unrecognized one blocks startup "
+                    .. "instead of loading unchecked.",
+                    "mudscript only runs plugins installed from its verified "
+                    .. "library. Remove this one from ~/.hammerspoon/Spoons/ and "
+                    .. "reload.",
+                },
+                actions  = {
+                    {
+                        label = "Reveal in Finder",
+                        action = "revealSpoons",
+                        style = "accent",
+                    },
+                    {
+                        label = "Keep Blocked",
+                        action = "keepBlocked",
+                    },
+                },
+            }
         end
 
-        return "ok"
-    end
-
-    local function _unknownSpoonSpec(name)
-        return {
-            titlebar = "mudscript :// Unrecognized Plugin",
-            height   = 430,
-            title    = "Unrecognized plugin",
-            lead     = "A plugin in Spoons/ was not installed through mudscript, "
-                    .. "or has changed since it was. Because of this, mudscript did "
-                    .. "not load, so no macros or key bindings are active.",
-            rows     = {
-                {
-                    label = "Plugin",
-                    value = "Spoons/" .. tostring(name),
+        local function _noLedgerSpec(name)
+            return {
+                titlebar = "mudscript :// Plugins Not Verified",
+                height   = 430,
+                title    = "No plugin record",
+                lead     = "Plugins are installed, but mudscript has no record of "
+                        .. "where they came from. Because of this, mudscript did not load, "
+                        .. "so no macros or key bindings are active.",
+                rows     = {
+                    {
+                        label = "Found",
+                        value = "Spoons/" .. tostring(name),
+                    },
                 },
-            },
-            warning  = {
-                "Plugins run as code, so an unrecognized one blocks startup "
-                .. "instead of loading unchecked.",
-                "mudscript only runs plugins installed from its verified "
-                .. "library. Remove this one from ~/.hammerspoon/Spoons/ and "
-                .. "reload.",
-            },
-            actions  = {
-                {
-                    label = "Reveal in Finder",
-                    action = "revealSpoons",
-                    style = "accent",
+                warning  = {
+                    "Expected once, on an install that predates plugin verification. "
+                    .. "Reinstall each plugin from the library so it is recorded again.",
+                    "The record is not rebuilt from disk on purpose: if it were, "
+                    .. "deleting one file would make any plugin look trusted.",
                 },
-                {
-                    label = "Keep Blocked",
-                    action = "keepBlocked",
+                actions  = {
+                    {
+                        label = "Reveal in Finder",
+                        action = "revealSpoons",
+                        style = "accent",
+                    },
+                    {
+                        label = "Keep Blocked",
+                        action = "keepBlocked",
+                    },
                 },
-            },
-        }
-    end
-
-    local function _noLedgerSpec(name)
-        return {
-            titlebar = "mudscript :// Plugins Not Verified",
-            height   = 430,
-            title    = "No plugin record",
-            lead     = "Plugins are installed, but mudscript has no record of "
-                    .. "where they came from. Because of this, mudscript did not load, "
-                    .. "so no macros or key bindings are active.",
-            rows     = {
-                {
-                    label = "Found",
-                    value = "Spoons/" .. tostring(name),
-                },
-            },
-            warning  = {
-                "Expected once, on an install that predates plugin verification. "
-                .. "Reinstall each plugin from the library so it is recorded again.",
-                "The record is not rebuilt from disk on purpose: if it were, "
-                .. "deleting one file would make any plugin look trusted.",
-            },
-            actions  = {
-                {
-                    label = "Reveal in Finder",
-                    action = "revealSpoons",
-                    style = "accent",
-                },
-                {
-                    label = "Keep Blocked",
-                    action = "keepBlocked",
-                },
-            },
-        }
-    end
+            }
+        end
     -- END Added-file check --
 
     local function _repairViaUpdate(onProgress, onDone)
@@ -581,7 +575,6 @@ YQIDAQAB
 
             if onProgress then pcall(onProgress, "Downloading signed bundle...") end
 
-            -- Download with curl
             local tmpArchive = _archivePath .. "ms_bundle_update.zip"
             local _dlTask = hs.task.new("/usr/bin/curl", function(fCode)
                 if fCode ~= 0 then
@@ -710,7 +703,15 @@ YQIDAQAB
 
                 if onProgress then pcall(onProgress, "Update applied, reloading...") end
                 if onDone then pcall(onDone, true) end
-            end, { "-sSL", "--fail", "--max-time", "300", "-o", tmpArchive, downloadUrl })
+            end, {
+                "-sSL",
+                "--fail",
+                "--max-time",
+                "300",
+                "-o",
+                tmpArchive,
+                downloadUrl,
+            })
 
             if not _dlTask or not _dlTask:start() then
                 if onDone then pcall(onDone, false, "Could not start the bundle download") end

@@ -380,711 +380,711 @@ return function(ms, ctx)
         end
 
         -- Version comparison helpers (used by _fetchReleaseInfo and check functions) --
-        local function _parseVersion(v)
-            local t = {}
-            if type(v) == "string" then
-                local base = v:match("^[%d%.]+")
-                if base then
-                    for n in base:gmatch("%d+") do t[#t + 1] = tonumber(n) or 0 end
+            local function _parseVersion(v)
+                local t = {}
+                if type(v) == "string" then
+                    local base = v:match("^[%d%.]+")
+                    if base then
+                        for n in base:gmatch("%d+") do t[#t + 1] = tonumber(n) or 0 end
+                    end
+                    t._pre = v:find("%-pre") ~= nil or v:find("%-beta") ~= nil
+                        or v:find("%-rc") ~= nil
+                    local preNum = v:match("%-pre%.(%d+)")
+                    t._preNum = preNum and tonumber(preNum) or 0
                 end
-                t._pre = v:find("%-pre") ~= nil or v:find("%-beta") ~= nil
-                    or v:find("%-rc") ~= nil
-                local preNum = v:match("%-pre%.(%d+)")
-                t._preNum = preNum and tonumber(preNum) or 0
+                return t
             end
-            return t
-        end
 
-        local function _remoteIsNewer(localV, remoteV)
-            local a, b = _parseVersion(localV), _parseVersion(remoteV)
-            local len = math.max(#a, #b)
-            for i = 1, len do
-                local la, ra = a[i] or 0, b[i] or 0
-                if ra > la then return true  end
-                if ra < la then return false end
+            local function _remoteIsNewer(localV, remoteV)
+                local a, b = _parseVersion(localV), _parseVersion(remoteV)
+                local len = math.max(#a, #b)
+                for i = 1, len do
+                    local la, ra = a[i] or 0, b[i] or 0
+                    if ra > la then return true  end
+                    if ra < la then return false end
+                end
+                if a._pre and not b._pre then return true  end
+                if not a._pre and b._pre then return false end
+                if a._pre and b._pre then
+                    return (b._preNum or 0) > (a._preNum or 0)
+                end
+                return false
             end
-            if a._pre and not b._pre then return true  end
-            if not a._pre and b._pre then return false end
-            if a._pre and b._pre then
-                return (b._preNum or 0) > (a._preNum or 0)
+
+            local function _preBuild(tag)
+                local n = type(tag) == "string" and tag:match("^pre%-(%d+)$")
+                return n and tonumber(n) or nil
             end
-            return false
-        end
 
-        local function _preBuild(tag)
-            local n = type(tag) == "string" and tag:match("^pre%-(%d+)$")
-            return n and tonumber(n) or nil
-        end
-
-        local function _localManifest()
-            local lf = io.open(os.getenv("HOME") .. "/.hammerspoon/MANIFEST.json", "r")
-            if not lf then return nil end
-            local ok, lm = pcall(hs.json.decode, lf:read("*all"))
-            lf:close()
-            return ok and type(lm) == "table" and lm or nil
-        end
-
-        local function _testingIsNewer(info)
-            local lm = _localManifest()
-            if not lm or not lm.version then return true end
-            if info.build then
-                if tonumber(lm.build) then return info.build > tonumber(lm.build) end
-                return true
+            local function _localManifest()
+                local lf = io.open(os.getenv("HOME") .. "/.hammerspoon/MANIFEST.json", "r")
+                if not lf then return nil end
+                local ok, lm = pcall(hs.json.decode, lf:read("*all"))
+                lf:close()
+                return ok and type(lm) == "table" and lm or nil
             end
-            return _remoteIsNewer(lm.version, info.version)
-        end
+
+            local function _testingIsNewer(info)
+                local lm = _localManifest()
+                if not lm or not lm.version then return true end
+                if info.build then
+                    if tonumber(lm.build) then return info.build > tonumber(lm.build) end
+                    return true
+                end
+                return _remoteIsNewer(lm.version, info.version)
+            end
         -- END Version comparison helpers --
 
         -- _fetchReleaseInfo [GitHub Releases API helper] --
-        local function _fetchReleaseInfo(channel, callback)
-            local repo = ms._testingRepo or "mudbourn/mudscript"
-            local apiURL
-            if channel == "stable" then
-                apiURL = "https://api.github.com/repos/" .. repo .. "/releases/latest"
-            else
-                apiURL = "https://api.github.com/repos/" .. repo .. "/releases?per_page=5"
-            end
-            hs.http.asyncGet(apiURL, {
-                ["Accept"] = "application/vnd.github+json",
-            }, function(code, body, _)
-                if code ~= 200 or not body then
-                    ms.dev.log({
-                        type    = "error",
-                        event   = "release_fetch_failed",
-                        channel = channel,
-                        code    = code,
-                    })
-                    if callback then pcall(callback, nil) end
-                    return
-                end
-                local ok, data = pcall(hs.json.decode, body)
-                if not ok or not data then
-                    ms.dev.log({
-                        type    = "error",
-                        event   = "release_parse_failed",
-                        channel = channel,
-                    })
-                    if callback then pcall(callback, nil) end
-                    return
-                end
-                local release
+            local function _fetchReleaseInfo(channel, callback)
+                local repo = ms._testingRepo or "mudbourn/mudscript"
+                local apiURL
                 if channel == "stable" then
-                    release = data
+                    apiURL = "https://api.github.com/repos/" .. repo .. "/releases/latest"
                 else
-                    if type(data) ~= "table" or #data == 0 then
+                    apiURL = "https://api.github.com/repos/" .. repo .. "/releases?per_page=5"
+                end
+                hs.http.asyncGet(apiURL, {
+                    ["Accept"] = "application/vnd.github+json",
+                }, function(code, body, _)
+                    if code ~= 200 or not body then
+                        ms.dev.log({
+                            type    = "error",
+                            event   = "release_fetch_failed",
+                            channel = channel,
+                            code    = code,
+                        })
+                        if callback then pcall(callback, nil) end
+                        return
+                    end
+                    local ok, data = pcall(hs.json.decode, body)
+                    if not ok or not data then
                         ms.dev.log({
                             type    = "error",
                             event   = "release_parse_failed",
                             channel = channel,
-                            reason  = "empty_array",
                         })
                         if callback then pcall(callback, nil) end
                         return
                     end
-                    local bestPre, bestStable
-                    for _, rel in ipairs(data) do
-                        local n = _preBuild(rel.tag_name)
-                        if n then
-                            if not bestPre or n > _preBuild(bestPre.tag_name) then
-                                bestPre = rel
-                            end
-                        elseif rel.tag_name and not rel.draft then
-                            if not bestStable
-                                or _remoteIsNewer(bestStable.tag_name, rel.tag_name)
-                            then
-                                bestStable = rel
+                    local release
+                    if channel == "stable" then
+                        release = data
+                    else
+                        if type(data) ~= "table" or #data == 0 then
+                            ms.dev.log({
+                                type    = "error",
+                                event   = "release_parse_failed",
+                                channel = channel,
+                                reason  = "empty_array",
+                            })
+                            if callback then pcall(callback, nil) end
+                            return
+                        end
+                        local bestPre, bestStable
+                        for _, rel in ipairs(data) do
+                            local n = _preBuild(rel.tag_name)
+                            if n then
+                                if not bestPre or n > _preBuild(bestPre.tag_name) then
+                                    bestPre = rel
+                                end
+                            elseif rel.tag_name and not rel.draft then
+                                if not bestStable
+                                    or _remoteIsNewer(bestStable.tag_name, rel.tag_name)
+                                then
+                                    bestStable = rel
+                                end
                             end
                         end
+                        release = bestPre or bestStable
+                        if bestPre and bestStable
+                            and (bestStable.published_at or "") > (bestPre.published_at or "")
+                        then
+                            release = bestStable
+                        end
                     end
-                    release = bestPre or bestStable
-                    if bestPre and bestStable
-                        and (bestStable.published_at or "") > (bestPre.published_at or "")
-                    then
-                        release = bestStable
+                    if not release or not release.tag_name then
+                        ms.dev.log({
+                            type    = "error",
+                            event   = "release_parse_failed",
+                            channel = channel,
+                            reason  = "no_tag",
+                        })
+                        if callback then pcall(callback, nil) end
+                        return
                     end
-                end
-                if not release or not release.tag_name then
-                    ms.dev.log({
-                        type    = "error",
-                        event   = "release_parse_failed",
-                        channel = channel,
-                        reason  = "no_tag",
-                    })
-                    if callback then pcall(callback, nil) end
-                    return
-                end
-                local downloadUrl
-                local assets = release.assets or {}
-                for _, asset in ipairs(assets) do
-                    if asset.name and asset.name:match("^mudscript%-macos%-.*%.zip$") then
-                        downloadUrl = asset.browser_download_url
-                        break
+                    local downloadUrl
+                    local assets = release.assets or {}
+                    for _, asset in ipairs(assets) do
+                        if asset.name and asset.name:match("^mudscript%-macos%-.*%.zip$") then
+                            downloadUrl = asset.browser_download_url
+                            break
+                        end
                     end
-                end
-                if not downloadUrl then
-                    ms.dev.log({
-                        type    = "error",
-                        event   = "release_parse_failed",
-                        channel = channel,
-                        reason  = "no_asset",
-                    })
-                    if callback then pcall(callback, nil) end
-                    return
-                end
-                local tagName = release.tag_name
-                local version = tagName:gsub("^v", "")
-                local build = _preBuild(tagName)
-                if build then version = "pre." .. build end
-                if callback then pcall(callback, {
-                    version     = version,
-                    build       = build,
-                    downloadUrl = downloadUrl,
-                    tagName     = tagName,
-                }) end
-            end)
-        end
+                    if not downloadUrl then
+                        ms.dev.log({
+                            type    = "error",
+                            event   = "release_parse_failed",
+                            channel = channel,
+                            reason  = "no_asset",
+                        })
+                        if callback then pcall(callback, nil) end
+                        return
+                    end
+                    local tagName = release.tag_name
+                    local version = tagName:gsub("^v", "")
+                    local build = _preBuild(tagName)
+                    if build then version = "pre." .. build end
+                    if callback then pcall(callback, {
+                        version     = version,
+                        build       = build,
+                        downloadUrl = downloadUrl,
+                        tagName     = tagName,
+                    }) end
+                end)
+            end
         -- END _fetchReleaseInfo --
 
         -- _fetchArtifactInfo [GitHub Actions artifact helper] --
-        local function _fetchArtifactInfo(callback)
-            local repo = ms._testingRepo or "mudbourn/mudscript"
-            local workflow = ms._testingWorkflow or "testing"
-            local token = ms._githubToken
-            if not token or token == "" then
-                local tokenPath = os.getenv("HOME") .. "/.hammerspoon/data/.ms_github_token"
-                local f = io.open(tokenPath, "r")
-                if f then token = f:read("*l")
-                f:close() end
-                if token and token ~= "" then ms._githubToken = token end
-            end
-            if not token or token == "" then
-                ms.dev.log({
-                    type = "error",
-                    event = "artifact_fetch_failed",
-                    reason = "no_token",
-                })
-                if callback then pcall(callback, nil) end
-                return
-            end
-
-            local baseVersion = "0.0.0"
-            do
-                local lf = io.open(os.getenv("HOME") .. "/.hammerspoon/MANIFEST.json", "r")
-                if lf then
-                    local ok, lm = pcall(hs.json.decode, lf:read("*all"))
-                    lf:close()
-                    if ok and lm and lm.version then
-                        baseVersion = lm.version:gsub("%-pre[%.%-]%d+$", "")
-                    end
+            local function _fetchArtifactInfo(callback)
+                local repo = ms._testingRepo or "mudbourn/mudscript"
+                local workflow = ms._testingWorkflow or "testing"
+                local token = ms._githubToken
+                if not token or token == "" then
+                    local tokenPath = os.getenv("HOME") .. "/.hammerspoon/data/.ms_github_token"
+                    local f = io.open(tokenPath, "r")
+                    if f then token = f:read("*l")
+                    f:close() end
+                    if token and token ~= "" then ms._githubToken = token end
                 end
-            end
-
-            local runsURL = "https://api.github.com/repos/" .. repo
-                .. "/actions/workflows/" .. workflow .. ".yml/runs?per_page=1&status=completed"
-            local headers = {
-                ["Accept"] = "application/vnd.github+json",
-                ["Authorization"] = "Bearer " .. token,
-            }
-            hs.http.asyncGet(runsURL, headers, function(code, body, _)
-                if code ~= 200 or not body then
+                if not token or token == "" then
                     ms.dev.log({
                         type = "error",
                         event = "artifact_fetch_failed",
-                        reason = "runs_http",
-                        code = code,
+                        reason = "no_token",
                     })
                     if callback then pcall(callback, nil) end
                     return
                 end
-                local ok, data = pcall(hs.json.decode, body)
-                if not ok or not data or not data.workflow_runs or #data.workflow_runs == 0 then
-                    if callback then pcall(callback, nil) end
-                    return
-                end
-                local run = data.workflow_runs[1]
-                local runId = run.id
-                local runNumber = run.run_number
 
-                local artURL = "https://api.github.com/repos/" .. repo
-                    .. "/actions/runs/" .. runId .. "/artifacts"
-                hs.http.asyncGet(artURL, headers, function(code2, body2, _)
-                    if code2 ~= 200 or not body2 then
+                local baseVersion = "0.0.0"
+                do
+                    local lf = io.open(os.getenv("HOME") .. "/.hammerspoon/MANIFEST.json", "r")
+                    if lf then
+                        local ok, lm = pcall(hs.json.decode, lf:read("*all"))
+                        lf:close()
+                        if ok and lm and lm.version then
+                            baseVersion = lm.version:gsub("%-pre[%.%-]%d+$", "")
+                        end
+                    end
+                end
+
+                local runsURL = "https://api.github.com/repos/" .. repo
+                    .. "/actions/workflows/" .. workflow .. ".yml/runs?per_page=1&status=completed"
+                local headers = {
+                    ["Accept"] = "application/vnd.github+json",
+                    ["Authorization"] = "Bearer " .. token,
+                }
+                hs.http.asyncGet(runsURL, headers, function(code, body, _)
+                    if code ~= 200 or not body then
                         ms.dev.log({
                             type = "error",
                             event = "artifact_fetch_failed",
-                            reason = "artifacts_http",
-                            code = code2,
+                            reason = "runs_http",
+                            code = code,
                         })
                         if callback then pcall(callback, nil) end
                         return
                     end
-                    local ok2, artData = pcall(hs.json.decode, body2)
-                    if not ok2 or not artData or not artData.artifacts then
+                    local ok, data = pcall(hs.json.decode, body)
+                    if not ok or not data or not data.workflow_runs or #data.workflow_runs == 0 then
                         if callback then pcall(callback, nil) end
                         return
                     end
-                    for _, art in ipairs(artData.artifacts) do
-                        if art.name and art.name:match("macos") then
-                            local downloadURL = "https://api.github.com/repos/" .. repo
-                                .. "/actions/artifacts/" .. art.id .. "/zip"
+                    local run = data.workflow_runs[1]
+                    local runId = run.id
+                    local runNumber = run.run_number
+
+                    local artURL = "https://api.github.com/repos/" .. repo
+                        .. "/actions/runs/" .. runId .. "/artifacts"
+                    hs.http.asyncGet(artURL, headers, function(code2, body2, _)
+                        if code2 ~= 200 or not body2 then
                             ms.dev.log({
-                                type = "system",
-                                event = "artifact_found",
-                                name = art.name,
-                                run = runNumber,
+                                type = "error",
+                                event = "artifact_fetch_failed",
+                                reason = "artifacts_http",
+                                code = code2,
                             })
-                            if callback then
-                                pcall(callback, {
-                                    version = baseVersion .. "-pre." .. runNumber,
-                                    downloadUrl = downloadURL,
-                                    headers = headers,
-                                    format = "zip",
-                                })
-                            end
+                            if callback then pcall(callback, nil) end
                             return
                         end
-                    end
-                    for _, art in ipairs(artData.artifacts) do
-                        if art.name then
-                            local downloadURL = "https://api.github.com/repos/" .. repo
-                                .. "/actions/artifacts/" .. art.id .. "/zip"
-                            if callback then
-                                pcall(callback, {
-                                    version = baseVersion .. "-pre." .. runNumber,
-                                    downloadUrl = downloadURL,
-                                    headers = headers,
-                                    format = "zip",
-                                })
-                            end
+                        local ok2, artData = pcall(hs.json.decode, body2)
+                        if not ok2 or not artData or not artData.artifacts then
+                            if callback then pcall(callback, nil) end
                             return
                         end
-                    end
-                    ms.dev.log({
-                        type = "error",
-                        event = "artifact_fetch_failed",
-                        reason = "no_artifact",
-                    })
-                    if callback then pcall(callback, nil) end
+                        for _, art in ipairs(artData.artifacts) do
+                            if art.name and art.name:match("macos") then
+                                local downloadURL = "https://api.github.com/repos/" .. repo
+                                    .. "/actions/artifacts/" .. art.id .. "/zip"
+                                ms.dev.log({
+                                    type = "system",
+                                    event = "artifact_found",
+                                    name = art.name,
+                                    run = runNumber,
+                                })
+                                if callback then
+                                    pcall(callback, {
+                                        version = baseVersion .. "-pre." .. runNumber,
+                                        downloadUrl = downloadURL,
+                                        headers = headers,
+                                        format = "zip",
+                                    })
+                                end
+                                return
+                            end
+                        end
+                        for _, art in ipairs(artData.artifacts) do
+                            if art.name then
+                                local downloadURL = "https://api.github.com/repos/" .. repo
+                                    .. "/actions/artifacts/" .. art.id .. "/zip"
+                                if callback then
+                                    pcall(callback, {
+                                        version = baseVersion .. "-pre." .. runNumber,
+                                        downloadUrl = downloadURL,
+                                        headers = headers,
+                                        format = "zip",
+                                    })
+                                end
+                                return
+                            end
+                        end
+                        ms.dev.log({
+                            type = "error",
+                            event = "artifact_fetch_failed",
+                            reason = "no_artifact",
+                        })
+                        if callback then pcall(callback, nil) end
+                    end)
                 end)
-            end)
-        end
+            end
         -- END _fetchArtifactInfo --
 
         -- Update [stable channel] --
-        ms.integrity.update = function()
-            ms.dev.log({
-                type    = "system",
-                event   = "update_start",
-                channel = "stable",
-            })
-            ms.alert("Checking for stable update\xe2\x80\xa6", 4, true)
-            _fetchReleaseInfo("stable", function(info)
-                if not info then
-                    ms.dev.log({
-                        type   = "error",
-                        event  = "update_failed",
-                        reason = "release_fetch",
-                    })
-                    ms.alert("Update failed: could not fetch release info.", 5)
-                    return
-                end
-                local newVersion = info.version
-                local bundleURL  = info.downloadUrl
-                ms.alert("Downloading v" .. newVersion .. " bundle\xe2\x80\xa6", 4, true)
+            ms.integrity.update = function()
                 ms.dev.log({
                     type    = "system",
-                    event   = "update_download_start",
-                    version = newVersion,
-                    format  = "bundle",
+                    event   = "update_start",
+                    channel = "stable",
                 })
-                hs.http.asyncGet(bundleURL, nil, function(fCode, fBody, _)
-                    if fCode ~= 200 or not fBody then
+                ms.alert("Checking for stable update\xe2\x80\xa6", 4, true)
+                _fetchReleaseInfo("stable", function(info)
+                    if not info then
                         ms.dev.log({
-                            type    = "error",
-                            event   = "update_failed",
-                            reason  = "download_http",
-                            code    = fCode,
-                            version = newVersion,
+                            type   = "error",
+                            event  = "update_failed",
+                            reason = "release_fetch",
                         })
-                        ms.alert("Update failed: bundle download returned " .. tostring(fCode) .. ".", 5)
+                        ms.alert("Update failed: could not fetch release info.", 5)
                         return
                     end
-                    local isZip = bundleURL:match("%.zip$")
-                    local tmpArchive = backupDir("tmp") .. (isZip and "ms_bundle_update.zip" or "ms_bundle_update.tar.gz")
-                    local tmpF = io.open(tmpArchive, "wb")
-                    if not tmpF then
-                        ms.alert("Update failed: could not write temp file.", 4)
-                        return
-                    end
-                    tmpF:write(fBody)
-                    tmpF:close()
-                    local tmpExtract = backupDir("tmp") .. "ms_bundle_extract/"
-                    os.execute("rm -rf '" .. tmpExtract .. "'")
-                    os.execute("mkdir -p '" .. tmpExtract .. "'")
-                    local _, extractOk
-                    if isZip then
-                        _, extractOk = hs.execute("unzip -o '" .. tmpArchive .. "' -d '" .. tmpExtract .. "' 2>&1")
-                    else
-                        _, extractOk = hs.execute("tar xzf '" .. tmpArchive .. "' -C '" .. tmpExtract .. "' 2>&1")
-                    end
-                    os.remove(tmpArchive)
-                    if not extractOk then
-                        os.execute("rm -rf '" .. tmpExtract .. "'")
-                        ms.dev.log({
-                            type    = "error",
-                            event   = "update_failed",
-                            reason  = "extract_failed",
-                            version = newVersion,
-                        })
-                        ms.alert("Update failed: could not extract bundle.", 5)
-                        return
-                    end
-                    local manifestPath = tmpExtract .. "MANIFEST.json"
-                    local topDir = nil
-                    local dh = io.popen("ls -d '" .. tmpExtract .. "'/mudscript-* 2>/dev/null | head -1")
-                    if dh then topDir = dh:read("*l")
-                    dh:close() end
-                    if topDir and topDir ~= "" then
-                        if not topDir:match("/$") then topDir = topDir .. "/" end
-                        local altManifest = topDir .. "MANIFEST.json"
-                        if hs.fs.attributes(altManifest) then manifestPath = altManifest end
-                    end
-                    local manifest = nil
-                    local mf = io.open(manifestPath, "r")
-                    if mf then
-                        local ok, m = pcall(hs.json.decode, mf:read("*all"))
-                        mf:close()
-                        if ok then manifest = m end
-                    end
-                    if manifest and not _verifySignature(manifest) then
-                        os.execute("rm -rf '" .. tmpExtract .. "'")
-                        return
-                    end
-                    local timestamp = os.date("%Y-%m-%d_%H%M")
-                    ms._updateInProgress = true
-                    os.execute("mkdir -p '" .. os.getenv("HOME") .. "/.hammerspoon/data'")
-                    local _sp = io.open(os.getenv("HOME") .. "/.hammerspoon/data/.ms_update_pending", "w")
-                    if _sp then _sp:close() end
-                    local ok = _applyBundleUpdate(tmpExtract, timestamp)
-                    ms._updateInProgress = false
-                    os.remove(os.getenv("HOME") .. "/.hammerspoon/data/.ms_update_pending")
-                    os.execute("rm -rf '" .. tmpExtract .. "'")
-                    if not ok then
-                        ms.dev.log({
-                            type    = "error",
-                            event   = "update_failed",
-                            reason  = "apply_failed",
-                            version = newVersion,
-                        })
-                        ms.alert("Update failed: could not apply bundle.", 5)
-                        return
-                    end
+                    local newVersion = info.version
+                    local bundleURL  = info.downloadUrl
+                    ms.alert("Downloading v" .. newVersion .. " bundle\xe2\x80\xa6", 4, true)
                     ms.dev.log({
                         type    = "system",
-                        event   = "update_applied",
+                        event   = "update_download_start",
                         version = newVersion,
                         format  = "bundle",
                     })
-                    ms.integrity.trustCurrent()
-                    ms.integrity.invalidateCache()
-                    if ms.restart then
-                        ms.restart({ update = "v" .. newVersion })
-                    else
-                        hs.reload()
-                    end
+                    hs.http.asyncGet(bundleURL, nil, function(fCode, fBody, _)
+                        if fCode ~= 200 or not fBody then
+                            ms.dev.log({
+                                type    = "error",
+                                event   = "update_failed",
+                                reason  = "download_http",
+                                code    = fCode,
+                                version = newVersion,
+                            })
+                            ms.alert("Update failed: bundle download returned " .. tostring(fCode) .. ".", 5)
+                            return
+                        end
+                        local isZip = bundleURL:match("%.zip$")
+                        local tmpArchive = backupDir("tmp") .. (isZip and "ms_bundle_update.zip" or "ms_bundle_update.tar.gz")
+                        local tmpF = io.open(tmpArchive, "wb")
+                        if not tmpF then
+                            ms.alert("Update failed: could not write temp file.", 4)
+                            return
+                        end
+                        tmpF:write(fBody)
+                        tmpF:close()
+                        local tmpExtract = backupDir("tmp") .. "ms_bundle_extract/"
+                        os.execute("rm -rf '" .. tmpExtract .. "'")
+                        os.execute("mkdir -p '" .. tmpExtract .. "'")
+                        local _, extractOk
+                        if isZip then
+                            _, extractOk = hs.execute("unzip -o '" .. tmpArchive .. "' -d '" .. tmpExtract .. "' 2>&1")
+                        else
+                            _, extractOk = hs.execute("tar xzf '" .. tmpArchive .. "' -C '" .. tmpExtract .. "' 2>&1")
+                        end
+                        os.remove(tmpArchive)
+                        if not extractOk then
+                            os.execute("rm -rf '" .. tmpExtract .. "'")
+                            ms.dev.log({
+                                type    = "error",
+                                event   = "update_failed",
+                                reason  = "extract_failed",
+                                version = newVersion,
+                            })
+                            ms.alert("Update failed: could not extract bundle.", 5)
+                            return
+                        end
+                        local manifestPath = tmpExtract .. "MANIFEST.json"
+                        local topDir = nil
+                        local dh = io.popen("ls -d '" .. tmpExtract .. "'/mudscript-* 2>/dev/null | head -1")
+                        if dh then topDir = dh:read("*l")
+                        dh:close() end
+                        if topDir and topDir ~= "" then
+                            if not topDir:match("/$") then topDir = topDir .. "/" end
+                            local altManifest = topDir .. "MANIFEST.json"
+                            if hs.fs.attributes(altManifest) then manifestPath = altManifest end
+                        end
+                        local manifest = nil
+                        local mf = io.open(manifestPath, "r")
+                        if mf then
+                            local ok, m = pcall(hs.json.decode, mf:read("*all"))
+                            mf:close()
+                            if ok then manifest = m end
+                        end
+                        if manifest and not _verifySignature(manifest) then
+                            os.execute("rm -rf '" .. tmpExtract .. "'")
+                            return
+                        end
+                        local timestamp = os.date("%Y-%m-%d_%H%M")
+                        ms._updateInProgress = true
+                        os.execute("mkdir -p '" .. os.getenv("HOME") .. "/.hammerspoon/data'")
+                        local _sp = io.open(os.getenv("HOME") .. "/.hammerspoon/data/.ms_update_pending", "w")
+                        if _sp then _sp:close() end
+                        local ok = _applyBundleUpdate(tmpExtract, timestamp)
+                        ms._updateInProgress = false
+                        os.remove(os.getenv("HOME") .. "/.hammerspoon/data/.ms_update_pending")
+                        os.execute("rm -rf '" .. tmpExtract .. "'")
+                        if not ok then
+                            ms.dev.log({
+                                type    = "error",
+                                event   = "update_failed",
+                                reason  = "apply_failed",
+                                version = newVersion,
+                            })
+                            ms.alert("Update failed: could not apply bundle.", 5)
+                            return
+                        end
+                        ms.dev.log({
+                            type    = "system",
+                            event   = "update_applied",
+                            version = newVersion,
+                            format  = "bundle",
+                        })
+                        ms.integrity.trustCurrent()
+                        ms.integrity.invalidateCache()
+                        if ms.restart then
+                            ms.restart({ update = "v" .. newVersion })
+                        else
+                            hs.reload()
+                        end
+                    end)
                 end)
-            end)
-        end
+            end
         -- END Update --
 
         -- Update Beta [testing channel] --
-        ms.integrity.updateBeta = function()
-            ms.dev.log({
-                type    = "system",
-                event   = "update_start",
-                channel = "testing",
-                source  = ms._testingSource or "release",
-            })
-            ms.alert("Checking for testing update\\xe2\\x80\\xa6", 4, true)
-
-            local fetchFn = (ms._testingSource == "artifact") and _fetchArtifactInfo
-                or function(cb) _fetchReleaseInfo("testing", cb) end
-
-            fetchFn(function(info)
-                if not info then
-                    ms.dev.log({
-                        type   = "error",
-                        event  = "update_failed",
-                        reason = (ms._testingSource == "artifact") and "artifact_fetch" or "release_fetch",
-                    })
-                    if ms._testingSource == "artifact" then
-                        if not ms._githubToken or ms._githubToken == "" then
-                            ms.alert("Update failed: no GitHub token configured.\\nSet one in Settings \\xe2\\x86\\x92 Developer.", 6)
-                        else
-                            ms.alert("Update failed: could not fetch artifact.\\nCheck your GitHub token has actions:read permission.", 6)
-                        end
-                    else
-                        ms.alert("Update failed: could not fetch testing release info.", 5)
-                    end
-                    return
-                end
-                local newVersion = info.version
-
-                if not _testingIsNewer(info) then
-                    local lm = _localManifest() or {}
-                    ms.alert("Already on the latest testing version (v" .. tostring(lm.version) .. ").", 4, true)
-                    return
-                end
-
-                local label = info.build and ("build " .. info.build) or ("v" .. newVersion)
-                local bundleURL  = info.downloadUrl
-                ms.alert("Downloading " .. label .. " bundle\xe2\x80\xa6", 4, true)
+            ms.integrity.updateBeta = function()
                 ms.dev.log({
                     type    = "system",
-                    event   = "update_download_start",
-                    version = newVersion,
-                    format  = "bundle",
+                    event   = "update_start",
+                    channel = "testing",
+                    source  = ms._testingSource or "release",
                 })
-                hs.http.asyncGet(bundleURL, info.headers or nil, function(fCode, fBody, _)
-                    if fCode ~= 200 or not fBody then
+                ms.alert("Checking for testing update\\xe2\\x80\\xa6", 4, true)
+
+                local fetchFn = (ms._testingSource == "artifact") and _fetchArtifactInfo
+                    or function(cb) _fetchReleaseInfo("testing", cb) end
+
+                fetchFn(function(info)
+                    if not info then
                         ms.dev.log({
-                            type    = "error",
-                            event   = "update_failed",
-                            reason  = "download_http",
-                            code    = fCode,
-                            version = newVersion,
+                            type   = "error",
+                            event  = "update_failed",
+                            reason = (ms._testingSource == "artifact") and "artifact_fetch" or "release_fetch",
                         })
-                        ms.alert("Update failed: bundle download returned " .. tostring(fCode) .. ".", 5)
+                        if ms._testingSource == "artifact" then
+                            if not ms._githubToken or ms._githubToken == "" then
+                                ms.alert("Update failed: no GitHub token configured.\\nSet one in Settings \\xe2\\x86\\x92 Developer.", 6)
+                            else
+                                ms.alert("Update failed: could not fetch artifact.\\nCheck your GitHub token has actions:read permission.", 6)
+                            end
+                        else
+                            ms.alert("Update failed: could not fetch testing release info.", 5)
+                        end
                         return
                     end
-                    local isZip = bundleURL:match("%.zip$")
-                    local tmpArchive = backupDir("tmp") .. (isZip and "ms_bundle_update.zip" or "ms_bundle_update.tar.gz")
-                    local tmpF = io.open(tmpArchive, "wb")
-                    if not tmpF then
-                        ms.alert("Update failed: could not write temp file.", 4)
+                    local newVersion = info.version
+
+                    if not _testingIsNewer(info) then
+                        local lm = _localManifest() or {}
+                        ms.alert("Already on the latest testing version (v" .. tostring(lm.version) .. ").", 4, true)
                         return
                     end
-                    tmpF:write(fBody)
-                    tmpF:close()
-                    local tmpExtract = backupDir("tmp") .. "ms_bundle_extract/"
-                    os.execute("rm -rf '" .. tmpExtract .. "'")
-                    os.execute("mkdir -p '" .. tmpExtract .. "'")
-                    local _, extractOk
-                    if isZip then
-                        _, extractOk = hs.execute("unzip -o '" .. tmpArchive .. "' -d '" .. tmpExtract .. "' 2>&1")
-                    else
-                        _, extractOk = hs.execute("tar xzf '" .. tmpArchive .. "' -C '" .. tmpExtract .. "' 2>&1")
-                    end
-                    os.remove(tmpArchive)
-                    if not extractOk then
-                        os.execute("rm -rf '" .. tmpExtract .. "'")
-                        ms.dev.log({
-                            type    = "error",
-                            event   = "update_failed",
-                            reason  = "extract_failed",
-                            version = newVersion,
-                        })
-                        ms.alert("Update failed: could not extract bundle.", 5)
-                        return
-                    end
-                    local manifestPath = tmpExtract .. "MANIFEST.json"
-                    local topDir = nil
-                    local dh = io.popen("ls -d '" .. tmpExtract .. "'/mudscript-* 2>/dev/null | head -1")
-                    if dh then topDir = dh:read("*l")
-                    dh:close() end
-                    if topDir and topDir ~= "" then
-                        if not topDir:match("/$") then topDir = topDir .. "/" end
-                        local altManifest = topDir .. "MANIFEST.json"
-                        if hs.fs.attributes(altManifest) then manifestPath = altManifest end
-                    end
-                    local manifest = nil
-                    local mf = io.open(manifestPath, "r")
-                    if mf then
-                        local ok, m = pcall(hs.json.decode, mf:read("*all"))
-                        mf:close()
-                        if ok then manifest = m end
-                    end
-                    if manifest and not _verifySignature(manifest) then
-                        os.execute("rm -rf '" .. tmpExtract .. "'")
-                        return
-                    end
-                    local timestamp = os.date("%Y-%m-%d_%H%M")
-                    ms._updateInProgress = true
-                    os.execute("mkdir -p '" .. os.getenv("HOME") .. "/.hammerspoon/data'")
-                    local _sp = io.open(os.getenv("HOME") .. "/.hammerspoon/data/.ms_update_pending", "w")
-                    if _sp then _sp:close() end
-                    local ok = _applyBundleUpdate(tmpExtract, timestamp)
-                    ms._updateInProgress = false
-                    os.remove(os.getenv("HOME") .. "/.hammerspoon/data/.ms_update_pending")
-                    os.execute("rm -rf '" .. tmpExtract .. "'")
-                    if not ok then
-                        ms.dev.log({
-                            type    = "error",
-                            event   = "update_failed",
-                            reason  = "apply_failed",
-                            version = newVersion,
-                        })
-                        ms.alert("Update failed: could not apply bundle.", 5)
-                        return
-                    end
+
+                    local label = info.build and ("build " .. info.build) or ("v" .. newVersion)
+                    local bundleURL  = info.downloadUrl
+                    ms.alert("Downloading " .. label .. " bundle\xe2\x80\xa6", 4, true)
                     ms.dev.log({
                         type    = "system",
-                        event   = "update_applied",
+                        event   = "update_download_start",
                         version = newVersion,
                         format  = "bundle",
                     })
-                    ms.integrity.trustCurrent()
-                    ms.integrity.invalidateCache()
-                    if ms.restart then
-                        ms.restart({ update = label })
-                    else
-                        hs.reload()
-                    end
+                    hs.http.asyncGet(bundleURL, info.headers or nil, function(fCode, fBody, _)
+                        if fCode ~= 200 or not fBody then
+                            ms.dev.log({
+                                type    = "error",
+                                event   = "update_failed",
+                                reason  = "download_http",
+                                code    = fCode,
+                                version = newVersion,
+                            })
+                            ms.alert("Update failed: bundle download returned " .. tostring(fCode) .. ".", 5)
+                            return
+                        end
+                        local isZip = bundleURL:match("%.zip$")
+                        local tmpArchive = backupDir("tmp") .. (isZip and "ms_bundle_update.zip" or "ms_bundle_update.tar.gz")
+                        local tmpF = io.open(tmpArchive, "wb")
+                        if not tmpF then
+                            ms.alert("Update failed: could not write temp file.", 4)
+                            return
+                        end
+                        tmpF:write(fBody)
+                        tmpF:close()
+                        local tmpExtract = backupDir("tmp") .. "ms_bundle_extract/"
+                        os.execute("rm -rf '" .. tmpExtract .. "'")
+                        os.execute("mkdir -p '" .. tmpExtract .. "'")
+                        local _, extractOk
+                        if isZip then
+                            _, extractOk = hs.execute("unzip -o '" .. tmpArchive .. "' -d '" .. tmpExtract .. "' 2>&1")
+                        else
+                            _, extractOk = hs.execute("tar xzf '" .. tmpArchive .. "' -C '" .. tmpExtract .. "' 2>&1")
+                        end
+                        os.remove(tmpArchive)
+                        if not extractOk then
+                            os.execute("rm -rf '" .. tmpExtract .. "'")
+                            ms.dev.log({
+                                type    = "error",
+                                event   = "update_failed",
+                                reason  = "extract_failed",
+                                version = newVersion,
+                            })
+                            ms.alert("Update failed: could not extract bundle.", 5)
+                            return
+                        end
+                        local manifestPath = tmpExtract .. "MANIFEST.json"
+                        local topDir = nil
+                        local dh = io.popen("ls -d '" .. tmpExtract .. "'/mudscript-* 2>/dev/null | head -1")
+                        if dh then topDir = dh:read("*l")
+                        dh:close() end
+                        if topDir and topDir ~= "" then
+                            if not topDir:match("/$") then topDir = topDir .. "/" end
+                            local altManifest = topDir .. "MANIFEST.json"
+                            if hs.fs.attributes(altManifest) then manifestPath = altManifest end
+                        end
+                        local manifest = nil
+                        local mf = io.open(manifestPath, "r")
+                        if mf then
+                            local ok, m = pcall(hs.json.decode, mf:read("*all"))
+                            mf:close()
+                            if ok then manifest = m end
+                        end
+                        if manifest and not _verifySignature(manifest) then
+                            os.execute("rm -rf '" .. tmpExtract .. "'")
+                            return
+                        end
+                        local timestamp = os.date("%Y-%m-%d_%H%M")
+                        ms._updateInProgress = true
+                        os.execute("mkdir -p '" .. os.getenv("HOME") .. "/.hammerspoon/data'")
+                        local _sp = io.open(os.getenv("HOME") .. "/.hammerspoon/data/.ms_update_pending", "w")
+                        if _sp then _sp:close() end
+                        local ok = _applyBundleUpdate(tmpExtract, timestamp)
+                        ms._updateInProgress = false
+                        os.remove(os.getenv("HOME") .. "/.hammerspoon/data/.ms_update_pending")
+                        os.execute("rm -rf '" .. tmpExtract .. "'")
+                        if not ok then
+                            ms.dev.log({
+                                type    = "error",
+                                event   = "update_failed",
+                                reason  = "apply_failed",
+                                version = newVersion,
+                            })
+                            ms.alert("Update failed: could not apply bundle.", 5)
+                            return
+                        end
+                        ms.dev.log({
+                            type    = "system",
+                            event   = "update_applied",
+                            version = newVersion,
+                            format  = "bundle",
+                        })
+                        ms.integrity.trustCurrent()
+                        ms.integrity.invalidateCache()
+                        if ms.restart then
+                            ms.restart({ update = label })
+                        else
+                            hs.reload()
+                        end
+                    end)
                 end)
-            end)
-        end
+            end
         -- END Update Beta --
 
         -- Check For Update [stable channel] --
-        ms.integrity.checkForUpdate = function(callback)
-            local localVersion
-            do
-                local lf = io.open(os.getenv("HOME") .. "/.hammerspoon/MANIFEST.json", "r")
-                if lf then
-                    local ok, lm = pcall(hs.json.decode, lf:read("*all"))
-                    lf:close()
-                    if ok and lm and lm.version then localVersion = lm.version end
-                end
-            end
-            _fetchReleaseInfo("stable", function(info)
-                if not info then
-                    ms.dev.log({
-                        type    = "error",
-                        event   = "update_check_failed",
-                        channel = "stable",
-                    })
-                    if callback then pcall(callback, nil) end
-                    return
-                end
-                local remoteVersion = info.version
-                if _remoteIsNewer(localVersion, remoteVersion) then
-                    ms.dev.log({
-                        type     = "system",
-                        event    = "update_available",
-                        local_v  = localVersion,
-                        remote_v = remoteVersion,
-                        channel  = "stable",
-                    })
-                    if callback then
-                        pcall(callback, {
-                            version = remoteVersion or "?",
-                            sha256  = info.sha256,
-                        })
+            ms.integrity.checkForUpdate = function(callback)
+                local localVersion
+                do
+                    local lf = io.open(os.getenv("HOME") .. "/.hammerspoon/MANIFEST.json", "r")
+                    if lf then
+                        local ok, lm = pcall(hs.json.decode, lf:read("*all"))
+                        lf:close()
+                        if ok and lm and lm.version then localVersion = lm.version end
                     end
-                    return
                 end
-                if callback then pcall(callback, nil) end
-            end)
-        end
+                _fetchReleaseInfo("stable", function(info)
+                    if not info then
+                        ms.dev.log({
+                            type    = "error",
+                            event   = "update_check_failed",
+                            channel = "stable",
+                        })
+                        if callback then pcall(callback, nil) end
+                        return
+                    end
+                    local remoteVersion = info.version
+                    if _remoteIsNewer(localVersion, remoteVersion) then
+                        ms.dev.log({
+                            type     = "system",
+                            event    = "update_available",
+                            local_v  = localVersion,
+                            remote_v = remoteVersion,
+                            channel  = "stable",
+                        })
+                        if callback then
+                            pcall(callback, {
+                                version = remoteVersion or "?",
+                                sha256  = info.sha256,
+                            })
+                        end
+                        return
+                    end
+                    if callback then pcall(callback, nil) end
+                end)
+            end
         -- END Check For Update --
 
         -- Check For Update Beta [testing channel] --
-        ms.integrity.checkForUpdateBeta = function(callback)
-            local localVersion
-            do
-                local lf = io.open(os.getenv("HOME") .. "/.hammerspoon/MANIFEST.json", "r")
-                if lf then
-                    local ok, lm = pcall(hs.json.decode, lf:read("*all"))
-                    lf:close()
-                    if ok and lm and lm.version then localVersion = lm.version end
-                end
-            end
-            _fetchReleaseInfo("testing", function(info)
-                if not info then
-                    if callback then pcall(callback, nil) end
-                    return
-                end
-                local remoteVersion = info.version
-                if _testingIsNewer(info) then
-                    ms.dev.log({
-                        type     = "system",
-                        event    = "update_available",
-                        local_v  = localVersion,
-                        remote_v = remoteVersion,
-                        channel  = "testing",
-                    })
-                    if callback then
-                        pcall(callback, {
-                            version = remoteVersion or "?",
-                            sha256  = info.sha256,
-                        })
+            ms.integrity.checkForUpdateBeta = function(callback)
+                local localVersion
+                do
+                    local lf = io.open(os.getenv("HOME") .. "/.hammerspoon/MANIFEST.json", "r")
+                    if lf then
+                        local ok, lm = pcall(hs.json.decode, lf:read("*all"))
+                        lf:close()
+                        if ok and lm and lm.version then localVersion = lm.version end
                     end
-                else
-                    if callback then pcall(callback, nil) end
                 end
-            end)
-        end
+                _fetchReleaseInfo("testing", function(info)
+                    if not info then
+                        if callback then pcall(callback, nil) end
+                        return
+                    end
+                    local remoteVersion = info.version
+                    if _testingIsNewer(info) then
+                        ms.dev.log({
+                            type     = "system",
+                            event    = "update_available",
+                            local_v  = localVersion,
+                            remote_v = remoteVersion,
+                            channel  = "testing",
+                        })
+                        if callback then
+                            pcall(callback, {
+                                version = remoteVersion or "?",
+                                sha256  = info.sha256,
+                            })
+                        end
+                    else
+                        if callback then pcall(callback, nil) end
+                    end
+                end)
+            end
         -- END Check For Update Beta --
 
         -- Check For Content Updates [installed packages & plugins] --
-        ms.integrity.checkContentUpdates = function(callback)
-            local function scan()
-                local installed = {}
-                if ms.package and ms.package.listPlugins then
-                    local okP, plugins = pcall(ms.package.listPlugins)
-                    if okP and type(plugins) == "table" then
-                        for _, p in ipairs(plugins) do
-                            if p.id and type(p.version) == "string" then
-                                installed[p.id] = {
-                                    version = p.version,
-                                    type    = "plugin",
-                                    name    = p.name or p.id,
-                                }
+            ms.integrity.checkContentUpdates = function(callback)
+                local function scan()
+                    local installed = {}
+                    if ms.package and ms.package.listPlugins then
+                        local okP, plugins = pcall(ms.package.listPlugins)
+                        if okP and type(plugins) == "table" then
+                            for _, p in ipairs(plugins) do
+                                if p.id and type(p.version) == "string" then
+                                    installed[p.id] = {
+                                        version = p.version,
+                                        type    = "plugin",
+                                        name    = p.name or p.id,
+                                    }
+                                end
                             end
                         end
                     end
-                end
-                if ms.package and ms.package.listContent then
-                    local okC, content = pcall(ms.package.listContent)
-                    if okC and type(content) == "table" then
-                        for id, rec in pairs(content) do
-                            if installed[id] == nil and type(rec) == "table"
-                                and type(rec.version) == "string" then
-                                installed[id] = {
-                                    version = rec.version,
-                                    type    = rec.type or "content",
-                                    name    = rec.name or id,
-                                }
+                    if ms.package and ms.package.listContent then
+                        local okC, content = pcall(ms.package.listContent)
+                        if okC and type(content) == "table" then
+                            for id, rec in pairs(content) do
+                                if installed[id] == nil and type(rec) == "table"
+                                    and type(rec.version) == "string" then
+                                    installed[id] = {
+                                        version = rec.version,
+                                        type    = rec.type or "content",
+                                        name    = rec.name or id,
+                                    }
+                                end
                             end
                         end
                     end
-                end
-                local entries = (ms.registry and ms.registry.list)
-                    and ms.registry.list({}) or {}
-                local out = {}
-                for _, e in ipairs(entries) do
-                    local inst = e.id and installed[e.id]
-                    if inst and type(e.version) == "string"
-                        and _remoteIsNewer(inst.version, e.version) then
-                        out[#out + 1] = {
-                            id   = e.id,
-                            name = e.name or inst.name or e.id,
-                            type = e.type or inst.type,
-                            from = inst.version,
-                            to   = e.version,
-                        }
+                    local entries = (ms.registry and ms.registry.list)
+                        and ms.registry.list({}) or {}
+                    local out = {}
+                    for _, e in ipairs(entries) do
+                        local inst = e.id and installed[e.id]
+                        if inst and type(e.version) == "string"
+                            and _remoteIsNewer(inst.version, e.version) then
+                            out[#out + 1] = {
+                                id   = e.id,
+                                name = e.name or inst.name or e.id,
+                                type = e.type or inst.type,
+                                from = inst.version,
+                                to   = e.version,
+                            }
+                        end
                     end
+                    return out
                 end
-                return out
-            end
-            if ms.registry and ms.registry.refresh then
-                ms.registry.refresh({ force = true }, function()
+                if ms.registry and ms.registry.refresh then
+                    ms.registry.refresh({ force = true }, function()
+                        if callback then pcall(callback, scan()) end
+                    end)
+                else
                     if callback then pcall(callback, scan()) end
-                end)
-            else
-                if callback then pcall(callback, scan()) end
+                end
             end
-        end
         -- END Check For Content Updates --
     -- END System Integrity --
 
@@ -1165,7 +1165,6 @@ return function(ms, ctx)
             end)
         end
 
-        -- Swap a Mouse 3+ trigger for its declared fallback key in trackpad mode
         local TRACKPAD_MAX_BUTTON = 2
         local function trackpadFallback(bind, rootId)
             if not ms.trackpadMode or type(bind) ~= "table" then return bind end
@@ -1175,8 +1174,11 @@ return function(ms, ctx)
             local rootDef = ms.registry._defs and ms.registry._defs[rootId]
             local fb = rootDef and rootDef.trackpad
             if type(fb) ~= "table" or not fb.key then return bind end
-            -- Keep the resolved bind's own modifiers unless the fallback overrides them
-            return { type = "key", key = fb.key, mods = fb.mods or bind.mods or {} }
+            return {
+                type = "key",
+                key = fb.key,
+                mods = fb.mods or bind.mods or {},
+            }
         end
 
         ms.effectiveBind = function(id)
