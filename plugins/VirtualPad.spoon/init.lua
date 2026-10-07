@@ -85,6 +85,7 @@ function obj:init()
         held      = {},
         axes      = {},
         stopped   = false,
+        outBuf    = "",
     }
 
     -- Helpers --
@@ -119,7 +120,14 @@ function obj:init()
         local start
 
         local function onOutput(_, out)
-            for line in tostring(out or ""):gmatch("[^\n]+") do
+            local buf = state.outBuf .. tostring(out or "")
+            local cut = buf:match(".*()\n")
+            if not cut then
+                state.outBuf = buf
+                return true
+            end
+            state.outBuf = buf:sub(cut + 1)
+            for line in buf:sub(1, cut - 1):gmatch("[^\n]+") do
                 local ok, msg = pcall(hs.json.decode, line)
                 if ok and type(msg) == "table" then
                     if msg.e == "pad" then
@@ -147,6 +155,7 @@ function obj:init()
 
         local function launch()
             if state.stopped or (state.task and state.task:isRunning()) then return end
+            state.outBuf = ""
             state.task = hs.task.new(BIN, function(code)
                 state.ready = false
                 state.pad = nil
