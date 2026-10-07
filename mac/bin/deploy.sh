@@ -165,4 +165,5 @@ rm -f "$HS/data/.ms_file_manifest.json"
 rm -f "$SENTINEL"
 
 BUILD=$(cat "$BUILD_NUM_FILE" 2>/dev/null || echo "0")
-echo "Deployed. Hash: ${HASH:0:16}... (build $STABLE_VER-pre.$BUILD)"
+NEXT_VER=$(printf '%s' "$STABLE_VER" | awk -F. -v OFS=. '{ $NF = $NF + 1; print }')
+echo "Deployed. Hash: ${HASH:0:16}... (build $NEXT_VER-pre.$BUILD)"
