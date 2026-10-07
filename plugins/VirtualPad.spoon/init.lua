@@ -480,7 +480,7 @@ function obj:init()
                     send("axis " .. a .. " off")
                 end
             end
-            return unpack(r)
+            return (table.unpack or unpack)(r)
         end
     -- END Cancel Hook --
 
