@@ -66,7 +66,7 @@ obj.license = "MIT"
     end
 
     local function quitTask(task)
-        task:setInput("reset\n")
+        if not task:isRunning() then return end
         if IS_WIN then
             task:closeInput()
         else
