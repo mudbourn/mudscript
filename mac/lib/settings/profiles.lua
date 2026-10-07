@@ -258,6 +258,20 @@ return function(ms, ctx)
             local currentName = activeProfile()
             if currentName == "" then currentName = "unnamed" end
             pcall(ms.saveSettings)
+            if ms.package and ms.package.libraryCapture
+                and ms.package.libraryGetActive and ms.package.libraryHasEntry then
+                local kinds = {
+                    "theme",
+                    "sound",
+                    "macro",
+                }
+                for _, k in ipairs(kinds) do
+                    local into = ms.package.libraryGetActive(k)
+                    if into and ms.package.libraryHasEntry(k, into) then
+                        pcall(ms.package.libraryCapture, k, nil, into)
+                    end
+                end
+            end
             hs.fs.mkdir(profilesPath)
             hs.fs.mkdir(profilesPath .. currentName)
 

@@ -309,6 +309,7 @@
                 var fn = REGISTRY[i];
                 if (fn.plugin) continue;
                 if (q && fn.name.toLowerCase().indexOf(q) === -1
+                       && (fn.label || "").toLowerCase().indexOf(q) === -1
                        && fn.desc.toLowerCase().indexOf(q) === -1
                        && fn.category.toLowerCase().indexOf(q) === -1) {
                     continue;

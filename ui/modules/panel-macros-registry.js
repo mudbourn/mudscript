@@ -28,6 +28,7 @@
             {
                 id: "ms.type",
                 name: "ms.type",
+                label: "Type Key",
                 sig: "ms.type(key, mods)",
                 desc: "Type a key with optional modifiers. Full keypress cycle (down+up).",
                 category: "input",
@@ -39,6 +40,7 @@
             {
                 id: "ms.press",
                 name: "ms.press",
+                label: "Press Key",
                 sig: "ms.press(key, mods)",
                 desc: "Send key-down only.",
                 category: "input",
@@ -50,6 +52,7 @@
             {
                 id: "ms.release",
                 name: "ms.release",
+                label: "Release Key",
                 sig: "ms.release(key)",
                 desc: "Send key-up only.",
                 category: "input",
@@ -60,6 +63,7 @@
             {
                 id: "ms.hold",
                 name: "ms.hold",
+                label: "Hold Key",
                 sig: "ms.hold(key)",
                 desc: "Hold a key down without releasing.",
                 category: "input",
@@ -70,6 +74,7 @@
             {
                 id: "ms.toggle",
                 name: "ms.toggle",
+                label: "Toggle Key",
                 sig: "ms.toggle(key, mods)",
                 desc: "Toggle a key: if held, release; if not held, press.",
                 category: "input",
@@ -81,6 +86,7 @@
             {
                 id: "ms.multiPress",
                 name: "ms.multiPress",
+                label: "Press Key Sequence",
                 sig: "ms.multiPress(keys, delayMs, mods)",
                 desc: "Press a sequence of keys in order with optional delay.",
                 category: "input",
@@ -94,6 +100,7 @@
             {
                 id: "ms.copy",
                 name: "ms.copy",
+                label: "Copy Text",
                 sig: "ms.copy(text)",
                 desc: "Copy text to system clipboard.",
                 category: "clipboard",
@@ -104,6 +111,7 @@
             {
                 id: "ms.paste",
                 name: "ms.paste",
+                label: "Paste Text",
                 sig: "ms.paste()",
                 desc: "Paste current clipboard contents.",
                 category: "clipboard",
@@ -113,6 +121,7 @@
             {
                 id: "ms.wait",
                 name: "ms.wait",
+                label: "Wait",
                 sig: "ms.wait(ms)",
                 desc: "Pause macro execution for N milliseconds.",
                 category: "timing",
@@ -123,6 +132,7 @@
             {
                 id: "action_delay",
                 name: "action_delay",
+                label: "Step Delay",
                 sig: "set action delay (ms)",
                 desc: "Keyboard-Maestro style: auto-insert this pause between all following steps (0 = off).",
                 category: "timing",
@@ -133,6 +143,7 @@
             {
                 id: "ms.randWait",
                 name: "ms.randWait",
+                label: "Random Wait",
                 sig: "ms.randWait(min, max)",
                 desc: "Wait a random duration between min and max ms.",
                 category: "timing",
@@ -144,6 +155,7 @@
             {
                 id: "ms.jitter",
                 name: "ms.jitter",
+                label: "Jittered Wait",
                 sig: "ms.jitter(base, jitterMs)",
                 desc: "Wait base ms plus/minus random jitter.",
                 category: "timing",
@@ -155,6 +167,7 @@
             {
                 id: "ms.waitApp",
                 name: "ms.waitApp",
+                label: "Wait for App",
                 sig: "ms.waitApp(appName, timeout)",
                 desc: "Wait until an app is running.",
                 category: "timing",
@@ -166,6 +179,7 @@
             {
                 id: "ms.waitNotApp",
                 name: "ms.waitNotApp",
+                label: "Wait for App to Leave",
                 sig: "ms.waitNotApp(appName, timeout)",
                 desc: "Wait until an app stops running.",
                 category: "timing",
@@ -178,6 +192,7 @@
             {
                 id: "ms.Mouse",
                 name: "ms.Mouse",
+                label: "Mouse Action",
                 sig: "ms.Mouse(operation, button, reference, x1, y1, x2, y2, holdMs)",
                 desc: "Unified mouse API (click, move, drag at coordinates).",
                 category: "mouse",
@@ -195,6 +210,7 @@
             {
                 id: "ms.scroll",
                 name: "ms.scroll",
+                label: "Scroll",
                 sig: "ms.scroll(direction, clicks)",
                 desc: "Post a scroll event.",
                 category: "mouse",
@@ -206,6 +222,7 @@
             {
                 id: "ms.moveMouse",
                 name: "ms.moveMouse",
+                label: "Move Mouse",
                 sig: "ms.moveMouse(x, y, ref, durationMs)",
                 desc: "Smooth mouse movement.",
                 category: "mouse",
@@ -219,6 +236,7 @@
             {
                 id: "ms.dragPath",
                 name: "ms.dragPath",
+                label: "Drag Along Path",
                 sig: "ms.dragPath(points, button, ref, delayMs)",
                 desc: "Drag through a sequence of points.",
                 category: "mouse",
@@ -232,6 +250,7 @@
             {
                 id: "ms.saveCursor",
                 name: "ms.saveCursor",
+                label: "Save Cursor",
                 sig: "ms.saveCursor()",
                 desc: "Save current mouse position.",
                 category: "mouse",
@@ -240,6 +259,7 @@
             {
                 id: "ms.restoreCursor",
                 name: "ms.restoreCursor",
+                label: "Restore Cursor",
                 sig: "ms.restoreCursor()",
                 desc: "Restore saved mouse position.",
                 category: "mouse",
@@ -249,6 +269,7 @@
             {
                 id: "ms.window",
                 name: "ms.window",
+                label: "Move or Resize Window",
                 sig: "ms.window(operation, x, y, w, h)",
                 desc: "Move or resize the focused window. Move uses (x,y); Resize uses (x=width, y=height); Frame uses all four.",
                 category: "window",
@@ -263,6 +284,7 @@
             {
                 id: "ms.windowPos",
                 name: "ms.windowPos",
+                label: "Window Position",
                 sig: "ms.windowPos(appName)",
                 desc: "Get the position of an app's window.",
                 category: "window",
@@ -274,6 +296,7 @@
             {
                 id: "ms.cam",
                 name: "ms.cam",
+                label: "Move Camera",
                 sig: "ms.cam(dy, dx)",
                 desc: "Move camera by delta. Note: params are (dy, dx), vertical first.",
                 category: "camera",
@@ -285,6 +308,7 @@
             {
                 id: "ms.cam.rebalance",
                 name: "ms.cam.rebalance",
+                label: "Rebalance Camera",
                 sig: "ms.cam.rebalance()",
                 desc: "Rebalance camera to neutral.",
                 category: "camera",
@@ -293,6 +317,7 @@
             {
                 id: "ms.cam.reset",
                 name: "ms.cam.reset",
+                label: "Reset Camera",
                 sig: "ms.cam.reset()",
                 desc: "Reset camera to default.",
                 category: "camera",
@@ -302,6 +327,7 @@
             {
                 id: "ms.pixelColor",
                 name: "ms.pixelColor",
+                label: "Pixel Color",
                 sig: "ms.pixelColor(x, y, reference)",
                 desc: "Get pixel hex color at position.",
                 category: "pixel",
@@ -314,6 +340,7 @@
             {
                 id: "ms.pixelMatch",
                 name: "ms.pixelMatch",
+                label: "Pixel Matches",
                 sig: "ms.pixelMatch(x, y, reference, color, tolerance)",
                 desc: "Check if pixel matches color.",
                 category: "pixel",
@@ -328,6 +355,7 @@
             {
                 id: "ms.waitPixel",
                 name: "ms.waitPixel",
+                label: "Wait for Pixel",
                 sig: "ms.waitPixel(x, y, ref, color, tolerance, timeout)",
                 desc: "Wait until pixel matches color.",
                 category: "pixel",
@@ -343,6 +371,7 @@
             {
                 id: "ms.waitNotPixel",
                 name: "ms.waitNotPixel",
+                label: "Wait for Pixel to Change",
                 sig: "ms.waitNotPixel(x, y, ref, color, tolerance, timeout)",
                 desc: "Wait until pixel changes.",
                 category: "pixel",
@@ -359,6 +388,7 @@
             {
                 id: "ms.ocr",
                 name: "ms.ocr",
+                label: "Read Screen Text",
                 sig: "ms.ocr(x, y, w, h)",
                 desc: "OCR a screen region and return its text. Blank W/H = whole screen.",
                 category: "ocr",
@@ -372,6 +402,7 @@
             {
                 id: "ms.readNumber",
                 name: "ms.readNumber",
+                label: "Read Number",
                 sig: "ms.readNumber(x, y, w, h)",
                 desc: "OCR a region and return the first number in it.",
                 category: "ocr",
@@ -385,6 +416,7 @@
             {
                 id: "ms.findText",
                 name: "ms.findText",
+                label: "Find Text",
                 sig: "ms.findText(text, x, y, w, h)",
                 desc: "Find text on screen; returns its center {x,y} to click.",
                 category: "ocr",
@@ -399,6 +431,7 @@
             {
                 id: "ms.waitText",
                 name: "ms.waitText",
+                label: "Wait for Text",
                 sig: "ms.waitText(text, x, y, w, h, timeout)",
                 desc: "Wait until text appears in a region; returns its {x,y}.",
                 category: "ocr",
@@ -415,6 +448,7 @@
             {
                 id: "ms.app",
                 name: "ms.app",
+                label: "Frontmost App",
                 sig: "ms.app()",
                 desc: "Get frontmost app name.",
                 category: "state",
@@ -423,6 +457,7 @@
             {
                 id: "ms.appRunning",
                 name: "ms.appRunning",
+                label: "App Is Running",
                 sig: "ms.appRunning(appName)",
                 desc: "Check if app is running.",
                 category: "state",
@@ -433,6 +468,7 @@
             {
                 id: "ms.appIsFront",
                 name: "ms.appIsFront",
+                label: "App Is Frontmost",
                 sig: "ms.appIsFront(appName)",
                 desc: "Check if app is frontmost.",
                 category: "state",
@@ -443,6 +479,7 @@
             {
                 id: "ms.focus",
                 name: "ms.focus",
+                label: "Focus App",
                 sig: "ms.focus(appName)",
                 desc: "Bring app to front.",
                 category: "state",
@@ -453,6 +490,7 @@
             {
                 id: "ms.keystate",
                 name: "ms.keystate",
+                label: "Key Is Held",
                 sig: "ms.keystate(key)",
                 desc: "Check if a key is currently held.",
                 category: "state",
@@ -463,6 +501,7 @@
             {
                 id: "ms.mousePos",
                 name: "ms.mousePos",
+                label: "Mouse Position",
                 sig: "ms.mousePos()",
                 desc: "Get cursor position in reference-space.",
                 category: "state",
@@ -471,6 +510,7 @@
             {
                 id: "ms.mousestate",
                 name: "ms.mousestate",
+                label: "Mouse Button Is Held",
                 sig: "ms.mousestate(button)",
                 desc: "Check if a mouse button is currently held (left/right/middle).",
                 category: "state",
@@ -481,6 +521,7 @@
             {
                 id: "ms.padstate",
                 name: "ms.padstate",
+                label: "Pad Button Is Held",
                 sig: "ms.padstate(button)",
                 desc: "Check if a controller button is currently held.",
                 category: "state",
@@ -491,6 +532,7 @@
             {
                 id: "ms.padaxis",
                 name: "ms.padaxis",
+                label: "Pad Axis Value",
                 sig: "ms.padaxis(axis)",
                 desc: "Read a stick (x, y from -1 to 1) or trigger (0 to 1).",
                 category: "state",
@@ -502,6 +544,7 @@
             {
                 id: "ms.sound",
                 name: "ms.sound",
+                label: "Play Sound",
                 sig: "ms.sound(path, async)",
                 desc: "Play a sound file.",
                 category: "audio",
@@ -513,6 +556,7 @@
             {
                 id: "ms.playSlot",
                 name: "ms.playSlot",
+                label: "Play Sound Slot",
                 sig: "ms.playSlot(slotId)",
                 desc: "Play a named sound slot.",
                 category: "audio",
@@ -523,6 +567,7 @@
             {
                 id: "ms.setVolume",
                 name: "ms.setVolume",
+                label: "Set Volume",
                 sig: "ms.setVolume(level)",
                 desc: "Set system volume (0-100).",
                 category: "audio",
@@ -533,6 +578,7 @@
             {
                 id: "ms.mute",
                 name: "ms.mute",
+                label: "Mute",
                 sig: "ms.mute()",
                 desc: "Mute system audio.",
                 category: "audio",
@@ -541,6 +587,7 @@
             {
                 id: "ms.unmute",
                 name: "ms.unmute",
+                label: "Unmute",
                 sig: "ms.unmute()",
                 desc: "Unmute system audio.",
                 category: "audio",
@@ -550,6 +597,7 @@
             {
                 id: "ms.alert",
                 name: "ms.alert",
+                label: "Show Alert",
                 sig: "ms.alert(msg, duration)",
                 desc: "Show a floating toast notification.",
                 category: "utility",
@@ -561,6 +609,7 @@
             {
                 id: "ms.screenshot",
                 name: "ms.screenshot",
+                label: "Screenshot",
                 sig: "ms.screenshot(path)",
                 desc: "Take a screenshot.",
                 category: "utility",
@@ -571,6 +620,7 @@
             {
                 id: "ms.notify",
                 name: "ms.notify",
+                label: "Notification",
                 sig: "ms.notify(title, subTitle, infoText)",
                 desc: "Show native macOS notification.",
                 category: "utility",
@@ -584,6 +634,7 @@
             {
                 id: "ms.setMacros",
                 name: "ms.setMacros",
+                label: "Enable or Disable Macros",
                 sig: "ms.setMacros(state)",
                 desc: "Enable (1) or disable (0) macros.",
                 category: "flow",
@@ -594,6 +645,7 @@
             {
                 id: "ms.cancelMacros",
                 name: "ms.cancelMacros",
+                label: "Cancel Macros",
                 sig: "ms.cancelMacros(macro)",
                 desc: "Cancel a running macro. Leave Macro on All to cancel every running macro, including this one.",
                 category: "flow",
@@ -604,6 +656,7 @@
             {
                 id: "ms.pause",
                 name: "ms.pause",
+                label: "Pause Macro",
                 sig: "ms.pause()",
                 desc: "Pause the current macro.",
                 category: "flow",
@@ -612,6 +665,7 @@
             {
                 id: "ms.resume",
                 name: "ms.resume",
+                label: "Resume Macro",
                 sig: "ms.resume()",
                 desc: "Resume a paused macro.",
                 category: "flow",
@@ -620,6 +674,7 @@
             {
                 id: "ms.done",
                 name: "ms.done",
+                label: "Mark Macro Done",
                 sig: "ms.done()",
                 desc: "Signal macro completion.",
                 category: "flow",
@@ -628,6 +683,7 @@
             {
                 id: "ms.switchProfile",
                 name: "ms.switchProfile",
+                label: "Switch Profile",
                 sig: "ms.switchProfile(name)",
                 desc: "Switch to another profile by name. Hotswaps its macros, settings, theme, and sounds live.",
                 category: "flow",
@@ -638,6 +694,7 @@
             {
                 id: "ms.switchPack",
                 name: "ms.switchPack",
+                label: "Switch Pack",
                 sig: "ms.switchPack(slug, kind)",
                 desc: "Activate an installed library pack. Kind picks which slice (macro / theme / sound) is swapped in.",
                 category: "flow",
@@ -650,6 +707,7 @@
             {
                 id: "if",
                 name: "if",
+                label: "If",
                 sig: "if <condition> then ... else ... end",
                 desc: "Branch: run the nested modules when a Lua condition is true, otherwise the else branch.",
                 category: "logic",
@@ -660,6 +718,7 @@
             {
                 id: "for",
                 name: "for",
+                label: "For Loop",
                 sig: "for i = from, to do ... end",
                 desc: "Numeric loop: run the nested modules once per step from `from` to `to`.",
                 category: "logic",
@@ -673,6 +732,7 @@
             {
                 id: "while",
                 name: "while",
+                label: "While Loop",
                 sig: "while <condition> do ... end",
                 desc: "Loop the nested modules while a Lua condition holds true.",
                 category: "logic",
@@ -683,6 +743,7 @@
             {
                 id: "repeat",
                 name: "repeat",
+                label: "Repeat Until",
                 sig: "repeat ... until <condition>",
                 desc: "Loop the nested modules until a Lua condition becomes true (runs at least once). A plain number runs that many times.",
                 category: "logic",
@@ -693,6 +754,7 @@
             {
                 id: "break",
                 name: "break",
+                label: "Break Loop",
                 sig: "break",
                 desc: "Exit the innermost loop. Outside a loop, it ends the macro.",
                 category: "logic",
@@ -701,6 +763,7 @@
             {
                 id: "var_set",
                 name: "var_set",
+                label: "Set Variable",
                 sig: "local name = value",
                 desc: "Declare or set a local variable.",
                 category: "logic",
@@ -712,6 +775,7 @@
             {
                 id: "var_add",
                 name: "var_add",
+                label: "Add to Variable",
                 sig: "name = name + amount",
                 desc: "Increment a variable.",
                 category: "logic",
@@ -723,6 +787,7 @@
             {
                 id: "var_sub",
                 name: "var_sub",
+                label: "Subtract from Variable",
                 sig: "name = name - amount",
                 desc: "Decrement a variable.",
                 category: "logic",
@@ -734,6 +799,7 @@
             {
                 id: "var_mul",
                 name: "var_mul",
+                label: "Multiply Variable",
                 sig: "name = name * amount",
                 desc: "Multiply a variable.",
                 category: "logic",
@@ -745,6 +811,7 @@
             {
                 id: "call_fn",
                 name: "call_fn",
+                label: "Call Function",
                 sig: "ms.callFn(name)",
                 desc: "Run a function tool or pack macro by name. Author functions in the Tools panel's Function tab.",
                 category: "logic",
@@ -755,6 +822,7 @@
             {
                 id: "hvar_set",
                 name: "hvar_set",
+                label: "Set Helper Variable",
                 sig: "ms.vars.set(name, value)",
                 desc: "Write a shared, disk-persistent helper variable. Declare it in the Tools panel's Variable tab; read it by wiring a Value field to it.",
                 category: "logic",
@@ -766,6 +834,7 @@
             {
                 id: "comment",
                 name: "comment",
+                label: "Comment",
                 sig: "-- text",
                 desc: "A Lua comment. Documents the macro; emits nothing at runtime.",
                 category: "logic",
@@ -776,6 +845,7 @@
             {
                 id: "code",
                 name: "code",
+                label: "Lua Code",
                 sig: "<raw Lua>",
                 desc: "Raw Lua escape hatch, emitted verbatim. Use for coroutines or anything the modules don't cover.",
                 category: "logic",
