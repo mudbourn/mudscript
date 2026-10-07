@@ -1105,13 +1105,17 @@
                 }
             }
 
-            if (window.macroLab && window.macroLab.addTool) {
-                window.macroLab.addTool({ action: fn.name, params: params });
-            }
-            window.shellPost("macros", "addTool", {
+            var step = {
                 action: fn.name,
                 params: params
-            });
+            };
+            if (fn.plugin) {
+                step.argOrder = fn.params.map(function(p) { return p.name; });
+            }
+            if (window.macroLab && window.macroLab.addTool) {
+                window.macroLab.addTool(step);
+            }
+            window.shellPost("macros", "addTool", step);
 
             showToast("Added: " + fn.name);
         }
@@ -1154,6 +1158,26 @@
             }
         }
 
+        function setPluginBlocks(list) {
+            for (var i = REGISTRY.length - 1; i >= 0; i--) {
+                if (REGISTRY[i].plugin) REGISTRY.splice(i, 1);
+            }
+            (Array.isArray(list) ? list : []).forEach(function(b) {
+                if (!b || typeof b.id !== "string") return;
+                var params = Array.isArray(b.params) ? b.params : [];
+                REGISTRY.push({
+                    id: b.id,
+                    name: b.id,
+                    sig: b.id + "(" + params.map(function(p) { return p.name; }).join(", ") + ")",
+                    desc: (b.name ? b.name + ". " : "") + (b.desc || ""),
+                    category: b.category || "plugin",
+                    params: params,
+                    plugin: true
+                });
+            });
+            renderList(searchInput.value);
+        }
+
         function setToolList(list) {
             _tools = Array.isArray(list) ? list : [];
             window.msMacroTools = _tools;
@@ -1184,6 +1208,7 @@
             showToast: showToast,
             setToolList: setToolList,
             setFunctionList: setFunctionList,
+            setPluginBlocks: setPluginBlocks,
             settingDef: settingDefFor,
             handler: _fnPickerHandler
         };

@@ -774,6 +774,18 @@
                             end
                         end
                     end
+                    local blocks = {}
+                    for _, def in ipairs(ms._builderBlocks or {}) do
+                        blocks[#blocks + 1] = {
+                            id       = def.id,
+                            name     = def.name,
+                            desc     = def.desc,
+                            category = def.category,
+                            params   = def.params or {},
+                        }
+                    end
+                    local bjson = #blocks > 0 and hs.json.encode(blocks) or "[]"
+                    _macroShellEval("if(window.macroLab&&window.macroLab.setPluginBlocks)macroLab.setPluginBlocks(" .. bjson .. ")")
                     local fjson = hs.json.encode(fns)
                     _macroShellEval("if(window.macroLab&&window.macroLab.setFunctionList)macroLab.setFunctionList(" .. fjson .. ")")
                 end)

@@ -209,6 +209,32 @@ return function(ms, ctx)
             end
         -- END ms.tools.define --
 
+        -- ms.builder.define(def) --
+            ms.builder.define = function(def)
+                assert(type(def) == "table",
+                    "ms.builder.define: argument must be a table")
+                if def._origin == nil then def._origin = ms._defineOrigin or "user" end
+                assert(type(def.id) == "string" and def.id:match("^ms%.[%a_][%w_%.]*$"),
+                    "ms.builder.define: 'id' must be an ms.* function path")
+                assert(not ms._builderIndex[def.id],
+                    "ms.builder.define: duplicate block id '" .. def.id .. "'")
+                assert(def.params == nil or type(def.params) == "table",
+                    "ms.builder.define: 'params' must be a table")
+                local order = {}
+                for _, p in ipairs(def.params or {}) do
+                    assert(type(p) == "table" and type(p.name) == "string"
+                        and p.name:match("^[%a_][%w_]*$"),
+                        "ms.builder.define: each param needs a valid 'name'")
+                    assert(type(p.type) == "string",
+                        "ms.builder.define: param '" .. p.name .. "' needs a 'type'")
+                    order[#order + 1] = p.name
+                end
+                def._argOrder = order
+                ms._builderIndex[def.id] = def
+                table.insert(ms._builderBlocks, def)
+            end
+        -- END ms.builder.define --
+
         -- ms.tools.get(toolId, key) / ms.tools.set(toolId, key, value) --
             ms.tools.get = function(toolId, key)
                 assert(type(toolId) == "string", "ms.tools.get: toolId must be a string")

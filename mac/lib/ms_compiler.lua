@@ -718,6 +718,12 @@
                 if ARG_ORDER[action] then
                     return indent(lvl) .. action .. "(" .. buildArgs(p, ARG_ORDER[action]) .. ")"
                 end
+                local block = ms._builderIndex and ms._builderIndex[action]
+                local order = block and block._argOrder
+                if not order and type(step.argOrder) == "table" then order = step.argOrder end
+                if order then
+                    return indent(lvl) .. action .. "(" .. buildArgs(p, order) .. ")"
+                end
                 if p.args then
                     local parts = {}
                     for _, v in ipairs(p.args) do

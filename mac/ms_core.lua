@@ -331,6 +331,9 @@
                     ms.menu     = ms.menu or {}
                     ms.features = ms.features or {}
                     ms.tools    = ms.tools or {}
+                    ms.builder  = ms.builder or {}
+
+                    ms.builder.define  = function() end
 
                     ms.settings.define = function() end
                     ms.settings.get    = function() return nil end

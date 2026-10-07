@@ -149,6 +149,19 @@
                     end,
                 })
 
+                overrides.builder = subProxy(ms.builder, {
+                    define = function(def)
+                        local out = ms.builder.define(def)
+                        record(dir, function()
+                            if type(def) == "table" and def.id and ms._builderIndex then
+                                ms._builderIndex[def.id] = nil
+                            end
+                            removeValue(ms._builderBlocks, def)
+                        end)
+                        return out
+                    end,
+                })
+
                 return setmetatable({}, {
                     __index = function(_, k)
                         local o = overrides[k]

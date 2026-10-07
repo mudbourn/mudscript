@@ -1362,6 +1362,11 @@
                 window.renderToolVariablesTab();
             }
         },
+        setPluginBlocks: function(list) {
+            if (window.fnPicker && window.fnPicker.setPluginBlocks) {
+                window.fnPicker.setPluginBlocks(list);
+            }
+        },
         setFunctionList: function(list) {
             window.msMacroFunctions = Array.isArray(list) ? list : [];
             if (window.fnPicker && window.fnPicker.setFunctionList) {

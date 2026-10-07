@@ -318,6 +318,138 @@ function obj:init()
         end
     -- END Simulation API --
 
+    -- Builder Blocks --
+        if ms.builder and ms.builder.define then
+            local BUTTON_OPTS = {
+                "a",
+                "b",
+                "x",
+                "y",
+                "l1",
+                "r1",
+                "l2",
+                "r2",
+                "l3",
+                "r3",
+                "up",
+                "down",
+                "left",
+                "right",
+                "menu",
+                "options",
+                "home",
+            }
+
+            local function buttonParam()
+                return {
+                    name     = "button",
+                    type     = "enum",
+                    options  = BUTTON_OPTS,
+                    label    = "Button",
+                    required = true,
+                }
+            end
+
+            ms.builder.define({
+                id       = "ms.vpad.tap",
+                name     = "Tap Button",
+                desc     = "Press and release a virtual controller button.",
+                category = "gamepad",
+                params   = {
+                    buttonParam(),
+                    {
+                        name     = "holdMs",
+                        type     = "number",
+                        unit     = "ms",
+                        default  = 50,
+                        label    = "Hold (ms)",
+                        required = false,
+                    },
+                },
+            })
+
+            ms.builder.define({
+                id       = "ms.vpad.press",
+                name     = "Hold Button",
+                desc     = "Hold a virtual controller button down until released.",
+                category = "gamepad",
+                params   = { buttonParam() },
+            })
+
+            ms.builder.define({
+                id       = "ms.vpad.release",
+                name     = "Release Button",
+                desc     = "Release a held virtual controller button.",
+                category = "gamepad",
+                params   = { buttonParam() },
+            })
+
+            ms.builder.define({
+                id       = "ms.vpad.stick",
+                name     = "Move Stick",
+                desc     = "Hold a stick at a position from -1 to 1. Release All hands it back to the real controller.",
+                category = "gamepad",
+                params   = {
+                    {
+                        name     = "side",
+                        type     = "enum",
+                        options  = {
+                            "left",
+                            "right",
+                        },
+                        label    = "Stick",
+                        required = true,
+                    },
+                    {
+                        name     = "x",
+                        type     = "number",
+                        label    = "X (-1 to 1)",
+                        required = false,
+                    },
+                    {
+                        name     = "y",
+                        type     = "number",
+                        label    = "Y (-1 to 1)",
+                        required = false,
+                    },
+                },
+            })
+
+            ms.builder.define({
+                id       = "ms.vpad.trigger",
+                name     = "Set Trigger",
+                desc     = "Hold a trigger at a value from 0 to 1. Release All hands it back to the real controller.",
+                category = "gamepad",
+                params   = {
+                    {
+                        name     = "name",
+                        type     = "enum",
+                        options  = {
+                            "l2",
+                            "r2",
+                        },
+                        label    = "Trigger",
+                        required = true,
+                    },
+                    {
+                        name     = "value",
+                        type     = "number",
+                        label    = "Value (0 to 1)",
+                        required = false,
+                    },
+                },
+            })
+
+            ms.builder.define({
+                id       = "ms.vpad.releaseAll",
+                name     = "Release All",
+                desc     = "Release every held button, stick and trigger.",
+                category = "gamepad",
+                params   = {},
+            })
+        end
+    -- END Builder Blocks --
+
     -- Cancel Hook --
         local origCancel = ms.cancelMacros
         self._origCancel = origCancel
