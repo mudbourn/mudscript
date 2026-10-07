@@ -264,6 +264,7 @@ window.showPanel = function(id) {
     });
     currentPanel = id;
     shellDispatch('_shell', 'navigate', { panel: id });
+    document.dispatchEvent(new CustomEvent('ms:panel-shown', { detail: { panel: id } }));
     if (id === 'console' && typeof window._maybeShowConsoleDanger === 'function') {
         window._maybeShowConsoleDanger();
     }

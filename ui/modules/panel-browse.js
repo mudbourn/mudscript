@@ -362,8 +362,9 @@
         });
     }
 
-    const railBtn = document.querySelector('.rail-item[data-panel="browse"]');
-    if (railBtn) railBtn.addEventListener("click", refreshOnOpen);
+    document.addEventListener("ms:panel-shown", (e) => {
+        if (e.detail && e.detail.panel === "browse") refreshOnOpen();
+    });
 
     window.renderBrowsePanel = render;
 
