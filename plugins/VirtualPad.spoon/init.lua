@@ -7,7 +7,11 @@ obj.author  = "mudbourn"
 obj.license = "MIT"
 
 -- Constants --
-    local BIN = os.getenv("HOME") .. "/.local/bin/ms_vpad"
+    local IS_WIN = package.config:sub(1, 1) == "\\"
+
+    local BIN_DIR = os.getenv("HOME") .. "/.local/bin"
+
+    local BIN = BIN_DIR .. "/ms_vpad" .. (IS_WIN and ".exe" or "")
 
     local BUTTONS = {
         a = true,
@@ -33,7 +37,7 @@ obj.license = "MIT"
 -- Bundle Paths --
     local function bundleDir()
         local src = debug.getinfo(1, "S").source
-        local dir = src and src:match("^@(.*)/[^/]+$")
+        local dir = src and src:match("^@(.*)[/\\][^/\\]+$")
         if dir then return dir end
         return os.getenv("HOME") .. "/.hammerspoon/Spoons/VirtualPad.spoon"
     end
@@ -47,6 +51,27 @@ obj.license = "MIT"
     local function mtime(path)
         local a = hs.fs.attributes(path)
         return a and a.modification or nil
+    end
+
+    local function copyFile(from, to)
+        local src = io.open(from, "rb")
+        if not src then return false end
+        local data = src:read("*a")
+        src:close()
+        local dst = io.open(to, "wb")
+        if not dst then return false end
+        dst:write(data)
+        dst:close()
+        return true
+    end
+
+    local function quitTask(task)
+        task:setInput("reset\n")
+        if IS_WIN then
+            task:closeInput()
+        else
+            task:terminate()
+        end
     end
 -- END Bundle Paths --
 
@@ -127,6 +152,11 @@ function obj:init()
                 state.pad = nil
                 state.task = nil
                 setExternal(false)
+                if code ~= 0 and IS_WIN then
+                    hs.task.new(BIN, nil, {
+                        "--unhide",
+                    }):start()
+                end
                 if code ~= 0 and not state.stopped then
                     state.lastError = "helper exited with code " .. tostring(code)
                 end
@@ -156,8 +186,27 @@ function obj:init()
             state.build:start()
         end
 
+        local function install(onDone)
+            hs.fs.mkdir(BIN_DIR)
+            for _, name in ipairs({ "ms_vpad.exe", "SDL2.dll" }) do
+                local src = bundleDir() .. "/bin/" .. name
+                local dst = BIN_DIR .. "/" .. name
+                local srcTime = mtime(src)
+                local dstTime = mtime(dst)
+                if srcTime and (not dstTime or dstTime < srcTime) and not copyFile(src, dst) then
+                    state.lastError = "could not install " .. name .. " to " .. BIN_DIR
+                    return onDone(false)
+                end
+            end
+            onDone(mtime(BIN) ~= nil)
+        end
+
         start = function()
             if state.stopped then return end
+            if IS_WIN then
+                install(function(ok) if ok then launch() end end)
+                return
+            end
             if not amfiOff() then
                 state.lastError = "AMFI is on (needs SIP off and amfi_get_out_of_my_way=0x1)"
                 return
@@ -177,7 +226,7 @@ function obj:init()
             section = "vpad",
             onChange = function(v)
                 if v == false then
-                    if state.task then state.task:terminate() end
+                    if state.task then quitTask(state.task) end
                 else
                     start()
                 end
@@ -313,10 +362,7 @@ function obj:stop()
     if state then
         state.stopped = true
         if state.build then state.build:terminate() end
-        if state.task then
-            state.task:setInput("reset\n")
-            state.task:terminate()
-        end
+        if state.task then quitTask(state.task) end
     end
     if ms.gamepadSetExternal then ms.gamepadSetExternal(false) end
     if self._origCancel then ms.cancelMacros = self._origCancel end

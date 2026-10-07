@@ -4,5 +4,5 @@
   "version": "0.1.0",
   "author": "mudbourn",
   "website": "https://mudbourn.info",
-  "description": "Controller input simulation. Clones the connected controller as a virtual HID device, forwards its real input and lets macros press buttons and move sticks through ms.vpad.*. Needs SIP off with AMFI disabled (amfi_get_out_of_my_way=0x1), since the virtual device entitlement is restricted."
+  "description": "Controller input simulation. Clones the connected controller as a virtual HID device, forwards its real input and lets macros press buttons and move sticks through ms.vpad.*. On macOS needs SIP off with AMFI disabled (amfi_get_out_of_my_way=0x1). On Windows needs the ViGEmBus driver, and HidHide to hide the real pad."
 }
