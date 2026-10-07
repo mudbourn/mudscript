@@ -345,7 +345,10 @@ return function(ms, ctx)
                 local pslug = ms.package.librarySlug(targetName)
                 for _, k in ipairs({ "theme", "sound", "macro" }) do
                     local slug = (links and links[k]) or pslug
-                    if slug and ms.package.libraryHasEntry(k, slug) then
+                    if k == "macro" and hasMacros and slug and ms.package.librarySetActive then
+                        pcall(ms.package.librarySetActive, k, slug)
+                        alignedKinds[k] = true
+                    elseif slug and ms.package.libraryHasEntry(k, slug) then
                         local ok, res = pcall(ms.package.libraryActivate, k, slug)
                         if ok and res then alignedKinds[k] = true end
                     end
