@@ -389,7 +389,6 @@ func emit(_ obj: [String: Any]) {
             )
             guard let dev = HIDVirtualDevice(properties: props) else {
                 emit(["e": "error", "m": "virtual device refused (entitlement or AMFI)"])
-                reportBuf.deallocate()
                 return nil
             }
             device = dev
