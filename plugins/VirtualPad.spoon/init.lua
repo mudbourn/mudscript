@@ -92,6 +92,7 @@ function obj:init()
         held      = {},
         axes      = {},
         stopped   = false,
+        virtual   = false,
         outBuf    = "",
     }
 
@@ -142,9 +143,12 @@ function obj:init()
                 if ok and type(msg) == "table" then
                     if msg.e == "pad" then
                         if ms.gamepadFeed then ms.gamepadFeed(msg.ev) end
+                    elseif msg.e == "virtual" then
+                        state.virtual = true
                     elseif msg.e == "ready" then
                         setExternal(true)
                         state.ready = true
+                        state.virtual = true
                         state.pad = msg.name
                         state.lastError = nil
                         ms.bus.emit("vpad:ready", msg)
@@ -186,6 +190,7 @@ function obj:init()
         local function onHelperGone()
             dropSocket()
             state.ready = false
+            state.virtual = false
             state.pad = nil
             setExternal(false)
         end
@@ -366,7 +371,7 @@ function obj:init()
         ms.vpad = {}
 
         ms.vpad.available = function()
-            return armed() and state.ready
+            return armed() and (state.ready or state.virtual)
         end
 
         ms.vpad.controller = function()

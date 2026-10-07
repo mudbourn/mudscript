@@ -653,7 +653,7 @@ func emit(_ obj: [String: Any]) {
             if let path = socketPath { unlink(path) }
             exit(0)
         }
-        guard let p = pad, p.real != nil else {
+        guard let p = pad else {
             emit(["e": "error", "m": "no controller connected"])
             return
         }
@@ -680,8 +680,12 @@ func emit(_ obj: [String: Any]) {
 
     func replay() {
         emit(["e": "hello", "build": buildStamp])
-        guard let p = pad, p.real != nil else {
+        guard let p = pad else {
             emit(["e": "waiting"])
+            return
+        }
+        guard p.real != nil else {
+            emit(["e": "virtual", "name": p.ident.name])
             return
         }
         emit(["e": "ready", "name": p.ident.name, "vid": p.ident.vid, "pid": p.ident.pid])
