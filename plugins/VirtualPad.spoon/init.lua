@@ -354,7 +354,7 @@ function obj:init()
                 id       = "ms.vpad.tap",
                 name     = "Tap Button",
                 desc     = "Press and release a virtual controller button.",
-                category = "gamepad",
+                category = "vpad",
                 params   = {
                     buttonParam(),
                     {
@@ -372,7 +372,7 @@ function obj:init()
                 id       = "ms.vpad.press",
                 name     = "Hold Button",
                 desc     = "Hold a virtual controller button down until released.",
-                category = "gamepad",
+                category = "vpad",
                 params   = { buttonParam() },
             })
 
@@ -380,7 +380,7 @@ function obj:init()
                 id       = "ms.vpad.release",
                 name     = "Release Button",
                 desc     = "Release a held virtual controller button.",
-                category = "gamepad",
+                category = "vpad",
                 params   = { buttonParam() },
             })
 
@@ -388,7 +388,7 @@ function obj:init()
                 id       = "ms.vpad.stick",
                 name     = "Move Stick",
                 desc     = "Hold a stick at a position from -1 to 1. Release All hands it back to the real controller.",
-                category = "gamepad",
+                category = "vpad",
                 params   = {
                     {
                         name     = "side",
@@ -419,7 +419,7 @@ function obj:init()
                 id       = "ms.vpad.trigger",
                 name     = "Set Trigger",
                 desc     = "Hold a trigger at a value from 0 to 1. Release All hands it back to the real controller.",
-                category = "gamepad",
+                category = "vpad",
                 params   = {
                     {
                         name     = "name",
@@ -444,7 +444,7 @@ function obj:init()
                 id       = "ms.vpad.releaseAll",
                 name     = "Release All",
                 desc     = "Release every held button, stick and trigger.",
-                category = "gamepad",
+                category = "vpad",
                 params   = {},
             })
         end

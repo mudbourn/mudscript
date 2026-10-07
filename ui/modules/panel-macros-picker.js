@@ -95,7 +95,7 @@
 
             var sigSpan = document.createElement("span");
             sigSpan.className = "fn-entry-sig";
-            sigSpan.textContent = fn.name;
+            sigSpan.textContent = fn.label || fn.name;
             row.appendChild(sigSpan);
 
             row.setAttribute("draggable", "true");
@@ -201,10 +201,17 @@
                 return (String(f.name || f.id)).toLowerCase().indexOf(q) !== -1
                     || "function tool".indexOf(q) !== -1;
             });
+            var blockMatches = REGISTRY.filter(function(fn) {
+                if (!fn.plugin) return false;
+                if (!q) return true;
+                return fn.label.toLowerCase().indexOf(q) !== -1
+                    || fn.desc.toLowerCase().indexOf(q) !== -1
+                    || fn.category.toLowerCase().indexOf(q) !== -1;
+            });
             var searchingTools = q && "tool".indexOf(q) === -1
                 && "function".indexOf(q) === -1;
 
-            if (matches.length === 0 && fnMatches.length === 0) {
+            if (matches.length === 0 && fnMatches.length === 0 && blockMatches.length === 0) {
                 if (searchingTools) return;
                 renderToolSection("tools", [], [], filter, searching, true);
                 return;
@@ -217,19 +224,26 @@
                 if (!groups[s]) { groups[s] = []; order.push(s); }
                 groups[s].push(t);
             });
+            var blockGroups = {};
+            blockMatches.forEach(function(fn) {
+                var s = fn.category;
+                if (!groups[s]) { groups[s] = []; order.push(s); }
+                (blockGroups[s] = blockGroups[s] || []).push(fn);
+            });
             if (fnMatches.length && !groups["tools"]) { groups["tools"] = []; order.push("tools"); }
             if (groups["tools"]) {
                 order = ["tools"].concat(order.filter(function(s) { return s !== "tools"; }));
             }
             order.forEach(function(s) {
-                renderToolSection(s, groups[s], s === "tools" ? fnMatches : [], filter, searching, false);
+                renderToolSection(s, groups[s], s === "tools" ? fnMatches : [], filter, searching, false, blockGroups[s]);
             });
         }
     // END Group tools by their section into collapsible headings //
 
     // Render one Tools sub //
-        function renderToolSection(section, rows, fns, filter, searching, emptyHint) {
+        function renderToolSection(section, rows, fns, filter, searching, emptyHint, blocks) {
             fns = fns || [];
+            blocks = blocks || [];
             var key = "__tools:" + section;
             var collapsed = searching ? false : (_catCollapsed[key] !== false);
 
@@ -250,7 +264,7 @@
 
             var count = document.createElement("span");
             count.className = "fn-cat-count";
-            count.textContent = String(rows.length + fns.length);
+            count.textContent = String(rows.length + fns.length + blocks.length);
             head.appendChild(count);
 
             head.addEventListener("mouseenter", function() {
@@ -272,6 +286,7 @@
 
             rows.forEach(function(t) { group.appendChild(makeToolRow(t)); });
             fns.forEach(function(f) { group.appendChild(makeFnCallRow(f)); });
+            blocks.forEach(function(fn) { group.appendChild(makeEntryRow(fn)); });
 
             if (emptyHint && rows.length === 0 && fns.length === 0) {
                 var hint = document.createElement("div");
@@ -292,6 +307,7 @@
             var groups = {};
             for (var i = 0; i < REGISTRY.length; i++) {
                 var fn = REGISTRY[i];
+                if (fn.plugin) continue;
                 if (q && fn.name.toLowerCase().indexOf(q) === -1
                        && fn.desc.toLowerCase().indexOf(q) === -1
                        && fn.category.toLowerCase().indexOf(q) === -1) {
@@ -495,7 +511,7 @@
             var html = '';
 
             html += '<div class="fn-detail-header">';
-            html += '<div class="fn-detail-name">' + esc(fn.name) + '</div>';
+            html += '<div class="fn-detail-name">' + esc(fn.label || fn.name) + '</div>';
             html += '<div class="fn-detail-desc">' + esc(fn.desc) + '</div>';
             html += '</div>';
 
@@ -1117,7 +1133,7 @@
             }
             window.shellPost("macros", "addTool", step);
 
-            showToast("Added: " + fn.name);
+            showToast("Added: " + (fn.label || fn.name));
         }
 
         function showToast(msg) {
@@ -1168,8 +1184,9 @@
                 REGISTRY.push({
                     id: b.id,
                     name: b.id,
+                    label: b.name || b.id,
                     sig: b.id + "(" + params.map(function(p) { return p.name; }).join(", ") + ")",
-                    desc: (b.name ? b.name + ". " : "") + (b.desc || ""),
+                    desc: b.desc || "",
                     category: b.category || "plugin",
                     params: params,
                     plugin: true
