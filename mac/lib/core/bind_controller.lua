@@ -28,32 +28,38 @@
         end
 
         ms.setMacros = function(state, silent)
-            if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
             if state == 1 and BindValidity ~= 1 then
                 BindValidity = 1
-                if ms._updateCamAnchor then ms._updateCamAnchor() end
-                ms.dev.log({
-                    type = "system",
-                    event = "macros_enabled",
-                })
-                if not silent then _doNotify(1) end
+                hs.timer.doAfter(0, function()
+                    if BindValidity ~= 1 then return end
+                    if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
+                    if ms._updateCamAnchor then ms._updateCamAnchor() end
+                    ms.dev.log({
+                        type = "system",
+                        event = "macros_enabled",
+                    })
+                    if not silent then _doNotify(1) end
+                    if ms.ui and ms.ui._open then ms.ui.refresh() end
+                end)
             elseif state == 0 and BindValidity ~= 0 then
                 BindValidity = 0
                 ms.keytrack = {}
-                for _, timer in pairs(ms.running) do
-                    if timer and timer.stop then timer:stop() end
-                end
-                ms.running = {}
-                ms.dev.log({
-                    type = "system",
-                    event = "macros_disabled",
-                })
-                if not silent then _doNotify(0) end
-                if ms.ui and ms.ui.refresh then ms.ui.refresh() end
-                ms.cancelMacros()
-                return
+                hs.timer.doAfter(0, function()
+                    if BindValidity ~= 0 then return end
+                    if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
+                    for _, timer in pairs(ms.running) do
+                        if timer and timer.stop then timer:stop() end
+                    end
+                    ms.running = {}
+                    ms.dev.log({
+                        type = "system",
+                        event = "macros_disabled",
+                    })
+                    if not silent then _doNotify(0) end
+                    if ms.ui and ms.ui.refresh then ms.ui.refresh() end
+                    ms.cancelMacros()
+                end)
             end
-            if ms.ui and ms.ui._open then ms.ui.refresh() end
         end
 
         ms._appWatcher = hs.application.watcher.new(function(appName, eventType, app)
