@@ -31,8 +31,7 @@ return function(ms, ctx)
 
             -- Reload & Shutdown --
                 reloadMacros = function()
-                    local macrosPath = os.getenv("HOME") .. "/.hammerspoon/ms_macros.lua"
-                    local af = io.open(macrosPath, "r")
+                    local af = io.open(ms.profile.file("macros"), "r")
                     if not af then
                         ms.alert("Reload failed:\nCannot open ms_macros.lua.", 6)
                         return false

@@ -259,7 +259,6 @@ return function(ms, ctx)
             end
             if not topDir:match("/$") then topDir = topDir .. "/" end
 
-            -- Wholesale-replaceable install artifacts, mirroring a fresh install
             local replaceList = {
                 "ms_core.lua",
                 "init.lua",
@@ -270,7 +269,6 @@ return function(ms, ctx)
                 "Spoons",
             }
             local templateList = {
-                "ms_macros.lua",
                 "profiles/Default",
             }
 

@@ -321,10 +321,10 @@
                 return out
             end
 
-            ms.plugins.macroPaths = function()
+            ms.plugins.macroPaths = function(name)
                 return {
-                    _hsDir .. "/ms_macros.lua",
-                    _hsDir .. "/data/ms_macros_visual.lua",
+                    ms.profile.path("ms_macros.lua", name),
+                    ms.profile.path("data/ms_macros_visual.lua", name),
                 }
             end
 
@@ -485,16 +485,20 @@
                 end)
             end
 
-            ms.plugins.offerForActive = function()
+            ms.plugins.offerForActive = function(name)
                 local rows = {}
                 local seen = {}
-                for _, dep in ipairs(ms.plugins.scanFiles(ms.plugins.macroPaths())) do
+                for _, dep in ipairs(ms.plugins.scanFiles(ms.plugins.macroPaths(name))) do
                     if dep.id and dep.state ~= "unknown" and not seen[dep.id] then
                         seen[dep.id] = true
                         rows[#rows + 1] = dep
                     end
                 end
                 ms.plugins.offer(rows)
+            end
+
+            ms.plugins.offerForProfile = function(name)
+                pcall(ms.plugins.offerForActive, name)
             end
 
             ms.plugins.noticeMissing = function()

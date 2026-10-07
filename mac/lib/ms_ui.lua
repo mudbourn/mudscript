@@ -6,8 +6,6 @@ return function(ms)
     MsUI.version = "1.0"
 
     local function sq(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
-
-    local profilesPath = os.getenv("HOME") .. "/.hammerspoon/profiles/"
 -- END MsUI --
 
 -- Init --
@@ -981,7 +979,6 @@ return function(ms)
         local ctx = {
             MsUI = MsUI,
             sq = sq,
-            profilesPath = profilesPath,
             _bindDisplay = _bindDisplay,
             _emptyToNil = _emptyToNil,
             _restoreAfterCapture = _restoreAfterCapture,

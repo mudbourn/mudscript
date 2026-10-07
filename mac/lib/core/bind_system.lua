@@ -214,13 +214,15 @@
                 local ungated = ms.systemBinds._defs[id] and ms.systemBinds._defs[id].ungated
                 local function fire()
                     if not ungated and not ms._targetActive and not ms._isSafeZone() then return end
-                    if c.type == "key" and not ungated and ms._ownUiFocused() then return end
+                    if c.type == "key" and not ungated and not ms._targetActive and ms._ownUiFocused() then return end
                     local co = coroutine.create(action)
                     local ok, err = coroutine.resume(co)
                     if not ok then print("ms.systemBind error: " .. tostring(err)) end
                 end
                 if c.type == "key" then
-                    ms.systemBinds._handles[id] = ms.key(c.mods, c.key, false, fire, nil, true)
+                    ms.systemBinds._handles[id] = ms.key(c.mods, c.key, false, function()
+                        hs.timer.doAfter(0, fire)
+                    end, nil, true)
                 elseif c.type == "mouse" then
                     ms.systemBinds._handles[id] = ms.mouse(c.button, false, fire, true)
                 elseif c.type == "scroll" then

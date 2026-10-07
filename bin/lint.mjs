@@ -27,7 +27,7 @@ import { build as buildIcons } from "./gen-icons.mjs";
         /^ignore\//,
         /^mac\/bin\/hidinject-rs\//,
         /node_modules\//,
-        /^mac\/data\/ms_macros_visual\.lua$/,
+        /^profiles\/[^/]+\/data\/ms_macros_visual\.lua$/,
     ];
 
     const MESSAGES = {

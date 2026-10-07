@@ -193,37 +193,19 @@ return function(ms)
     -- END Index --
 
     -- Snapshot --
-        function B.snapshot(reason, onDone, protectId)
-            onDone = onDone or function() end
-            reason = reason or "auto"
-            if _busy then
-                _pending[#_pending + 1] = {
-                    reason = reason,
-                    onDone = onDone,
-                    protectId = protectId,
-                }
-                return
-            end
-            if not ms.stageProfilePkg then
-                onDone(false, "unavailable")
-                return
-            end
+        local _stageSeq = 0
+
+        local function runJob(job)
             _busy = true
+            local stage = job.stage
             local function finish(ok, info)
                 _busy = false
                 push()
-                onDone(ok, info)
+                job.onDone(ok, info)
                 local nextJob = table.remove(_pending, 1)
-                if nextJob then B.snapshot(nextJob.reason, nextJob.onDone, nextJob.protectId) end
+                if nextJob then runJob(nextJob) end
             end
-            pcall(ms.saveSettings)
-            local stage = dir("tmp") .. "snap_stage/"
-            local staged, counts = ms.stageProfilePkg(stage)
-            if not staged then
-                finish(false, counts)
-                return
-            end
-            local hashCmd = 'cd "$1" && find . -type f ! -path ./ms_settings.json -print0 | LC_ALL=C sort -z | xargs -0 /usr/bin/shasum -a 256 | /usr/bin/shasum -a 256'
+            local hashCmd = 'cd "$1" && find . -type f ! -path ./data/ms_settings.json ! -path ./profile.json -print0 | LC_ALL=C sort -z | xargs -0 /usr/bin/shasum -a 256 | /usr/bin/shasum -a 256'
             runTask({
                 "-c",
                 hashCmd,
@@ -231,7 +213,7 @@ return function(ms)
                 stage,
             }, function(code, out)
                 local hash = out:match("^(%x+)")
-                if hash then hash = hs.hash.SHA256(hash .. settingsDigest(stage .. "ms_settings.json")) end
+                if hash then hash = hs.hash.SHA256(hash .. settingsDigest(stage .. "data/ms_settings.json")) end
                 if code ~= 0 or not hash then
                     os.execute("rm -rf " .. sq(stage))
                     finish(false, "hash failed")
@@ -240,11 +222,11 @@ return function(ms)
                 local list = B.list()
                 local auto = dir("auto")
                 local newest = list[1]
-                if newest and newest.hash == hash then
+                if newest and newest.hash == hash and newest.profile == job.profile then
                     newest.lastChecked = os.time()
                     writeIndex(list)
                     os.execute("rm -rf " .. sq(stage))
-                    if reason == "manual" and ms.alert then
+                    if job.reason == "manual" and ms.alert then
                         ms.alert("No changes since " .. os.date("%Y-%m-%d %H:%M", newest.time or os.time()), 4, true)
                     end
                     finish(true, {
@@ -280,8 +262,8 @@ return function(ms)
                         file = id .. ".mspkg",
                         time = now,
                         lastChecked = now,
-                        profile = ms.activeProfile and ms.activeProfile() or "",
-                        reason = reason,
+                        profile = job.profile,
+                        reason = job.reason,
                         size = hs.fs.attributes(outPath, "size") or 0,
                         hash = hash,
                     }
@@ -290,13 +272,44 @@ return function(ms)
                         if e.id ~= id then all[#all + 1] = e end
                     end
                     writeIndex(all)
-                    B.prune(id, protectId)
+                    B.prune(id, job.protectId)
                     finish(true, {
                         skipped = false,
                         entry = entry,
                     })
                 end)
             end)
+        end
+
+        function B.snapshot(reason, onDone, protectId, profileName)
+            onDone = onDone or function() end
+            reason = reason or "auto"
+            if not ms.stageProfilePkg then
+                onDone(false, "unavailable")
+                return
+            end
+            local active = ms.activeProfile and ms.activeProfile() or ""
+            local target = (type(profileName) == "string" and profileName ~= "") and profileName or active
+            if target == active then pcall(ms.saveSettings) end
+            _stageSeq = _stageSeq + 1
+            local stage = dir("tmp") .. "snap_stage_" .. _stageSeq .. "/"
+            local staged, counts = ms.stageProfilePkg(stage, target)
+            if not staged then
+                onDone(false, counts)
+                return
+            end
+            local job = {
+                reason = reason,
+                onDone = onDone,
+                protectId = protectId,
+                stage = stage,
+                profile = target,
+            }
+            if _busy then
+                _pending[#_pending + 1] = job
+                return
+            end
+            runJob(job)
         end
     -- END Snapshot --
 
@@ -311,35 +324,74 @@ return function(ms)
             end
         end
 
+        local function isFlatLayout(base)
+            return hs.fs.attributes(base .. "ms_settings.json") ~= nil
+                and not hs.fs.attributes(base .. "data/ms_settings.json")
+        end
+
+        local function restoreName(entry)
+            local name = entry.profile or ""
+            if name == "" or name == "unnamed" then return ms.activeProfile() end
+            return name
+        end
+
         local function applyRestore(entry, base)
-            for _, cf in ipairs(ms.profilePkgFiles()) do
-                local src = base .. cf.name
+            local flat = isFlatLayout(base)
+            local active = ms.activeProfile()
+            local wanted = restoreName(entry)
+            local inPlace = (wanted == active) or not ms.profile.isV2()
+            local target = active
+            if not inPlace then
+                local stamp = os.date("%Y-%m-%d", entry.time or os.time())
+                target = wanted .. " (restored " .. stamp .. ")"
+                local n = 1
+                while ms.profile.exists(target) do
+                    n = n + 1
+                    target = wanted .. " (restored " .. stamp .. " " .. n .. ")"
+                end
+            end
+            local dir = ms.profile.ensure(target)
+            for _, rel in ipairs(ms.profile.CONTENT_FILES) do
+                local src = base .. (flat and ms.profile.flatFor(rel) or rel)
                 if hs.fs.attributes(src) then
-                    local _, cpOk = hs.execute("/bin/cp " .. sq(src) .. " " .. sq(cf.live))
+                    local parent = (dir .. "/" .. rel):match("^(.*)/[^/]+$")
+                    os.execute("mkdir -p " .. sq(parent))
+                    local _, cpOk = hs.execute("/bin/cp " .. sq(src) .. " " .. sq(dir .. "/" .. rel))
                     if not cpOk then
-                        ms.alert("Restore: could not write " .. cf.name .. ".", 5)
+                        ms.alert("Restore: could not write " .. rel .. ".", 5)
                     end
                 end
             end
-            placeNewOnly(base .. "sounds/active/", SoundActiveDir)
-            placeNewOnly(base .. "sounds/defaults/", SoundDefaultsDir)
-            placeNewOnly(base .. "sounds/macro/", SoundMacroDir)
+            placeNewOnly(base .. "sounds/active/", dir .. "/sounds/active/")
+            placeNewOnly(base .. "sounds/macro/", dir .. "/sounds/macro/")
+            placeNewOnly(base .. "ui/fonts/", hs.configdir .. "/ui/fonts/")
             placeNewOnly(base .. "fonts/", hs.configdir .. "/ui/fonts/")
+            if not inPlace then
+                local meta = nil
+                local metaRaw = io.open(base .. "profile.json", "rb")
+                if metaRaw then
+                    local ok, decoded = pcall(hs.json.decode, metaRaw:read("*all"))
+                    metaRaw:close()
+                    if ok and type(decoded) == "table" then meta = decoded end
+                end
+                meta = meta or {}
+                meta.formatVersion = 2
+                meta.name = target
+                meta.origin = "local"
+                meta.owner = nil
+                meta.packs = nil
+                meta.created = os.date("!%Y-%m-%dT%H:%M:%SZ")
+                ms.profile.writeMeta(target, meta)
+                ms._profilesDirty = true
+                B.schedule()
+                if ms.playSlot then ms.playSlot("update") end
+                ms.alert("Restored backup from " .. os.date("%Y-%m-%d %H:%M", entry.time or os.time()) .. " as \"" .. target .. "\".", 5, true)
+                if ms.switchProfile then ms.switchProfile(target) end
+                return
+            end
+            ms.profile.updateMeta(target, function() end)
             if ms.loadSettings then pcall(ms.loadSettings) end
             if ms.hotswapLive then ms.hotswapLive() end
-            if ms.package and ms.package.reconcileActive then
-                for _, k in ipairs({
-                    "theme",
-                    "sound",
-                    "macro",
-                }) do
-                    pcall(ms.package.reconcileActive, k)
-                end
-            end
-            local name = entry.profile or ""
-            if name ~= "" and name ~= "unnamed" and ms.package and ms.package.setActiveProfile then
-                pcall(ms.package.setActiveProfile, name)
-            end
             ms._profilesDirty = true
             B.schedule()
             if ms.playSlot then ms.playSlot("update") end
@@ -359,8 +411,9 @@ return function(ms)
             os.execute("rm -rf " .. sq(work))
             os.execute("mkdir -p " .. sq(work))
             local _, unzipOk = hs.execute("/usr/bin/unzip -o " .. sq(pkg) .. " -d " .. sq(work) .. " 2>/dev/null")
-            local macroSrc = work .. "ms_macros.lua"
-            local f = unzipOk and hs.fs.attributes(work .. "ms_settings.json") and io.open(macroSrc, "rb")
+            local hasSettings = hs.fs.attributes(work .. "data/ms_settings.json")
+                or hs.fs.attributes(work .. "ms_settings.json")
+            local f = unzipOk and hasSettings and io.open(work .. "ms_macros.lua", "rb")
             if not f then
                 os.execute("rm -rf " .. sq(work))
                 ms.alert("Restore failed: backup is unreadable or incomplete.", 5)
@@ -403,7 +456,7 @@ return function(ms)
             ms.ui.modal({
                 title = "Restore Backup",
                 msg = "Restore the setup from " .. os.date("%Y-%m-%d %H:%M", entry.time or os.time())
-                    .. "?\n\nYour current setup is backed up first, then replaced.",
+                    .. "?\n\nYour current setup is backed up first. A backup of another profile is restored as a new profile.",
                 confirm = "Restore",
                 cancel = "Cancel",
             }, function(r)

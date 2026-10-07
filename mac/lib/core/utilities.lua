@@ -195,9 +195,11 @@
         end
 
         do
-            local varsPath = os.getenv("HOME")
-                .. "/.hammerspoon/data/ms_helpervars.json"
-            local store = { defs = {}, vals = {} }
+            local function varsPath() return ms.profile.file("helperVars") end
+            local store = {
+                defs = {},
+                vals = {},
+            }
             local loaded = false
 
             local function coerce(def, v)
@@ -214,7 +216,7 @@
             local function persist()
                 local ok, enc = pcall(hs.json.encode, store, true)
                 if not ok then return end
-                local f = io.open(varsPath, "w")
+                local f = io.open(varsPath(), "w")
                 if f then
                     f:write(enc)
                     f:close()
@@ -224,7 +226,7 @@
             local function ensureLoaded()
                 if loaded then return end
                 loaded = true
-                local f = io.open(varsPath, "r")
+                local f = io.open(varsPath(), "r")
                 if not f then return end
                 local raw = f:read("*all")
                 f:close()
@@ -242,6 +244,8 @@
                 store.vals = {}
                 loaded = false
             end
+
+            ms.vars.repoint = ms.vars.reload
 
             ms.vars.get = function(name)
                 ensureLoaded()
@@ -525,11 +529,11 @@
                     prefix = "d_",
                 },
                 {
-                    dir = SoundLib .. "active/",
+                    dir = SoundActiveDir,
                     prefix = "a_",
                 },
                 {
-                    dir = SoundLib .. "macro/",
+                    dir = SoundMacroDir,
                     prefix = "m_",
                 },
             }

@@ -191,8 +191,8 @@ return function(ms)
         BindValidity = 1
         SoundLib = os.getenv("HOME") .. "/.hammerspoon/sounds/"
         SoundDefaultsDir = SoundLib .. "defaults/"
-        SoundActiveDir   = SoundLib .. "active/"
-        SoundMacroDir    = SoundLib .. "macro/"
+        SoundActiveDir   = ms.profile.path("sounds/active/")
+        SoundMacroDir    = ms.profile.path("sounds/macro/")
         ms.sounds          = {}
         ms.macroSounds     = {}
         ms.importedSounds  = {}

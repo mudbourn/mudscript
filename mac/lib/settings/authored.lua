@@ -1,8 +1,8 @@
 return function(ms, ctx)
     -- Authored Settings --
-        local authoredPath = ctx.authoredPath
+        local function authoredPath() return ms.profile.file("authored") end
 
-        local authoredMenusPath = ctx.authoredMenusPath
+        local function authoredMenusPath() return ms.profile.file("authoredMenus") end
 
         local _AUTHORED_TYPES = {
             toggle = true,
@@ -104,7 +104,7 @@ return function(ms, ctx)
 
         ms._loadAuthoredSettings = function()
             ms._authoredSettings = {}
-            local f = io.open(authoredPath, "r")
+            local f = io.open(authoredPath(), "r")
             if not f then return end
             local content = f:read("*all")
             f:close()
@@ -121,7 +121,7 @@ return function(ms, ctx)
         end
 
         ms._saveAuthoredSettings = function()
-            local f = io.open(authoredPath, "w")
+            local f = io.open(authoredPath(), "w")
             if f then
                 f:write(hs.json.encode(ms._authoredSettings or {}, true))
                 f:close()
@@ -355,7 +355,7 @@ return function(ms, ctx)
 
         ms._loadAuthoredMenus = function()
             ms._authoredMenus = {}
-            local f = io.open(authoredMenusPath, "r")
+            local f = io.open(authoredMenusPath(), "r")
             if not f then return end
             local content = f:read("*all")
             f:close()
@@ -377,7 +377,7 @@ return function(ms, ctx)
         end
 
         ms._saveAuthoredMenus = function()
-            local f = io.open(authoredMenusPath, "w")
+            local f = io.open(authoredMenusPath(), "w")
             if f then
                 f:write(hs.json.encode(ms._authoredMenus or {}, true))
                 f:close()

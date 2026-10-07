@@ -26,29 +26,7 @@ return function(ms)
     -- Panel State & Builders --
         function MsSettings:_initSettingsMenu(ms)
         local settingsPath    = os.getenv("HOME") .. "/.hammerspoon/ms_settings.txt"
-        local jsonPath        = os.getenv("HOME") .. "/.hammerspoon/data/ms_settings.json"
-        local defaultPath     = os.getenv("HOME") .. "/.hammerspoon/data/ms_settings_default.json"
-        local authoredPath    = os.getenv("HOME") .. "/.hammerspoon/data/ms_authored.json"
-        local authoredMenusPath = os.getenv("HOME") .. "/.hammerspoon/data/ms_authored_menus.json"
-        local macrosPath      = os.getenv("HOME") .. "/.hammerspoon/ms_macros.lua"
-        local profilesPath    = os.getenv("HOME") .. "/.hammerspoon/profiles/"
-        local corePath        = os.getenv("HOME") .. "/.hammerspoon/ms_core.lua"
         local trustedHashPath = os.getenv("HOME") .. "/.hammerspoon/data/.ms_trusted_hash"
-        local themePath       = os.getenv("HOME") .. "/.hammerspoon/data/ms_theme.json"
-        local visualJsonPath  = os.getenv("HOME") .. "/.hammerspoon/data/ms_macros_visual.json"
-        local visualLuaPath   = os.getenv("HOME") .. "/.hammerspoon/data/ms_macros_visual.lua"
-        local helperVarsPath  = os.getenv("HOME") .. "/.hammerspoon/data/ms_helpervars.json"
-
-        -- Builder content that rides with a profile beyond ms_macros.lua
-        local function profileContentFiles()
-            return {
-                { live = visualJsonPath, name = "ms_macros_visual.json" },
-                { live = visualLuaPath,  name = "ms_macros_visual.lua" },
-                { live = authoredPath,   name = "ms_authored.json" },
-                { live = authoredMenusPath, name = "ms_authored_menus.json" },
-                { live = helperVarsPath, name = "ms_helpervars.json" },
-            }
-        end
 
         ms.bindConfig = {}
         ms.bindHandles = {}
@@ -65,15 +43,20 @@ return function(ms)
                 type="scroll",
                 direction=dir,
             } end
-            -- Parse gamepad single button or a chord
             local gp = str:match("^gamepad:([%w+]+)$")
             if gp then
                 local list = {}
                 for b in gp:gmatch("[^+]+") do list[#list + 1] = b end
                 if #list == 1 then
-                    return { type = "gamepad", button = list[1] }
+                    return {
+                        type = "gamepad",
+                        button = list[1],
+                    }
                 elseif #list > 1 then
-                    return { type = "gamepad", buttons = list }
+                    return {
+                        type = "gamepad",
+                        buttons = list,
+                    }
                 end
             end
             local mods = {}
@@ -107,16 +90,8 @@ return function(ms)
     -- Submodules --
         local ctx = {
             settingsPath = settingsPath,
-            jsonPath = jsonPath,
-            defaultPath = defaultPath,
-            authoredPath = authoredPath,
-            authoredMenusPath = authoredMenusPath,
             backupDir = function(sub) return ms.backups.dir(sub) end,
-            macrosPath = macrosPath,
-            profilesPath = profilesPath,
             trustedHashPath = trustedHashPath,
-            themePath = themePath,
-            profileContentFiles = profileContentFiles,
         }
         for _, name in ipairs({
             "validation",
@@ -124,6 +99,7 @@ return function(ms)
             "lifecycle",
             "api",
             "profiles",
+            "profile_io",
             "integrity",
         }) do
             package.loaded["lib.settings." .. name] = nil

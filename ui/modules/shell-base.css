@@ -110,7 +110,7 @@
     #panel-watermark { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
     #panel-watermark svg {
         position: absolute; top: 40%; left: 52%;
-        width: 58%; height: auto; aspect-ratio: 1;
+        height: 77%; width: auto; aspect-ratio: 1;
         color: color-mix(in srgb, var(--bg) 84%, var(--text2) 16%);
         opacity: 0.9; transform: rotate(-30deg); transform-origin: center;
     }

@@ -1,6 +1,6 @@
 return function(ms, ctx)
     -- User Settings & Menu API --
-        local themePath = ctx.themePath
+        local function themePath() return ms.profile.file("theme") end
         local _SETTING_TYPES = ctx._SETTING_TYPES
         local _HIDEABLE_FEATURES = ctx._HIDEABLE_FEATURES
         local _validateUserValue = ctx._validateUserValue
@@ -254,7 +254,7 @@ return function(ms, ctx)
                 assert(type(key) == "string",    "ms.tools.set: key must be a string")
                 return ms.settings.set("tool." .. toolId .. "." .. key, value)
             end
-        -- END ms.tools.get / ms.tools.set --
+        -- END --
 
         -- ms.features.hide(name) --
             ms.features.hide = function(name)
@@ -278,7 +278,7 @@ return function(ms, ctx)
             if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
             for k, v in pairs(ms._themeDefaults) do ms._theme[k] = v end
             if ms._customThemeDisabled then return end
-            local f = io.open(themePath, "r")
+            local f = io.open(themePath(), "r")
             if not f then return end
             local content = f:read("*all")
             f:close()
@@ -329,7 +329,7 @@ return function(ms, ctx)
         end
 
         ms.readThemeFile = function()
-            local f = io.open(themePath, "r")
+            local f = io.open(themePath(), "r")
             if not f then return {} end
             local content = f:read("*all")
             f:close()
@@ -343,7 +343,7 @@ return function(ms, ctx)
             for k, v in pairs(patch) do
                 if v == "" then data[k] = nil else data[k] = v end
             end
-            local f = io.open(themePath, "w")
+            local f = io.open(themePath(), "w")
             if not f then return false end
             f:write(hs.json.encode(data, true))
             f:close()
@@ -352,8 +352,8 @@ return function(ms, ctx)
         end
 
         ms.resetTheme = function()
-            if hs.fs.attributes(themePath) then
-                os.rename(themePath, themePath .. ".bak")
+            if hs.fs.attributes(themePath()) then
+                os.rename(themePath(), themePath() .. ".bak")
             end
             ms.loadTheme()
             return true
@@ -362,8 +362,6 @@ return function(ms, ctx)
 
     -- Capability Detection --
         ms.has = function(feature)
-            local home = os.getenv("HOME") .. "/.hammerspoon"
-
             if feature == "theme" then
                 return ms._themeLoaded == true
 
@@ -378,16 +376,7 @@ return function(ms, ctx)
                 return ms.trackpadMode == true
 
             elseif feature == "profiles" then
-                local pPath = home .. "/profiles/"
-                if not hs.fs.attributes(pPath) then return false end
-                for entry in hs.fs.dir(pPath) do
-                    if entry ~= "." and entry ~= ".." then
-                        if hs.fs.attributes(pPath .. entry .. "/ms_macros.lua") then
-                            return true
-                        end
-                    end
-                end
-                return false
+                return #ms.profile.list() > 0
 
             elseif feature == "userSettings" then
                 return type(ms.settings) == "table"

@@ -58,17 +58,27 @@ else
     fi
 fi
 
+PROFILE_ROOT_FILES="ms_macros.lua data/ms_settings.json data/ms_settings_default.json data/ms_theme.json data/ms_macros_visual.json data/ms_macros_visual.lua data/ms_authored.json data/ms_authored_menus.json data/ms_helpervars.json"
+STASH="$(mktemp -d)"
+HAD_ROOT=0
+for f in $PROFILE_ROOT_FILES; do
+    if [ -f "$HS/$f" ]; then
+        mkdir -p "$STASH/root/$(dirname "$f")"
+        cp -p "$HS/$f" "$STASH/root/$f"
+        HAD_ROOT=1
+    fi
+done
+if [ -d "$HS/profiles/Default" ]; then
+    mv "$HS/profiles/Default" "$STASH/ProfileDefault"
+fi
+
 if [ -f "$SCRIPT_DIR/ms_core.lua" ] && [ -f "$SCRIPT_DIR/init.lua" ]; then
     echo "3. Copying local repo to ~/.hammerspoon/ ..."
     mkdir -p "$HS"
     cp -R "$SCRIPT_DIR"/* "$HS/"
     # MANIFEST.json lives at the repo root (one level up from mac/)
     [ -f "$SCRIPT_DIR/../MANIFEST.json" ] && cp "$SCRIPT_DIR/../MANIFEST.json" "$HS/"
-    # Include default settings and sounds from the repo root.
-    if [ -d "$SCRIPT_DIR/../data" ]; then
-        mkdir -p "$HS/data"
-        cp "$SCRIPT_DIR/../data/"*.json "$HS/data/" 2>/dev/null || true
-    fi
+    # Include default sounds from the repo root.
     if [ -d "$SCRIPT_DIR/../sounds" ]; then
         mkdir -p "$HS/sounds"
         cp "$SCRIPT_DIR/../sounds/"*.wav "$HS/sounds/" 2>/dev/null || true
@@ -129,6 +139,31 @@ else
     # Remove the downloaded install script from the target
     rm -f "$HS/install.sh" 2>/dev/null || true
 fi
+
+echo ""
+echo "3b. Keeping profile files inside profiles/ ..."
+if [ -d "$STASH/ProfileDefault" ]; then
+    rm -rf "$HS/profiles/Default"
+    mkdir -p "$HS/profiles"
+    mv "$STASH/ProfileDefault" "$HS/profiles/Default"
+fi
+for f in $PROFILE_ROOT_FILES; do
+    rm -f "$HS/$f"
+done
+if [ "$HAD_ROOT" = "1" ] || [ -f "$HS/profiles/.layout" ]; then
+    for f in $PROFILE_ROOT_FILES; do
+        if [ -f "$STASH/root/$f" ]; then
+            mkdir -p "$HS/$(dirname "$f")"
+            cp -p "$STASH/root/$f" "$HS/$f"
+        fi
+    done
+    echo "   OK   Existing profile files left in place."
+elif [ -f "$HS/profiles/Default/profile.json" ]; then
+    printf '2\n' > "$HS/profiles/.layout"
+    printf 'Default\n' > "$HS/profiles/.active"
+    echo "   OK   Default profile installed."
+fi
+rm -rf "$STASH"
 
 echo ""
 echo "4. Installing OS-level Guardian ..."

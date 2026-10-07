@@ -21,7 +21,7 @@
         end
 
         do
-            local macrosPath = os.getenv("HOME") .. "/.hammerspoon/ms_macros.lua"
+            local macrosPath = ms.profile.file("macros")
 
             local frozenMs = setmetatable({}, {
                 __index    = function(t, k)
@@ -254,7 +254,6 @@
             do
                 local af = io.open(macrosPath, "r")
                 if not af then
-                    -- Seed a minimal stub instead of erroring out of boot when ms_macros.lua is missing
                     print("ms_macros.lua missing at boot; seeding an empty stub: " .. macrosPath)
                     rawSrc = "-- ms_macros.lua was missing at boot and has been reset.\n"
                         .. "-- Activate a macro pack from the Installed Library to restore your macros.\n"
@@ -308,7 +307,6 @@
             end
             ms.loading.pushMeta()
             if not next(ms.registry._defs) then
-                -- A bindless file is a legitimately empty profile, so warn rather than fault
                 print("Warning: ms_macros.lua declared no ms.bind.define calls (empty profile?).")
                 hs.timer.doAfter(0.5, function()
                     ms.alert("This profile has no macros yet. Add some in the Macros panel.", 5)
@@ -330,31 +328,20 @@
             end
         -- END 14a. Visual Macros --
 
-        -- 14b. Macro Pack Library Migration --
-            -- One-time, non-destructive surfacing of live and saved-profile packs into the library
-            if ms.package and ms.package.migrateMacroPacks then
-                local migOk, migErr = pcall(ms.package.migrateMacroPacks)
-                if not migOk then
-                    print("ms.package.migrateMacroPacks (boot): " .. tostring(migErr))
-                end
-            end
-            -- Backfill packs.json links for legacy profiles (idempotent).
-            if ms.package and ms.package.migrateProfilePacks then
-                local mpOk, mpErr = pcall(ms.package.migrateProfilePacks)
-                if not mpOk then
-                    print("ms.package.migrateProfilePacks (boot): " .. tostring(mpErr))
-                end
-            end
-            -- Re-flag each kind's active marker by content fingerprint on every boot
+        -- 14b. Active Pack Reconcile --
             if ms.package and ms.package.reconcileActive then
-                for _, k in ipairs({ "theme", "sound", "macro" }) do
+                for _, k in ipairs({
+                    "theme",
+                    "sound",
+                    "macro",
+                }) do
                     local rcOk, rcErr = pcall(ms.package.reconcileActive, k)
                     if not rcOk then
                         print("ms.package.reconcileActive(" .. k .. ") (boot): " .. tostring(rcErr))
                     end
                 end
             end
-        -- END 14b. Macro Pack Library Migration --
+        -- END 14b. Active Pack Reconcile --
 
         ms.macroDefaults = {
             trackpadMode = false,

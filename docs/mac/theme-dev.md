@@ -2,7 +2,7 @@
 
 ## Theme System
 
-The panel UI is fully themeable via `~/.hammerspoon/data/ms_theme.json`. Edit the file directly, then use **Developer > Reload Theme** in the settings panel (or `hs.reload()`) to apply changes.
+The panel UI is fully themeable via `~/.hammerspoon/profiles/<active profile>/data/ms_theme.json`. Edit the file directly, then use **Developer > Reload Theme** in the settings panel (or `hs.reload()`) to apply changes.
 
 ---
 

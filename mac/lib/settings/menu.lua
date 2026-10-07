@@ -837,7 +837,7 @@ return function(ms, ctx)
                             fn       = not isCurrent and function()
                                 ms.ui.modal({
                                     title   = "Switch Profile",
-                                    msg     = "Switch to \"" .. name .. "\"?\n\nThe current profile will be archived and Hammerspoon will reload in 3 seconds.",
+                                    msg     = "Switch to \"" .. name .. "\"?\n\nYour current profile is saved as it is and the new one loads right away.",
                                     confirm = "Switch",
                                     cancel  = "Cancel",
                                 }, function(r)
@@ -1035,7 +1035,7 @@ return function(ms, ctx)
                         title = "Edit Macros",
                         fn = function()
                         ms.playSlot("interact")
-                        os.execute("open " .. os.getenv("HOME") .. "/.hammerspoon/ms_macros.lua")
+                        os.execute("open '" .. ms.profile.file("macros") .. "'")
                     end },
                     { title = "-" },
                     {

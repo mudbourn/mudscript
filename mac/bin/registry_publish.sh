@@ -263,8 +263,9 @@ if [ "$TYPE" = "profile" ] && [ -z "$FORMAT" ]; then
                 /*|*..*|.*) echo "ERROR: unsafe path in $K component: $rel"; exit 1 ;;
             esac
             [ -f "$UNPACK/$rel" ] || continue
-            mkdir -p "$CSTAGE/$(dirname "$rel")"
-            cp "$UNPACK/$rel" "$CSTAGE/$rel"
+            FLAT="${rel#data/}"
+            mkdir -p "$CSTAGE/$(dirname "$FLAT")"
+            cp "$UNPACK/$rel" "$CSTAGE/$FLAT"
         done <<< "$FILES"
         [ -n "$(find "$CSTAGE" -type f | head -1)" ] || continue
 

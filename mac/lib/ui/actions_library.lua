@@ -1,7 +1,6 @@
 return function(ms, ctx)
     local MsUI = ctx.MsUI
     local sq = ctx.sq
-    local profilesPath = ctx.profilesPath
     local _savedEditor = ctx._savedEditor
     local _editorName = ctx._editorName
     local _pickEditor = ctx._pickEditor
@@ -17,66 +16,24 @@ return function(ms, ctx)
                 end,
 
                 deleteProfile = function(data)
-                    if not data.name then return end
-                    local targetName = ms.sanitizeName(data.name)
-                    local activeName = ms.activeProfile and ms.activeProfile() or ""
-                    if targetName == "" or targetName == activeName then return end
-                    local dir = profilesPath .. targetName
-                    if not hs.fs.attributes(dir) then return end
-                    os.execute("rm -rf " .. sq(dir))
-                    if ms.package and ms.package.libraryRemove then
-                        for _, k in ipairs({ "macro", "theme", "sound" }) do
-                            pcall(ms.package.libraryRemove, k, targetName)
-                        end
-                    end
-                    ms._profilesDirty = true
+                    if not (data and data.name and ms.deleteProfile) then return end
+                    if not ms.deleteProfile(data.name) then return end
                     ms.ui.markDirty()
                     ms.playSlot("reset")
                     hs.timer.doAfter(0.05, function()
                         ms.alert("Profile \"" .. data.name .. "\" deleted.", 2, true)
                         ms.ui.refresh()
-                        if ms.ui._actions and ms.ui._actions.libraryList then
-                            for _, k in ipairs({ "macro", "theme", "sound" }) do
-                                pcall(ms.ui._actions.libraryList, { kind = k })
-                            end
-                        end
                     end)
                 end,
 
                 clearProfiles = function()
-                    local activeName = ms.activeProfile and ms.activeProfile() or ""
-                    if activeName == "" then return end
-                    if not hs.fs.attributes(profilesPath) then return end
-                    local deleted = 0
-                    for entry in hs.fs.dir(profilesPath) do
-                        if entry ~= "." and entry ~= ".." then
-                            local safe = ms.sanitizeName(entry)
-                            if safe ~= "" and safe ~= activeName then
-                                local dir = profilesPath .. entry
-                                local attr = hs.fs.attributes(dir)
-                                if attr and attr.mode == "directory" then
-                                    os.execute("rm -rf " .. sq(dir))
-                                    if ms.package and ms.package.libraryRemove then
-                                        for _, k in ipairs({ "macro", "theme", "sound" }) do
-                                            pcall(ms.package.libraryRemove, k, safe)
-                                        end
-                                    end
-                                    deleted = deleted + 1
-                                end
-                            end
-                        end
-                    end
-                    ms._profilesDirty = true
+                    if not ms.clearProfiles then return end
+                    local deleted = ms.clearProfiles()
                     ms.ui.markDirty()
                     ms.playSlot("reset")
                     hs.timer.doAfter(0.05, function()
                         ms.alert(deleted .. " profile" .. (deleted == 1 and "" or "s") .. " deleted.", 3, true)
                         ms.ui.refresh()
-                        if ms.ui._actions and ms.ui._actions.libraryList then
-                            for _, k in ipairs({ "macro", "theme", "sound" }) do
-                                pcall(ms.ui._actions.libraryList, { kind = k })
-                            end
-                        end
                     end)
                 end,
 
@@ -87,7 +44,7 @@ return function(ms, ctx)
 
             -- Editors & Windows --
                 editMacros = function(data)
-                    local path = os.getenv("HOME") .. "/.hammerspoon/ms_macros.lua"
+                    local path = ms.profile.file("macros")
 
                     local function openIn(app)
                         if app then
@@ -134,7 +91,7 @@ return function(ms, ctx)
                 end,
 
                 editThemeJson = function()
-                    local path = os.getenv("HOME") .. "/.hammerspoon/data/ms_theme.json"
+                    local path = ms.profile.file("theme")
 
                     if not hs.fs.attributes(path) then
                         local f = io.open(path, "w")
@@ -204,12 +161,11 @@ return function(ms, ctx)
                     local collectOpts, namedProfile = nil, nil
                     if kind == "profile" and data.profileName then
                         local safe = ms.sanitizeName(data.profileName)
-                        local pdir = profilesPath .. safe
-                        if safe == "" or not hs.fs.attributes(pdir) then
+                        if safe == "" or not ms.profile.exists(safe) then
                             ms.alert("Profile \"" .. tostring(data.profileName) .. "\" not found.", 4)
                             return
                         end
-                        collectOpts = { configDir = pdir .. "/" }
+                        collectOpts = { name = safe }
                         namedProfile = safe
                     end
 
@@ -223,6 +179,11 @@ return function(ms, ctx)
                         collectOpts = { baseDir = fdir }
                         namedProfile = ms.sanitizeName(data.name or "")
                         isSlice = true
+                    end
+
+                    if kind == "profile" then
+                        pcall(ms.saveSettings)
+                        pcall(ms.stampProfileRequires, namedProfile or ms.profile.active())
                     end
 
                     local files = ms.package.collect(kind, collectOpts)
@@ -341,6 +302,7 @@ return function(ms, ctx)
                                 ms.alert("Import failed:\n" .. tostring(err), 5)
                                 return
                             end
+                            if result.updatedActive and ms.hotswapLive then pcall(ms.hotswapLive) end
                             if ms._soundsDirty then ms._discoverSounds() end
                             if ms.loadTheme then ms.loadTheme() end
                             ms.playSlot("update")
@@ -349,7 +311,7 @@ return function(ms, ctx)
                                 ms.alert(
                                     "\"" .. (result.profile or result.manifest.name
                                         or "Profile") .. "\" imported.\n" ..
-                                    "Switch to it from Settings \xe2\x86\x92 Profiles.",
+                                    "Switch to it from Settings > Profiles.",
                                     5, true
                                 )
                                 if ms.ui.markDirty then ms.ui.markDirty() end
@@ -502,6 +464,7 @@ return function(ms, ctx)
                                     if soundErr then
                                         ms.alert("Sound install failed:\n" .. tostring(soundErr), 5)
                                     end
+                                    if result.updatedActive and ms.hotswapLive then pcall(ms.hotswapLive) end
                                     if ms._soundsDirty then ms._discoverSounds() end
                                     if ms.loadTheme then ms.loadTheme() end
                                     ms.playSlot("update")
@@ -577,7 +540,10 @@ return function(ms, ctx)
                         or (ms.activeProfile and ms.activeProfile()) or ""
                     local entries = {}
                     for _, n in ipairs(names) do
-                        entries[#entries + 1] = { name = n, active = (n == active) }
+                        entries[#entries + 1] = {
+                            name = n,
+                            active = (n == active),
+                        }
                     end
                     local ok2, json = pcall(hs.json.encode, { entries = entries })
                     if ok2 and json then

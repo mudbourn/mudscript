@@ -1,7 +1,5 @@
 return function(ms, ctx)
     -- Context --
-        local _hsDir = ctx.hsDir
-
         local _dataDir = ctx.dataDir
 
         local sq = ctx.sq
@@ -66,73 +64,52 @@ return function(ms, ctx)
             return nil
         end
 
-        local function activeMarkerPath(kind) return LIBRARY_ROOT .. "/" .. kind .. "/.active" end
+        local function packInfo(kind, slug)
+            local rec = readJSON(libraryDir(kind, slug) .. "/meta.json")
+            return {
+                slug    = slug,
+                version = rec and rec.version or nil,
+                owner   = rec and rec.owner or nil,
+            }
+        end
 
         ms.package.libraryGetActive = function(kind)
             if not LIBRARY_KINDS[kind] then return nil end
-            local s = readFile(activeMarkerPath(kind))
-            if not s then return nil end
-            s = s:gsub("%s+$", "")
-            return s ~= "" and s or nil
+            local pack = ms.profile.packs()[kind]
+            if type(pack) == "table" and type(pack.slug) == "string" and pack.slug ~= "" then
+                return pack.slug
+            end
+            return nil
         end
 
         ms.package.librarySetActive = function(kind, slug)
             if not LIBRARY_KINDS[kind] then return end
-            if slug and slug ~= "" then
-                local dir = LIBRARY_ROOT .. "/" .. kind
-                hs.execute("mkdir -p " .. sq(dir))
-                writeFile(activeMarkerPath(kind), librarySlug(slug) .. "\n")
-            else
-                os.remove(activeMarkerPath(kind))
-            end
+            local info = (slug and slug ~= "") and packInfo(kind, librarySlug(slug)) or nil
+            ms.profile.updateMeta(nil, function(meta)
+                meta.packs = type(meta.packs) == "table" and meta.packs or {}
+                meta.packs[kind] = info
+                if next(meta.packs) == nil then meta.packs = nil end
+            end)
         end
 
-        local activeProfilePath = LIBRARY_ROOT .. "/.active_profile"
         ms.package.getActiveProfile = function()
-            local s = readFile(activeProfilePath)
-            if not s then return nil end
-            s = s:gsub("%s+$", "")
-            return s ~= "" and s or nil
-        end
-        ms.package.setActiveProfile = function(name)
-            if name and name ~= "" then
-                hs.execute("mkdir -p " .. sq(LIBRARY_ROOT))
-                writeFile(activeProfilePath, tostring(name) .. "\n")
-            else
-                os.remove(activeProfilePath)
-            end
+            local name = ms.profile.active()
+            return (type(name) == "string" and name ~= "") and name or nil
         end
 
-        local function profilePacksPath(name)
-            return _hsDir .. "/profiles/" .. tostring(name) .. "/packs.json"
+        ms.package.setActiveProfile = function(name)
+            return ms.profile.setActive(name)
         end
+
         ms.package.getProfilePacks = function(name)
             if not name or name == "" then return nil end
-            local t = readJSON(profilePacksPath(name))
-            if type(t) ~= "table" then return nil end
             local out = {}
-            for _, k in ipairs({
-                "theme",
-                "sound",
-                "macro",
-            }) do
-                if type(t[k]) == "string" and t[k] ~= "" then out[k] = t[k] end
+            for kind, pack in pairs(ms.profile.packs(name)) do
+                if LIBRARY_KINDS[kind] and type(pack) == "table" and type(pack.slug) == "string" then
+                    out[kind] = pack.slug
+                end
             end
             return out
-        end
-        ms.package.setProfilePacks = function(name, tbl)
-            if not name or name == "" or type(tbl) ~= "table" then return false end
-            local rec = {}
-            for _, k in ipairs({
-                "theme",
-                "sound",
-                "macro",
-            }) do
-                if type(tbl[k]) == "string" and tbl[k] ~= "" then rec[k] = tbl[k] end
-            end
-            local dir = _hsDir .. "/profiles/" .. tostring(name)
-            hs.execute("mkdir -p " .. sq(dir))
-            return writeFile(profilePacksPath(name), hs.json.encode(rec) .. "\n")
         end
 
         ms.package.librarySave = function(kind, files, meta)
@@ -280,13 +257,13 @@ return function(ms, ctx)
             end
             if not hadFiles then
                 if kind == "theme" then
-                    os.remove(_dataDir .. "/ms_theme.json")
+                    os.remove(destFor("ms_theme.json"))
                 elseif kind == "sound" then
-                    os.remove(_hsDir .. "/sound_assign.json")
+                    os.remove(destFor("sound_assign.json"))
                     ms._soundsDirty = true
                 elseif kind == "macro" then
-                    if not fileExists(_hsDir .. "/ms_macros.lua") then
-                        writeFile(_hsDir .. "/ms_macros.lua",
+                    if not fileExists(destFor("ms_macros.lua")) then
+                        writeFile(destFor("ms_macros.lua"),
                             "-- Blank macro pack - add your macros below.\n"
                             .. "ms.macroMeta = { name = \"" .. tostring(slug)
                             .. "\", author = \"\" }\n")
@@ -371,7 +348,7 @@ return function(ms, ctx)
 
         local function foldLiveMacroBinds()
             if type(ms.bindConfig) ~= "table" then return end
-            local jsonPath = _dataDir .. "/ms_macros_visual.json"
+            local jsonPath = ms.profile.file("visualJson")
             local data = readJSON(jsonPath)
             if type(data) ~= "table" or type(data.macros) ~= "table" then return end
 
@@ -500,67 +477,6 @@ return function(ms, ctx)
             return ms.package.librarySave(kind, files, meta or {})
         end
 
-        ms.package.migrateMacroPacks = function()
-            local macroRoot  = LIBRARY_ROOT .. "/macro"
-            local doneMarker = macroRoot .. "/.migrated"
-            if hs.fs.attributes(doneMarker) then return end
-
-            local function slugExists(name)
-                return hs.fs.attributes(libraryDir("macro", librarySlug(name))) ~= nil
-            end
-
-            local liveName = (ms.macroMeta and type(ms.macroMeta.name) == "string"
-                and ms.macroMeta.name ~= "" and ms.macroMeta.name) or "Current Macros"
-            local liveFiles = ms.package.collect("macro")
-            if next(liveFiles) ~= nil and not slugExists(liveName) then
-                local rec = ms.package.librarySave("macro", liveFiles, {
-                    name    = liveName,
-                    origin  = "current",
-                    version = ms.macroMeta and ms.macroMeta.version or nil,
-                })
-                if rec and not ms.package.libraryGetActive("macro") then
-                    ms.package.librarySetActive("macro", rec.slug)
-                end
-            end
-
-            local profilesDir = _hsDir .. "/profiles/"
-            if hs.fs.attributes(profilesDir) then
-                for entry in hs.fs.dir(profilesDir) do
-                    if entry ~= "." and entry ~= ".." and not entry:find("^%.") then
-                        local pdir = profilesDir .. entry
-                        if hs.fs.attributes(pdir .. "/ms_macros.lua") and not slugExists(entry) then
-                            ms.package.libraryImportDir("macro", pdir, {
-                                name = entry, origin = "profile",
-                            })
-                        end
-                    end
-                end
-            end
-
-            hs.execute("mkdir -p " .. sq(macroRoot))
-            writeFile(doneMarker, os.date("!%Y-%m-%dT%H:%M:%SZ") .. "\n")
-        end
-
-        ms.package.migrateProfilePacks = function()
-            local profilesDir = _hsDir .. "/profiles/"
-            if not hs.fs.attributes(profilesDir) then return end
-            for entry in hs.fs.dir(profilesDir) do
-                if entry ~= "." and entry ~= ".." and not entry:find("^%.")
-                    and not hs.fs.attributes(profilePacksPath(entry)) then
-                    local slug = librarySlug(entry)
-                    local refs = {}
-                    for _, k in ipairs({
-                        "theme",
-                        "sound",
-                        "macro",
-                    }) do
-                        if ms.package.libraryHasEntry(k, slug) then refs[k] = slug end
-                    end
-                    if next(refs) then ms.package.setProfilePacks(entry, refs) end
-                end
-            end
-        end
-
         local RECONCILE_SKIP = {
             ["sound_assign.json"]     = true,
             ["ms_macros_visual.lua"]  = true,
@@ -649,6 +565,8 @@ return function(ms, ctx)
 
         ms.package.reconcileActive = function(kind)
             if not LIBRARY_KINDS[kind] then return end
+            local current = ms.package.libraryGetActive(kind)
+            if current and ms.package.libraryHasEntry(kind, current) then return end
             local liveFp = sliceFingerprint(ms.package.collect(kind))
             if not liveFp then return end
 
@@ -658,7 +576,6 @@ return function(ms, ctx)
                     return
                 end
             end
-            ms.package.librarySetActive(kind, nil)
         end
     -- END Installed Library --
 end

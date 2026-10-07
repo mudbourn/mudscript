@@ -1,10 +1,9 @@
 return function(ms, ctx)
     -- User Settings validation helpers --
         local settingsPath = ctx.settingsPath
-        local jsonPath = ctx.jsonPath
-        local defaultPath = ctx.defaultPath
+        local function jsonPath() return ms.profile.file("settings") end
+        local function defaultPath() return ms.profile.file("defaults") end
         local backupDir = ctx.backupDir
-        local macrosPath = ctx.macrosPath
 
         local _SETTING_TYPES = {
             toggle = true,
@@ -432,7 +431,7 @@ return function(ms, ctx)
                 visible = false,
             }
             -- END Phase 6 --
-            local f = io.open(jsonPath, "w")
+            local f = io.open(jsonPath(), "w")
             if f then
                 f:write(hs.json.encode(data, true))
                 f:close()
@@ -445,13 +444,13 @@ return function(ms, ctx)
                 event = "settings_load_start",
             })
             if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
-            local f = io.open(jsonPath, "r")
+            local f = io.open(jsonPath(), "r")
             if f then
                 local content = f:read("*all")
                 f:close()
                 local data = hs.json.decode(content)
                 if data then
-                    local df = io.open(defaultPath, "r")
+                    local df = io.open(defaultPath(), "r")
                     if df then
                         local defContent = df:read("*all")
                         df:close()
@@ -495,7 +494,7 @@ return function(ms, ctx)
                 end)
                 return
             end
-            local df = io.open(defaultPath, "r")
+            local df = io.open(defaultPath(), "r")
             if df then
                 local content = df:read("*all")
                 df:close()
@@ -507,7 +506,7 @@ return function(ms, ctx)
                 end
             end
             ms._buildDefaultSettings()
-            local df2 = io.open(defaultPath, "r")
+            local df2 = io.open(defaultPath(), "r")
             if df2 then
                 local content2 = df2:read("*all")
                 df2:close()
@@ -519,12 +518,12 @@ return function(ms, ctx)
 
         ms.saveDefault = function()
             ms.saveSettings()
-            local sf = io.open(jsonPath, "r")
+            local sf = io.open(jsonPath(), "r")
             if not sf then ms.alert("Could not read current settings.", 3)
             return end
             local content = sf:read("*all")
             sf:close()
-            local existingDf = io.open(defaultPath, "r")
+            local existingDf = io.open(defaultPath(), "r")
             if existingDf then
                 local oldContent = existingDf:read("*all")
                 existingDf:close()
@@ -534,7 +533,7 @@ return function(ms, ctx)
                 if af then af:write(oldContent)
                 af:close() end
             end
-            local df = io.open(defaultPath, "w")
+            local df = io.open(defaultPath(), "w")
             if df then
                 df:write(content)
                 df:close()
@@ -543,7 +542,7 @@ return function(ms, ctx)
         end
 
         ms.resetToDefault = function()
-            local f = io.open(defaultPath, "r")
+            local f = io.open(defaultPath(), "r")
             if not f then
                 ms.alert("No default settings file found.", 3)
                 return false
@@ -595,8 +594,7 @@ return function(ms, ctx)
             ms._userSettingIndex = {}
             ms._stashUserSettings()
 
-            local macrosPath = os.getenv("HOME") .. "/.hammerspoon/ms_macros.lua"
-            local af = io.open(macrosPath, "r")
+            local af = io.open(ms.profile.file("macros"), "r")
             if af then
                 local rawSrc = af:read("*all")
                 af:close()

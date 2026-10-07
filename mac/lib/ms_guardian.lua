@@ -649,7 +649,6 @@ YQIDAQAB
                     "Spoons",
                 }
                 local templateList = {
-                    "ms_macros.lua",
                     "profiles/Default",
                 }
 
@@ -716,10 +715,29 @@ YQIDAQAB
         return false
     end
 
+    local function _profileFile(rel)
+        local base = _home .. "/.hammerspoon"
+        local lf = io.open(base .. "/profiles/.layout", "r")
+        if lf then
+            local n = tonumber(lf:read("*all"))
+            lf:close()
+            if n and n >= 2 then
+                local af = io.open(base .. "/profiles/.active", "r")
+                local name = af and af:read("*all") or ""
+                if af then af:close() end
+                name = name:gsub("^%s+", ""):gsub("%s+$", "")
+                if name ~= "" and not name:find("[/\\]") and name:sub(1, 1) ~= "." then
+                    return base .. "/profiles/" .. name .. "/" .. rel
+                end
+            end
+        end
+        return base .. "/" .. rel
+    end
+
     local function _showGuardianBlock(expectedHash, currentHash, spec)
         local _customThemeDisabled = true
         pcall(function()
-            local _sf = io.open(_home .. "/.hammerspoon/data/ms_settings.json", "r")
+            local _sf = io.open(_profileFile("data/ms_settings.json"), "r")
             if _sf then
                 local _raw = _sf:read("*all")
                 _sf:close()
@@ -733,7 +751,7 @@ YQIDAQAB
         pcall(function()
             local _soundPath = _customThemeDisabled
                 and (_home .. "/.hammerspoon/sounds/defaults/d_Error.wav")
-                or  (_home .. "/.hammerspoon/sounds/active/a_Error.wav")
+                or  _profileFile("sounds/active/a_Error.wav")
             local _snd = hs.sound.getByFile(_soundPath)
             if _snd then _snd:play() end
         end)
@@ -837,7 +855,7 @@ YQIDAQAB
             local _guardianTheme = nil
 
             if not _customThemeDisabled then
-                local _tf = io.open(_home .. "/.hammerspoon/data/ms_theme.json", "r")
+                local _tf = io.open(_profileFile("data/ms_theme.json"), "r")
 
                 if _tf then
                     local _td = hs.json.decode(_tf:read("*all"))

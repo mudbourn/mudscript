@@ -87,13 +87,9 @@ if command -v swiftc &>/dev/null && [ -f "$REPO/mac/bin/ms_ocr_read.swift" ]; th
     swiftc -O -o "$HOME/.local/bin/ms_ocr_read" "$REPO/mac/bin/ms_ocr_read.swift" -framework Vision -framework AppKit 2>/dev/null || true
 fi
 
-if [ -d "$REPO/sounds" ]; then
-    mkdir -p "$HS/sounds/defaults" "$HS/sounds/active" "$HS/sounds/macro"
-    for d in defaults active macro; do
-        if [ -d "$REPO/sounds/$d" ]; then
-            cp -R "$REPO/sounds/$d/." "$HS/sounds/$d/" 2>/dev/null || true
-        fi
-    done
+if [ -d "$REPO/sounds/defaults" ]; then
+    mkdir -p "$HS/sounds/defaults"
+    cp -R "$REPO/sounds/defaults/." "$HS/sounds/defaults/" 2>/dev/null || true
 fi
 
 # Copy MANIFEST.json so version tracking stays in sync.

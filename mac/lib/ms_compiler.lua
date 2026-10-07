@@ -1,10 +1,9 @@
 -- ms_compiler (Visual Macro Compiler) --
     return function(ms)
 
-        local home       = os.getenv("HOME")
-        local dataDir    = home .. "/.hammerspoon/data"
-        local jsonPath   = dataDir .. "/ms_macros_visual.json"
-        local luaPath    = dataDir .. "/ms_macros_visual.lua"
+        local dataDir    = ms.profile.path("data")
+        local jsonPath   = ms.profile.file("visualJson")
+        local luaPath    = ms.profile.file("visualLua")
         local STAMP      = "-- Compiler: 2"
 
         ms.compiler = {}
@@ -1560,6 +1559,15 @@
                 lua  = luaPath,
                 data = dataDir,
             }
+
+            ms.compiler.repoint = function()
+                dataDir = ms.profile.path("data")
+                jsonPath = ms.profile.file("visualJson")
+                luaPath = ms.profile.file("visualLua")
+                ms.compiler.paths.json = jsonPath
+                ms.compiler.paths.lua = luaPath
+                ms.compiler.paths.data = dataDir
+            end
         -- END Paths --
     end
 -- END ms_compiler --

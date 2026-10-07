@@ -7,13 +7,13 @@ return function(ms)
 
     local MANIFEST_NAME  = "mspkg.json"
     local FORMAT_VERSION = 1
+    local PROFILE_FORMAT = 2
 
     ms.package = {}
 
     -- Helpers --
         local function sq(s) return "'" .. tostring(s):gsub("\\", "/"):gsub("'", "'\\''") .. "'" end
 
-        -- Cross-platform sha256 tool: shasum on mac, sha256sum on git-for-Windows
         local _hashCmd = nil
         local function hashTool()
             if _hashCmd ~= nil then return _hashCmd end
@@ -95,17 +95,11 @@ return function(ms)
             if dir and dir:find("mspkg%-") then hs.execute("/bin/rm -rf " .. sq(dir)) end
         end
 
-        -- Where a packaged relative path lands in the live install
-        local function destFor(clean)
-            if clean == "ms_macros.lua" then
-                return _hsDir .. "/ms_macros.lua"
-            elseif clean == "ms_macros_visual.lua" then
-                return _dataDir .. "/ms_macros_visual.lua"
-            elseif clean:find("^ms_") and clean:find("%.json$") then
-                return _dataDir .. "/" .. clean
-            else
+        local function destFor(clean, profileName)
+            if clean:find("^ui/fonts/") or clean:find("^Spoons/") then
                 return _hsDir .. "/" .. clean
             end
+            return ms.profile.path(ms.profile.relFor(clean), profileName)
         end
     -- END Helpers --
 
@@ -154,6 +148,22 @@ return function(ms)
             profile = {
                 label    = "Profile",
                 paths    = {
+                    "profile.json",
+                    "ms_macros.lua",
+                    "data/ms_macros_visual.json",
+                    "data/ms_macros_visual.lua",
+                    "data/ms_authored.json",
+                    "data/ms_authored_menus.json",
+                    "data/ms_helpervars.json",
+                    "data/ms_settings.json",
+                    "data/ms_settings_default.json",
+                    "data/ms_theme.json",
+                    "sounds/active/",
+                    "sounds/macro/",
+                    "ui/fonts/",
+                    "sound_assign.json",
+                },
+                legacyPaths = {
                     "ms_macros.lua",
                     "ms_macros_visual.json",
                     "ms_macros_visual.lua",
@@ -165,6 +175,7 @@ return function(ms)
                     "sounds/active/",
                     "sounds/macro/",
                     "ui/fonts/",
+                    "fonts/",
                     "sound_assign.json",
                 },
                 required = {},
@@ -246,7 +257,6 @@ return function(ms)
             return writeLedger(ledger)
         end
 
-        -- Installed-version record for non-plugin content, keyed by registry id.
         local _contentLedgerPath = _dataDir .. "/.ms_content_ledger.json"
 
         local function readContentLedger()
@@ -259,7 +269,6 @@ return function(ms)
             return nil
         end
 
-        -- Record installed non-plugin content, keyed by registry id
         ms.package.recordContent = function(manifest, id)
             id = (type(id) == "string" and id ~= "" and id)
                 or (type(manifest) == "table" and manifest.id) or nil
@@ -285,16 +294,19 @@ return function(ms)
             return writeFile(_contentLedgerPath, json .. "\n")
         end
 
-        -- Installed content records keyed by id, for Browse to flag entries
         ms.package.listContent = function()
             local ledger = readContentLedger()
             return (ledger and ledger.content) or {}
         end
 
-        local function pathAllowed(kind, rel)
+        local function pathAllowed(kind, rel, formatVersion)
             local spec = TYPE_SPECS[kind]
             if not spec then return false end
-            for _, prefix in ipairs(spec.paths) do
+            local paths = spec.paths
+            if kind == "profile" and (tonumber(formatVersion) or 0) < PROFILE_FORMAT then
+                paths = spec.legacyPaths
+            end
+            for _, prefix in ipairs(paths) do
                 if prefix:find("/$") then
                     if rel:sub(1, #prefix) == prefix then return true end
                 elseif rel == prefix then
@@ -457,7 +469,7 @@ return function(ms)
             for _, rel in ipairs(members) do
                 if not safeRelPath(rel) then
                     result.issues[#result.issues + 1] = "Unsafe path in package: " .. rel
-                elseif not manifest.legacy and not pathAllowed(manifest.type, rel) then
+                elseif not manifest.legacy and not pathAllowed(manifest.type, rel, manifest.formatVersion) then
                     result.issues[#result.issues + 1] =
                         "File not permitted in a " .. manifest.type .. " package: " .. rel
                 end
@@ -525,14 +537,15 @@ return function(ms)
             }
             local function add(t, r) t[#t + 1] = r end
             for _, r in ipairs(relPaths) do
-                if r == "ms_theme.json" or r:sub(1, 9) == "ui/fonts/" then add(comp.theme.files, r) end
+                local f = ms.profile.flatFor(r)
+                if f == "ms_theme.json" or r:sub(1, 9) == "ui/fonts/" then add(comp.theme.files, r) end
                 if includeSoundsInTheme and isAudioRel(r) then add(comp.theme.files, r) end
                 if isAudioRel(r) then add(comp.sound.files, r) end
-                if r == "ms_macros.lua" or r == "ms_macros_visual.json"
-                    or r == "ms_macros_visual.lua" or r == "ms_authored.json"
-                    or r == "ms_helpervars.json"
+                if f == "ms_macros.lua" or f == "ms_macros_visual.json"
+                    or f == "ms_macros_visual.lua" or f == "ms_authored.json"
+                    or f == "ms_helpervars.json"
                     or r:sub(1, 13) == "sounds/macro/" then add(comp.macro.files, r) end
-                if r == "ms_settings.json" or r == "ms_settings_default.json" then
+                if f == "ms_settings.json" or f == "ms_settings_default.json" then
                     add(comp.settings.files, r)
                 end
             end
@@ -578,7 +591,7 @@ return function(ms)
 
             local staging = tempDir("pack")
             local manifest = {
-                formatVersion = FORMAT_VERSION,
+                formatVersion = (kind == "profile") and PROFILE_FORMAT or FORMAT_VERSION,
                 type          = kind,
                 name          = opts.name or "Untitled",
                 version       = opts.version or "1.0.0",
@@ -598,7 +611,7 @@ return function(ms)
                     rmrf(staging)
                     return nil, "Unsafe path: " .. tostring(rel)
                 end
-                if not pathAllowed(kind, clean) then
+                if not pathAllowed(kind, clean, (kind == "profile") and PROFILE_FORMAT or FORMAT_VERSION) then
                     rmrf(staging)
                     return nil, "A " .. kind .. " package cannot carry " .. clean .. "."
                 end
@@ -709,8 +722,9 @@ return function(ms)
                 for _, rel in ipairs(comp[kind].files) do
                     local abs = staging .. "/" .. rel
                     if fileExists(abs) then
-                        files[rel] = abs
-                        present[#present + 1] = rel
+                        local flat = ms.profile.flatFor(rel)
+                        files[flat] = abs
+                        present[#present + 1] = flat
                     end
                 end
                 if #present == 0 then
@@ -757,7 +771,6 @@ return function(ms)
     -- END Split --
 
     -- Apply dropped files --
-        -- Post-copy side effects shared by install and library activation
         local function applyDropped(installed)
             local sawAudio = false
 
@@ -765,7 +778,6 @@ return function(ms)
                 if isAudioRel(rel) then sawAudio = true end
             end
 
-            -- Recompile a dropped visual-macros source and load it into the sandbox
             if ms.compiler and ms.compiler.rebuild then
                 for _, rel in ipairs(installed) do
                     if rel == "ms_macros_visual.json" then
@@ -778,7 +790,7 @@ return function(ms)
 
             for _, rel in ipairs(installed) do
                 if rel == "sound_assign.json" then
-                    local dropped = _hsDir .. "/sound_assign.json"
+                    local dropped = destFor("sound_assign.json")
                     local f = io.open(dropped, "r")
                     if f then
                         local raw = f:read("*all")
@@ -804,7 +816,6 @@ return function(ms)
     -- END Apply dropped files --
 
     -- Install --
-        -- Install a full profile into profiles/<name>/, seed its component packs, and link packs.json
         local function claimSlug(kind, name, owner)
             local base = ms.package.librarySlug(name)
             local taken = {}
@@ -819,80 +830,219 @@ return function(ms)
             return slug
         end
 
-        local function installProfile(staging, manifest, opts)
-            -- Profile folder name from macroMeta.name, sanitised filesystem-safe
-            local folderName
-            local body = readFile(staging .. "/ms_macros.lua")
-            if body then
-                folderName = body:match('macroMeta%s*=%s*{.-name%s*=%s*"([^"]*)"')
-            end
-            if not folderName or folderName == "" then
-                folderName = manifest.name or "Imported Profile"
-            end
-            folderName = folderName:gsub('[/\\:*?"<>|%c]', "_")
-                :gsub("^%s+", ""):gsub("%s+$", "")
-            if folderName == "" then folderName = "Imported Profile" end
+        local function readJSONFile(path)
+            local raw = readFile(path)
+            if not raw then return nil end
+            local ok, tbl = pcall(hs.json.decode, raw)
+            if ok and type(tbl) == "table" then return tbl end
+            return nil
+        end
 
-            local profileDir = _hsDir .. "/profiles/" .. folderName
-            hs.execute("mkdir -p " .. sq(profileDir))
-            if not hs.fs.attributes(profileDir) then
+        local function walkFiles(dir, rel, out)
+            for entry in hs.fs.dir(dir) do
+                if entry ~= "." and entry ~= ".." and entry ~= ".DS_Store" and entry ~= MANIFEST_NAME
+                    and not entry:find("^%._") and entry ~= "__MACOSX" then
+                    local abs = dir .. "/" .. entry
+                    local r = (rel == "") and entry or (rel .. "/" .. entry)
+                    local a = hs.fs.attributes(abs)
+                    if a and a.mode == "directory" then
+                        walkFiles(abs, r, out)
+                    elseif a and a.mode == "file" then
+                        out[#out + 1] = r
+                    end
+                end
+            end
+            return out
+        end
+
+        local function uniqueProfileName(base)
+            if not ms.profile.exists(base) then return base end
+            local n = 1
+            local name
+            repeat
+                n = n + 1
+                name = base .. " " .. n
+            until not ms.profile.exists(name)
+            return name
+        end
+
+        local function packageProfileName(staging, manifest, v2)
+            local name
+            if v2 then
+                local meta = readJSONFile(staging .. "/profile.json")
+                name = meta and meta.name
+            end
+            if type(name) ~= "string" or name == "" then
+                local body = readFile(staging .. "/ms_macros.lua")
+                if body then name = body:match('macroMeta%s*=%s*{.-name%s*=%s*"([^"]*)"') end
+            end
+            if type(name) ~= "string" or name == "" then name = manifest.name end
+            name = tostring(name or "Imported Profile")
+            name = name:gsub('[/\\:*?"<>|%c]', "_"):gsub("^%s+", ""):gsub("%s+$", "")
+            name = name:gsub("^%.+", "")
+            if name == "" then name = "Imported Profile" end
+            return name
+        end
+
+        local function mergeSoundAssign(dir)
+            local assignPath = dir .. "/sound_assign.json"
+            local assign = readJSONFile(assignPath)
+            if assign then
+                local settingsPath = dir .. "/data/ms_settings.json"
+                local settings = readJSONFile(settingsPath) or {}
+                settings.soundAssign = type(settings.soundAssign) == "table" and settings.soundAssign or {}
+                for slot, name in pairs(assign) do
+                    if type(slot) == "string" and type(name) == "string" then
+                        settings.soundAssign[slot] = name
+                    end
+                end
+                writeFile(settingsPath, hs.json.encode(settings, true))
+            end
+            os.remove(assignPath)
+        end
+
+        local function installFonts(folder)
+            local fontsDir = _hsDir .. "/ui/fonts"
+            for _, rel in ipairs({
+                "ui/fonts",
+                "fonts",
+            }) do
+                local src = folder .. "/" .. rel
+                if hs.fs.attributes(src) then
+                    hs.execute("mkdir -p " .. sq(fontsDir))
+                    for file in hs.fs.dir(src) do
+                        if file ~= "." and file ~= ".." and not file:find("^%.") and not hs.fs.attributes(fontsDir .. "/" .. file) then
+                            hs.execute("/bin/cp " .. sq(src .. "/" .. file) .. " " .. sq(fontsDir .. "/" .. file))
+                        end
+                    end
+                    hs.execute("/bin/rm -rf " .. sq(src))
+                end
+            end
+        end
+
+        local function profileRoot(staging)
+            local function holdsProfile(dir)
+                return fileExists(dir .. "/ms_macros.lua")
+                    or fileExists(dir .. "/ms_settings.json")
+                    or fileExists(dir .. "/data/ms_settings.json")
+                    or fileExists(dir .. "/profile.json")
+            end
+            if holdsProfile(staging) then return staging end
+            for entry in hs.fs.dir(staging) do
+                if entry ~= "." and entry ~= ".." and entry ~= "__MACOSX" then
+                    local sub = staging .. "/" .. entry
+                    local a = hs.fs.attributes(sub)
+                    if a and a.mode == "directory" and holdsProfile(sub) then return sub end
+                end
+            end
+            return staging
+        end
+
+        local function installProfile(stagingRoot, manifest, opts)
+            local staging = profileRoot(stagingRoot)
+            local v2 = (tonumber(manifest.formatVersion) or 0) >= PROFILE_FORMAT
+            local folderName = packageProfileName(staging, manifest, v2)
+
+            local existingMeta = nil
+            if type(opts.id) == "string" and opts.id ~= "" then
+                for _, candidate in ipairs(ms.profile.list()) do
+                    local cm = ms.profile.readMeta(candidate)
+                    if cm and cm.origin == "registry" and cm.owner == opts.id then
+                        folderName = candidate
+                        existingMeta = cm
+                        break
+                    end
+                end
+            end
+            local updating = existingMeta ~= nil
+            if not updating then folderName = uniqueProfileName(folderName) end
+
+            local root = ms.profile.root()
+            local building = root .. "/.install-" .. tostring(math.random(100000, 999999))
+            hs.execute("/bin/rm -rf " .. sq(building))
+            hs.execute("mkdir -p " .. sq(building .. "/data") .. " " .. sq(building .. "/sounds/active")
+                .. " " .. sq(building .. "/sounds/macro"))
+            if not hs.fs.attributes(building) then
                 return nil, "Could not create profile folder."
             end
 
-            -- Copy every profile-eligible file from staging into the profile dir
             local installed = {}
-            for rel in pairs(manifest.contents or {}) do
+            for _, rel in ipairs(walkFiles(staging, "", {})) do
                 local clean = safeRelPath(rel)
-                if clean and pathAllowed("profile", clean) then
-                    local src = staging .. "/" .. clean
-                    if fileExists(src) then
-                        local dest = profileDir .. "/" .. clean
-                        local destDir = dest:match("(.*)/")
-                        if destDir then hs.execute("mkdir -p " .. sq(destDir)) end
-                        local _, ok = hs.execute("/bin/cp " .. sq(src) .. " " .. sq(dest))
-                        if ok then installed[#installed + 1] = clean end
-                    end
+                if clean and pathAllowed("profile", clean, v2 and PROFILE_FORMAT or 0) and clean ~= "profile.json" then
+                    local target = v2 and clean or ms.profile.relFor(clean)
+                    local dest = building .. "/" .. target
+                    local destDir = dest:match("(.*)/")
+                    if destDir then hs.execute("mkdir -p " .. sq(destDir)) end
+                    local _, ok = hs.execute("/bin/cp " .. sq(staging .. "/" .. clean) .. " " .. sq(dest))
+                    if ok then installed[#installed + 1] = target end
                 end
             end
 
-            if #installed == 0 then return nil, "Nothing could be installed." end
+            if #installed == 0 then
+                hs.execute("/bin/rm -rf " .. sq(building))
+                return nil, "Nothing could be installed."
+            end
 
-            -- Seed each component pack into the library from the staged files
-            local refs = {}
-            for _, kind in ipairs({
-                "macro",
-                "theme",
-                "sound",
-            }) do
-                local files = {}
-                for rel in pairs(manifest.contents or {}) do
-                    local clean = safeRelPath(rel)
-                    if clean and pathAllowed(kind, clean)
-                        and fileExists(staging .. "/" .. clean) then
-                        files[clean] = staging .. "/" .. clean
-                    end
-                end
-                if next(files) then
-                    local mc = type(manifest.components) == "table" and manifest.components[kind] or nil
-                    local packName = (type(mc) == "table" and type(mc.name) == "string" and mc.name ~= "")
-                        and mc.name or folderName
-                    local ok, rec = pcall(ms.package.librarySave, kind, files, {
-                        name    = packName,
-                        slug    = claimSlug(kind, packName, opts.id or ("profile:" .. folderName)),
-                        owner   = opts.id or ("profile:" .. folderName),
-                        origin  = "profile",
-                        version = manifest.version,
-                    })
-                    if ok and type(rec) == "table" then
-                        refs[kind] = rec.slug or ms.package.librarySlug(packName)
-                    end
+            local macroBody = readFile(building .. "/ms_macros.lua")
+            if macroBody and ms.auditMacros then
+                local errs = ms.auditMacros(macroBody)
+                if type(errs) == "table" and #errs > 0 then
+                    hs.execute("/bin/rm -rf " .. sq(building))
+                    return nil, "Macro security scan failed:\n  - " .. table.concat(errs, "\n  - ")
                 end
             end
 
-            -- Link the profile to the component packs just seeded (packs.json)
-            if next(refs) and ms.package.setProfilePacks then
-                pcall(ms.package.setProfilePacks, folderName, refs)
+            mergeSoundAssign(building)
+            installFonts(building)
+
+            local packageMeta = v2 and readJSONFile(staging .. "/profile.json") or {}
+            local now = os.date("!%Y-%m-%dT%H:%M:%SZ")
+            local meta = {
+                formatVersion = PROFILE_FORMAT,
+                name          = folderName,
+                version       = manifest.version or packageMeta.version or "1.0.0",
+                author        = manifest.author or packageMeta.author or "",
+                created       = (updating and existingMeta.created) or now,
+                updated       = now,
+                origin        = (type(opts.id) == "string" and opts.id ~= "") and "registry" or "import",
+                owner         = (type(opts.id) == "string" and opts.id ~= "") and opts.id or nil,
+                requires      = manifest.requires or packageMeta.requires,
+            }
+            writeFile(building .. "/profile.json", hs.json.encode(meta, true) .. "\n")
+
+            local replacedActive = false
+            if updating then
+                if ms.backups and ms.backups.snapshot then
+                    pcall(ms.backups.snapshot, "pre-update", nil, nil, folderName)
+                end
+                local oldSettings = ms.profile.path("data/ms_settings.json", folderName)
+                if hs.fs.attributes(oldSettings) then
+                    hs.execute("/bin/cp " .. sq(oldSettings) .. " " .. sq(building .. "/data/ms_settings.json"))
+                end
+                local keepDir = (ms.backups and ms.backups.dir and ms.backups.dir("updates") or (_hsDir .. "/backups/updates/"))
+                    .. "profile_" .. folderName .. "_" .. os.date("%Y-%m-%d_%H%M%S")
+                local final = root .. "/" .. folderName
+                if not os.rename(final, keepDir) then
+                    hs.execute("/bin/rm -rf " .. sq(building))
+                    return nil, "Could not replace the existing profile."
+                end
+                if not os.rename(building, final) then
+                    os.rename(keepDir, final)
+                    hs.execute("/bin/rm -rf " .. sq(building))
+                    return nil, "Could not replace the existing profile."
+                end
+                replacedActive = (folderName == ms.profile.active())
+            else
+                if not os.rename(building, root .. "/" .. folderName) then
+                    hs.execute("/bin/rm -rf " .. sq(building))
+                    return nil, "Could not create profile folder."
+                end
             end
+
+            pcall(function() ms.stampProfileRequires(folderName) end)
+            local stamped = ms.profile.readMeta(folderName)
+            if stamped and stamped.requires then manifest.requires = stamped.requires end
 
             if not opts.component then
                 pcall(function() ms.package.recordContent(manifest, opts.id) end)
@@ -900,11 +1050,24 @@ return function(ms)
             ms._profilesDirty = true
 
             return {
-                manifest  = manifest,
-                installed = installed,
-                failed    = {},
-                profile   = folderName,
+                manifest      = manifest,
+                installed     = installed,
+                failed        = {},
+                profile       = folderName,
+                updated       = updating,
+                updatedActive = replacedActive,
             }
+        end
+
+        local function packageFileList(path, manifest)
+            local list = {}
+            for _, rel in ipairs(ms.package.contents(path)) do
+                local clean = safeRelPath(rel)
+                if clean and (manifest.legacy or pathAllowed(manifest.type, clean, manifest.formatVersion)) then
+                    list[#list + 1] = clean
+                end
+            end
+            return list
         end
 
         ms.package.install = function(path, opts)
@@ -946,8 +1109,11 @@ return function(ms)
             local staging  = tempDir("install")
             hs.execute("/usr/bin/unzip -qq -o " .. sq(path) .. " -d " .. sq(staging) .. " 2>/dev/null")
 
-            -- A full profile import installs as a first-class profile, not over the live setup
             if manifest.type == "profile" and not opts.component then
+                if not ms.profile.isV2() then
+                    rmrf(staging)
+                    return nil, "Profiles are still on the old layout. Restart mudscript and try again."
+                end
                 local res, perr = installProfile(staging, manifest, opts)
                 rmrf(staging)
                 if not res then return nil, perr end
@@ -972,47 +1138,56 @@ return function(ms)
                 end
             end
 
+            local libKind = opts.component or manifest.type
+            local useLibrary = ms.package.isLibraryKind(libKind) and not opts.noLibrary
             local installed, failed = {}, {}
+            local libFiles = {}
 
-            for _, rel in ipairs(ms.package.contents(path)) do
-                local clean = safeRelPath(rel)
-                if clean and (not sliceSet or sliceSet[clean])
-                   and (manifest.legacy or pathAllowed(manifest.type, clean)) then
-                    local dest = destFor(clean)
+            for _, clean in ipairs(packageFileList(path, manifest)) do
+                if not sliceSet or sliceSet[clean] then
+                    if useLibrary then
+                        local flat = ms.profile.flatFor(clean)
+                        if pathAllowed(libKind, flat) and fileExists(staging .. "/" .. clean) then
+                            libFiles[flat] = staging .. "/" .. clean
+                        end
+                    else
+                        local dest = destFor(clean)
 
-                    if opts.backup ~= false and fileExists(dest) then
-                        hs.execute("/bin/cp " .. sq(dest) .. " " .. sq(dest .. ".bak"))
+                        if opts.backup ~= false and fileExists(dest) then
+                            hs.execute("/bin/cp " .. sq(dest) .. " " .. sq(dest .. ".bak"))
+                        end
+
+                        local destDir = dest:match("(.*)/")
+                        if destDir then hs.execute("mkdir -p " .. sq(destDir)) end
+
+                        local _, ok = hs.execute("/bin/cp " .. sq(staging .. "/" .. clean) .. " " .. sq(dest))
+                        if ok then installed[#installed + 1] = clean
+                        else failed[#failed + 1] = clean end
                     end
-
-                    local destDir = dest:match("(.*)/")
-                    if destDir then hs.execute("mkdir -p " .. sq(destDir)) end
-
-                    local _, ok = hs.execute("/bin/cp " .. sq(staging .. "/" .. clean) .. " " .. sq(dest))
-                    if ok then installed[#installed + 1] = clean
-                    else failed[#failed + 1] = clean end
                 end
             end
 
-            -- Mirror the slice into the installed library so the panels can hotswap it
-            local libKind = opts.component or manifest.type
-            if #installed > 0 and ms.package.isLibraryKind(libKind) and not opts.noLibrary then
-                local libFiles = {}
-                for _, clean in ipairs(installed) do
-                    if pathAllowed(libKind, clean) then
-                        libFiles[clean] = staging .. "/" .. clean
+            if useLibrary and next(libFiles) then
+                local owner = opts.id or ("slice:" .. tostring(manifest.name))
+                local okSave, rec = pcall(ms.package.librarySave, libKind, libFiles, {
+                    name    = manifest.name,
+                    slug    = claimSlug(libKind, manifest.name, owner),
+                    owner   = owner,
+                    origin  = (opts.component or opts.noRecord) and "profile-slice" or "installed",
+                    version = manifest.version,
+                })
+                if okSave and type(rec) == "table" then
+                    if opts.activate ~= false then
+                        local act, aerr = ms.package.libraryActivate(libKind, rec.slug)
+                        if not act then
+                            rmrf(staging)
+                            return nil, aerr or "Nothing could be installed."
+                        end
+                        installed = act.installed
+                        failed = act.failed
+                    else
+                        for flat in pairs(libFiles) do installed[#installed + 1] = flat end
                     end
-                end
-                if next(libFiles) then
-                    pcall(function()
-                        local owner = opts.id or ("slice:" .. tostring(manifest.name))
-                        ms.package.librarySave(libKind, libFiles, {
-                            name    = manifest.name,
-                            slug    = claimSlug(libKind, manifest.name, owner),
-                            owner   = owner,
-                            origin  = (opts.component or opts.noRecord) and "profile-slice" or "installed",
-                            version = manifest.version,
-                        })
-                    end)
                 end
             end
 
@@ -1020,7 +1195,7 @@ return function(ms)
 
             if #installed == 0 then return nil, "Nothing could be installed." end
 
-            applyDropped(installed)
+            if not useLibrary then applyDropped(installed) end
 
             if manifest.type == "plugin" then
                 local names = {}
@@ -1032,14 +1207,9 @@ return function(ms)
                     pcall(function() ms.package.recordPlugins(names, manifest, opts.id) end)
                 end
             else
-                -- Record the installed version for Update detection
                 if not opts.component and not opts.noRecord then
                     pcall(function() ms.package.recordContent(manifest, opts.id) end)
                 end
-            end
-
-            if manifest.type == "profile" then
-                ms._profilesDirty = true
             end
 
             return {
@@ -1053,7 +1223,6 @@ return function(ms)
     -- END Install --
 
     -- Plugin Inventory --
-
         local function validSpoonName(name)
             if type(name) ~= "string" then return nil end
             if not name:match("^[%w%-%._ ]+%.spoon$") then return nil end
@@ -1261,7 +1430,6 @@ return function(ms)
             local function addDir(relDir, absDir)
                 if not hs.fs.attributes(absDir) then return end
                 for entry in hs.fs.dir(absDir) do
-                    -- Skip dotfiles and .bak backups
                     if entry ~= "." and entry ~= ".." and not entry:find("^%.")
                         and not entry:find("%.bak") then
                         local abs = absDir .. entry
@@ -1270,50 +1438,70 @@ return function(ms)
                 end
             end
 
+            local base = opts and opts.baseDir
+            local function flatSrc(rel)
+                if base then return base .. "/" .. rel end
+                return ms.profile.path(ms.profile.relFor(rel), opts and opts.name)
+            end
+            local function soundSrc(sub)
+                if base then return base .. "/sounds/" .. sub .. "/" end
+                return ms.profile.path("sounds/" .. sub .. "/", opts and opts.name)
+            end
+
             if kind == "macro" then
-                -- baseDir collects a pack from an arbitrary folder, for migration
-                local base = opts and opts.baseDir
-                local dataSrc = function(f) return base and (base .. "/" .. f) or (_dataDir .. "/" .. f) end
-                addIf("ms_macros.lua",         base and (base .. "/ms_macros.lua") or (_hsDir .. "/ms_macros.lua"))
-                addIf("ms_macros_visual.json", dataSrc("ms_macros_visual.json"))
-                addIf("ms_macros_visual.lua",  dataSrc("ms_macros_visual.lua"))
-                addIf("ms_authored.json",      dataSrc("ms_authored.json"))
-                addIf("ms_helpervars.json",    dataSrc("ms_helpervars.json"))
-                addDir("sounds/macro/",        base and (base .. "/sounds/macro/") or (_hsDir .. "/sounds/macro/"))
+                addIf("ms_macros.lua",         flatSrc("ms_macros.lua"))
+                addIf("ms_macros_visual.json", flatSrc("ms_macros_visual.json"))
+                addIf("ms_macros_visual.lua",  flatSrc("ms_macros_visual.lua"))
+                addIf("ms_authored.json",      flatSrc("ms_authored.json"))
+                addIf("ms_helpervars.json",    flatSrc("ms_helpervars.json"))
+                addDir("sounds/macro/",        soundSrc("macro"))
 
             elseif kind == "theme" then
-                addIf("ms_theme.json", _dataDir .. "/ms_theme.json")
+                addIf("ms_theme.json", flatSrc("ms_theme.json"))
                 addDir("ui/fonts/",    _hsDir .. "/ui/fonts/")
                 if ms.bundleSoundsWithTheme ~= false then
-                    addDir("sounds/active/", _hsDir .. "/sounds/active/")
-                    addDir("sounds/macro/",  _hsDir .. "/sounds/macro/")
+                    addDir("sounds/active/", soundSrc("active"))
+                    addDir("sounds/macro/",  soundSrc("macro"))
                     local assign = ms.package.exportSoundAssign()
                     if assign then files["sound_assign.json"] = assign end
                 end
 
             elseif kind == "sound" then
-                addDir("sounds/active/", _hsDir .. "/sounds/active/")
-                addDir("sounds/macro/",  _hsDir .. "/sounds/macro/")
+                addDir("sounds/active/", soundSrc("active"))
+                addDir("sounds/macro/",  soundSrc("macro"))
                 local assign = ms.package.exportSoundAssign()
                 if assign then files["sound_assign.json"] = assign end
 
             elseif kind == "profile" then
-                local cfg = opts and opts.configDir
-                local macrosSrc = cfg and (cfg .. "ms_macros.lua")            or (_hsDir   .. "/ms_macros.lua")
-                local dataSrc   = function(f) return cfg and (cfg .. f)       or (_dataDir .. "/" .. f) end
-                addIf("ms_macros.lua",            macrosSrc)
-                addIf("ms_macros_visual.json",    dataSrc("ms_macros_visual.json"))
-                addIf("ms_macros_visual.lua",     dataSrc("ms_macros_visual.lua"))
-                addIf("ms_authored.json",         dataSrc("ms_authored.json"))
-                addIf("ms_helpervars.json",       dataSrc("ms_helpervars.json"))
-                addIf("ms_settings.json",         dataSrc("ms_settings.json"))
-                addIf("ms_settings_default.json", dataSrc("ms_settings_default.json"))
-                addIf("ms_theme.json",            dataSrc("ms_theme.json"))
-                addDir("sounds/active/", _hsDir .. "/sounds/active/")
-                addDir("sounds/macro/",  _hsDir .. "/sounds/macro/")
+                local name = opts and opts.name
+                for _, rel in ipairs(ms.profile.CONTENT_FILES) do
+                    addIf(rel, ms.profile.path(rel, name))
+                end
+                addDir("sounds/active/", ms.profile.path("sounds/active/", name))
+                addDir("sounds/macro/",  ms.profile.path("sounds/macro/", name))
                 addDir("ui/fonts/",      _hsDir .. "/ui/fonts/")
-                local assign = ms.package.exportSoundAssign()
+                local assign = nil
+                if name == nil or name == "" or name == ms.profile.active() then
+                    assign = ms.package.exportSoundAssign()
+                else
+                    local settings = readJSONFile(ms.profile.path("data/ms_settings.json", name))
+                    local named = settings and settings.soundAssign
+                    if type(named) == "table" then
+                        local tmp = tempDir("assign") .. "/sound_assign.json"
+                        if writeFile(tmp, hs.json.encode(named)) then assign = tmp end
+                    end
+                end
                 if assign then files["sound_assign.json"] = assign end
+                local meta = ms.profile.readMeta(name)
+                if meta then
+                    meta.packs = nil
+                    meta.owner = nil
+                    meta.origin = nil
+                    local metaPath = tempDir("meta") .. "/profile.json"
+                    if writeFile(metaPath, hs.json.encode(meta, true) .. "\n") then
+                        files["profile.json"] = metaPath
+                    end
+                end
             end
 
             return files
@@ -1328,7 +1516,6 @@ return function(ms)
 
     -- Submodules --
         local ctx = {
-            hsDir = _hsDir,
             dataDir = _dataDir,
             sq = sq,
             fileExists = fileExists,

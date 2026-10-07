@@ -61,6 +61,72 @@
                 end
             -- END One-time migration --
 
+            -- Profile Paths & Layout Migration --
+                do
+                    local _ppOk, _ppErr = pcall(function()
+                        package.loaded["lib.core.profile_paths"] = nil
+                        require("lib.core.profile_paths")(ms)
+                    end)
+                    if _ppOk then
+                        local _pmOk, _pmErr = pcall(function()
+                            package.loaded["lib.core.profile_migrate"] = nil
+                            require("lib.core.profile_migrate")(ms)
+                        end)
+                        if not _pmOk then
+                            print("ProfileMigrate: load failed, " .. tostring(_pmErr))
+                        end
+                        ms.profile.repoint()
+                    else
+                        print("ProfilePaths: load failed, " .. tostring(_ppErr))
+                        local _hs = os.getenv("HOME") .. "/.hammerspoon"
+                        local _files = {
+                            macros = "ms_macros.lua",
+                            settings = "data/ms_settings.json",
+                            defaults = "data/ms_settings_default.json",
+                            theme = "data/ms_theme.json",
+                            visualJson = "data/ms_macros_visual.json",
+                            visualLua = "data/ms_macros_visual.lua",
+                            authored = "data/ms_authored.json",
+                            authoredMenus = "data/ms_authored_menus.json",
+                            helperVars = "data/ms_helpervars.json",
+                            meta = "profile.json",
+                        }
+                        ms.profile = {
+                            FILES = _files,
+                            CONTENT_FILES = {},
+                            SOUND_DIRS = {
+                                "sounds/active/",
+                                "sounds/macro/",
+                            },
+                            relFor = function(flat) return flat end,
+                            flatFor = function(rel) return rel end,
+                            safeName = function(name) return name end,
+                            refresh = function() end,
+                            layout = function() return 1 end,
+                            isV2 = function() return false end,
+                            root = function() return _hs .. "/profiles" end,
+                            list = function() return {} end,
+                            active = function() return "" end,
+                            dir = function() return _hs end,
+                            path = function(rel) return _hs .. "/" .. tostring(rel or "") end,
+                            file = function(key) return _files[key] and (_hs .. "/" .. _files[key]) or nil end,
+                            exists = function() return false end,
+                            ensure = function() return _hs end,
+                            setActive = function() return false end,
+                            readMeta = function() return nil end,
+                            writeMeta = function() return false end,
+                            updateMeta = function() return false end,
+                            packs = function() return {} end,
+                            repoint = function()
+                                SoundActiveDir = _hs .. "/sounds/active/"
+                                SoundMacroDir = _hs .. "/sounds/macro/"
+                            end,
+                        }
+                        ms.profile.repoint()
+                    end
+                end
+            -- END Profile Paths & Layout Migration --
+
             -- Font installation --
                 do
                     local _h       = os.getenv("HOME") .. "/.hammerspoon"
@@ -1205,6 +1271,26 @@
             if _G._bootChoreographyStarted then _armInitSequence() end
             -- Safety net: a webview that never handshakes must not strand the boot.
             _G._timers.animGateCap = hs.timer.doAfter(BOOT_ANCHOR_CAP, _armInitSequence)
+
+            local _migration = ms._profileMigration
+            if _migration and _migration.status ~= "current" and _migration.status ~= "fresh" then
+                _G._timers.profileMigration = hs.timer.doAfter(10, function()
+                    pcall(function()
+                        ms.dev.log({
+                            type    = _migration.status == "failed" and "error" or "system",
+                            event   = "profile_layout_migration",
+                            status  = _migration.status,
+                            backup  = _migration.backup,
+                            message = _migration.error or _migration.warning,
+                        })
+                    end)
+                    if ms._profileMigrationNotice then
+                        ms.alert(ms._profileMigrationNotice, 8, true)
+                    elseif _migration.status == "failed" then
+                        ms.alert("Profile layout move failed. Running on the old layout, see the console.", 8)
+                    end
+                end)
+            end
         -- END Loading Screen Announce & Boot Completion --
     -- END Startup Executions --
 -- END Core System --
