@@ -644,6 +644,12 @@ return function(ms)
                     if #comp[k].files > 0 then manifest.components[k] = comp[k] end
                 end
                 if #comp.settings.files > 0 then manifest.components.settings = comp.settings end
+                if type(opts.componentNames) == "table" then
+                    for k, c in pairs(manifest.components) do
+                        local n = opts.componentNames[k]
+                        if type(n) == "string" and n ~= "" then c.name = n end
+                    end
+                end
             end
 
             if not writeFile(staging .. "/" .. MANIFEST_NAME, hs.json.encode(manifest)) then
@@ -715,10 +721,13 @@ return function(ms)
                     }
                 else
                     local label = (TYPE_SPECS[kind] or {}).label or kind
+                    local mc = type(manifest.components) == "table" and manifest.components[kind] or nil
+                    local cname = (type(mc) == "table" and type(mc.name) == "string" and mc.name ~= "")
+                        and mc.name or (base .. " " .. label)
                     local out = outDir .. "/" .. fileBase .. "-" .. kind .. ".mspkg"
                     local m, perr = ms.package.pack({
                         type    = kind,
-                        name    = base .. " " .. label,
+                        name    = cname,
                         version = manifest.version,
                         author  = manifest.author,
                         website = manifest.website,
@@ -729,7 +738,7 @@ return function(ms)
                         made[#made + 1] = {
                             type = kind,
                             path = out,
-                            name = base .. " " .. label,
+                            name = cname,
                         }
                     else
                         skipped[#skipped + 1] = {
@@ -796,6 +805,20 @@ return function(ms)
 
     -- Install --
         -- Install a full profile into profiles/<name>/, seed its component packs, and link packs.json
+        local function claimSlug(kind, name, owner)
+            local base = ms.package.librarySlug(name)
+            local taken = {}
+            for _, rec in ipairs(ms.package.libraryList(kind)) do
+                taken[rec.slug] = rec.owner or false
+            end
+            local slug, n = base, 1
+            while taken[slug] ~= nil and taken[slug] ~= owner do
+                n = n + 1
+                slug = base .. "-" .. n
+            end
+            return slug
+        end
+
         local function installProfile(staging, manifest, opts)
             -- Profile folder name from macroMeta.name, sanitised filesystem-safe
             local folderName
@@ -835,8 +858,7 @@ return function(ms)
             if #installed == 0 then return nil, "Nothing could be installed." end
 
             -- Seed each component pack into the library from the staged files
-            local pslug = ms.package.librarySlug(folderName)
-            local refs  = {}
+            local refs = {}
             for _, kind in ipairs({
                 "macro",
                 "theme",
@@ -851,12 +873,19 @@ return function(ms)
                     end
                 end
                 if next(files) then
+                    local mc = type(manifest.components) == "table" and manifest.components[kind] or nil
+                    local packName = (type(mc) == "table" and type(mc.name) == "string" and mc.name ~= "")
+                        and mc.name or folderName
                     local ok, rec = pcall(ms.package.librarySave, kind, files, {
-                        name    = folderName,
+                        name    = packName,
+                        slug    = claimSlug(kind, packName, opts.id or ("profile:" .. folderName)),
+                        owner   = opts.id or ("profile:" .. folderName),
                         origin  = "profile",
                         version = manifest.version,
                     })
-                    if ok and rec then refs[kind] = pslug end
+                    if ok and type(rec) == "table" then
+                        refs[kind] = rec.slug or ms.package.librarySlug(packName)
+                    end
                 end
             end
 
@@ -975,9 +1004,12 @@ return function(ms)
                 end
                 if next(libFiles) then
                     pcall(function()
+                        local owner = opts.id or ("slice:" .. tostring(manifest.name))
                         ms.package.librarySave(libKind, libFiles, {
                             name    = manifest.name,
-                            origin  = opts.component and "profile-slice" or "installed",
+                            slug    = claimSlug(libKind, manifest.name, owner),
+                            owner   = owner,
+                            origin  = (opts.component or opts.noRecord) and "profile-slice" or "installed",
                             version = manifest.version,
                         })
                     end)
@@ -1001,7 +1033,7 @@ return function(ms)
                 end
             else
                 -- Record the installed version for Update detection
-                if not opts.component then
+                if not opts.component and not opts.noRecord then
                     pcall(function() ms.package.recordContent(manifest, opts.id) end)
                 end
             end
@@ -1030,6 +1062,110 @@ return function(ms)
         end
 
         ms.package.validSpoonName = validSpoonName
+
+        ms.package.installSpoonZip = function(path, opts)
+            opts = opts or {}
+            local entry = type(opts.entry) == "table" and opts.entry or {}
+
+            local hash = hashFile(path)
+            if not hash then return nil, "Could not hash the plugin archive." end
+
+            local trust = "unsigned"
+            if type(opts.trustLookup) == "function" then
+                local ok, level = pcall(opts.trustLookup, hash, { type = "plugin" })
+                if ok and type(level) == "string" then trust = level end
+            end
+            if trust ~= "trusted" and not ms.package.protectionDisabled() then
+                return nil,
+                    "This plugin is not in the validated library.\n" ..
+                    "Plugins run as code, so they cannot be imported one-off."
+            end
+
+            local modes = hs.execute("/usr/bin/unzip -Z " .. sq(path) .. " 2>/dev/null") or ""
+            for line in modes:gmatch("[^\r\n]+") do
+                if line:find("^l") then
+                    return nil, "The plugin archive contains links, which are not allowed."
+                end
+            end
+
+            local listing = hs.execute("/usr/bin/unzip -Z1 " .. sq(path) .. " 2>/dev/null") or ""
+            local top = nil
+            for line in listing:gmatch("[^\r\n]+") do
+                if line:find("^/") or line:find("%.%.") then
+                    return nil, "Unsafe path in plugin archive: " .. line
+                end
+                local base = line:match("([^/]*)/*$")
+                if not line:find("^__MACOSX/") and base ~= ".DS_Store" and not base:find("^%._") then
+                    local first = line:match("^([^/]+)")
+                    if not first then return nil, "Unsafe path in plugin archive: " .. line end
+                    if top and top ~= first then
+                        return nil, "A plugin archive must hold exactly one .spoon folder."
+                    end
+                    top = first
+                end
+            end
+            local name = validSpoonName(top)
+            if not name then return nil, "The archive does not hold a valid .spoon folder." end
+
+            local staging = tempDir("spoon")
+            hs.execute("/usr/bin/unzip -qq -o " .. sq(path) .. " -d " .. sq(staging) .. " 2>/dev/null")
+            hs.execute("/usr/bin/find " .. sq(staging) .. " \\( -name '.DS_Store' -o -name '._*' \\) -delete 2>/dev/null")
+            hs.execute("/bin/rm -rf " .. sq(staging .. "/__MACOSX"))
+
+            local src = staging .. "/" .. name
+            local attr = hs.fs.attributes(src)
+            if not (attr and attr.mode == "directory") or not fileExists(src .. "/init.lua") then
+                rmrf(staging)
+                return nil, "The plugin archive has no init.lua."
+            end
+            local links = hs.execute("/usr/bin/find " .. sq(staging) .. " -type l 2>/dev/null") or ""
+            if links:match("%S") then
+                rmrf(staging)
+                return nil, "The plugin archive contains links, which are not allowed."
+            end
+
+            local files = {}
+            local found = hs.execute("cd " .. sq(staging) .. " && /usr/bin/find " .. sq(name) .. " -type f 2>/dev/null") or ""
+            for rel in found:gmatch("[^\r\n]+") do files[#files + 1] = "Spoons/" .. rel end
+
+            local spoonsDir = _hsDir .. "/Spoons"
+            local dest = spoonsDir .. "/" .. name
+            hs.execute("mkdir -p " .. sq(spoonsDir))
+            local fresh = dest .. ".new"
+            hs.execute("/bin/rm -rf " .. sq(fresh))
+            local _, copied = hs.execute("/bin/cp -R " .. sq(src) .. " " .. sq(fresh))
+            rmrf(staging)
+            if not copied or not hs.fs.attributes(fresh) then
+                hs.execute("/bin/rm -rf " .. sq(fresh))
+                return nil, "Could not copy the plugin into Spoons."
+            end
+            hs.execute("/bin/rm -rf " .. sq(dest))
+            local _, moved = hs.execute("/bin/mv " .. sq(fresh) .. " " .. sq(dest))
+            if not moved or not hs.fs.attributes(dest) then
+                hs.execute("/bin/rm -rf " .. sq(fresh))
+                return nil, "Could not copy the plugin into Spoons."
+            end
+
+            local manifest = {
+                type        = "plugin",
+                name        = entry.name or name:gsub("%.spoon$", ""),
+                version     = entry.version,
+                author      = entry.author,
+                website     = entry.website,
+                description = entry.description,
+                id          = opts.id or entry.id,
+                requires    = entry.requiresPlugins and { plugins = entry.requiresPlugins } or nil,
+            }
+            pcall(function() ms.package.recordPlugins({ [name] = true }, manifest, manifest.id) end)
+
+            return {
+                manifest  = manifest,
+                installed = files,
+                failed    = {},
+                trust     = trust,
+                warnings  = {},
+            }
+        end
 
         ms.package.pluginEnabled = function(name)
             local off = ms._pluginsDisabled

@@ -254,8 +254,31 @@ return function(ms, ctx)
                     if base == "" then base = "mudscript" end
                     local out = dir:gsub("/$", "") .. "/" .. base .. "-" .. kind .. ".mspkg"
 
+                    local componentNames = nil
+                    if kind == "profile" and namedProfile and ms.package.getProfilePacks
+                            and ms.package.libraryList then
+                        componentNames = {}
+                        local packs = ms.package.getProfilePacks(namedProfile) or {}
+                        for _, k in ipairs({
+                            "theme",
+                            "sound",
+                            "macro",
+                        }) do
+                            componentNames[k] = namedProfile
+                            if packs[k] then
+                                for _, rec in ipairs(ms.package.libraryList(k)) do
+                                    if rec.slug == packs[k] and type(rec.name) == "string" and rec.name ~= "" then
+                                        componentNames[k] = rec.name
+                                        break
+                                    end
+                                end
+                            end
+                        end
+                    end
+
                     local manifest, err = ms.package.pack({
-                        type    = kind,
+                        type           = kind,
+                        componentNames = componentNames,
                         name    = base .. " " .. kind,
                         version = (type(meta.version) == "string" and meta.version ~= "") and meta.version or nil,
                         author  = meta.author,
@@ -414,52 +437,96 @@ return function(ms, ctx)
                     end
                     local label = data.label or data.id
 
+                    local entry = ms.registry.get(data.id)
+                    local kind = (data.component ~= "" and data.component) or nil
+                    local comp = entry and kind and type(entry.components) == "table"
+                        and entry.components[kind] or nil
+                    local ownPackage = type(comp) == "table" and comp.url ~= nil
+
+                    local function installFrom(path)
+                        if entry and entry.format == "spoon" and not ownPackage then
+                            return ms.package.installSpoonZip(path, {
+                                trustLookup = ms.registry.trustLookup,
+                                entry       = entry,
+                                id          = data.id,
+                            })
+                        end
+                        return ms.package.install(path, {
+                            trustLookup   = ms.registry.trustLookup,
+                            component     = (not ownPackage) and kind or nil,
+                            includeSounds = data.includeSounds == true,
+                            id            = data.id,
+                            noRecord      = ownPackage or nil,
+                        })
+                    end
+
                     ms.registry.download(data.id, function(path, derr)
                         if not path then
                             ms.alert("Download failed:\n" .. tostring(derr), 5)
                             if data.onDone then pcall(data.onDone, false) end
                             return
                         end
-                        local result, err = ms.package.install(path, {
-                            trustLookup   = ms.registry.trustLookup,
-                            component     = (data.component ~= "" and data.component) or nil,
-                            includeSounds = data.includeSounds == true,
-                            id            = data.id,
-                        })
-                        hs.timer.doAfter(0.15, function()
-                            local installed = false
-                            local good, perr = pcall(function()
-                                if not result then
-                                    ms.alert("Install failed:\n" .. tostring(err), 5)
-                                    return
-                                end
-                                if ms._soundsDirty then ms._discoverSounds() end
-                                if ms.loadTheme then ms.loadTheme() end
-                                ms.playSlot("update")
-                                ms.alert(
-                                    (result.manifest.name or label) .. " installed (" ..
-                                    #result.installed .. " files).", 4, true
-                                )
-                                ms._profilesDirty = true
-                                ms.ui.markDirty()
-                                ms.ui.refresh()
-                                installed = true
+                        local result, err = installFrom(path)
+                        os.remove(path)
 
-                                if ms.ui._actions and ms.ui._actions.browseList then
-                                    pcall(ms.ui._actions.browseList, {})
+                        local function finish(soundErr)
+                            hs.timer.doAfter(0.15, function()
+                                local installed = false
+                                local good, perr = pcall(function()
+                                    if not result then
+                                        ms.alert("Install failed:\n" .. tostring(err), 5)
+                                        return
+                                    end
+                                    if soundErr then
+                                        ms.alert("Sound install failed:\n" .. tostring(soundErr), 5)
+                                    end
+                                    if ms._soundsDirty then ms._discoverSounds() end
+                                    if ms.loadTheme then ms.loadTheme() end
+                                    ms.playSlot("update")
+                                    ms.alert(
+                                        (result.manifest.name or label) .. " installed (" ..
+                                        #result.installed .. " files).", 4, true
+                                    )
+                                    ms._profilesDirty = true
+                                    ms.ui.markDirty()
+                                    ms.ui.refresh()
+                                    installed = true
+
+                                    if ms.ui._actions and ms.ui._actions.browseList then
+                                        pcall(ms.ui._actions.browseList, {})
+                                    end
+                                end)
+                                if not good then print("browseInstall: " .. tostring(perr)) end
+
+                                if data.onDone then
+                                    pcall(data.onDone, installed)
+                                elseif installed and ms.plugins and ms.plugins.reportImport then
+                                    pcall(function()
+                                        ms.plugins.reportImport(result)
+                                    end)
                                 end
                             end)
-                            if not good then print("browseInstall: " .. tostring(perr)) end
+                        end
 
-                            if data.onDone then
-                                pcall(data.onDone, installed)
-                            elseif installed and ms.plugins and ms.plugins.reportImport then
-                                pcall(function()
-                                    ms.plugins.reportImport(result)
-                                end)
-                            end
-                        end)
-                    end)
+                        if result and ownPackage and kind == "theme" and data.includeSounds == true
+                                and type(entry.components.sound) == "table" and entry.components.sound.url then
+                            ms.registry.download(data.id, function(spath, serr)
+                                local ierr = serr
+                                if spath then
+                                    local _, e2 = ms.package.install(spath, {
+                                        trustLookup = ms.registry.trustLookup,
+                                        id          = data.id,
+                                        noRecord    = true,
+                                    })
+                                    os.remove(spath)
+                                    ierr = e2
+                                end
+                                finish(ierr)
+                            end, "sound")
+                        else
+                            finish(nil)
+                        end
+                    end, ownPackage and kind or nil)
                 end,
             -- END --
 

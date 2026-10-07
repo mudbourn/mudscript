@@ -178,6 +178,7 @@ return function(ms, ctx)
                 kind        = kind,
                 name        = name,
                 origin      = meta.origin,
+                owner       = meta.owner,
                 version     = meta.version,
                 fileCount   = #stored,
                 installedAt = os.date("!%Y-%m-%dT%H:%M:%SZ"),

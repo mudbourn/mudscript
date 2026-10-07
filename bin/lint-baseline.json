@@ -18,9 +18,6 @@
   "mac/bin/registry_golive.sh": {
     "comment": 37
   },
-  "mac/bin/registry_publish.sh": {
-    "comment": 5
-  },
   "mac/bin/registry_sign.sh": {
     "comment": 7
   },
@@ -95,7 +92,7 @@
     "comment": 2
   },
   "mac/lib/ms_registry.lua": {
-    "comment": 6,
+    "comment": 5,
     "marker-label": 3
   },
   "mac/lib/ms_settings.lua": {

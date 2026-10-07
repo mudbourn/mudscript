@@ -35,6 +35,7 @@ YQIDAQAB
     local _index     = emptyIndex()
     local _byId      = {}
     local _byHash    = {}
+    local _byCompHash = {}
     local _signed    = false
     local _fetchedAt = nil
     local _source    = "none"
@@ -257,6 +258,35 @@ YQIDAQAB
                 return #out > 0 and out or nil
             end
 
+            local comps = nil
+            if type(raw.components) == "table" then
+                comps = {}
+                for _, k in ipairs({
+                    "theme",
+                    "sound",
+                    "macro",
+                }) do
+                    local c = raw.components[k]
+                    if type(c) == "table" then
+                        local out = {
+                            present        = c.present,
+                            includesSounds = c.includesSounds,
+                            name           = type(c.name) == "string" and c.name or nil,
+                        }
+                        if c.url ~= nil or c.sha256 ~= nil then
+                            if not urlAllowed(c.url) then return bad(k .. " component URL not permitted") end
+                            if not isHash(c.sha256) then return bad(k .. " component sha256 is not 64 hex characters") end
+                            out.url    = c.url
+                            out.sha256 = c.sha256:lower()
+                            out.size   = tonumber(c.size) or nil
+                        end
+                        comps[k] = out
+                    elseif c ~= nil then
+                        comps[k] = c
+                    end
+                end
+            end
+
             return {
                 id          = raw.id,
                 type        = raw.type,
@@ -271,7 +301,8 @@ YQIDAQAB
                 requires    = rqVersion,
                 requiresPlugins = type(rq) == "table" and strList(rq.plugins) or nil,
                 provides    = strList(raw.provides),
-                components  = type(raw.components) == "table" and raw.components or nil,
+                components  = comps,
+                format      = raw.format == "spoon" and "spoon" or nil,
                 trust       = raw.trust == "trusted" and "trusted" or "community",
             }
         end
@@ -289,7 +320,7 @@ YQIDAQAB
                 return false, sigReason or "Index signature did not verify."
             end
 
-            local entries, byId, byHash = {}, {}, {}
+            local entries, byId, byHash, byCompHash = {}, {}, {}, {}
             for i, raw in ipairs(doc.entries) do
                 local e, why = normalise(raw, i)
                 if not e then return false, why end
@@ -302,6 +333,14 @@ YQIDAQAB
                 entries[#entries + 1] = e
                 byId[e.id]            = e
                 byHash[e.sha256]      = e
+                for k, c in pairs(e.components or {}) do
+                    if type(c) == "table" and c.sha256 then
+                        byCompHash[c.sha256] = {
+                            type  = k,
+                            trust = e.trust,
+                        }
+                    end
+                end
             end
 
             _index = {
@@ -311,6 +350,7 @@ YQIDAQAB
             }
             _byId      = byId
             _byHash    = byHash
+            _byCompHash = byCompHash
             _signed    = signed
             _source    = source
             _fetchedAt = tonumber(doc._fetchedAt) or os.time()
@@ -427,6 +467,7 @@ YQIDAQAB
         ms.registry.trustLookup = function(hash, manifest)
             if not _signed then return "unsigned" end
             local entry = ms.registry.find(hash)
+            if not entry and type(hash) == "string" then entry = _byCompHash[hash:lower()] end
             if not entry then return "unsigned" end
 
             if type(manifest) == "table" and manifest.type and manifest.type ~= entry.type then
@@ -450,19 +491,31 @@ YQIDAQAB
     -- END read --
 
     -- Public: download --
-        ms.registry.download = function(idOrEntry, cb)
+        ms.registry.download = function(idOrEntry, cb, component)
             local done = function(path, err)
                 if type(cb) == "function" then pcall(cb, path, err) end
             end
 
             local entry = type(idOrEntry) == "table" and idOrEntry or ms.registry.get(idOrEntry)
             if not entry then return done(nil, "No such package in the registry.") end
-            if not urlAllowed(entry.url) then
+            local target = entry
+            if type(component) == "string" then
+                component = type(entry.components) == "table" and entry.components[component] or nil
+            end
+            if type(component) == "table" and component.url then
+                if not isHash(component.sha256) then
+                    return done(nil, "Component has no valid hash in the registry.")
+                end
+                target = {
+                    url    = component.url,
+                    sha256 = component.sha256:lower(),
+                }
+            end
+            if not urlAllowed(target.url) then
                 return done(nil, "Package download location is not permitted.")
             end
 
-            -- Download with curl via hs.task
-            local path = tmpPath("dl") .. ".mspkg"
+            local path = tmpPath("dl") .. (entry.format == "spoon" and target == entry and ".zip" or ".mspkg")
             local args = {
                 "-sSL",
                 "--fail",
@@ -470,7 +523,7 @@ YQIDAQAB
                 "120",
                 "-o",
                 path,
-                entry.url,
+                target.url,
             }
             local task = hs.task.new("/usr/bin/curl", function(code, _, stderr)
                 if code ~= 0 then
@@ -485,7 +538,7 @@ YQIDAQAB
                     return done(nil, "Could not verify the download (no SHA-256 tool found).")
                 end
 
-                if got ~= entry.sha256 then
+                if got ~= target.sha256 then
                     os.remove(path)
                     return done(nil, "Downloaded package did not match the registry hash.")
                 end

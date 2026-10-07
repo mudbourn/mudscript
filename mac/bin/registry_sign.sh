@@ -79,6 +79,15 @@ PROBLEM=$(jq -r --argjson known "$TYPES_JSON" '
              or ($e.url | test("^https://")   | not)
              or ([host($e.url)] - hosts | length) > 0)
         then "\($at)download URL not permitted"
+      elif ($e.format != null) and ($e.format != "spoon") then "\($at)unknown format \($e.format)"
+      elif ([($e.components // {}) | objects | to_entries[] | .value | objects
+             | select((.sha256 != null) or (.url != null))
+             | select((.sha256 | type) != "string"
+                      or (.sha256 | test("^[0-9a-fA-F]{64}$") | not)
+                      or (.url | type) != "string"
+                      or (.url | test("^https://") | not)
+                      or ([host(.url)] - hosts | length) > 0)] | length) > 0
+        then "\($at)component sha256 or download URL invalid"
       else empty end
   ] | first // empty
 ' "$INDEX")
@@ -87,7 +96,8 @@ PROBLEM=$(jq -r --argjson known "$TYPES_JSON" '
 DUP_ID=$(jq -r '[.entries[].id] | group_by(.) | map(select(length > 1)) | first | first // empty' "$INDEX")
 [ -z "$DUP_ID" ] || fail "duplicate id $DUP_ID"
 
-DUP_HASH=$(jq -r '[.entries[].sha256 | ascii_downcase] | group_by(.)
+DUP_HASH=$(jq -r '[.entries[] | .sha256, (.components // {} | objects | to_entries[] | .value | objects | .sha256 // empty)
+                  | ascii_downcase] | group_by(.)
                   | map(select(length > 1)) | first | first // empty' "$INDEX")
 [ -z "$DUP_HASH" ] || fail "duplicate sha256 $DUP_HASH"
 

@@ -65,14 +65,17 @@
             if (!c) continue;
             const baseName = (e.name || e.id).replace(/\s+profile$/i, "");
             for (const k of ["theme", "sound", "macro"]) {
-                if (!c[k]) continue;
+                const ck = c[k];
+                if (!ck) continue;
                 out.push({
                     id: e.id + "::" + k,
                     installId: e.id,
                     component: k,
                     virtual: true,
                     type: k,
-                    name: baseName,
+                    name: ck.name || baseName,
+                    componentUrl: ck.url,
+                    componentSha256: ck.sha256,
                     version: e.version,
                     author: e.author,
                     website: e.website,
