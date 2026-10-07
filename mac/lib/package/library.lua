@@ -472,7 +472,7 @@ return function(ms, ctx)
             return libraryDir(kind, librarySlug(slug)) .. "/files"
         end
 
-        ms.package.libraryCapture = function(kind, name)
+        ms.package.libraryCapture = function(kind, name, intoSlug)
             if not LIBRARY_KINDS[kind] then return nil, "Not a library kind." end
 
             if kind == "macro" then foldLiveMacroBinds() end
@@ -481,9 +481,19 @@ return function(ms, ctx)
                 return nil, "Nothing live to capture as a " .. kind .. "."
             end
 
+            local prior = intoSlug and readJSON(libraryDir(kind, librarySlug(intoSlug)) .. "/meta.json")
+            if type(prior) == "table" and type(prior.name) == "string" and prior.name ~= "" then
+                name = prior.name
+            else
+                prior, intoSlug = nil, nil
+            end
+
             local rec, err = ms.package.librarySave(kind, files, {
-                name   = (type(name) == "string" and name ~= "" and name) or "Current " .. kind,
-                origin = "captured",
+                name    = (type(name) == "string" and name ~= "" and name) or "Current " .. kind,
+                slug    = intoSlug,
+                origin  = prior and prior.origin or "captured",
+                owner   = prior and prior.owner or nil,
+                version = prior and prior.version or nil,
             })
             if rec then ms.package.librarySetActive(kind, rec.slug) end
             return rec, err

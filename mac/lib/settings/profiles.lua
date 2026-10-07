@@ -796,11 +796,14 @@ return function(ms, ctx)
                     hs.execute("/bin/cp " .. sq(cf.live) .. " " .. sq(profilesPath .. folderName .. "/" .. cf.name))
                 end
             end
-            -- Capture the live slice of each kind into a profile-named pack
             if ms.package and ms.package.libraryCapture and ms.package.setProfilePacks then
                 local refs = {}
+                local linked = (ms.package.getProfilePacks
+                    and ms.package.getProfilePacks(folderName)) or {}
                 for _, k in ipairs({ "theme", "sound", "macro" }) do
-                    local rec = ms.package.libraryCapture(k, name)
+                    local into = (ms.package.libraryGetActive and ms.package.libraryGetActive(k))
+                        or linked[k]
+                    local rec = ms.package.libraryCapture(k, name, into)
                     if rec and rec.slug then refs[k] = rec.slug end
                 end
                 pcall(ms.package.setProfilePacks, folderName, refs)
