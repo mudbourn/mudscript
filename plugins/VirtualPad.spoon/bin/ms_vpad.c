@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <ctype.h>
 
 #define X360_VID 0x045E
 #define X360_PID 0x028E
@@ -220,6 +221,22 @@
         if (t == 1 || t == 2) return "xbox";
 
         if (t == 5) return "switch";
+
+        const char *raw = SDL_GameControllerName(gc);
+        char n[128];
+        size_t i = 0;
+
+        for (; raw && raw[i] && i < sizeof(n) - 1; i++) {
+            n[i] = (char)tolower((unsigned char)raw[i]);
+        }
+
+        n[i] = 0;
+
+        if (strstr(n, "dualshock") || strstr(n, "dualsense") || strstr(n, "sony")) return "ds4";
+
+        if (strstr(n, "xbox") || strstr(n, "microsoft")) return "xbox";
+
+        if (strstr(n, "switch") || strstr(n, "nintendo") || strstr(n, "pro controller")) return "switch";
 
         return "generic";
     }
