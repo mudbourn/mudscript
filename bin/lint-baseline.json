@@ -121,7 +121,7 @@
     "marker-blank-before-end": 1
   },
   "mac/lib/settings/profiles.lua": {
-    "comment": 29,
+    "comment": 17,
     "lua-inline-table": 11,
     "marker-blank-before-end": 3,
     "marker-indent": 1,

@@ -1,7 +1,9 @@
 return function(ms, ctx)
     -- System Integrity --
-        local archivePath = ctx.archivePath
+        local backupDir = ctx.backupDir
         local trustedHashPath = ctx.trustedHashPath
+
+        local function sq(v) return "'" .. tostring(v):gsub("'", "'\\''") .. "'" end
 
         ms.integrity = {}
 
@@ -272,7 +274,7 @@ return function(ms, ctx)
                 "profiles/Default",
             }
 
-            os.execute("mkdir -p '" .. archivePath .. "'")
+            local bakDir = backupDir("updates")
 
             for _, name in ipairs(replaceList) do
                 local src = topDir .. name
@@ -280,13 +282,13 @@ return function(ms, ctx)
                 if hs.fs.attributes(src) then
                     if hs.fs.attributes(dst) then
                         local safeName = name:gsub("/", "_")
-                        local bak = archivePath .. safeName .. "_" .. timestamp
+                        local bak = bakDir .. safeName .. "_" .. timestamp
                             .. (hs.fs.attributes(dst).mode == "directory" and ".d.bak" or ".bak")
-                        os.execute("rm -rf '" .. bak .. "'")
-                        os.execute("cp -R '" .. dst .. "' '" .. bak .. "'")
+                        os.execute("rm -rf " .. sq(bak))
+                        os.execute("cp -R " .. sq(dst) .. " " .. sq(bak))
                     end
-                    os.execute("rm -rf '" .. dst .. "'")
-                    os.execute("cp -R '" .. src .. "' '" .. dst .. "'")
+                    os.execute("rm -rf " .. sq(dst))
+                    os.execute("cp -R " .. sq(src) .. " " .. sq(dst))
                 end
             end
 
@@ -321,11 +323,11 @@ return function(ms, ctx)
                 or ms._updatePublicKey:find("PLACEHOLDER") then
                 return true
             end
-            local _tmpDir  = archivePath
+            local _tmpDir  = backupDir("tmp")
             local _keyPath = _tmpDir .. "upd_pub.pem"
             local _sigPath = _tmpDir .. "upd_sig.bin"
             local _msgPath = _tmpDir .. "upd_msg.bin"
-            os.execute("mkdir -p '" .. _tmpDir .. "'")
+            os.execute("mkdir -p " .. sq(_tmpDir))
             local _keyContent = ms._updatePublicKey
                 :gsub("^[%s\n]+", "")
                 :gsub("\n[%s]+", "\n")
@@ -696,9 +698,8 @@ return function(ms, ctx)
                         ms.alert("Update failed: bundle download returned " .. tostring(fCode) .. ".", 5)
                         return
                     end
-                    os.execute("mkdir -p '" .. archivePath .. "'")
                     local isZip = bundleURL:match("%.zip$")
-                    local tmpArchive = archivePath .. (isZip and "ms_bundle_update.zip" or "ms_bundle_update.tar.gz")
+                    local tmpArchive = backupDir("tmp") .. (isZip and "ms_bundle_update.zip" or "ms_bundle_update.tar.gz")
                     local tmpF = io.open(tmpArchive, "wb")
                     if not tmpF then
                         ms.alert("Update failed: could not write temp file.", 4)
@@ -706,7 +707,7 @@ return function(ms, ctx)
                     end
                     tmpF:write(fBody)
                     tmpF:close()
-                    local tmpExtract = archivePath .. "ms_bundle_extract/"
+                    local tmpExtract = backupDir("tmp") .. "ms_bundle_extract/"
                     os.execute("rm -rf '" .. tmpExtract .. "'")
                     os.execute("mkdir -p '" .. tmpExtract .. "'")
                     local _, extractOk
@@ -845,9 +846,8 @@ return function(ms, ctx)
                         ms.alert("Update failed: bundle download returned " .. tostring(fCode) .. ".", 5)
                         return
                     end
-                    os.execute("mkdir -p '" .. archivePath .. "'")
                     local isZip = bundleURL:match("%.zip$")
-                    local tmpArchive = archivePath .. (isZip and "ms_bundle_update.zip" or "ms_bundle_update.tar.gz")
+                    local tmpArchive = backupDir("tmp") .. (isZip and "ms_bundle_update.zip" or "ms_bundle_update.tar.gz")
                     local tmpF = io.open(tmpArchive, "wb")
                     if not tmpF then
                         ms.alert("Update failed: could not write temp file.", 4)
@@ -855,7 +855,7 @@ return function(ms, ctx)
                     end
                     tmpF:write(fBody)
                     tmpF:close()
-                    local tmpExtract = archivePath .. "ms_bundle_extract/"
+                    local tmpExtract = backupDir("tmp") .. "ms_bundle_extract/"
                     os.execute("rm -rf '" .. tmpExtract .. "'")
                     os.execute("mkdir -p '" .. tmpExtract .. "'")
                     local _, extractOk

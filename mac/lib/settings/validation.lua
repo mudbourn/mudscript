@@ -3,7 +3,7 @@ return function(ms, ctx)
         local settingsPath = ctx.settingsPath
         local jsonPath = ctx.jsonPath
         local defaultPath = ctx.defaultPath
-        local archivePath = ctx.archivePath
+        local backupDir = ctx.backupDir
         local macrosPath = ctx.macrosPath
 
         local _SETTING_TYPES = {
@@ -163,6 +163,17 @@ return function(ms, ctx)
                 local n = tonumber(data.devArchiveLimit)
                 if n and n >= 0 and n <= 50 then ms._devArchiveLimit = math.floor(n) end
             end
+            if data.backupIntervalHours ~= nil then
+                local n = tonumber(data.backupIntervalHours)
+                if n and ms._backupIntervalChoices[math.floor(n)] then
+                    ms._backupIntervalHours = math.floor(n)
+                end
+            end
+            if data.backupKeep ~= nil then
+                local n = tonumber(data.backupKeep)
+                if n and n >= 1 and n <= 50 then ms._backupKeep = math.floor(n) end
+            end
+            if ms._settingsLoaded and ms.backups then ms.backups.schedule() end
             if data.updateChannel == "testing" or data.updateChannel == "stable" then
                 ms._updateChannel = data.updateChannel
             end
@@ -340,6 +351,8 @@ return function(ms, ctx)
                 customThemeDisabled = ms._customThemeDisabled or false,
                 pluginsDisabled  = ms._pluginsDisabled or {},
                 devArchiveLimit  = ms._devArchiveLimit or 15,
+                backupIntervalHours = ms._backupIntervalHours or 12,
+                backupKeep       = ms._backupKeep or 10,
                 updateChannel    = ms._updateChannel or "stable",
                 testingSource    = ms._testingSource or "release",
                 uiZoom             = ms._uiZoom or 1.0,
@@ -472,12 +485,12 @@ return function(ms, ctx)
                 ms._applySettings(data)
                 ms._settingsLoaded = true
                 ms.saveSettings()
-                os.rename(settingsPath, archivePath .. "ms_settings_txt.bak")
+                os.rename(settingsPath, backupDir("settings") .. "ms_settings_txt.bak")
                 hs.timer.doAfter(1, function()
                     if #skipped > 0 then
                         ms.alert("Settings converted to JSON.\nSkipped unknown keys: " .. table.concat(skipped, ", "), 8)
                     else
-                        ms.alert("Settings converted to JSON format.\nOld file backed up to backups/ms_settings_txt.bak.", 6)
+                        ms.alert("Settings converted to JSON format.\nOld file backed up to backups/settings/ms_settings_txt.bak.", 6)
                     end
                 end)
                 return
@@ -515,9 +528,8 @@ return function(ms, ctx)
             if existingDf then
                 local oldContent = existingDf:read("*all")
                 existingDf:close()
-                os.execute("mkdir -p '" .. archivePath .. "'")
                 local timestamp = os.date("%Y-%m-%d_%H%M")
-                local archiveFile = archivePath .. "ms_settings_default_" .. timestamp .. ".json"
+                local archiveFile = backupDir("settings") .. "ms_settings_default_" .. timestamp .. ".json"
                 local af = io.open(archiveFile, "w")
                 if af then af:write(oldContent)
                 af:close() end

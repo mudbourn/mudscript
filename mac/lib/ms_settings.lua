@@ -30,7 +30,6 @@ return function(ms)
         local defaultPath     = os.getenv("HOME") .. "/.hammerspoon/data/ms_settings_default.json"
         local authoredPath    = os.getenv("HOME") .. "/.hammerspoon/data/ms_authored.json"
         local authoredMenusPath = os.getenv("HOME") .. "/.hammerspoon/data/ms_authored_menus.json"
-        local archivePath     = os.getenv("HOME") .. "/.hammerspoon/backups/"
         local macrosPath      = os.getenv("HOME") .. "/.hammerspoon/ms_macros.lua"
         local profilesPath    = os.getenv("HOME") .. "/.hammerspoon/profiles/"
         local corePath        = os.getenv("HOME") .. "/.hammerspoon/ms_core.lua"
@@ -112,7 +111,7 @@ return function(ms)
             defaultPath = defaultPath,
             authoredPath = authoredPath,
             authoredMenusPath = authoredMenusPath,
-            archivePath = archivePath,
+            backupDir = function(sub) return ms.backups.dir(sub) end,
             macrosPath = macrosPath,
             profilesPath = profilesPath,
             trustedHashPath = trustedHashPath,

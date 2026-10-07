@@ -2,7 +2,7 @@ return function(ms, ctx)
     -- Profile Management --
         local jsonPath = ctx.jsonPath
         local defaultPath = ctx.defaultPath
-        local archivePath = ctx.archivePath
+        local backupDir = ctx.backupDir
         local macrosPath = ctx.macrosPath
         local profilesPath = ctx.profilesPath
         local themePath = ctx.themePath
@@ -24,6 +24,8 @@ return function(ms, ctx)
                 soundVolume      = 100,
                 soundAssign      = {},
                 bundleSoundsWithTheme = true,
+                backupIntervalHours = 12,
+                backupKeep       = 10,
                 macros           = {},
                 macroLabEnabled  = true,
                 shell            = {
@@ -205,6 +207,24 @@ return function(ms, ctx)
         local auditMacros
         ms.auditMacros = function(src) return auditMacros(src) end
 
+        local function hotswapLive()
+            local wasQuick = ms._quickReloading
+            ms._quickReloading = true
+            if ms.ui and ms.ui._actions and ms.ui._actions.reloadMacros then
+                pcall(ms.ui._actions.reloadMacros)
+            end
+            if ms.loadTheme then pcall(ms.loadTheme) end
+            pcall(function() ms.alert:recolor() end)
+            pcall(function() ms.dev:recolor() end)
+            ms._soundsDirty = true
+            if ms._discoverSounds then pcall(ms._discoverSounds) end
+            if ms._loadAuthoredSettings then pcall(ms._loadAuthoredSettings) end
+            if ms._defineAuthoredSettings then pcall(ms._defineAuthoredSettings) end
+            if ms._loadAuthoredMenus then pcall(ms._loadAuthoredMenus) end
+            ms._quickReloading = wasQuick
+        end
+        ms.hotswapLive = hotswapLive
+
         local function switchProfile(targetName)
             ms.dev.log({
                 type   = "system",
@@ -237,7 +257,6 @@ return function(ms, ctx)
             end
             local currentName = activeProfile()
             if currentName == "" then currentName = "unnamed" end
-            -- Flush live state to ms_settings.json before archiving it below
             pcall(ms.saveSettings)
             hs.fs.mkdir(profilesPath)
             hs.fs.mkdir(profilesPath .. currentName)
@@ -256,7 +275,6 @@ return function(ms, ctx)
             local curSoundsDir = profilesPath .. currentName .. "/sounds/"
             moveDirContents(SoundActiveDir, curSoundsDir .. "active/")
             moveDirContents(SoundMacroDir,  curSoundsDir .. "macro/")
-            -- Archive the current profile's visual macros, tools, and vars
             for _, cf in ipairs(profileContentFiles()) do
                 if hs.fs.attributes(cf.live) then
                     moveFile(cf.live, profilesPath .. currentName .. "/" .. cf.name)
@@ -292,13 +310,11 @@ return function(ms, ctx)
             local tgtSoundsDir = profilesPath .. targetName .. "/sounds/"
             moveDirContents(tgtSoundsDir .. "active/", SoundActiveDir)
             moveDirContents(tgtSoundsDir .. "macro/",  SoundMacroDir)
-            -- Restore the target's visual macros, tools, and vars (if any).
             for _, cf in ipairs(profileContentFiles()) do
                 local arch = profilesPath .. targetName .. "/" .. cf.name
                 if hs.fs.attributes(arch) then moveFile(arch, cf.live) end
             end
 
-            -- Never leave the live ms_macros.lua absent; seed the minimal stub
             if not hs.fs.attributes(macrosPath) then
                 local stub = io.open(macrosPath, "w")
                 if stub then
@@ -310,11 +326,9 @@ return function(ms, ctx)
                 end
             end
 
-            -- Activate the profile's same-named packs before the hotswap
             local alignedKinds = {}
             if ms.package and ms.package.librarySlug
                 and ms.package.libraryActivate and ms.package.libraryHasEntry then
-                -- Prefer explicit packs.json links, fall back to the slug convention
                 local links = ms.package.getProfilePacks
                     and ms.package.getProfilePacks(targetName) or nil
                 local pslug = ms.package.librarySlug(targetName)
@@ -333,23 +347,8 @@ return function(ms, ctx)
                 target = targetName,
             })
 
-            -- Hotswap the running state in place instead of a full hs.reload()
-            local wasQuick = ms._quickReloading
-            ms._quickReloading = true
-            if ms.ui and ms.ui._actions and ms.ui._actions.reloadMacros then
-                pcall(ms.ui._actions.reloadMacros)
-            end
-            if ms.loadTheme then pcall(ms.loadTheme) end
-            pcall(function() ms.alert:recolor() end)
-            pcall(function() ms.dev:recolor() end)
-            ms._soundsDirty = true
-            if ms._discoverSounds then pcall(ms._discoverSounds) end
-            if ms._loadAuthoredSettings then pcall(ms._loadAuthoredSettings) end
-            if ms._defineAuthoredSettings then pcall(ms._defineAuthoredSettings) end
-            if ms._loadAuthoredMenus then pcall(ms._loadAuthoredMenus) end
-            ms._quickReloading = wasQuick
+            hotswapLive()
 
-            -- Reconcile any not-yet-aligned kind by content fingerprint
             if ms.package and ms.package.reconcileActive then
                 for _, k in ipairs({ "theme", "sound", "macro" }) do
                     if not alignedKinds[k] then
@@ -358,7 +357,6 @@ return function(ms, ctx)
                 end
             end
 
-            -- Record the live setup as "on" this profile, set last
             if ms.package and ms.package.setActiveProfile then
                 pcall(ms.package.setActiveProfile, targetName)
             end
@@ -370,7 +368,6 @@ return function(ms, ctx)
             end
             ms.ui.markDirty()
             ms.ui.refresh()
-            -- Repaint the Installed Library shelves
             if ms.ui._actions and ms.ui._actions.libraryList then
                 for _, k in ipairs({ "theme", "sound", "macro" }) do
                     pcall(ms.ui._actions.libraryList, { kind = k })
@@ -873,39 +870,51 @@ return function(ms, ctx)
         end
         ms.renameProfile = renameProfile
 
-        local function exportProfilePkg()
+        local function profilePkgFiles()
+            local list = {
+                {
+                    live = macrosPath,
+                    name = "ms_macros.lua",
+                },
+                {
+                    live = jsonPath,
+                    name = "ms_settings.json",
+                },
+                {
+                    live = defaultPath,
+                    name = "ms_settings_default.json",
+                },
+                {
+                    live = themePath,
+                    name = "ms_theme.json",
+                },
+            }
+            for _, cf in ipairs(profileContentFiles()) do
+                list[#list + 1] = cf
+            end
+            return list
+        end
+        ms.profilePkgFiles = profilePkgFiles
+
+        local function stageProfilePkg(tmpDir)
             local sq = function(s) return "'" .. s:gsub("'", "'\\''") .. "'" end
-            local name = activeProfile()
-            if name == "" then name = "unnamed" end
-            local outName = name .. ".mspkg"
-            local outPath = os.getenv("HOME") .. "/Downloads/" .. outName
-            local tmpDir  = archivePath .. "mspkg_export/"
-            os.execute("mkdir -p " .. sq(archivePath))
             os.execute("rm -rf " .. sq(tmpDir))
             os.execute("mkdir -p " .. sq(tmpDir))
-            local _, cpOk = hs.execute("/bin/cp " .. sq(macrosPath) .. " " .. sq(tmpDir .. "ms_macros.lua"))
-            if not hs.fs.attributes(tmpDir .. "ms_macros.lua") then
-                ms.alert("Export failed: could not read ms_macros.lua.", 4)
+            if not hs.fs.attributes(macrosPath) then
                 os.execute("rm -rf " .. sq(tmpDir))
-                return
+                return false, "could not read ms_macros.lua"
             end
-            if hs.fs.attributes(jsonPath) then
-                hs.execute("/bin/cp " .. sq(jsonPath) .. " " .. sq(tmpDir .. "ms_settings.json"))
-            end
-            if hs.fs.attributes(defaultPath) then
-                hs.execute("/bin/cp " .. sq(defaultPath) .. " " .. sq(tmpDir .. "ms_settings_default.json"))
-            end
-            if hs.fs.attributes(themePath) then
-                hs.execute("/bin/cp " .. sq(themePath) .. " " .. sq(tmpDir .. "ms_theme.json"))
-            end
-            -- Visual macros, authored tools, and helper vars travel with the profile
-            for _, cf in ipairs(profileContentFiles()) do
+            for _, cf in ipairs(profilePkgFiles()) do
                 if hs.fs.attributes(cf.live) then
                     hs.execute("/bin/cp " .. sq(cf.live) .. " " .. sq(tmpDir .. cf.name))
                 end
             end
             local soundsDir = tmpDir .. "sounds/"
-            local soundsCopied = 0
+            local counts = {
+                sounds = 0,
+                macroSounds = 0,
+                fonts = 0,
+            }
             local bundledPaths = {}
             for _, soundName in pairs(ms.soundAssign or {}) do
                 if type(soundName) == "string" and ms.sounds then
@@ -926,12 +935,11 @@ return function(ms, ctx)
                             os.execute("mkdir -p " .. sq(destDir))
                             hs.execute("/bin/cp " .. sq(soundPath) .. " " .. sq(destDir .. filename))
                             bundledPaths[relPath] = true
-                            soundsCopied = soundsCopied + 1
+                            counts.sounds = counts.sounds + 1
                         end
                     end
                 end
             end
-            local macroCopied = 0
             local usedMacroSounds = {}
             for _, soundName in pairs(ms.soundAssign or {}) do
                 if type(soundName) == "string" and ms.macroSounds and ms.macroSounds[soundName] then
@@ -947,46 +955,64 @@ return function(ms, ctx)
                         os.execute("mkdir -p " .. sq(destDir))
                         hs.execute("/bin/cp " .. sq(soundPath) .. " " .. sq(destDir .. filename))
                         bundledPaths[relPath] = true
-                        macroCopied = macroCopied + 1
+                        counts.macroSounds = counts.macroSounds + 1
                     end
                 end
             end
-            local fontsCopied = 0
-            do
-                local fontName = (ms._theme and ms._theme.font) or nil
-                if type(fontName) == "string" and #fontName > 0 and not fontName:find("[/\\]") then
-                    local fontsSrc = hs.configdir .. "/ui/fonts/"
-                    if hs.fs.attributes(fontsSrc) then
-                        local fontsDir = tmpDir .. "fonts/"
-                        local pattern = fontName:lower():gsub("%-", "%%-")
-                        for file in hs.fs.dir(fontsSrc) do
-                            if file ~= "." and file ~= ".." then
-                                local lower = file:lower()
-                                if lower:match("^" .. pattern) and (lower:match("%.ttf$") or lower:match("%.otf$")) then
-                                    os.execute("mkdir -p " .. sq(fontsDir))
-                                    hs.execute("/bin/cp " .. sq(fontsSrc .. file) .. " " .. sq(fontsDir .. file))
-                                    fontsCopied = fontsCopied + 1
-                                end
+            local fontName = (ms._theme and ms._theme.font) or nil
+            if type(fontName) == "string" and #fontName > 0 and not fontName:find("[/\\]") then
+                local fontsSrc = hs.configdir .. "/ui/fonts/"
+                if hs.fs.attributes(fontsSrc) then
+                    local fontsDir = tmpDir .. "fonts/"
+                    local pattern = fontName:lower():gsub("%-", "%%-")
+                    for file in hs.fs.dir(fontsSrc) do
+                        if file ~= "." and file ~= ".." then
+                            local lower = file:lower()
+                            if lower:match("^" .. pattern) and (lower:match("%.ttf$") or lower:match("%.otf$")) then
+                                os.execute("mkdir -p " .. sq(fontsDir))
+                                hs.execute("/bin/cp " .. sq(fontsSrc .. file) .. " " .. sq(fontsDir .. file))
+                                counts.fonts = counts.fonts + 1
                             end
                         end
                     end
                 end
             end
+            return true, counts
+        end
+        ms.stageProfilePkg = stageProfilePkg
+
+        local function buildProfilePkg(outPath)
+            local sq = function(s) return "'" .. s:gsub("'", "'\\''") .. "'" end
+            local tmpDir = backupDir("tmp") .. "mspkg_export/"
+            local staged, counts = stageProfilePkg(tmpDir)
+            if not staged then return false, counts end
             hs.execute("cd " .. sq(tmpDir) .. " && zip -r " .. sq(outPath) .. " . 2>/dev/null")
             os.execute("rm -rf " .. sq(tmpDir))
-            if hs.fs.attributes(outPath) then
+            return hs.fs.attributes(outPath) ~= nil, counts
+        end
+        ms.buildProfilePkg = buildProfilePkg
+
+        local function exportProfilePkg()
+            local name = activeProfile()
+            if name == "" then name = "unnamed" end
+            local outName = name .. ".mspkg"
+            local outPath = os.getenv("HOME") .. "/Downloads/" .. outName
+            local ok, counts = buildProfilePkg(outPath)
+            if ok then
                 ms.playSlot("alert")
                 local msg = "Exported " .. outName .. " to ~/Downloads/"
-                if soundsCopied > 0 then
-                    msg = msg .. "\n" .. soundsCopied .. " sound" .. (soundsCopied > 1 and "s" or "") .. " bundled."
+                if counts.sounds > 0 then
+                    msg = msg .. "\n" .. counts.sounds .. " sound" .. (counts.sounds > 1 and "s" or "") .. " bundled."
                 end
-                if macroCopied > 0 then
-                    msg = msg .. "\n" .. macroCopied .. " macro sound" .. (macroCopied > 1 and "s" or "") .. " bundled."
+                if counts.macroSounds > 0 then
+                    msg = msg .. "\n" .. counts.macroSounds .. " macro sound" .. (counts.macroSounds > 1 and "s" or "") .. " bundled."
                 end
-                if fontsCopied > 0 then
-                    msg = msg .. "\n" .. fontsCopied .. " font" .. (fontsCopied > 1 and "s" or "") .. " bundled."
+                if counts.fonts > 0 then
+                    msg = msg .. "\n" .. counts.fonts .. " font" .. (counts.fonts > 1 and "s" or "") .. " bundled."
                 end
                 ms.alert(msg, 5, true)
+            elseif counts then
+                ms.alert("Export failed: " .. tostring(counts) .. ".", 4)
             else
                 ms.alert("Export failed: could not create " .. outName .. ".", 4)
             end
@@ -1013,8 +1039,7 @@ return function(ms, ctx)
                 return
             end
             local sq = function(s) return "'" .. s:gsub("'", "'\\''" ) .. "'" end
-            local tmpDir = archivePath .. "mspkg_import/"
-            os.execute("mkdir -p " .. sq(archivePath))
+            local tmpDir = backupDir("tmp") .. "mspkg_import/"
             os.execute("rm -rf " .. sq(tmpDir))
             os.execute("mkdir -p " .. sq(tmpDir))
             hs.execute("unzip -o " .. sq(selectedPath) .. " -d " .. sq(tmpDir) .. " 2>/dev/null")

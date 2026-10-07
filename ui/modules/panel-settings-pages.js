@@ -344,7 +344,7 @@
                 body.appendChild(
                     buildSlider(
                         "Log archive limit",
-                        "Max archived log files kept per category in backups/",
+                        "Max archived log files kept per category in backups/logs/",
                         0,
                         50,
                         1,
@@ -612,8 +612,79 @@
             }
         // END Profiles, Developer and Help //
 
+        // Backups //
+            const BACKUP_CHOICES = [
+                { value: "0", label: "Off" },
+                { value: "1", label: "Every hour" },
+                { value: "3", label: "Every 3 hours" },
+                { value: "6", label: "Every 6 hours" },
+                { value: "12", label: "Twice a day" },
+                { value: "24", label: "Once a day" },
+            ];
+
+            function buildBackups(body) {
+                const current = String(S.backupIntervalHours ?? 12);
+                const controls = h("div", { style: "display:flex; gap:8px; align-items:center;" });
+                if (window.createSelect) {
+                    controls.appendChild(
+                        window.createSelect({
+                            className: "input-sm",
+                            options: BACKUP_CHOICES,
+                            value: current,
+                            onChange: (v) =>
+                                sendToHost({
+                                    action: "setBackupInterval",
+                                    value: parseInt(v, 10),
+                                }),
+                        }),
+                    );
+                }
+                body.appendChild(
+                    row(
+                        "Automatic backups",
+                        "Snapshots your live setup to backups/auto/ as a .mspkg. Unchanged setups add no new files.",
+                        controls,
+                    ),
+                );
+                body.appendChild(
+                    buildSlider(
+                        "Backups kept",
+                        "Oldest snapshots beyond this count are removed",
+                        1,
+                        50,
+                        1,
+                        null,
+                        S.backupKeep ?? 10,
+                        (v) => sendToHost({ action: "setBackupKeep", value: v }),
+                        [
+                            {
+                                icon: "",
+                                label: "Reset to default",
+                                action: () =>
+                                    sendToHost({ action: "setBackupKeep", value: 10 }),
+                            },
+                        ],
+                    ),
+                );
+                body.appendChild(
+                    btnRow(
+                        actionBtn("Back up now", "", () =>
+                            sendToHost({ action: "backupNow" }),
+                        ),
+                        actionBtn("Time Machine", "", () => {
+                            if (window.msTimeMachine) window.msTimeMachine.open();
+                        }),
+                        actionBtn("Open folder", "", () =>
+                            sendToHost({ action: "backupsOpenFolder" }),
+                        ),
+                    ),
+                );
+            }
+        // END Backups //
+
             Object.assign(window.msSettings, {
                 buildProfiles,
+                buildBackups,
                 buildDeveloper,
                 buildHelp,
             });

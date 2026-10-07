@@ -158,6 +158,43 @@
                 end
             -- END Event Bus --
 
+            -- MsBackups (snapshots & backup folders) --
+                ms._backupRoot = os.getenv("HOME") .. "/.hammerspoon/backups/"
+                ms._backupIntervalHours = 12
+                ms._backupKeep = 10
+                ms._backupIntervalChoices = {
+                    [0] = true,
+                    [1] = true,
+                    [3] = true,
+                    [6] = true,
+                    [12] = true,
+                    [24] = true,
+                }
+                local _msBackupsOk, _msBackupsErr = pcall(function()
+                    package.loaded["lib.ms_backups"] = nil
+                    require("lib.ms_backups")(ms)
+                end)
+
+                if not _msBackupsOk then
+                    print("MsBackups: load failed, " .. tostring(_msBackupsErr))
+                    ms.backups = {
+                        dir        = function(sub)
+                            local path = ms._backupRoot .. (sub and (sub .. "/") or "")
+                            os.execute("mkdir -p '" .. path:gsub("'", "'\\''") .. "'")
+                            return path
+                        end,
+                        list       = function() return {} end,
+                        snapshot   = function(_, onDone) if onDone then onDone(false, "unavailable") end end,
+                        restore    = function() end,
+                        delete     = function() return false end,
+                        prune      = function() return 0 end,
+                        schedule   = function() end,
+                        bootCheck  = function() end,
+                        openFolder = function() end,
+                    }
+                end
+            -- END MsBackups --
+
             -- MsDevTools (logging & dev panels) --
                 ms.loading.update(6, "Configuring Dev Tools\u{2026}")
                 local _msDevOk, _msDevErr = pcall(function()
@@ -799,6 +836,8 @@
         ms._loadAuthoredSettings()
         ms._defineAuthoredSettings()
         ms._loadAuthoredMenus()
+        ms.backups.schedule()
+        ms.backups.bootCheck()
         if ms._customThemeDisabled then
             for sid, def in pairs(ms.soundSlotDefaults()) do
                 ms.soundAssign[sid] = def

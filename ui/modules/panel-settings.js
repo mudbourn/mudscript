@@ -885,6 +885,10 @@
                         "Save or restore every setting at once"),
                 );
                 scroll.appendChild(
+                    section("backups", "Backups", (b) => P.buildBackups(b),
+                        "Automatic snapshots and Time Machine"),
+                );
+                scroll.appendChild(
                     section("developer", "Developer", (b) => P.buildDeveloper(b),
                         "Editing, logs, updates, and integrity"),
                 );

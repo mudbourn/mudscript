@@ -42,10 +42,13 @@ return function(ms)
     local _home       = os.getenv("HOME")
     local _devLogDir  = _home .. "/Documents/"
     local _devBaseDir = _devLogDir .. "ms_dev_logs/"
-    local _devArchDir = _devBaseDir .. "backups/"
     local _devBase    = "file://" .. _home .. "/.hammerspoon/ui/"
 
     local _jsonDir, _readDir
+
+    local function _archDir()
+        return ms.backups.dir("logs")
+    end
 
     local _typeToCategory = {
         key       = "input",
@@ -779,11 +782,11 @@ return function(ms)
     function MsDevTools:_archiveLog(path, stamp, subdir)
         if not hs.fs.attributes(path) then return end
 
-        local sessionDir = _devArchDir .. "session_" .. stamp .. "/"
+        local sessionDir = _archDir() .. "session_" .. stamp .. "/"
         local destDir    = sessionDir .. subdir .. "/"
 
         hs.fs.mkdir(_devBaseDir)
-        hs.fs.mkdir(_devArchDir)
+        hs.fs.mkdir(_archDir())
         hs.fs.mkdir(sessionDir)
         hs.fs.mkdir(destDir)
 
@@ -795,11 +798,11 @@ return function(ms)
     end
 
     function MsDevTools:_pruneSessionArchives(limit)
-        if not hs.fs.attributes(_devArchDir) then return end
+        if not hs.fs.attributes(_archDir()) then return end
 
         local list = {}
 
-        for name in hs.fs.dir(_devArchDir) do
+        for name in hs.fs.dir(_archDir()) do
             if name:match("^session_%d%d%d%d%-%d%d%-%d%d_%d%d%d%d%d%d$") then
                 table.insert(list, name)
             end
@@ -810,7 +813,7 @@ return function(ms)
         local pruned = 0
 
         while #list > limit and pruned < 5 do
-            local dir = _devArchDir .. list[1]
+            local dir = _archDir() .. list[1]
 
             for _, sub in ipairs({
                 "json",

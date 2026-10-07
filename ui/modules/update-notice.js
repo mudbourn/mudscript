@@ -25,7 +25,7 @@
                     ["Updating downloads the latest ", { strong: testing ? "testing build" : "release" },
                         " and replaces mudscript's app files: core, lib, ui and the bundled plugins."],
                     ["Your macros, profiles and settings are kept. The files it replaces are"
-                        + " backed up to ", { strong: "backups/" }, " first, then mudscript restarts."],
+                        + " backed up to ", { strong: "backups/updates/" }, " first, then mudscript restarts."],
                 ];
                 if (testing) lines.push([{ strong: "Testing builds are unreleased." },
                     " They are cut from every push and can be broken. Switch the channel back"

@@ -524,6 +524,8 @@ return function(ms)
                 hiddenFeatures          = ms._hiddenFeatures,
                 customThemeEnabled      = not (ms._customThemeDisabled or false),
                 devArchiveLimit         = ms._devArchiveLimit or 15,
+                backupIntervalHours     = ms._backupIntervalHours or 12,
+                backupKeep              = ms._backupKeep or 10,
                 updateChannel           = ms._updateChannel or "stable",
                 updateAlertsDisabled    = ms._updateAlertsDisabled or false,
                 testingSource           = ms._testingSource or "release",
@@ -990,6 +992,7 @@ return function(ms)
             "actions_library",
             "actions_sound",
             "actions_shell",
+            "actions_backups",
         }) do
             package.loaded["lib.ui." .. name] = nil
 

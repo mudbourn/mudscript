@@ -60,7 +60,7 @@ Full async update flow. Triggered via **Settings > Help > Check for Update**. Th
 1. Fetches the latest release from the GitHub Releases API and picks its `mudscript-macos-*.zip` asset
 2. Downloads and extracts the bundle
 3. Verifies the RSA-2048 signature in the bundle's `MANIFEST.json`, aborts on an invalid signature
-4. Backs up each replaced item (`ms_core.lua`, `init.lua`, `lib`, `templates`, `ui`, `bin`, `Spoons`) to `backups/` with a timestamp
+4. Backs up each replaced item (`ms_core.lua`, `init.lua`, `lib`, `templates`, `ui`, `bin`, `Spoons`) to `backups/updates/` with a timestamp
 5. Installs the new files. Macros, profiles and settings are kept
 6. Trusts the new core and restarts through the exit curtain in update mode, which shows the new version
 

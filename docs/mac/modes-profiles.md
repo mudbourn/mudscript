@@ -58,7 +58,7 @@ Convenience wrapper that runs the full settings-reload sequence in one call: `lo
 
 ### `ms.saveDefault()`
 
-Promotes the current `ms_settings.json` to `ms_settings_default.json`. Archives the previous default to `backups/` with a timestamp.
+Promotes the current `ms_settings.json` to `ms_settings_default.json`. Archives the previous default to `backups/settings/` with a timestamp.
 
 ---
 
@@ -83,7 +83,7 @@ Internal. Applies a decoded settings table to live runtime state. You do not nee
 | `data/ms_settings.json` | Current user settings, written on every change |
 | `data/ms_settings_default.json` | The "reset to default" target |
 | `data/ms_theme.json` | UI theme, colors, font, border radius, UI Frame Cosmetic |
-| `backups/` | Timestamped archives of previous defaults |
+| `backups/settings/` | Timestamped archives of previous defaults |
 
 Settings and theme files live in `~/.hammerspoon/data/`. They are gitignored, each install generates its own. Existing files at the old root location are automatically migrated to `data/` on the first reload after upgrading.
 
@@ -174,3 +174,35 @@ Any sounds in `sounds/` are added to the user's library on import. If a sound wi
 
 ---
 
+
+## Backups
+
+All backups live under `~/.hammerspoon/backups/`:
+
+| Folder | Contents |
+|---|---|
+| `auto/` | Profile snapshots (`YYYY-MM-DD_HHMMSS.mspkg`) and `index.json` |
+| `updates/` | Copies of files replaced by an update |
+| `settings/` | Archived defaults and the old settings text file |
+| `logs/` | Dev log session archives |
+| `tmp/` | Staging for export, import, restore and update downloads |
+
+A snapshot is a normal profile `.mspkg` of the live setup: macros, settings, theme, builder content, assigned sounds and theme fonts. Every snapshot is self-contained.
+
+Before writing, mudscript fingerprints the staged files. If the fingerprint matches the newest snapshot, no new file is written and that entry's `lastChecked` time moves forward. A manual backup of an unchanged setup reports "No changes since" the last snapshot date.
+
+Settings > Backups sets `backupIntervalHours` (0 = off, 1, 3, 6, 12 or 24, default 12) and `backupKeep` (1 to 50, default 10). Oldest snapshots beyond the keep count are removed. On boot, a snapshot is taken after a short delay when the newest one is older than the interval.
+
+### ms.backups
+
+| Function | Description |
+|---|---|
+| `ms.backups.snapshot(reason, onDone)` | Reason is `"auto"`, `"manual"` or `"pre-restore"`. `onDone(ok, info)` runs when finished |
+| `ms.backups.list()` | Entries `{id, file, time, lastChecked, profile, reason, size, hash}`, newest first |
+| `ms.backups.restore(id)` | Confirms in a modal, takes a `pre-restore` snapshot, audits the macros, then restores and hot-reloads |
+| `ms.backups.delete(id)` | Removes one snapshot |
+| `ms.backups.prune()` | Applies the keep count |
+| `ms.backups.schedule()` | Re-arms the timer from `backupIntervalHours` |
+| `ms.backups.dir(sub)` | Path of a backup subfolder, created on demand |
+
+The Time Machine button in Settings > Backups lists the snapshots and restores or deletes one. Restoring only copies sounds and fonts that are missing.
