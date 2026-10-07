@@ -202,8 +202,10 @@ return function(ms, ctx)
                 return true
             end
 
-            if button == "options" then
-                if a and a.menu then _gpCloseViaChord(n) return true end
+            if button == "home" then
+                if a and a.menu then _gpCloseViaChord(n) end
+                return true
+            elseif button == "options" then
                 n.holdTimer = hs.timer.doAfter(0.35, function()
                     n.selectHeld = true
                     n.holdTimer = nil
@@ -244,7 +246,7 @@ return function(ms, ctx)
                 _gpEval("tabNext")
                 return true
             elseif button == "menu" then
-                if a and a.options then _gpCloseViaChord(n) return true end
+                if a and a.home then _gpCloseViaChord(n) return true end
                 _gpEval("toggleRail")
                 return true
             elseif button == "up" or button == "down" or button == "left" or button == "right" then
@@ -274,16 +276,13 @@ return function(ms, ctx)
             end
             ms._gpOpenBind = ms.gamepadBind({
                 "menu",
-                "options",
+                "home",
             }, _toggle)
-            ms._gpOpenBind2 = ms.gamepadBind({ "home" }, _toggle)
         end
 
         ms.shell.gpClearOpenBind = function()
             if ms._gpOpenBind and ms._gpOpenBind.delete then pcall(ms._gpOpenBind.delete) end
-            if ms._gpOpenBind2 and ms._gpOpenBind2.delete then pcall(ms._gpOpenBind2.delete) end
             ms._gpOpenBind = nil
-            ms._gpOpenBind2 = nil
         end
 
         local function _gpAttach()
