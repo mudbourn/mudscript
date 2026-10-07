@@ -210,6 +210,10 @@ return function(ms, ctx)
         -- END ms.tools.define --
 
         -- ms.builder.define(def) --
+            ms.builder        = ms.builder or {}
+            ms._builderBlocks = ms._builderBlocks or {}
+            ms._builderIndex  = ms._builderIndex or {}
+
             ms.builder.define = function(def)
                 assert(type(def) == "table",
                     "ms.builder.define: argument must be a table")

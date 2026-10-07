@@ -325,6 +325,7 @@
                     ms.menu     = ms.menu or {}
                     ms.features = ms.features or {}
                     ms.tools    = ms.tools or {}
+                    ms.builder  = ms.builder or {}
                     _msSettings:start()
                 else
                     ms.settings = ms.settings or {}

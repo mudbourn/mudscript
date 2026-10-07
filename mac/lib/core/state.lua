@@ -471,9 +471,6 @@ return function(ms)
             ms.tools             = ms.tools or {}
             ms._toolDefs         = {}
             ms._toolIndex        = {}
-            ms.builder           = ms.builder or {}
-            ms._builderBlocks    = {}
-            ms._builderIndex     = {}
             ms._themeDefaults = {
                 bg       = "#0d0f09",
                 surface  = "#141810cc",
