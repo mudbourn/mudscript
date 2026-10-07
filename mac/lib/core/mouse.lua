@@ -301,11 +301,13 @@
             ms._gamepadHeld = {}
             ms._gamepadAxes = {}
             _gamepadStatusChanged()
-            if not on and ms._gamepadTask then
-                local binds = ms._gamepadBinds
-                local cbs = ms._gamepadCallbacks
+            if ms._gamepadTask then
                 ms._gamepadTask:terminate()
                 ms._gamepadTask = nil
+            end
+            if not on and ms.gamepadEnabled then
+                local binds = ms._gamepadBinds
+                local cbs = ms._gamepadCallbacks
                 ms.gamepadStart()
                 ms._gamepadBinds = binds
                 ms._gamepadCallbacks = cbs
@@ -313,7 +315,7 @@
         end
 
         ms.gamepadStart = function()
-            if ms._gamepadTask then return end
+            if ms._gamepadTask or ms._gamepadExternal then return end
             local _isWin = package.config:sub(1, 1) == "\\"
             local bin = os.getenv("HOME") .. "/.local/bin/ms_gc_read" .. (_isWin and ".exe" or "")
             ms._gamepadCallbacks = {}

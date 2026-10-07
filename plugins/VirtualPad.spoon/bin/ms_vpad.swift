@@ -248,6 +248,10 @@ func emit(_ obj: [String: Any]) {
         let ctype: String
         var physButtons: Set<String> = []
         var physAxes: [String: Double] = [:]
+        var padRIDs: Set<UInt8> = []
+        var simpleLen = 0
+        var emittedAt: [String: UInt64] = [:]
+        var pendingEv: [String: [String: Any]] = [:]
 
         init?(real: IOHIDDevice) {
             self.real = real
@@ -265,6 +269,7 @@ func emit(_ obj: [String: Any]) {
             let parsed = parseInputFields([UInt8](desc))
             fields = parsed.fields
             usesIDs = parsed.usesIDs
+            padRIDs = Set(fields.filter { $0.page == 0x01 || $0.page == 0x09 }.map { $0.reportID })
             let transport: HIDDeviceTransport = transportName.contains("bluetooth") ? .bluetooth : .usb
             let props = HIDVirtualDevice.Properties(
                 descriptor: desc,
@@ -281,6 +286,9 @@ func emit(_ obj: [String: Any]) {
                 return nil
             }
             device = dev
+            if fam == .sony && usesIDs && padRIDs.contains(1) {
+                simpleLen = neutral(for: 1).count
+            }
             let del = Delegate(real: real)
             delegate = del
             let (stream, cont) = AsyncStream<Data>.makeStream(bufferingPolicy: .bufferingNewest(2))
@@ -351,8 +359,27 @@ func emit(_ obj: [String: Any]) {
         }
 
         func resend() {
-            let ids = Set(fields.map { $0.reportID })
-            for rid in ids { send(rid) }
+            for rid in padRIDs { send(rid) }
+        }
+
+        func throttled(_ key: String, _ ev: [String: Any]) {
+            let gap: UInt64 = 8_000_000
+            let now = DispatchTime.now().uptimeNanoseconds
+            let since = now - (emittedAt[key] ?? 0)
+            if pendingEv[key] == nil && since >= gap {
+                emittedAt[key] = now
+                physical(ev)
+                return
+            }
+            let first = pendingEv[key] == nil
+            pendingEv[key] = ev
+            guard first else { return }
+            let wait = since >= gap ? 0 : gap - since
+            DispatchQueue.main.asyncAfter(deadline: .now() + .nanoseconds(Int(wait))) { [weak self] in
+                guard let self, let e = self.pendingEv.removeValue(forKey: key) else { return }
+                self.emittedAt[key] = DispatchTime.now().uptimeNanoseconds
+                self.physical(e)
+            }
         }
 
         func physical(_ ev: [String: Any]) {
@@ -403,23 +430,34 @@ func emit(_ obj: [String: Any]) {
                 if abs(x - ox) > 0.01 || abs(y - oy) > 0.01 {
                     physAxes[side + "x"] = x
                     physAxes[side + "y"] = y
-                    physical(["e": "move", "b": side == "l" ? "left" : "right", "x": dz(x), "y": dz(-y)])
+                    let b = side == "l" ? "left" : "right"
+                    throttled(b, ["e": "move", "b": b, "x": dz(x), "y": dz(-y)])
                 }
             }
             for t in ["l2", "r2"] {
                 guard let v = axes[t] else { continue }
                 if abs(v - (physAxes[t] ?? 9)) > 0.01 {
                     physAxes[t] = v
-                    physical(["e": "trigger", "b": t, "v": v])
+                    throttled(t, ["e": "trigger", "b": t, "v": v])
                 }
             }
         }
 
-        func onReal(_ report: [UInt8]) {
+        func normalize(_ report: [UInt8]) -> [UInt8] {
+            guard simpleLen > 1, report.first == 0x11, report.count >= simpleLen + 2 else { return report }
+            return [0x01] + Array(report[3..<(simpleLen + 2)])
+        }
+
+        func onReal(_ raw: [UInt8]) {
+            let report = normalize(raw)
             let rid: UInt8 = usesIDs ? (report.first ?? 0) : 0
+            guard padRIDs.contains(rid) else {
+                queue?.yield(Data(report))
+                return
+            }
             last[rid] = report
-            decode(report)
             queue?.yield(Data(patch(report)))
+            decode(report)
         }
     }
 // END Virtual Pad //
