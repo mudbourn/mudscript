@@ -15,7 +15,7 @@
     //   toggleRail()   -> optional: collapse/expand the shell rail
     //   switchWindow() -> optional: the pop-out / window-switch action
 
-    var FOCUSABLE = 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"]), .row, .entry, .step, .tool-block, .fn-entry, .fn-cat-head';
+    var FOCUSABLE = 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"]), .row, .entry, .step, .tool-block, .fn-entry, .fn-cat-head, .ctx-item';
     var TOPBAR_REGION = '#header';
     var OVERLAY_SEL = '.fn-picker-overlay.open, .macro-overflow.open';
     var TAB_SEL = '.tab, .mtab, .otab, .ttab, .wtab';
@@ -48,6 +48,7 @@
         ensureFocusStyle();
         var gpFocusEl = null;
         var gpLastFocus = {};
+        var gpCtxReturn = null;
         var gpInTopbar = false;
         var gpGrab = null;
         var gpXTapTimer = null;
@@ -136,11 +137,27 @@
             return mp || null;
         }
 
+        function ctxOverlay() {
+            var menus = document.querySelectorAll('#ctx-menu-settings.open, #ctx-menu.open');
+            for (var i = 0; i < menus.length; i++) {
+                if (isVisible(menus[i])) return menus[i];
+            }
+            return null;
+        }
+
+        function restoreCtxReturn() {
+            var back = gpCtxReturn;
+            gpCtxReturn = null;
+            setFocus(back && back.isConnected && isVisible(back) ? back : null);
+        }
+
         function activeOverlay() {
             var mp = mapOverlay();
             if (mp) return mp;
             var md = modalOverlay();
             if (md) return md;
+            var cm = ctxOverlay();
+            if (cm) return cm;
             var sc = scope();
             return sc ? sc.querySelector(OVERLAY_SEL) : null;
         }
@@ -468,8 +485,19 @@
                 var sc1 = activeOverlay() || scope();
                 var heads1 = sc1 ? sc1.querySelectorAll('.fn-cat-head') : [];
                 if (hidx >= 0 && heads1[hidx]) setFocus(heads1[hidx]);
-            } else {
+            } else if (gpFocusEl.matches && gpFocusEl.matches('.ctx-item')) {
                 activate(gpFocusEl);
+                if (modalOverlay()) { gpCtxReturn = null; setFocus(null); }
+                else restoreCtxReturn();
+            } else {
+                var origin = gpFocusEl;
+                activate(gpFocusEl);
+                var menu = ctxOverlay();
+                var first = menu && menu.querySelector('.ctx-item');
+                if (first) {
+                    gpCtxReturn = origin;
+                    setFocus(first);
+                }
             }
         }
 
@@ -571,15 +599,12 @@
                         gpInTopbar = false;
                         setFocus(null);
                     } else if (ov) {
-                        // Dismiss via the overlay's own close control so its
-                        // teardown (and Back sound) runs exactly as a click would.
-                        // Menus that just slide off on an .open class have no such
-                        // control, so drop the class and play Back ourselves.
                         var closeBtn = ov.querySelector('.fn-picker-overlay-close');
                         if (closeBtn) { closeBtn.click(); }
                         else { ov.classList.remove('open'); sound('back'); }
                         gpInTopbar = false;
-                        setFocus(null);
+                        if (gpCtxReturn) restoreCtxReturn();
+                        else setFocus(null);
                     } else if (gpInTopbar) {
                         // Leaving the top bar drops back into the content and
                         // restores the last content position.
