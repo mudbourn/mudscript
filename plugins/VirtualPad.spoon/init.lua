@@ -183,9 +183,10 @@ function obj:init()
             local srcTime = mtime(src)
             if binTime and (not srcTime or binTime >= srcTime) then return onDone(true) end
             hs.fs.mkdir(os.getenv("HOME") .. "/.local/bin")
+            local tmp = BIN .. ".build"
             local cmd = string.format(
-                "swiftc -O -o %q %q && codesign -f -s - --entitlements %q %q",
-                BIN, src, ent, BIN
+                "swiftc -O -o %q %q && codesign -f -s - --entitlements %q %q && mv -f %q %q",
+                tmp, src, ent, tmp, tmp, BIN
             )
             state.build = hs.task.new("/bin/zsh", function(code, _, err)
                 state.build = nil
