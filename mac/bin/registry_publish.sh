@@ -30,7 +30,7 @@ Usage: registry_publish.sh <package> [options]
                        (a profile .mspkg also uploads its theme, sound and
                        macro component packages to the same release)
 
-Metadata (.spoon only, a .mspkg carries its own):
+Metadata (overrides the .mspkg manifest when given):
   --name <name>        display name
   --version <v>        version to publish
   --author <author>    author
@@ -139,6 +139,28 @@ case "$PKG" in
         ;;
     *.mspkg)
         [ -f "$PKG" ] || { echo "ERROR: package not found: $PKG"; exit 1; }
+        if [ -n "$P_NAME$P_VERSION$P_AUTHOR$P_WEBSITE$P_DESCRIPTION" ]; then
+            command -v zip >/dev/null || { echo "ERROR: zip is required to rewrite the manifest."; exit 1; }
+            OVR_DIR="$TMPROOT/override"
+            mkdir -p "$OVR_DIR"
+            unzip -p "$PKG" mspkg.json > "$OVR_DIR/orig.json" 2>/dev/null \
+                || { echo "ERROR: $PKG has no mspkg.json manifest."; exit 1; }
+            jq \
+                --arg name "$P_NAME" --arg version "$P_VERSION" \
+                --arg author "$P_AUTHOR" --arg website "$P_WEBSITE" \
+                --arg description "$P_DESCRIPTION" '
+                (if $name        != "" then .name = $name               else . end)
+                | (if $version     != "" then .version = $version         else . end)
+                | (if $author      != "" then .author = $author           else . end)
+                | (if $website     != "" then .website = $website         else . end)
+                | (if $description != "" then .description = $description else . end)
+            ' "$OVR_DIR/orig.json" > "$OVR_DIR/mspkg.json"
+            OVR_PKG="$OVR_DIR/$(basename "$PKG")"
+            cp "$PKG" "$OVR_PKG"
+            ( cd "$OVR_DIR" && zip -qq -X "$OVR_PKG" mspkg.json )
+            PKG="$OVR_PKG"
+            echo "Rewrote manifest metadata from the command line."
+        fi
         ;;
     *)
         echo "ERROR: not a .mspkg or .spoon: $PKG"; exit 1 ;;

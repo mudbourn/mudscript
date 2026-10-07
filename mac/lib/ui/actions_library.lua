@@ -250,6 +250,25 @@ return function(ms, ctx)
                     if not dir then return end
 
                     local meta = namedProfile and {} or (ms.macroMeta or {})
+                    local macroSrc = files["ms_macros.lua"]
+                    local fh = macroSrc and io.open(macroSrc, "r")
+                    if fh then
+                        local body = fh:read("*a") or ""
+                        fh:close()
+                        local block = body:match("macroMeta%s*=%s*(%b{})")
+                        if block then
+                            local fromFile = {}
+                            for _, k in ipairs({
+                                "name",
+                                "version",
+                                "author",
+                                "website",
+                            }) do
+                                fromFile[k] = block:match(k .. '%s*=%s*"([^"]*)"')
+                            end
+                            meta = fromFile
+                        end
+                    end
                     local base = namedProfile or ms.sanitizeName(meta.name or "mudscript")
                     if base == "" then base = "mudscript" end
                     local out = dir:gsub("/$", "") .. "/" .. base .. "-" .. kind .. ".mspkg"
