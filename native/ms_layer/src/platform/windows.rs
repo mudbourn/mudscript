@@ -108,8 +108,8 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
         return CallNextHookEx(hook, code, wparam, lparam);
     };
     let v = shared.handle(Input::Key { key, down });
-    defer_inject(&v.inject);
-    if v.swallow {
+    let passthrough = (!v.swallow).then_some(Inject::Key { key, down });
+    if defer_ordered(&v.inject, passthrough) || v.swallow {
         1
     } else {
         CallNextHookEx(hook, code, wparam, lparam)
@@ -255,6 +255,25 @@ fn defer_inject(events: &[Inject]) {
     unsafe {
         PostThreadMessageW(thread, WM_INJECT, 0, 0);
     }
+}
+
+fn defer_ordered(events: &[Inject], passthrough: Option<Inject>) -> bool {
+    let mut pending = PENDING.lock().unwrap_or_else(|p| p.into_inner());
+    let queued = !pending.is_empty();
+    let requeue = queued && passthrough.is_some();
+    if requeue {
+        pending.extend(passthrough);
+    }
+    pending.extend_from_slice(events);
+    let wake = requeue || !events.is_empty();
+    drop(pending);
+    if wake {
+        let thread = HOOK_THREAD.load(Ordering::Acquire);
+        unsafe {
+            PostThreadMessageW(thread, WM_INJECT, 0, 0);
+        }
+    }
+    requeue
 }
 
 fn flush_pending() {
