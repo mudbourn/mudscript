@@ -753,6 +753,11 @@
             require("lib.core.bind_system")(ms)
         -- END 9. Bind System & Settings Panel --
 
+        -- 10. Native Input Layer (ms_layer daemon, if installed) --
+            package.loaded["lib.core.native_layer"] = nil
+            require("lib.core.native_layer")(ms)
+        -- END 10. Native Input Layer --
+
         -- 11. Documentation Accessor (ms.docs) --
             do
                 local _docsCache = nil

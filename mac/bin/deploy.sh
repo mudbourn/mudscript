@@ -87,6 +87,12 @@ if command -v swiftc &>/dev/null && [ -f "$REPO/mac/bin/ms_ocr_read.swift" ]; th
     swiftc -O -o "$HOME/.local/bin/ms_ocr_read" "$REPO/mac/bin/ms_ocr_read.swift" -framework Vision -framework AppKit 2>/dev/null || true
 fi
 
+if [ -x "$HOME/.local/bin/ms_layer" ] && command -v cargo &>/dev/null && [ -f "$REPO/native/ms_layer/Cargo.toml" ]; then
+    if cargo build --release --manifest-path "$REPO/native/ms_layer/Cargo.toml" 2>/dev/null; then
+        cp "$REPO/native/ms_layer/target/release/ms_layer" "$HOME/.local/bin/ms_layer"
+    fi
+fi
+
 if [ -d "$REPO/sounds/defaults" ]; then
     mkdir -p "$HS/sounds/defaults"
     cp -R "$REPO/sounds/defaults/." "$HS/sounds/defaults/" 2>/dev/null || true

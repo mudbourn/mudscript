@@ -17,6 +17,7 @@ return function(ms, ctx)
 
             step("macros", function() ms.setMacros(0, true) end)
             step("binds", function() ms.bind.teardown() end)
+            step("layer", function() if ms.layer and ms.layer.stop then ms.layer.stop() end end)
 
             step("save", function() ms.saveSettings() end)
 
