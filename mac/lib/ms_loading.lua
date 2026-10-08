@@ -3,56 +3,11 @@ return function(ms)
 
     local _lWebView, _lFadingOut
     local _lMsgBuffer = {}
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
     local _lContentShown = false
     local _lContentQueue = {}
     local _lHoldUntil = 0
     local _lFadePending = false
     local CONTENT_HOLD = 1.2
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-=======
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-    local _lPct = 0
-    local _lStagesFired = 0
-    local _lStages = {
-        {
-            pct = 20,
-            js = "shiftBrand()",
-        },
-        {
-            pct = 25,
-            js = "showDivider();showContent()",
-        },
-    }
-<<<<<<< ours
-<<<<<<< ours
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
 
     ms.loading = {}
 
@@ -216,18 +171,6 @@ return function(ms)
                 if okBoot then ms.loading.holdForSound(bootSnd) end
 
                 js("showBrand()")
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
                 _G._loadTimers.shift = hs.timer.doAfter(1.7, function() js("shiftBrand()") end)
                 _G._loadTimers.content = hs.timer.doAfter(2.5, function()
                     js("showDivider()")
@@ -238,24 +181,6 @@ return function(ms)
                     _lContentQueue = {}
                     for _, cb in ipairs(queue) do pcall(cb) end
                 end)
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-=======
-                _applyStages()
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
-                _applyStages()
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
-                _applyStages()
->>>>>>> theirs
-=======
->>>>>>> theirs
 
                 if type(ms._onBootAnchor) == "function" then
                     pcall(ms._onBootAnchor)

@@ -672,28 +672,6 @@
                 ms._shellState.visible = true
                 if ms.ui then ms.ui._open = true end
                 if ms.bus then ms.bus.emit("macroLab:toggled", { visible = true }) end
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-=======
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-                if _shellReady and ms.ui and ms.ui.needsRefresh and ms.ui.needsRefresh() then
-                    pcall(ms.ui.refresh)
-                end
-
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
                 local view = _shellView
                 if _shellReady then
                     _fadeIn(view)
