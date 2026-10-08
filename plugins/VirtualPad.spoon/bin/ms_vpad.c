@@ -558,6 +558,8 @@
     static CRITICAL_SECTION cmdLock;
     static int macroButtons[NBUTTONS];
     static int macroTrigger[2];
+    static int macroOwned[NBUTTONS];
+    static int trigOwned[2];
     static int axisSet[NAXES];
     static double axisVal[NAXES];
     static volatile LONG dirty;
@@ -580,15 +582,26 @@
         EnterCriticalSection(&cmdLock);
 
         if (strcmp(cmd, "btn") == 0 && a && b) {
-            if ((i = buttonIndex(a)) >= 0) macroButtons[i] = b[0] == '1';
-            else if (strcmp(a, "l2") == 0) macroTrigger[0] = b[0] == '1';
-            else if (strcmp(a, "r2") == 0) macroTrigger[1] = b[0] == '1';
+            int on = b[0] == '1';
+
+            if ((i = buttonIndex(a)) >= 0) {
+                macroButtons[i] = on;
+                macroOwned[i] = 1;
+            } else if (strcmp(a, "l2") == 0) {
+                macroTrigger[0] = on;
+                trigOwned[0] = 1;
+            } else if (strcmp(a, "r2") == 0) {
+                macroTrigger[1] = on;
+                trigOwned[1] = 1;
+            }
         } else if (strcmp(cmd, "axis") == 0 && a && b && (i = axisIndex(a)) >= 0) {
             axisSet[i] = strcmp(b, "off") != 0;
             axisVal[i] = axisSet[i] ? atof(b) : 0;
         } else if (strcmp(cmd, "reset") == 0) {
             memset(macroButtons, 0, sizeof(macroButtons));
             memset(macroTrigger, 0, sizeof(macroTrigger));
+            memset(macroOwned, 0, sizeof(macroOwned));
+            memset(trigOwned, 0, sizeof(trigOwned));
             memset(axisSet, 0, sizeof(axisSet));
         }
 
@@ -664,6 +677,7 @@
 
             if (now != pad.buttons[i]) {
                 pad.buttons[i] = now;
+                macroOwned[i] = macroButtons[i];
                 changed = 1;
                 snprintf(body, sizeof(body), "\"e\":\"%s\",\"b\":\"%s\"", now ? "press" : "release", BUTTONS[i].name);
 
@@ -693,6 +707,7 @@
 
             if (now != pad.trig[t]) {
                 pad.trig[t] = now;
+                trigOwned[t] = macroTrigger[t];
                 snprintf(body, sizeof(body), "\"e\":\"%s\",\"b\":\"%s\"", now ? "press" : "release", AXES[4 + t]);
 
                 physical(body);
@@ -822,16 +837,16 @@
         EnterCriticalSection(&cmdLock);
 
         for (int i = 0; i < NBUTTONS; i++) {
-            held[i] = pad.buttons[i] || macroButtons[i];
+            held[i] = macroOwned[i] ? macroButtons[i] : pad.buttons[i];
         }
 
         for (int i = 0; i < NAXES; i++) {
             ax[i] = axisSet[i] ? axisVal[i] : pad.axes[i];
         }
 
-        if (macroTrigger[0]) ax[4] = 1;
-
-        if (macroTrigger[1]) ax[5] = 1;
+        for (int t = 0; t < 2; t++) {
+            if (trigOwned[t] && !axisSet[4 + t]) ax[4 + t] = macroTrigger[t];
+        }
 
         LeaveCriticalSection(&cmdLock);
 
@@ -908,6 +923,8 @@
 
         memset(macroButtons, 0, sizeof(macroButtons));
         memset(macroTrigger, 0, sizeof(macroTrigger));
+        memset(macroOwned, 0, sizeof(macroOwned));
+        memset(trigOwned, 0, sizeof(trigOwned));
         memset(axisSet, 0, sizeof(axisSet));
 
         LeaveCriticalSection(&cmdLock);
