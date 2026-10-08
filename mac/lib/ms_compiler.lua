@@ -1353,6 +1353,31 @@
                 table.sort(ids)
                 return ids
             end
+
+            ms.compiler.entries = function()
+                local f = io.open(jsonPath, "r")
+                if not f then return {} end
+                local raw = f:read("*all")
+                f:close()
+                local ok, data = pcall(hs.json.decode, raw)
+                if not ok or type(data) ~= "table" or type(data.macros) ~= "table" then
+                    return {}
+                end
+                local out = {}
+                for id, def in pairs(data.macros) do
+                    local name = type(def) == "table" and def.name
+                    out[#out + 1] = {
+                        id   = id,
+                        name = (type(name) == "string" and name ~= "") and name or id,
+                    }
+                end
+                table.sort(out, function(p, q)
+                    local a, b = p.name:lower(), q.name:lower()
+                    if a ~= b then return a < b end
+                    return p.id < q.id
+                end)
+                return out
+            end
         -- END List --
 
         -- Get --

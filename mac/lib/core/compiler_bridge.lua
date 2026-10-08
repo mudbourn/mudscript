@@ -9,8 +9,8 @@
 
             if ms.bus then
                 ms.bus.on("ui:macros:listMacros", function(body)
-                    local ids = ms.compiler.list()
-                    local json = hs.json.encode(ids)
+                    local list = ms.compiler.entries()
+                    local json = #list > 0 and hs.json.encode(list) or "[]"
                     _macroShellEval("if(window.macroLab)macroLab.setMacroList(" .. json .. ")")
                 end)
 
