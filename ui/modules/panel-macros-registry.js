@@ -526,7 +526,14 @@
                 desc: "Check if a controller button is currently held.",
                 category: "state",
                 params: [
-                    { name: "button", type: "string", label: "Button (a/l2/r3/up...)", required: true }
+                    {
+                        name: "button",
+                        type: "enum",
+                        options: window.msPad.BUTTONS,
+                        pad: true,
+                        label: "Button",
+                        required: true,
+                    }
                 ]
             },
             {

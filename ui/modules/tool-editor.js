@@ -725,7 +725,10 @@
                     const self = this;
                     (reg[i].params || []).forEach(function(p) {
                         if (p.type === "enum") {
-                            defs[p.name] = { type: "select", options: p.options || [] };
+                            defs[p.name] = {
+                                type: "select",
+                                options: p.pad && window.msPad ? window.msPad.options(p.options) : (p.options || []),
+                            };
                         } else if (p.type === "choice") {
                             // Live-sourced
                             defs[p.name] = { type: "select", options: self._choiceOptions(p, tool) };

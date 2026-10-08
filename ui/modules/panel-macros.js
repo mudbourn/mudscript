@@ -808,6 +808,7 @@
             }
         }
     });
+    window.addEventListener("ms:padtype", function() { M.canvas._render(); });
 // END Tool Canvas instance //
 
 // Picker //

@@ -176,16 +176,43 @@ ms.padstate("l3", "l2")   -- true if either is held
 if ms.padstate("l3") and ms.padstate("l2") then ... end   -- both held
 ```
 
-Names are case-insensitive, and a leading `pad` is ignored (`padL3` is `l3`):
+Names are case-insensitive. A leading `pad` and any spaces, underscores or dashes are ignored (`padL3` is `l3`, `dpad_up` is `up`). Every platform's name works:
 
 | Button | Names |
 |--------|-------|
 | Face | `a`, `b`, `x`, `y` (also `cross`, `circle`, `square`, `triangle`) |
-| Shoulders | `l1`, `r1` (also `lb`, `rb`) |
-| Triggers | `l2`, `r2` (also `lt`, `rt`) |
-| Stick clicks | `l3`, `r3` (also `ls`, `rs`) |
-| D-pad | `up`, `down`, `left`, `right` (also `dup`, `ddown`, `dleft`, `dright`) |
-| System | `menu` (`start`), `options` (`select`, `back`, `view`, `share`), `home` |
+| Shoulders | `l1`, `r1` (also `lb`, `rb`, `l`, `r`) |
+| Triggers | `l2`, `r2` (also `lt`, `rt`, `zl`, `zr`) |
+| Stick clicks | `l3`, `r3` (also `ls`, `rs`, `lsb`, `rsb`) |
+| D-pad | `up`, `down`, `left`, `right` (also `dup`, `dpadup` and so on) |
+| Start | `menu` (also `start`, `plus`) |
+| Select | `options` (also `select`, `back`, `view`, `share`, `create`, `minus`) |
+| Home | `home` (also `guide`, `xbox`, `ps`) |
+
+Letters always mean the Xbox position. On a Nintendo pad the bottom button is printed B but is still `a` in code, so write `cross` or `a` for the bottom button on any controller. In the same way `options` is the select-side button, which PlayStation prints as Share or Create. Its start-side button, printed Options, is `menu`.
+
+The shell shows each button by the name printed on the connected controller. Builder dropdowns, step cards and bind labels all switch when a different kind of pad connects, while the saved value stays the position name.
+
+| Position | Xbox | PlayStation | Nintendo |
+|----------|------|-------------|----------|
+| `a` | A | Cross | B |
+| `b` | B | Circle | A |
+| `x` | X | Square | Y |
+| `y` | Y | Triangle | X |
+| `l1` / `r1` | LB / RB | L1 / R1 | L / R |
+| `l2` / `r2` | LT / RT | L2 / R2 | ZL / ZR |
+| `l3` / `r3` | LS / RS | L3 / R3 | LS / RS |
+| `menu` | Menu | Options | + |
+| `options` | View | Share | - |
+| `home` | Xbox | PS | Home |
+
+`ms.padName(name)` returns the position name for any alias, and `ms.padLabel(name [, type])` returns the printed name for the connected controller, or for `type` (`xbox`, `ds4`, `switch`, `generic`).
+
+```lua
+ms.padName("ZR")          -- "r2"
+ms.padLabel("a")          -- "Cross" with a PlayStation pad connected
+ms.padLabel("a", "switch") -- "B"
+```
 
 A loop that polls controller state must yield (`ms.wait`) every pass. Controller events arrive on the same thread as macros, so a loop without a wait never sees the button release and never ends.
 

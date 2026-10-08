@@ -172,9 +172,7 @@
         ms._gamepadTask = nil
         ms._gamepadCallbacks = {}
         ms._gamepadConnected = false
-        -- List of currently-attached controllers
         ms._gamepadControllers = {}
-        -- Currently-held buttons and registered chord bindings
         ms._gamepadHeld = {}
         ms._gamepadBinds = {}
         ms._gamepadAxes = {}
@@ -199,6 +197,144 @@
             home = 17,
         }
 
+
+        local _PAD_ALIAS = {
+            lb = "l1",
+            rb = "r1",
+            l = "l1",
+            r = "r1",
+            lt = "l2",
+            rt = "r2",
+            zl = "l2",
+            zr = "r2",
+            ls = "l3",
+            rs = "r3",
+            lsb = "l3",
+            rsb = "r3",
+            cross = "a",
+            circle = "b",
+            square = "x",
+            triangle = "y",
+            start = "menu",
+            plus = "menu",
+            select = "options",
+            back = "options",
+            view = "options",
+            share = "options",
+            create = "options",
+            minus = "options",
+            guide = "home",
+            xbox = "home",
+            ps = "home",
+            dup = "up",
+            ddown = "down",
+            dleft = "left",
+            dright = "right",
+            dpadup = "up",
+            dpaddown = "down",
+            dpadleft = "left",
+            dpadright = "right",
+        }
+
+        local _PAD_LABELS = {
+            xbox = {
+                a = "A",
+                b = "B",
+                x = "X",
+                y = "Y",
+                l1 = "LB",
+                r1 = "RB",
+                l2 = "LT",
+                r2 = "RT",
+                l3 = "LS",
+                r3 = "RS",
+                up = "Up",
+                down = "Down",
+                left = "Left",
+                right = "Right",
+                menu = "Menu",
+                options = "View",
+                home = "Xbox",
+            },
+            generic = {
+                a = "A",
+                b = "B",
+                x = "X",
+                y = "Y",
+                l1 = "LB",
+                r1 = "RB",
+                l2 = "LT",
+                r2 = "RT",
+                l3 = "LS",
+                r3 = "RS",
+                up = "Up",
+                down = "Down",
+                left = "Left",
+                right = "Right",
+                menu = "Menu",
+                options = "View",
+                home = "Home",
+            },
+            ds4 = {
+                a = "Cross",
+                b = "Circle",
+                x = "Square",
+                y = "Triangle",
+                l1 = "L1",
+                r1 = "R1",
+                l2 = "L2",
+                r2 = "R2",
+                l3 = "L3",
+                r3 = "R3",
+                up = "Up",
+                down = "Down",
+                left = "Left",
+                right = "Right",
+                menu = "Options",
+                options = "Share",
+                home = "PS",
+            },
+            ["switch"] = {
+                a = "B",
+                b = "A",
+                x = "Y",
+                y = "X",
+                l1 = "L",
+                r1 = "R",
+                l2 = "ZL",
+                r2 = "ZR",
+                l3 = "LS",
+                r3 = "RS",
+                up = "Up",
+                down = "Down",
+                left = "Left",
+                right = "Right",
+                menu = "+",
+                options = "-",
+                home = "Home",
+            },
+        }
+
+        ms.padName = function(name)
+            local n = tostring(name or ""):lower():gsub("^pad", ""):gsub("[%s_%-]", "")
+            return _PAD_ALIAS[n] or n
+        end
+
+        ms.padType = function(c)
+            local t = type(c) == "table" and c.type
+            if not t then
+                local first = ms._gamepadControllers and ms._gamepadControllers[1]
+                t = first and first.type
+            end
+            return _PAD_LABELS[t] and t or "xbox"
+        end
+
+        ms.padLabel = function(name, padType)
+            local n = ms.padName(name)
+            local set = _PAD_LABELS[padType or ms.padType()] or _PAD_LABELS.xbox
+            return set[n] or tostring(name or ""):upper()
+        end
+
         ms.gpButtons = function(c)
             if type(c) ~= "table" then return {} end
             if type(c.buttons) == "table" and #c.buttons > 0 then
@@ -215,25 +351,26 @@
             return {}
         end
 
-        -- Human label, e.g. "L1 + X". Pass sep to change the joiner.
         ms.gpLabel = function(c, sep)
             local l = ms.gpButtons(c)
             if #l == 0 then return "?" end
-            local up = {}
-            for _, b in ipairs(l) do up[#up + 1] = tostring(b):upper() end
-            return table.concat(up, sep or " + ")
+            local out = {}
+            for _, b in ipairs(l) do out[#out + 1] = ms.padLabel(b) end
+            return table.concat(out, sep or " + ")
         end
 
-        -- Canonical sorted token for serialization / conflict keys, e.g. "l1+x".
         ms.gpToken = function(c)
             local l = ms.gpButtons(c)
             table.sort(l)
             return table.concat(l, "+")
         end
 
-        -- Push the current controller roster to the Settings panel
         local function _gamepadStatusChanged()
             ms._gamepadConnected = (#ms._gamepadControllers > 0)
+            if ms.shell and ms.shell.eval then
+                pcall(ms.shell.eval, "window.__gpType='" .. ms.padType()
+                    .. "';window.dispatchEvent(new Event('ms:padtype'))")
+            end
             if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
             if ms.ui and ms.ui.refresh then pcall(ms.ui.refresh) end
         end
@@ -409,20 +546,6 @@
         end
 
         -- Live controller state --
-            local _PAD_ALIAS = {
-                lb = "l1", rb = "r1", lt = "l2", rt = "r2",
-                ls = "l3", rs = "r3",
-                cross = "a", circle = "b", square = "x", triangle = "y",
-                start = "menu", select = "options", back = "options",
-                view = "options", share = "options", create = "options",
-                dup = "up", ddown = "down", dleft = "left", dright = "right",
-            }
-
-            local function _padName(name)
-                local n = tostring(name):lower():gsub("^pad", "")
-                return _PAD_ALIAS[n] or n
-            end
-
             local function _padEnsure()
                 if ms.gamepadEnabled and not ms._gamepadTask then ms.gamepadStart() end
             end
@@ -430,14 +553,14 @@
             ms.padstate = function(...)
                 _padEnsure()
                 for _, b in ipairs({ ... }) do
-                    if ms._gamepadHeld[_padName(b)] then return true end
+                    if ms._gamepadHeld[ms.padName(b)] then return true end
                 end
                 return false
             end
 
             ms.padaxis = function(name)
                 _padEnsure()
-                local n = _padName(name or "left")
+                local n = ms.padName(name or "left")
                 if n == "l3" then n = "left" elseif n == "r3" then n = "right" end
                 if n == "left" or n == "right" then
                     local a = ms._gamepadAxes[n]

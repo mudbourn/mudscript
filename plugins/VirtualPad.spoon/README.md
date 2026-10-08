@@ -72,8 +72,9 @@ ms.vpad.releaseAll()
 ms.vpad.status()
 ```
 
-Button names match `ms.padstate`: `a b x y l1 r1 l2 r2 l3 r3 up down left right
-menu options home`. Stick values run from -1 to 1, trigger values from 0 to 1.
+Button names match `ms.padstate` and accept every platform's alias (`cross`, `zr`,
+`lb`, `plus` and so on). Stick sides accept `left`/`right` or any name starting
+with `l` or `r`. Stick values run from -1 to 1, trigger values from 0 to 1.
 Passing no value hands the stick or trigger back to the real controller.
 Cancelling a macro releases whatever it held.
 

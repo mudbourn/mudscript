@@ -48,7 +48,7 @@
     "marker-orphan-end": 1
   },
   "mac/lib/core/mouse.lua": {
-    "comment": 14,
+    "comment": 9,
     "lua-inline-table": 2,
     "marker-blank-after-open": 1,
     "marker-blank-before-end": 1,

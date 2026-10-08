@@ -918,7 +918,7 @@
                     var p = byName[name];
                     if (!p) return;
                     var sel = window.createSelect({
-                        options: p.options || [],
+                        options: p.pad && window.msPad ? window.msPad.options(p.options) : (p.options || []),
                         value: _paramValues[name] || "",
                         className: "fn-enum-select",
                         onChange: function(v) {

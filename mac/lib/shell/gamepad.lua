@@ -39,10 +39,7 @@ return function(ms, ctx)
         end
 
         local function _gpTypeJs()
-            local t = "xbox"
-            local list = ms._gamepadControllers
-            if list and list[1] and list[1].type then t = list[1].type end
-            return "window.__gpType='" .. t .. "';"
+            return "window.__gpType='" .. ms.padType() .. "';"
         end
 
         local function _gpFocusWindow(target)

@@ -100,11 +100,7 @@ function obj:init()
         local function armed() return ms.settings.get("vpadArmed") ~= false end
 
         local function normButton(name)
-            local n = tostring(name or ""):lower():gsub("^pad", "")
-            if n == "lb" then n = "l1" elseif n == "rb" then n = "r1" end
-            if n == "lt" then n = "l2" elseif n == "rt" then n = "r2" end
-            if n == "ls" then n = "l3" elseif n == "rs" then n = "r3" end
-            if n == "start" then n = "menu" elseif n == "select" or n == "back" then n = "options" end
+            local n = ms.padName(name)
             return BUTTONS[n] and n or nil
         end
 
@@ -403,7 +399,7 @@ function obj:init()
 
         ms.vpad.stick = function(side, x, y)
             if not ms.vpad.available() then return false end
-            local p = (side == "right" or side == "r") and "r" or "l"
+            local p = tostring(side or ""):lower():match("^r") and "r" or "l"
             if x == nil then
                 state.axes[p .. "x"] = nil
                 state.axes[p .. "y"] = nil
@@ -475,6 +471,7 @@ function obj:init()
                     name     = "button",
                     type     = "enum",
                     options  = BUTTON_OPTS,
+                    pad      = true,
                     label    = "Button",
                     required = true,
                 }
@@ -558,6 +555,7 @@ function obj:init()
                             "l2",
                             "r2",
                         },
+                        pad      = true,
                         label    = "Trigger",
                         required = true,
                     },

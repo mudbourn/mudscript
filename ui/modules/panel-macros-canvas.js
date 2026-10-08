@@ -68,6 +68,18 @@
         }
     // END //
 
+    function isPadParam(action, name) {
+        var reg = (window.fnPicker && window.fnPicker.registry) || [];
+        for (var i = 0; i < reg.length; i++) {
+            if (reg[i].id !== action && reg[i].name !== action) continue;
+            var ps = reg[i].params || [];
+            for (var j = 0; j < ps.length; j++) {
+                if (ps[j].name === name) return !!ps[j].pad;
+            }
+        }
+        return false;
+    }
+
     function paramSummary(action, params) {
         if (!params) return "";
         var keys = Object.keys(params);
@@ -97,6 +109,7 @@
                 continue;
             }
             if (Array.isArray(v)) { if (v.length === 0) continue; v = v.join("+"); }
+            if (window.msPad && isPadParam(action, k)) v = window.msPad.label(v);
             if (typeof v === "string" && v.length > 16) v = v.slice(0,14) + "...";
             parts.push(k + ": " + v);
         }
