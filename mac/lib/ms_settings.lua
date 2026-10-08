@@ -128,8 +128,6 @@ return function(ms)
             socdCodeToKey[code] = name
         end
 
-        local SOCD_TAG = 0x6D736F63
-
         local socdOpposite = {
             a = "d",
             d = "a",
@@ -140,7 +138,7 @@ return function(ms)
         local function socdPost(code, down)
             local ev = hs.eventtap.event.newKeyEvent({}, code, down)
 
-            ev:setProperty(hs.eventtap.event.properties.eventSourceUserData, SOCD_TAG)
+            ev:setProperty(hs.eventtap.event.properties.eventSourceUserData, ms.SOCD_TAG)
             ev:post()
             ms.keytrack[code] = down
         end
@@ -153,6 +151,7 @@ return function(ms)
                 s = false,
             }
             ms._socdSwallowed = {}
+            ms._socdCut = {}
         end
 
         ms.socdStart = function()
@@ -168,7 +167,7 @@ return function(ms)
                 hs.eventtap.event.types.keyUp,
             }, function(event)
                 local props = hs.eventtap.event.properties
-                if event:getProperty(props.eventSourceUserData) == SOCD_TAG then return false end
+                if ms.isSynthetic(event) then return false end
 
                 local keyCode = event:getKeyCode()
                 local key = socdCodeToKey[keyCode]
@@ -198,12 +197,15 @@ return function(ms)
                     if not active or not ms._socdHeld[opp] then return false end
 
                     if mode == "lastWins" then
+                        ms._socdCut[opp] = true
                         socdPost(oppCode, false)
                     elseif mode == "firstWins" then
                         ms._socdHeld[key] = false
                         ms._socdSwallowed[key] = true
                         return true
                     elseif mode == "neutral" then
+                        ms._socdCut[opp] = true
+                        ms._socdCut[key] = true
                         socdPost(oppCode, false)
                         socdPost(keyCode, false)
                         return true
@@ -219,7 +221,10 @@ return function(ms)
                     return true
                 end
 
-                if active and ms._socdHeld[opp] and (mode == "lastWins" or mode == "neutral") then
+                local oppCut = ms._socdCut[opp]
+                ms._socdCut[opp] = nil
+
+                if active and oppCut and ms._socdHeld[opp] and (mode == "lastWins" or mode == "neutral") then
                     socdPost(oppCode, true)
                 end
 

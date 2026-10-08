@@ -12,6 +12,16 @@
             end
             _G.__ms_core_running = true
             ms = {}
+
+            ms.SOCD_TAG = 0x6D736F63
+
+            -- Whether an event was posted by mudscript itself
+            ms.isSynthetic = function(ev)
+                local tag = ev:getProperty(hs.eventtap.event.properties.eventSourceUserData)
+
+                return tag == 999 or tag == ms.SOCD_TAG
+            end
+
             if _G.__ms_appWatcher then pcall(function() _G.__ms_appWatcher:stop() end) end
 
             -- Safe webview show --

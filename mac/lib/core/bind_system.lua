@@ -1340,7 +1340,7 @@
                 hs.eventtap.event.types.keyDown,
                 hs.eventtap.event.types.keyUp,
             }, function(event)
-                local isSynthetic = event:getProperty(hs.eventtap.event.properties.eventSourceUserData) == 999
+                local isSynthetic = ms.isSynthetic(event)
                 if isSynthetic then return false end
                 local code = holdCode()
                 if not code then return false end

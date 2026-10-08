@@ -1005,6 +1005,8 @@
 // END Physical Pad //
 
 // Main //
+    static int timerBegun = 0;
+
     static void teardown(void) {
         if (pad.gc) detach();
 
@@ -1012,7 +1014,11 @@
 
         if (bus != INVALID_HANDLE_VALUE) CloseHandle(bus);
 
-        timeEndPeriod(1);
+        if (timerBegun) {
+            timerBegun = 0;
+
+            timeEndPeriod(1);
+        }
     }
 
     static BOOL WINAPI onConsole(DWORD sig) {
@@ -1039,6 +1045,8 @@
         InitializeCriticalSection(&cmdLock);
 
         timeBeginPeriod(1);
+
+        timerBegun = 1;
 
         hidHideInit();
 

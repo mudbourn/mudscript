@@ -91,7 +91,7 @@
             hs.eventtap.event.types.keyUp,
             hs.eventtap.event.types.flagsChanged
         }, function(event)
-            local isSynthetic = event:getProperty(hs.eventtap.event.properties.eventSourceUserData) == 999
+            local isSynthetic = ms.isSynthetic(event)
             if isSynthetic then return false end
 
             local type = event:getType()
