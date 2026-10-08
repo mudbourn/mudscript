@@ -48,7 +48,9 @@ ViGEmBus has no Switch target, so Switch and generic pads also clone as Xbox
 
 With HidHide installed (`winget install Nefarius.HidHide`) the helper hides the
 real pad from every other process while the clone is live and unhides it on
-exit. Without HidHide games see both pads. The helper records hidden devices in
+exit. Without HidHide games see both pads, the plugin shows a one-time notice
+and Settings > Virtual Pad > Install HidHide runs the winget install. The
+helper records hidden devices in
 `~/.local/bin/ms_vpad.hidden`, so a crash never leaves the pad hidden: the
 plugin runs `ms_vpad.exe --unhide` after any abnormal exit, and every helper
 start restores leftovers first.

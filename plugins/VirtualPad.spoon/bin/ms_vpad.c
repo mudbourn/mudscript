@@ -870,7 +870,7 @@
 
         emitf("{\"e\":\"ready\",\"name\":\"%s\",\"vid\":%u,\"pid\":%u}", name, vid, pid);
 
-        if (!hidHideCli[0]) emitRaw("{\"e\":\"error\",\"m\":\"HidHide not installed, games also see the real pad\"}");
+        if (!hidHideCli[0]) emitRaw("{\"e\":\"nohidhide\"}");
 
         physical("\"e\":\"connect\"");
 

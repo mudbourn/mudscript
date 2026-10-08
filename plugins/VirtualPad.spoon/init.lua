@@ -100,6 +100,8 @@ function obj:init()
         virtual   = false,
         blocked   = nil,
         warned    = false,
+        noHidHide = false,
+        hidHideNoticed = false,
         outBuf    = "",
     }
 
@@ -180,6 +182,12 @@ function obj:init()
                         if built and running and built > running + 1 and not state.replacing then
                             state.replacing = true
                             replace()
+                        end
+                    elseif msg.e == "nohidhide" then
+                        state.noHidHide = true
+                        if not state.hidHideNoticed then
+                            state.hidHideNoticed = true
+                            ms.alert("Virtual Pad works, but games also see the real pad. Install HidHide from Settings > Virtual Pad to hide it", 6)
                         end
                     elseif msg.e == "error" then
                         state.lastError = msg.m
@@ -639,6 +647,33 @@ function obj:init()
             end,
         })
     -- END Status Action --
+
+    -- HidHide Install Action --
+        if IS_WIN then
+            ms.settings.define({
+                type    = "action",
+                key     = "vpadInstallHidHide",
+                label   = "Install HidHide",
+                hint    = "Hides the real controller from games so they only see the virtual pad. Needs admin approval and a reboot",
+                section = "vpad",
+                onAction = function()
+                    hs.task.new(os.getenv("ComSpec") or "C:\\Windows\\System32\\cmd.exe", nil, {
+                        "/c",
+                        "start",
+                        "HidHide",
+                        "winget",
+                        "install",
+                        "--id",
+                        "Nefarius.HidHide",
+                        "-e",
+                        "--accept-package-agreements",
+                        "--accept-source-agreements",
+                    }):start()
+                    ms.alert("Installing HidHide. Approve the admin prompt, then reboot when it finishes", 6)
+                end,
+            })
+        end
+    -- END HidHide Install Action --
 
     self._state = state
     self._quitHelper = quitHelper
