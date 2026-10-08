@@ -1158,6 +1158,10 @@
                 function()
                     print("[startup] theme")
                     ms.loading.update(48, "Applying theme...")
+<<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
                     ms.loading.onContent(function()
                         if ms.loading.isVisible() then
                             local themeJson = hs.json.encode(ms._theme or {})
@@ -1169,10 +1173,31 @@
                             pcall(function() ms.loading.eval("showProfile()") end)
                             pcall(function() ms.loading.eval("showCreator()") end)
                             pcall(function() ms.loading.eval("showVersion()") end)
+<<<<<<< ours
                         end
                         local okSnd, themeSnd = pcall(function() return ms.playSlot("themeLoaded") end)
                         if okSnd then ms.loading.holdForSound(themeSnd) end
                     end)
+=======
+                    if ms.loading.isVisible() then
+                        local themeJson = hs.json.encode(ms._theme or {})
+                        pcall(function() ms.loading.eval("applyTheme(" .. themeJson .. ")") end)
+                        local ver = ms._bootVersionLabel and ms._bootVersionLabel()
+                        if ver then
+                            pcall(function() ms.loading.eval("setVersion('" .. ver:gsub("'", "\\'") .. "')") end)
+                        end
+                        pcall(function() ms.loading.eval("showProfile()") end)
+                        pcall(function() ms.loading.eval("showCreator()") end)
+                        pcall(function() ms.loading.eval("showVersion()") end)
+                    end
+                    pcall(function() ms.playSlot("themeLoaded") end)
+>>>>>>> theirs
+=======
+                        end
+                        local okSnd, themeSnd = pcall(function() return ms.playSlot("themeLoaded") end)
+                        if okSnd then ms.loading.holdForSound(themeSnd) end
+                    end)
+>>>>>>> theirs
                 end,
                 function()
                     print("[startup] integrity seed")
@@ -1205,12 +1230,19 @@
                     end
                 end,
             }
+            local PACED_FROM = 5
+            local STEP_DELAY = 0.25
             local function runStep(i)
                 local ok, err = pcall(steps[i])
                 if not ok then print("[startup] step " .. i .. " failed: " .. tostring(err)) end
-                if steps[i + 1] then
+                if not steps[i + 1] then return end
+                if i < PACED_FROM then
                     _G._timers.initStep = hs.timer.doAfter(0, function() runStep(i + 1) end)
+                    return
                 end
+                ms.loading.onContent(function()
+                    _G._timers.initStep = hs.timer.doAfter(STEP_DELAY, function() runStep(i + 1) end)
+                end)
             end
             runStep(1)
             _G._timers.guard = hs.timer.doAfter(8, function()
