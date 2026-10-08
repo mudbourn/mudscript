@@ -95,7 +95,11 @@ return function(ms, ctx)
                     if ms._captureHandMeta then ms._captureHandMeta() end
                     if ms.vars and ms.vars.reload then ms.vars.reload() end
                     if ms.compiler and ms.compiler.paths then
-                        if hs.fs.attributes(ms.compiler.paths.json) then
+                        local jsonAttr = hs.fs.attributes(ms.compiler.paths.json)
+                        local luaAttr = hs.fs.attributes(ms.compiler.paths.lua)
+                        local stale = not luaAttr
+                            or (jsonAttr and jsonAttr.modification > luaAttr.modification)
+                        if jsonAttr and stale then
                             local rebOk, rebErr = pcall(ms.compiler.rebuild)
                             if not rebOk then
                                 print("ms.compiler.rebuild (reload): " .. tostring(rebErr))
@@ -134,17 +138,7 @@ return function(ms, ctx)
                         ms.alert("Macros reloaded.", 4, true)
                     end
                     if not ms._quickReloading then
-                        hs.timer.doAfter(0.15, function()
-                            pcall(function()
-                                local app = ms._targetApp and hs.application.get(ms._targetApp)
-                                if app then
-                                    app:hide()
-                                    hs.timer.doAfter(0.15, function()
-                                        pcall(function() app:activate() end)
-                                    end)
-                                end
-                            end)
-                        end)
+                        ms._refocusTarget()
                     end
                     return true
                 end,

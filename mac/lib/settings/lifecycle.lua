@@ -495,6 +495,20 @@ return function(ms, ctx)
             end
         end
 
+        ms._refocusTarget = function()
+            pcall(function()
+                if not ms._targetApp then return end
+                local front = hs.application.frontmostApplication()
+                if front and front:name() == ms._targetApp then
+                    ms._targetActive = true
+                    ms.setMacros(1, true)
+                    return
+                end
+                local app = hs.application.get(ms._targetApp)
+                if app then app:activate() end
+            end)
+        end
+
         ms.reload = function(opts)
             ms.dev.log({
                 type = "system",
@@ -554,9 +568,11 @@ return function(ms, ctx)
                     pcall(function() ms.shell.recolorPopouts() end)
                     if ms._macroLabEnabled and ms.shell and ms.shell.eval then
                         ms.shell.eval("applyTheme(" .. hs.json.encode(ms.theme.effective()) .. ")")
-                    else
+                    elseif ms.ui._open then
                         ms.ui.hide()
                         hs.timer.doAfter(0.15, function() ms.ui.show() end)
+                    else
+                        ms.ui.show()
                     end
                 end)
                 if not ok then
@@ -593,26 +609,14 @@ return function(ms, ctx)
             ms._quickReloaded = 0
             ms.saveSettings()
 
-            hs.timer.doAfter(0.15, function()
-                pcall(function()
-                    local app = ms._targetApp and hs.application.get(ms._targetApp)
-                    if app then
-                        app:hide()
-                        hs.timer.doAfter(0.15, function()
-                            pcall(function() app:activate() end)
-                        end)
-                    end
-                end)
-            end)
+            ms._refocusTarget()
 
-            hs.timer.doAfter(0.3, function()
-                if reloadOk then
-                    ms.playSlot("update")
-                    ms.alert("Reload complete.", 4, true, { priority = "low" })
-                else
-                    ms.alert("Reload failed, see console.", 6, false, { priority = "low" })
-                end
-            end)
+            if reloadOk then
+                ms.playSlot("update")
+                ms.alert("Reload complete.", 4, true, { priority = "low" })
+            else
+                ms.alert("Reload failed, see console.", 6, false, { priority = "low" })
+            end
         end
 
         ms.quickReload = function() ms.reload() end
