@@ -690,7 +690,7 @@ function obj:stop(opts)
     local state = self._state
     if state then
         if state.build then state.build:terminate() end
-        if opts and opts.reload then
+        if opts and opts.reload and not IS_WIN then
             self._dropSocket()
         else
             self._quitHelper()

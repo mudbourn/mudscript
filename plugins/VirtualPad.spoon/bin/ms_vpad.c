@@ -913,11 +913,26 @@
         LeaveCriticalSection(&cmdLock);
     }
 
+    static int cloneIds(int index) {
+        unsigned short vid = SDL_JoystickGetDeviceVendor(index);
+        unsigned short pid = SDL_JoystickGetDeviceProduct(index);
+
+        if (vid == X360_VID && pid == X360_PID) return 1;
+
+        return vid == SONY_VID && (pid == DS4_PID || pid == DS4_V2_PID);
+    }
+
     static void findPad(void) {
         int n = SDL_NumJoysticks();
 
-        for (int i = 0; i < n && !pad.gc; i++) {
-            if (SDL_IsGameController(i) && !isVirtual(i)) attach(i);
+        for (int pass = 0; pass < 2 && !pad.gc; pass++) {
+            for (int i = 0; i < n && !pad.gc; i++) {
+                if (!SDL_IsGameController(i) || isVirtual(i)) continue;
+
+                if (pass == 0 && cloneIds(i)) continue;
+
+                attach(i);
+            }
         }
     }
 // END Physical Pad //
