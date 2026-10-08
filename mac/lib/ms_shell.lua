@@ -676,13 +676,19 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
                 if _shellReady and ms.ui and ms.ui.needsRefresh and ms.ui.needsRefresh() then
                     pcall(ms.ui.refresh)
                 end
 
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

@@ -7,6 +7,10 @@ return function(ms)
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -18,7 +22,10 @@ return function(ms)
     local CONTENT_HOLD = 1.2
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
     local _lPct = 0
@@ -34,6 +41,11 @@ return function(ms)
         },
     }
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -208,6 +220,10 @@ return function(ms)
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -224,6 +240,12 @@ return function(ms)
                 end)
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+                _applyStages()
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 =======
                 _applyStages()
 >>>>>>> theirs
