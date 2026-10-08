@@ -128,127 +128,99 @@ return function(ms)
             socdCodeToKey[code] = name
         end
 
-        local function socdAxis(neg, pos, axisKey)
-            local negHeld = ms._socdHeld[neg]
-            local posHeld = ms._socdHeld[pos]
-            local mode = ms.socdMode or "lastWins"
+        local SOCD_TAG = 0x6D736F63
 
-            if not negHeld and not posHeld then return end
-            if negHeld and not posHeld then return end
-            if posHeld and not negHeld then return end
+        local socdOpposite = {
+            a = "d",
+            d = "a",
+            w = "s",
+            s = "w",
+        }
 
-            if mode == "neutral" then
-                local negCode = socdKeyCodes[neg]
-                local posCode = socdKeyCodes[pos]
-                local evNeg = hs.eventtap.event.newKeyEvent({}, negCode, false)
-                local evPos = hs.eventtap.event.newKeyEvent({}, posCode, false)
-                evNeg:setProperty(hs.eventtap.event.properties.eventSourceUserData, 999)
-                evPos:setProperty(hs.eventtap.event.properties.eventSourceUserData, 999)
-                evNeg:post()
-                evPos:post()
-            elseif mode == "lastWins" then
-            elseif mode == "firstWins" then
-            end
+        local function socdPost(code, down)
+            local ev = hs.eventtap.event.newKeyEvent({}, code, down)
+
+            ev:setProperty(hs.eventtap.event.properties.eventSourceUserData, SOCD_TAG)
+            ev:post()
+            ms.keytrack[code] = down
         end
 
-        ms.socdStart = function()
-            if ms._socdListener then return end
-            ms._socdHeld  = {
+        local function socdReset()
+            ms._socdHeld = {
                 a = false,
                 d = false,
                 w = false,
                 s = false,
             }
+            ms._socdSwallowed = {}
+        end
+
+        ms.socdStart = function()
+            if ms._socdListener then return end
+            if ms.layer and ms.layer.active then return end
+
+            socdReset()
+
+            local lastValidity = BindValidity
 
             ms._socdListener = hs.eventtap.new({
                 hs.eventtap.event.types.keyDown,
                 hs.eventtap.event.types.keyUp,
             }, function(event)
-                if BindValidity ~= 1 then return false end
-                local isSynthetic = event:getProperty(hs.eventtap.event.properties.eventSourceUserData) == 999
-                if isSynthetic then return false end
+                local props = hs.eventtap.event.properties
+                if event:getProperty(props.eventSourceUserData) == SOCD_TAG then return false end
 
                 local keyCode = event:getKeyCode()
                 local key = socdCodeToKey[keyCode]
                 if not key then return false end
 
+                if BindValidity ~= lastValidity then
+                    lastValidity = BindValidity
+                    socdReset()
+                end
+
                 local isDown = event:getType() == hs.eventtap.event.types.keyDown
+                local isRepeat = isDown and event:getProperty(props.keyboardEventAutorepeat) ~= 0
                 local mode = ms.socdMode or "lastWins"
+                local opp = socdOpposite[key]
+                local oppCode = socdKeyCodes[opp]
+                local active = BindValidity == 1
 
                 if isDown then
+                    if isRepeat then
+                        if not active then return false end
+                        if mode == "neutral" and ms._socdHeld[opp] then return true end
+                        return ms._socdSwallowed[key] == true
+                    end
+
                     ms._socdHeld[key] = true
 
-                    if key == "a" or key == "d" then
-                        local opp = (key == "a") and "d" or "a"
-                        if ms._socdHeld[opp] then
-                            if mode == "lastWins" then
-                                local oppCode = socdKeyCodes[opp]
-                                local ev = hs.eventtap.event.newKeyEvent({}, oppCode, false)
-                                ev:setProperty(hs.eventtap.event.properties.eventSourceUserData, 999)
-                                ev:post()
-                                ms.keytrack[oppCode] = false
-                            elseif mode == "firstWins" then
-                                ms._socdHeld[key] = false
-                                return true
-                            elseif mode == "neutral" then
-                                local oppCode = socdKeyCodes[opp]
-                                local ev1 = hs.eventtap.event.newKeyEvent({}, oppCode, false)
-                                local ev2 = hs.eventtap.event.newKeyEvent({}, keyCode, false)
-                                ev1:setProperty(hs.eventtap.event.properties.eventSourceUserData, 999)
-                                ev2:setProperty(hs.eventtap.event.properties.eventSourceUserData, 999)
-                                ev1:post()
-                                ev2:post()
-                                ms.keytrack[oppCode] = false
-                                ms.keytrack[keyCode] = false
-                                return true
-                            end
-                        end
-
-                    elseif key == "w" or key == "s" then
-                        local opp = (key == "w") and "s" or "w"
-                        if ms._socdHeld[opp] then
-                            if mode == "lastWins" then
-                                local oppCode = socdKeyCodes[opp]
-                                local ev = hs.eventtap.event.newKeyEvent({}, oppCode, false)
-                                ev:setProperty(hs.eventtap.event.properties.eventSourceUserData, 999)
-                                ev:post()
-                                ms.keytrack[oppCode] = false
-                            elseif mode == "firstWins" then
-                                ms._socdHeld[key] = false
-                                return true
-                            elseif mode == "neutral" then
-                                local oppCode = socdKeyCodes[opp]
-                                local ev1 = hs.eventtap.event.newKeyEvent({}, oppCode, false)
-                                local ev2 = hs.eventtap.event.newKeyEvent({}, keyCode, false)
-                                ev1:setProperty(hs.eventtap.event.properties.eventSourceUserData, 999)
-                                ev2:setProperty(hs.eventtap.event.properties.eventSourceUserData, 999)
-                                ev1:post()
-                                ev2:post()
-                                ms.keytrack[oppCode] = false
-                                ms.keytrack[keyCode] = false
-                                return true
-                            end
-                        end
-                    end
-
-                else
-                    ms._socdHeld[key] = false
+                    if not active or not ms._socdHeld[opp] then return false end
 
                     if mode == "lastWins" then
-                        local opp
-                        if key == "a" then opp = "d"
-                        elseif key == "d" then opp = "a"
-                        elseif key == "w" then opp = "s"
-                        elseif key == "s" then opp = "w"
-                        end
-                        if opp and ms._socdHeld[opp] then
-                            local oppCode = socdKeyCodes[opp]
-                            local ev = hs.eventtap.event.newKeyEvent({}, oppCode, true)
-                            ev:setProperty(hs.eventtap.event.properties.eventSourceUserData, 999)
-                            ev:post()
-                            ms.keytrack[oppCode] = true
-                        end
+                        socdPost(oppCode, false)
+                    elseif mode == "firstWins" then
+                        ms._socdHeld[key] = false
+                        ms._socdSwallowed[key] = true
+                        return true
+                    elseif mode == "neutral" then
+                        socdPost(oppCode, false)
+                        socdPost(keyCode, false)
+                        return true
                     end
+
+                    return false
+                end
+
+                ms._socdHeld[key] = false
+
+                if ms._socdSwallowed[key] then
+                    ms._socdSwallowed[key] = false
+                    return true
+                end
+
+                if active and ms._socdHeld[opp] and (mode == "lastWins" or mode == "neutral") then
+                    socdPost(oppCode, true)
                 end
 
                 return false
@@ -260,12 +232,7 @@ return function(ms)
                 ms._socdListener:stop()
                 ms._socdListener = nil
             end
-            ms._socdHeld  = {
-                a = false,
-                d = false,
-                w = false,
-                s = false,
-            }
+            socdReset()
         end
 
         ms.socdApply = function()

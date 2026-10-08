@@ -401,8 +401,8 @@
                 ms.setMacros(0)
             elseif e == "ready" then
                 ms.layer.active = true
-                externalOwner(true)
                 neuter()
+                externalOwner(true)
                 ms.layer.version = ev.version
                 restarts = 0
                 sync(true)

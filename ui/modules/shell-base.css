@@ -13,6 +13,9 @@
     :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: var(--radius-s); }
     input:focus-visible, textarea:focus-visible, select:focus-visible, .input-sm:focus-visible { outline: none; }
     input[type="range"] { -webkit-appearance: none; appearance: none; }
+    input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+    input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; appearance: none; margin: 0; }
+    textarea::-webkit-resizer { background: transparent; border: none; }
 /* END Reset */
 
 /* SVG Icon */

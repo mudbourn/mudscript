@@ -56,6 +56,7 @@ import { build as buildIcons } from "./gen-icons.mjs";
         "native-input": "This input type renders OS chrome. Build a themed control.",
         "native-menu-exempt": "A contextmenu suppressor may only exempt .allow-native-menu.",
         "unthemed-scrollbar": "Scroll container has no themed scrollbar.",
+        "native-control-chrome": "Number spinners or textarea resize grips render OS chrome. Hide the spin buttons and theme ::-webkit-resizer globally.",
         "css-line-comment": "// is not a CSS comment and drops the next rule.",
         "undefined-call": "Calls a name this file never declares and no ui file makes global. Declare it, or share it on a window namespace.",
         "font-reset-missing": "Page lacks button, input, textarea, select { font: inherit } so controls fall back to the system font.",
@@ -932,6 +933,47 @@ import { build as buildIcons } from "./gen-icons.mjs";
         });
     }
 
+    const NUMBER_INPUT = /type\s*=\s*["']number["']/i;
+
+    const RESIZE_DECL = /(^|[\s;{"'])resize\s*:\s*(vertical|both|horizontal)\b/i;
+
+    const SPIN_GLOBAL = /(^|[,{}])\s*(input(\[type=["']?number["']?\])?)?::-webkit-(inner|outer)-spin-button/m;
+
+    const RESIZER_GLOBAL = /(^|[,{}])\s*textarea::-webkit-resizer/m;
+
+    function collectNativeChrome(uiFiles) {
+        const chrome = {
+            spin: false,
+            resizer: false,
+        };
+
+        for (const rel of uiFiles) {
+            if (!rel.endsWith(".css")) continue;
+
+            const src = readFileSync(join(ROOT, rel), "utf8");
+
+            if (SPIN_GLOBAL.test(src)) chrome.spin = true;
+
+            if (RESIZER_GLOBAL.test(src)) chrome.resizer = true;
+        }
+
+        return chrome;
+    }
+
+    function checkNativeChrome(ctx, chrome) {
+        const { rel, lines, scanned, report } = ctx;
+
+        lines.forEach((line, n) => {
+            if (legacyAllowed(lines, n)) return;
+
+            if (scanned.lines[n].code.trim() === "" && line.trim() !== "") return;
+
+            if (!rel.endsWith(".css") && !chrome.spin && NUMBER_INPUT.test(line)) report("native-control-chrome", n, "number");
+
+            if (!chrome.resizer && RESIZE_DECL.test(line)) report("native-control-chrome", n, "resize");
+        });
+    }
+
     function checkFontReset(ctx) {
         const { src, rel, report } = ctx;
 
@@ -1154,7 +1196,7 @@ import { build as buildIcons } from "./gen-icons.mjs";
         flush();
     }
 
-    function lintFile(rel, styled, globals) {
+    function lintFile(rel, styled, globals, chrome) {
         const src = readFileSync(join(ROOT, rel), "utf8");
 
         const lang = LANGS[extname(rel)];
@@ -1192,6 +1234,8 @@ import { build as buildIcons } from "./gen-icons.mjs";
             checkUi(ctx);
 
             checkScrollbars(ctx, styled);
+
+            checkNativeChrome(ctx, chrome);
 
             checkCssLineComments(ctx);
 
@@ -1279,13 +1323,15 @@ import { build as buildIcons } from "./gen-icons.mjs";
 
         const styled = collectScrollbarRules(uiFiles);
 
+        const chrome = collectNativeChrome(uiFiles);
+
         const globals = collectGlobals(uiFiles.filter((f) => !f.endsWith(".css")));
 
         const targets = pathArgs.length
             ? pathArgs.map((p) => p.replace(/^\.\//, "").replace(ROOT + "/", "")).filter(lintable)
             : everything;
 
-        const findings = targets.flatMap((rel) => lintFile(rel, styled, globals));
+        const findings = targets.flatMap((rel) => lintFile(rel, styled, globals, chrome));
 
         const counts = tally(findings);
 

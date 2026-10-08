@@ -29,6 +29,6 @@ for /d %%P in ("%LOCALAPPDATA%\Microsoft\WinGet\Packages\BrechtSanders.WinLibs*"
 exit /b 0
 
 :build
-gcc -O2 -Wall -static -o "%~dp0ms_vpad.exe" "%~dp0ms_vpad.c" -lsetupapi
+gcc -O2 -Wall -static -o "%~dp0ms_vpad.exe" "%~dp0ms_vpad.c" -lsetupapi -lwinmm
 if errorlevel 1 exit /b 1
 echo Built %~dp0ms_vpad.exe

@@ -6,6 +6,7 @@
 #include <string.h>
 #include <math.h>
 #include <ctype.h>
+#include <mmsystem.h>
 
 #define X360_VID 0x045E
 #define X360_PID 0x028E
@@ -560,6 +561,10 @@
     static int macroTrigger[2];
     static int macroOwned[NBUTTONS];
     static int trigOwned[2];
+    static int macroFresh[NBUTTONS];
+    static int macroPending[NBUTTONS];
+    static int trigFresh[2];
+    static int trigPending[2];
     static int axisSet[NAXES];
     static double axisVal[NAXES];
     static volatile LONG dirty;
@@ -585,14 +590,31 @@
             int on = b[0] == '1';
 
             if ((i = buttonIndex(a)) >= 0) {
-                macroButtons[i] = on;
                 macroOwned[i] = 1;
-            } else if (strcmp(a, "l2") == 0) {
-                macroTrigger[0] = on;
-                trigOwned[0] = 1;
-            } else if (strcmp(a, "r2") == 0) {
-                macroTrigger[1] = on;
-                trigOwned[1] = 1;
+
+                if (on) {
+                    macroButtons[i] = 1;
+                    macroFresh[i] = 1;
+                    macroPending[i] = 0;
+                } else if (macroFresh[i]) {
+                    macroPending[i] = 1;
+                } else {
+                    macroButtons[i] = 0;
+                }
+            } else if (strcmp(a, "l2") == 0 || strcmp(a, "r2") == 0) {
+                int t = a[0] == 'r';
+
+                trigOwned[t] = 1;
+
+                if (on) {
+                    macroTrigger[t] = 1;
+                    trigFresh[t] = 1;
+                    trigPending[t] = 0;
+                } else if (trigFresh[t]) {
+                    trigPending[t] = 1;
+                } else {
+                    macroTrigger[t] = 0;
+                }
             }
         } else if (strcmp(cmd, "axis") == 0 && a && b && (i = axisIndex(a)) >= 0) {
             axisSet[i] = strcmp(b, "off") != 0;
@@ -602,6 +624,10 @@
             memset(macroTrigger, 0, sizeof(macroTrigger));
             memset(macroOwned, 0, sizeof(macroOwned));
             memset(trigOwned, 0, sizeof(trigOwned));
+            memset(macroFresh, 0, sizeof(macroFresh));
+            memset(macroPending, 0, sizeof(macroPending));
+            memset(trigFresh, 0, sizeof(trigFresh));
+            memset(trigPending, 0, sizeof(trigPending));
             memset(axisSet, 0, sizeof(axisSet));
         }
 
@@ -848,6 +874,26 @@
             if (trigOwned[t] && !axisSet[4 + t]) ax[4 + t] = macroTrigger[t];
         }
 
+        for (int i = 0; i < NBUTTONS; i++) {
+            macroFresh[i] = 0;
+
+            if (macroPending[i]) {
+                macroPending[i] = 0;
+                macroButtons[i] = 0;
+                InterlockedExchange(&dirty, 1);
+            }
+        }
+
+        for (int t = 0; t < 2; t++) {
+            trigFresh[t] = 0;
+
+            if (trigPending[t]) {
+                trigPending[t] = 0;
+                macroTrigger[t] = 0;
+                InterlockedExchange(&dirty, 1);
+            }
+        }
+
         LeaveCriticalSection(&cmdLock);
 
         if (virtType == TARGET_DS4) composeDs4(held, ax);
@@ -925,6 +971,10 @@
         memset(macroTrigger, 0, sizeof(macroTrigger));
         memset(macroOwned, 0, sizeof(macroOwned));
         memset(trigOwned, 0, sizeof(trigOwned));
+        memset(macroFresh, 0, sizeof(macroFresh));
+        memset(macroPending, 0, sizeof(macroPending));
+        memset(trigFresh, 0, sizeof(trigFresh));
+        memset(trigPending, 0, sizeof(trigPending));
         memset(axisSet, 0, sizeof(axisSet));
 
         LeaveCriticalSection(&cmdLock);
@@ -961,6 +1011,8 @@
         unhidePads();
 
         if (bus != INVALID_HANDLE_VALUE) CloseHandle(bus);
+
+        timeEndPeriod(1);
     }
 
     static BOOL WINAPI onConsole(DWORD sig) {
@@ -985,6 +1037,8 @@
         InitializeCriticalSection(&outLock);
 
         InitializeCriticalSection(&cmdLock);
+
+        timeBeginPeriod(1);
 
         hidHideInit();
 

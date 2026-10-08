@@ -425,7 +425,7 @@ function obj:init()
 
         ms.vpad.tap = function(name, holdMs)
             if not ms.vpad.press(name) then return false end
-            ms.wait(holdMs or 50)
+            ms.wait(math.max(holdMs or 50, 20))
             ms.vpad.release(name)
             return true
         end
