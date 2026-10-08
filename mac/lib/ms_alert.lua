@@ -146,7 +146,7 @@ return function(ms)
             },
             {
                 type          = "text",
-                text          = "\xe2\x9c\x95",
+                text          = "x",
                 textFont      = "Helvetica",
                 textSize      = 10,
                 textColor     = {

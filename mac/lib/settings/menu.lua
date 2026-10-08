@@ -894,7 +894,8 @@ return function(ms, ctx)
             local function buildSettingsSubmenu()
                 return {
                     {
-                        title = (ms.trackpadMode and "\xe2\x9c\x93" or "\xe2\x9c\x97") .. " Trackpad / Pen Mode",
+                        title = "Trackpad / Pen Mode",
+                        checked = ms.trackpadMode,
                         fn = function()
                         ms.trackpadMode = not ms.trackpadMode
                         ms.saveSettings()
@@ -908,7 +909,8 @@ return function(ms, ctx)
                     },
                     { title = "-" },
                     {
-                        title = (ms._swallowHotkeys and "\xe2\x9c\x93" or "\xe2\x9c\x97") .. " Swallow Hotkey Inputs",
+                        title = "Swallow Hotkey Inputs",
+                        checked = ms._swallowHotkeys,
                         fn = function()
                         ms._swallowHotkeys = not ms._swallowHotkeys
                         ms.saveSettings()
@@ -916,7 +918,8 @@ return function(ms, ctx)
                         ms.alert("Swallow Hotkeys: " .. (ms._swallowHotkeys and "ON" .. "\nHotkey keypresses will be blocked from reaching the target app." or "OFF" .. "\nHotkey keypresses will pass through to the target app."), 4, true)
                     end },
                     {
-                        title = (ms.gamepadEnabled and "\xe2\x9c\x93" or "\xe2\x9c\x97") .. " Controller / Gamepad Input",
+                        title = "Controller / Gamepad Input",
+                        checked = ms.gamepadEnabled,
                         fn = function()
                         ms.gamepadEnabled = not ms.gamepadEnabled
                         if ms.gamepadEnabled then
@@ -934,7 +937,8 @@ return function(ms, ctx)
                     end },
                     { title = "-" },
                     {
-                        title = (ms.socdEnabled and "\xe2\x9c\x93" or "\xe2\x9c\x97") .. " SOCD Cleaning",
+                        title = "SOCD Cleaning",
+                        checked = ms.socdEnabled,
                         fn = function()
                         ms.socdEnabled = not ms.socdEnabled
                         ms.saveSettings()
@@ -944,7 +948,8 @@ return function(ms, ctx)
                     end },
                     { title = "SOCD Mode: " .. (ms.socdMode == "lastWins" and "Last Input Wins" or ms.socdMode == "neutral" and "Neutral" or "First Input Wins"), menu = {
                         {
-                            title = (ms.socdMode == "lastWins" and "\xe2\x9c\x93" or "\xe2\x9c\x97") .. " Last Input Wins",
+                            title = "Last Input Wins",
+                            checked = ms.socdMode == "lastWins",
                             fn = function()
                             ms.socdMode = "lastWins"
                             ms.saveSettings()
@@ -952,7 +957,8 @@ return function(ms, ctx)
                             ms.alert("SOCD Mode: Last Input Wins", 2, true)
                         end },
                         {
-                            title = (ms.socdMode == "neutral" and "\xe2\x9c\x93" or "\xe2\x9c\x97") .. " Neutral",
+                            title = "Neutral",
+                            checked = ms.socdMode == "neutral",
                             fn = function()
                             ms.socdMode = "neutral"
                             ms.saveSettings()
@@ -960,7 +966,8 @@ return function(ms, ctx)
                             ms.alert("SOCD Mode: Neutral", 2, true)
                         end },
                         {
-                            title = (ms.socdMode == "firstWins" and "\xe2\x9c\x93" or "\xe2\x9c\x97") .. " First Input Wins",
+                            title = "First Input Wins",
+                            checked = ms.socdMode == "firstWins",
                             fn = function()
                             ms.socdMode = "firstWins"
                             ms.saveSettings()
@@ -1039,16 +1046,17 @@ return function(ms, ctx)
                     end },
                     { title = "-" },
                     {
-                        title    = _trusted and "\xe2\x9c\x93 Trust Current Version" or "Trust Current Version...",
+                        title    = _trusted and "Trust Current Version" or "Trust Current Version...",
+                        checked  = _trusted,
                         disabled = _trusted or nil,
                         fn       = not _trusted and function()
                             ms.playSlot("interact")
                             local status, cur = ms.integrity.check()
                             local prompt
                             if status == "uninitialized" then
-                                prompt = "Seal this ms_core.lua as the trusted baseline?\nHash: " .. (cur and cur:sub(1, 16) or "?") .. "\xe2\x80\xa6"
+                                prompt = "Seal this ms_core.lua as the trusted baseline?\nHash: " .. (cur and cur:sub(1, 16) or "?") .. "..."
                             else
-                                prompt = "Hash mismatch detected. Trust the CURRENT (possibly modified) version?\nHash: " .. (cur and cur:sub(1, 16) or "?") .. "\xe2\x80\xa6"
+                                prompt = "Hash mismatch detected. Trust the CURRENT (possibly modified) version?\nHash: " .. (cur and cur:sub(1, 16) or "?") .. "..."
                             end
                             ms.ui.modal({
                                 title   = "Trust Current Version",
@@ -1062,7 +1070,8 @@ return function(ms, ctx)
                     },
                     { title = "Update Channel: " .. (ms._updateChannel == "testing" and "Testing" or "Stable"), menu = {
                         {
-                            title = (ms._updateChannel == "stable" and "\xe2\x9c\x93" or "\xe2\x9c\x97") .. " Stable (MANIFEST.json)",
+                            title = "Stable (MANIFEST.json)",
+                            checked = ms._updateChannel == "stable",
                             fn = function()
                             ms._updateChannel = "stable"
                             ms.saveSettings()
@@ -1070,7 +1079,8 @@ return function(ms, ctx)
                             ms.alert("Update channel: Stable", 2, true)
                         end },
                         {
-                            title = (ms._updateChannel == "testing" and "\xe2\x9c\x93" or "\xe2\x9c\x97") .. " Testing (GitHub Actions)",
+                            title = "Testing (GitHub Actions)",
+                            checked = ms._updateChannel == "testing",
                             fn = function()
                             ms._updateChannel = "testing"
                             ms.saveSettings()
@@ -1080,7 +1090,8 @@ return function(ms, ctx)
                     }},
                     { title = "Testing Source: " .. ((ms._testingSource or "release") == "artifact" and "Artifacts" or "Releases"), menu = {
                         {
-                            title = ((ms._testingSource or "release") == "release" and "\xe2\x9c\x93" or "\xe2\x9c\x97") .. " Releases (signed manifests)",
+                            title = "Releases (signed manifests)",
+                            checked = (ms._testingSource or "release") == "release",
                             fn = function()
                             ms._testingSource = "release"
                             ms.saveSettings()
@@ -1088,7 +1099,8 @@ return function(ms, ctx)
                             ms.alert("Testing source: Releases", 2, true)
                         end },
                         {
-                            title = ((ms._testingSource or "release") == "artifact" and "\xe2\x9c\x93" or "\xe2\x9c\x97") .. " Artifacts (rapid testing)",
+                            title = "Artifacts (rapid testing)",
+                            checked = (ms._testingSource or "release") == "artifact",
                             fn = function()
                             ms._testingSource = "artifact"
                             ms.saveSettings()
@@ -1145,19 +1157,6 @@ return function(ms, ctx)
                     end },
                     { title = "-" },
                     {
-                        title = "Check System Integrity",
-                        fn = function()
-                        ms.playSlot("interact")
-                        local status, cur, trusted = ms.integrity.check()
-                        if status == "trusted" then
-                            ms.alert("\xe2\x9c\x93 ms_core.lua matches trusted hash.\n" .. (cur and cur:sub(1, 16) or "?") .. "\xe2\x80\xa6", 5, true)
-                        elseif status == "mismatch" then
-                            ms.alert("\xe2\x9a\xa0 Hash mismatch!\nExpected: " .. (trusted and trusted:sub(1, 16) or "?") .. "\xe2\x80\xa6\nCurrent:  " .. (cur and cur:sub(1, 16) or "?") .. "\xe2\x80\xa6\n\nVerify the change or use Trust Current Version.", 9)
-                        else
-                            ms.alert("No trusted hash on record.\nUse \"Trust Current Version\" to seed trust.", 5)
-                        end
-                    end },
-                    {
                         title = "Check for Update...",
                         fn = function()
                         if ms._updateChannel == "testing" then
@@ -1175,8 +1174,8 @@ return function(ms, ctx)
                         ms.ui._actions.checkForUpdate()
                     end },
                     {
-                        title = (ms._updateAlertsDisabled and "\xe2\x9c\x97" or "\xe2\x9c\x93")
-                            .. " Update Alerts on Launch",
+                        title = "Update Alerts on Launch",
+                        checked = not ms._updateAlertsDisabled,
                         fn = function()
                         ms._updateAlertsDisabled = not ms._updateAlertsDisabled
                         ms.saveSettings()

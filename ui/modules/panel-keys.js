@@ -212,7 +212,7 @@
                 ) {
                     const emp = document.createElement("span");
                     emp.className = "pill pill-key pill-empty";
-                    emp.textContent = "\u2014";
+                    emp.textContent = "-";
                     row.appendChild(emp);
                     return;
                 }

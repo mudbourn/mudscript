@@ -31,7 +31,7 @@
             if a.count > 0 and a.lastLabel then
                 local dur = math.floor((hs.timer.absoluteTime() - a.startTime) / 1e6)
                 local msg = a.lastLabel
-                if a.count > 1 then msg = msg .. " \195\151" .. a.count end
+                if a.count > 1 then msg = msg .. " x" .. a.count end
                 if dur > 0 then msg = msg .. " (" .. dur .. "ms)" end
                 if ms.dev and ms.dev.log then
                     ms.dev.log({

@@ -503,14 +503,6 @@
                 }
                 body.appendChild(trustRow);
 
-                body.appendChild(
-                    btnRow(
-                        actionBtn("Check Integrity", "", () =>
-                            sendToHost({ action: "checkIntegrity" }),
-                        ),
-                    ),
-                );
-
                 if (status !== "uninitialized") {
                     body.appendChild(divider());
                     body.appendChild(
@@ -545,7 +537,7 @@
                     h(
                         "div",
                         { cls: "group-label" },
-                        "mudscript HS utilities \u2013 Version: ",
+                        "mudscript HS utilities - Version: ",
                         h("span", { style: "text-transform: none" }, ver),
                     ),
                 );
@@ -553,7 +545,7 @@
                 const aboutBtn = actionBtn("About", "", () => {
                     sendToHost({
                         action: "alert",
-                        msg: "mudscript HS utilities\nBy: mudbourn \u2014 mudbourn.info",
+                        msg: "mudscript HS utilities\nBy: mudbourn - mudbourn.info",
                         duration: 5,
                     });
                     if (meta.name) {

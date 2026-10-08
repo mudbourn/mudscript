@@ -933,27 +933,27 @@ return function(ms)
                 local line
 
                 if t == "key" then
-                    local arrow = entry.down and "\226\134\147" or "\226\134\145"
+                    local dir = entry.down and "down" or "up"
 
-                    line = "[" .. entry.ts .. "] " .. arrow .. " "
+                    line = "[" .. entry.ts .. "] " .. dir .. " "
                         .. (entry.key or "?") .. " (" .. tostring(entry.keyCode or "?") .. ")"
 
                 elseif t == "mouse" then
-                    local arrow = entry.down and "\226\134\147" or "\226\134\145"
+                    local dir = entry.down and "down" or "up"
                     local pos   = ""
 
                     if entry.x and entry.y then
                         pos = "  " .. entry.x .. "," .. entry.y
                     end
 
-                    line = "[" .. entry.ts .. "] " .. arrow .. " mouse:"
+                    line = "[" .. entry.ts .. "] " .. dir .. " mouse:"
                         .. tostring(entry.button or "?") .. pos
 
                 elseif t == "scroll" then
-                    line = "[" .. entry.ts .. "] \226\134\165 scroll " .. (entry.direction or "")
+                    line = "[" .. entry.ts .. "] scroll " .. (entry.direction or "")
 
                 elseif t == "mousemove" then
-                    line = "[" .. entry.ts .. "] \226\134\146 " .. (entry.x or "?") .. ", " .. (entry.y or "?")
+                    line = "[" .. entry.ts .. "] move " .. (entry.x or "?") .. ", " .. (entry.y or "?")
 
                 else
                     local parts = {}

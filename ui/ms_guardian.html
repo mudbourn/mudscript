@@ -521,7 +521,7 @@
                 var st = document.getElementById("repair-status");
                 st.style.display = "block";
                 st.style.color = "var(--text2)";
-                st.textContent = "Repairing\u2026 downloading signed bundle";
+                st.textContent = "Repairing... downloading signed bundle";
                 sendToHost(JSON.stringify({ action: "repair" }));
             }
 

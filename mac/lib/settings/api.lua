@@ -102,7 +102,7 @@ return function(ms, ctx)
                     return
                 end
                 if def.type == "soundSlot" then
-                    print("ms.settings.set: '" .. key .. "' is a soundSlot, assign sounds via Settings \xc2\xbb Sound.")
+                    print("ms.settings.set: '" .. key .. "' is a soundSlot, assign sounds via Settings > Sound.")
                     return
                 end
                 local validated = _validateUserValue(def, value)

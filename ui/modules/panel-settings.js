@@ -640,12 +640,10 @@
                     sum.className = "user-group-summary";
                     const arrow = document.createElement("span");
                     arrow.className = "user-group-arrow";
-                    arrow.textContent = "\u25b8";
+                    arrow.appendChild(iconNode("chevron-right", "icon-inline"));
                     sum.appendChild(arrow);
                     sum.appendChild(
-                        document.createTextNode(
-                            "\u00a0" + (item.label || "Group"),
-                        ),
+                        document.createTextNode(item.label || "Group"),
                     );
                     det.appendChild(sum);
                     for (const child of item.items || []) {

@@ -222,7 +222,7 @@
     .user-group { margin: 2px 0; }
     .user-group-summary { cursor: pointer; display: flex; align-items: center; gap: 5px; padding: 5px 12px; background: var(--surface2); color: var(--text2); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; list-style: none; border-bottom: 1px solid var(--border); }
     .user-group-summary::-webkit-details-marker { display: none; }
-    .user-group-arrow { font-size: 8px; display: inline-block; transition: transform 0.15s; }
+    .user-group-arrow { font-size: 10px; display: inline-block; margin-right: 4px; transition: transform 0.15s; }
     details[open].user-group > .user-group-summary .user-group-arrow { transform: rotate(90deg); }
 
     .input-sm { background: var(--surface2); border: 1px solid var(--border-dim); border-radius: var(--radius); color: var(--text); -webkit-text-fill-color: var(--text); font-size: 12px; padding: 5px 8px; outline: none; font-family: inherit; user-select: text; -webkit-user-select: text; width: 100%; }

@@ -17,19 +17,19 @@
           row.appendChild(mkSpan("badge " + (BADGE[t] || "badge-state"), LABEL[t] || t));
           if (t === "focus") {
               row.appendChild(mkSpan("ename", entry.app || "?"));
-              if (entry.title) row.appendChild(mkSpan("edetail", "\u00b7 " + entry.title));
+              if (entry.title) row.appendChild(mkSpan("edetail", "- " + entry.title));
           } else if (t === "move") {
               row.appendChild(mkSpan("edetail", (entry.x ?? "?") + ", " + (entry.y ?? "?")));
-              if (entry.count > 1) row.appendChild(mkSpan("ecount", "\u00d7" + entry.count));
+              if (entry.count > 1) row.appendChild(mkSpan("ecount", "x" + entry.count));
           } else if (t === "resize") {
-              row.appendChild(mkSpan("edetail", (entry.w ?? "?") + " \u00d7 " + (entry.h ?? "?")));
-              if (entry.count > 1) row.appendChild(mkSpan("ecount", "\u00d7" + entry.count));
+              row.appendChild(mkSpan("edetail", (entry.w ?? "?") + " x " + (entry.h ?? "?")));
+              if (entry.count > 1) row.appendChild(mkSpan("ecount", "x" + entry.count));
           } else if (t === "fullscreen") {
               row.appendChild(mkSpan("ename", entry.on ? "entered" : "exited"));
-              if (entry.app) row.appendChild(mkSpan("edetail", "\u00b7 " + entry.app));
+              if (entry.app) row.appendChild(mkSpan("edetail", "- " + entry.app));
           } else {
               if (entry.app) row.appendChild(mkSpan("ename", entry.app));
-              if (entry.title) row.appendChild(mkSpan("edetail", "\u00b7 " + entry.title));
+              if (entry.title) row.appendChild(mkSpan("edetail", "- " + entry.title));
           }
           row.onmouseenter = function() { lp.playSlot("hover"); };
           row.onclick = lp._handleEntryClick;
@@ -42,7 +42,7 @@
       function setVal(sel, text) {
           const el = _q(sel); if (!el) return;
           const has = text != null && text !== "";
-          el.textContent = has ? text : "\u2014";
+          el.textContent = has ? text : "-";
           el.classList.toggle("empty", !has);
       }
       const FLAG_OFF_LABEL = { visible: "Hidden" };
@@ -55,7 +55,7 @@
           const txt = on ? FLAG_ON_LABEL[name] : FLAG_OFF_LABEL[name];
           if (txt) el.textContent = txt;
       }
-      function frameStr(f) { return f ? (f.x + ", " + f.y + "  \u00b7  " + f.w + " \u00d7 " + f.h) : ""; }
+      function frameStr(f) { return f ? (f.x + ", " + f.y + "  -  " + f.w + " x " + f.h) : ""; }
   // END Field helpers //
 
   // State updates //
@@ -100,7 +100,7 @@
               const hx = cell.querySelector(".pixel-hex");
               if (p.pixel && p.pixel.hex) {
                   if (sw) { sw.style.background = p.pixel.hex; sw.style.display = ""; }
-                  if (hx) hx.textContent = p.pixel.hex + "  \u00b7  " + p.pixel.r + ", " + p.pixel.g + ", " + p.pixel.b;
+                  if (hx) hx.textContent = p.pixel.hex + "  -  " + p.pixel.r + ", " + p.pixel.g + ", " + p.pixel.b;
                   cell.classList.remove("empty");
               } else {
                   if (sw) sw.style.display = "none";
@@ -127,7 +127,7 @@
           let detail = "";
           if (entry.type === "focus") detail = entry.app || "";
           else if (entry.type === "move") detail = (entry.x ?? "") + ", " + (entry.y ?? "");
-          else if (entry.type === "resize") detail = (entry.w ?? "") + " \u00d7 " + (entry.h ?? "");
+          else if (entry.type === "resize") detail = (entry.w ?? "") + " x " + (entry.h ?? "");
           else detail = entry.app || "";
           if (dt) dt.textContent = detail;
           if (pill) pill.classList.add("flag-recent");

@@ -778,19 +778,6 @@ return function(ms, ctx)
                     end
                 end,
 
-                checkIntegrity = function()
-                    local status, cur, trusted = ms.integrity.check()
-                    if status == "trusted" then
-                        ms.alert("\xe2\x9c\x93 ms_core.lua matches trusted hash.\n" .. (cur and cur:sub(1, 16) or "?") .. "\xe2\x80\xa6", 5, true)
-                        ms.ui.refresh()
-                    elseif status == "mismatch" then
-                        hs.reload()
-                    else
-                        ms.alert("No trusted hash on record.\nUse \"Trust Current Version\" to seed trust.", 5)
-                        ms.ui.refresh()
-                    end
-                end,
-
                 showFakeError = function(data)
                     local which = (data and data.value) or "integrity"
                     local spec = nil

@@ -3,7 +3,7 @@
         ms.scroll = function(direction, clicks)
             if ms.dev._watcherPanel then
                 ms.devtools:watcherStep("scroll " .. tostring(direction)
-                    .. (clicks and clicks > 1 and " \xc3\x97" .. clicks or ""))
+                    .. (clicks and clicks > 1 and " x" .. clicks or ""))
             end
             clicks = clicks or 1
             local dx, dy = 0, 0

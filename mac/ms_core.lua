@@ -168,11 +168,11 @@
             -- END Font installation --
 
             -- MsGuardian (integrity check) --
-                ms.loading.update(3, "Configuring Guardian\u{2026}")
+                ms.loading.update(3, "Configuring Guardian...")
                 ms.checkGuardian = function(name)
                     if _G._guardianPassed then return true end
                     print("INTEGRITY ERROR: " .. (name or "module") .. " halted, Guardian did not pass.")
-                    ms.alert("\u{26a0} Integrity Error\n" .. (name or "Module") .. " refused to start.\nGuardian check did not pass.", 10)
+                    ms.alert("Integrity Error\n" .. (name or "Module") .. " refused to start.\nGuardian check did not pass.", 10)
                     return false
                 end
             -- END MsGuardian (integrity check) --
@@ -267,7 +267,7 @@
             -- END MsBackups --
 
             -- MsDevTools (logging & dev panels) --
-                ms.loading.update(6, "Configuring Dev Tools\u{2026}")
+                ms.loading.update(6, "Configuring Dev Tools...")
                 local _msDevOk, _msDevErr = pcall(function()
                     package.loaded["lib.ms_devtools"] = nil
                     ms.devtools = require("lib.ms_devtools")(ms)
@@ -354,7 +354,7 @@
             -- END MsDevTools (logging & dev panels) --
 
             -- MsAlert (toast notifications) --
-                ms.loading.update(9, "Configuring Alerts\u{2026}")
+                ms.loading.update(9, "Configuring Alerts...")
                 local _msAlert
                 local _msAlertOk, _msAlertErr = pcall(function()
                     package.loaded["lib.ms_alert"] = nil
@@ -380,7 +380,7 @@
             -- END MsAlert (toast notifications) --
 
             -- MsSettings (settings menu & profiles) --
-                ms.loading.update(15, "Configuring Settings\u{2026}")
+                ms.loading.update(15, "Configuring Settings...")
                 local _msSettings
                 local _msSettingsOk, _msSettingsErr = pcall(function()
                     package.loaded["lib.ms_settings"] = nil
@@ -468,7 +468,7 @@
             -- END MsSettings (settings menu & profiles) --
 
             -- MsUI (webview settings panel) --
-                ms.loading.update(18, "Configuring UI\u{2026}")
+                ms.loading.update(18, "Configuring UI...")
                 local _msUI
                 local _msUIOk, _msUIErr = pcall(function()
                     package.loaded["lib.ms_ui"] = nil
@@ -967,17 +967,17 @@
                     _G._loadTimers.announce0 = hs.timer.doAfter(_TOAST_LEAD, function()
                         ms._hotkeysReady = true
                         pcall(function() ms.playSlot("launch") end)
-                        local _openHint = ms.windowsMode and "Alt and P" or "\xe2\x8c\xa5 and P"
+                        local _openHint = ms.windowsMode and "Alt and P" or "Option and P"
                         ms.alert("Macros loaded. Press " .. _openHint .. " to open settings.", _TOAST_HOLD, true, { priority = "low" })
                     end)
                     _G._loadTimers.announce3 = hs.timer.doAfter(_TOAST_LEAD + 3, function()
-                        ms.alert("mudscript HS utilities\nBy: mudbourn \xe2\x80\x94 https://mudbourn.info", _TOAST_HOLD, true, { priority = "low" })
+                        ms.alert("mudscript HS utilities\nBy: mudbourn - https://mudbourn.info", _TOAST_HOLD, true, { priority = "low" })
                     end)
                     _G._loadTimers.announce6 = hs.timer.doAfter(_TOAST_LEAD + 6, function()
                         if ms.macroMeta then
                             local msg = "\"" .. (ms.macroMeta.name or "Unknown Macro Pack") .. "\"\n"
                             if ms.macroMeta.author  then msg = msg .. "By: " .. ms.macroMeta.author end
-                            if ms.macroMeta.website then msg = msg .. " \xe2\x80\x94 " .. ms.macroMeta.website end
+                            if ms.macroMeta.website then msg = msg .. " - " .. ms.macroMeta.website end
                             ms.alert(msg, _TOAST_HOLD, true, { priority = "low" })
                         end
                     end)
@@ -997,7 +997,7 @@
                     if ms._targetActive then ms.setMacros(1, true) end
                     _G._loadTimers.integrityWarn = hs.timer.doAfter(10, function()
                         if _needsIntegrityWarning then
-                            ms.alert("\u{26a0} Integrity Error\nNo trusted manifest on record.\nSettings \u{2192} Developer \u{2192} Trust Current Version.", 10)
+                            ms.alert("Integrity Error\nNo trusted manifest on record.\nSettings > Developer > Trust Current Version.", 10)
                         elseif not ms._updateAlertsDisabled then
                             local _checkFn = (ms._updateChannel == "testing")
                                 and ms.integrity.checkForUpdateBeta
@@ -1008,10 +1008,10 @@
                                     items = items or {}
                                     local lines = {}
                                     if u then
-                                        lines[#lines + 1] = "\xe2\x80\xa2 mudscript " .. (u.version or "?") .. " (app)"
+                                        lines[#lines + 1] = "- mudscript " .. (u.version or "?") .. " (app)"
                                     end
                                     for _, it in ipairs(items) do
-                                        lines[#lines + 1] = "\xe2\x80\xa2 " .. (it.name or it.id)
+                                        lines[#lines + 1] = "- " .. (it.name or it.id)
                                             .. " " .. (it.to or "?")
                                     end
                                     if #lines == 0 then return end
@@ -1111,7 +1111,7 @@
             local _initSeqArmed    = false
 
             local function _runInitSequence()
-            ms.loading.update(20, "Initializing\u{2026}")
+            ms.loading.update(20, "Initializing...")
             local t1 = 0.3
             local t2 = 0.5
             local t3 = 0.8
@@ -1126,20 +1126,20 @@
                 print("[startup] t=0: prebuild")
                 pcall(function() ms.ui.prebuild() end)
                 pcall(function() ms.ui._precacheHTML() end)
-                ms.loading.update(25, "Building UI state cache\u{2026}")
+                ms.loading.update(25, "Building UI state cache...")
             end)
             _G._timers[2] = hs.timer.doAfter(t1, function()
                 print("[startup] t=" .. t1 .. ": prep settings")
-                ms.loading.update(32, "Preparing settings panel\u{2026}")
+                ms.loading.update(32, "Preparing settings panel...")
             end)
             _G._timers[3] = hs.timer.doAfter(t2, function()
                 print("[startup] t=" .. t2 .. ": prewarm")
                 pcall(function() ms.ui.prewarm() end)
-                ms.loading.update(40, "Loading settings panel\u{2026}")
+                ms.loading.update(40, "Loading settings panel...")
             end)
             _G._timers[4] = hs.timer.doAfter(t3, function()
                 print("[startup] t=" .. t3 .. ": theme")
-                ms.loading.update(48, "Applying theme\u{2026}")
+                ms.loading.update(48, "Applying theme...")
                 if ms.loading.isVisible() then
                     local themeJson = hs.json.encode(ms._theme or {})
                     pcall(function() ms.loading.eval("applyTheme(" .. themeJson .. ")") end)
@@ -1155,39 +1155,39 @@
             end)
             _G._timers[5] = hs.timer.doAfter(t4, function()
                 print("[startup] t=" .. t4 .. ": integrity seed")
-                ms.loading.update(55, "Seeding integrity hash\u{2026}")
+                ms.loading.update(55, "Seeding integrity hash...")
             end)
             _G._timers[6] = hs.timer.doAfter(t5, function()
                 print("[startup] t=" .. t5 .. ": console")
-                ms.loading.update(62, "Loading console\u{2026}")
+                ms.loading.update(62, "Loading console...")
                 _G._timers[60] = hs.timer.doAfter(0, function()
                     pcall(function() ms.dev.prewarmStep("console") end)
                 end)
             end)
             _G._timers[7] = hs.timer.doAfter(t6, function()
                 print("[startup] t=" .. t6 .. ": watcher")
-                ms.loading.update(72, "Loading macro monitor\u{2026}")
+                ms.loading.update(72, "Loading macro monitor...")
                 _G._timers[70] = hs.timer.doAfter(0, function()
                     pcall(function() ms.dev.prewarmStep("watcher") end)
                 end)
             end)
             _G._timers[8] = hs.timer.doAfter(t7, function()
                 print("[startup] t=" .. t7 .. ": keys")
-                ms.loading.update(82, "Loading input monitor\u{2026}")
+                ms.loading.update(82, "Loading input monitor...")
                 _G._timers[80] = hs.timer.doAfter(0, function()
                     pcall(function() ms.dev.prewarmStep("keys") end)
                 end)
             end)
             _G._timers[9] = hs.timer.doAfter(t8, function()
                 print("[startup] t=" .. t8 .. ": window")
-                ms.loading.update(90, "Loading window monitor\u{2026}")
+                ms.loading.update(90, "Loading window monitor...")
                 _G._timers[90] = hs.timer.doAfter(0, function()
                     pcall(function() ms.dev.prewarmStep("window") end)
                 end)
             end)
             _G._timers[10] = hs.timer.doAfter(t9, function()
                 print("[startup] t=" .. t9 .. ": finalize")
-                if not ms.loading.isFadingOut() then ms.loading.update(96, "Finalizing\u{2026}") end
+                if not ms.loading.isFadingOut() then ms.loading.update(96, "Finalizing...") end
             end)
             _G._timers[11] = hs.timer.doAfter(t10, function()
                 print("[startup] t=" .. t10 .. ": fade start")

@@ -63,7 +63,7 @@
         searchBox.className = "fn-picker-search";
         var searchInput = document.createElement("input");
         searchInput.type = "text";
-        searchInput.placeholder = "Search modules\u2026";
+        searchInput.placeholder = "Search modules...";
         window.msTextHints(searchInput);
         searchBox.appendChild(searchInput);
         listPane.appendChild(searchBox);
@@ -724,7 +724,7 @@
                 + (bound ? ' style="display:none"' : '') + '>';
             switch (p.type) {
                 case "string":
-                    html += '<input type="text" data-param="' + esc(p.name) + '" placeholder="Enter text\u2026" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">';
+                    html += '<input type="text" data-param="' + esc(p.name) + '" placeholder="Enter text..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">';
                     break;
 
                 case "number":
@@ -752,7 +752,7 @@
                 case "key":
                     html += '<div class="fn-key-capture">';
                     html += '<button class="fn-key-btn" data-param="' + esc(p.name) + '" data-key-capture>Click to set</button>';
-                    html += '<span class="fn-key-hint">press a key\u2026</span>';
+                    html += '<span class="fn-key-hint">press a key...</span>';
                     html += '</div>';
                     break;
 
@@ -1026,7 +1026,7 @@
 
             _keyCapture = paramName;
             btn.classList.add("capturing");
-            btn.textContent = "\u2026";
+            btn.textContent = "...";
 
             function handler(e) {
                 e.preventDefault();

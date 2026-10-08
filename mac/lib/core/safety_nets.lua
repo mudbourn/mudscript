@@ -273,7 +273,7 @@
                         .. #auditErrs .. " violation"
                         .. (#auditErrs > 1 and "s" or "") .. "):\n"
                     for _, e in ipairs(auditErrs) do
-                        msg = msg .. "  \xe2\x80\xa2 " .. e .. "\n"
+                        msg = msg .. "  - " .. e .. "\n"
                     end
                     error(msg, 0)
                 end

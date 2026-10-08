@@ -937,7 +937,7 @@ local _obj = {
                 hs.focus()
 
                 local _choice = hs.dialog.blockAlert(
-                    "\u{26a0} Integrity Error: mudscript Did Not Load",
+                    "Integrity Error: mudscript Did Not Load",
                     "File hash mismatch detected. Delete trusted manifest and reload?",
                     "Keep Blocked",
                     "Delete Manifest & Reload"
@@ -953,7 +953,7 @@ local _obj = {
             hs.focus()
 
             local _choice = hs.dialog.blockAlert(
-                "\u{26a0} Integrity Error: mudscript Did Not Load",
+                "Integrity Error: mudscript Did Not Load",
                 "File hash mismatch detected. Delete trusted manifest and reload?",
                 "Keep Blocked",
                 "Delete Manifest & Reload"

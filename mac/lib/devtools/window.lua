@@ -84,7 +84,7 @@ return function(ms, ctx)
 
         local function _axStr(v)
             local t = type(v)
-            if t == "string" then return #v > 120 and (v:sub(1, 120) .. "\u{2026}") or v end
+            if t == "string" then return #v > 120 and (v:sub(1, 120) .. "...") or v end
             if t == "number" or t == "boolean" then return tostring(v) end
             return nil
         end

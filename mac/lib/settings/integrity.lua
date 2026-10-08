@@ -677,7 +677,7 @@ return function(ms, ctx)
                     event   = "update_start",
                     channel = "stable",
                 })
-                ms.alert("Checking for stable update\xe2\x80\xa6", 4, true)
+                ms.alert("Checking for stable update...", 4, true)
                 _fetchReleaseInfo("stable", function(info)
                     if not info then
                         ms.dev.log({
@@ -690,7 +690,7 @@ return function(ms, ctx)
                     end
                     local newVersion = info.version
                     local bundleURL  = info.downloadUrl
-                    ms.alert("Downloading v" .. newVersion .. " bundle\xe2\x80\xa6", 4, true)
+                    ms.alert("Downloading v" .. newVersion .. " bundle...", 4, true)
                     ms.dev.log({
                         type    = "system",
                         event   = "update_download_start",
@@ -805,7 +805,7 @@ return function(ms, ctx)
                     channel = "testing",
                     source  = ms._testingSource or "release",
                 })
-                ms.alert("Checking for testing update\\xe2\\x80\\xa6", 4, true)
+                ms.alert("Checking for testing update...", 4, true)
 
                 local fetchFn = (ms._testingSource == "artifact") and _fetchArtifactInfo
                     or function(cb) _fetchReleaseInfo("testing", cb) end
@@ -819,9 +819,9 @@ return function(ms, ctx)
                         })
                         if ms._testingSource == "artifact" then
                             if not ms._githubToken or ms._githubToken == "" then
-                                ms.alert("Update failed: no GitHub token configured.\\nSet one in Settings \\xe2\\x86\\x92 Developer.", 6)
+                                ms.alert("Update failed: no GitHub token configured.\nSet one in Settings > Developer.", 6)
                             else
-                                ms.alert("Update failed: could not fetch artifact.\\nCheck your GitHub token has actions:read permission.", 6)
+                                ms.alert("Update failed: could not fetch artifact.\nCheck your GitHub token has actions:read permission.", 6)
                             end
                         else
                             ms.alert("Update failed: could not fetch testing release info.", 5)
@@ -838,7 +838,7 @@ return function(ms, ctx)
 
                     local label = info.build and ("build " .. info.build) or ("v" .. newVersion)
                     local bundleURL  = info.downloadUrl
-                    ms.alert("Downloading " .. label .. " bundle\xe2\x80\xa6", 4, true)
+                    ms.alert("Downloading " .. label .. " bundle...", 4, true)
                     ms.dev.log({
                         type    = "system",
                         event   = "update_download_start",
@@ -1143,8 +1143,8 @@ return function(ms, ctx)
             if _errSound then pcall(function() ms.sound(_errSound) end) end
             _panel:navigationCallback(function()
                 pcall(function()
-                    local t = trusted:sub(1, 16) .. "\xe2\x80\xa6"
-                    local c = current:sub(1, 16)  .. "\xe2\x80\xa6"
+                    local t = trusted:sub(1, 16) .. "..."
+                    local c = current:sub(1, 16)  .. "..."
                     _panel:evaluateJavaScript(
                         "setHashes('" .. t .. "', '" .. c .. "')"
                     )
