@@ -1,6 +1,6 @@
 {
   "formatVersion": 1,
-  "generated": "2026-10-08T01:33:13Z",
+  "generated": "2026-10-08T07:05:38Z",
   "entries": [
     {
       "id": "plugin-roblox",
@@ -61,11 +61,11 @@
       "id": "plugin-virtualpad",
       "type": "plugin",
       "name": "VirtualPad",
-      "version": "0.2.6",
+      "version": "0.2.7",
       "author": "mudbourn",
-      "sha256": "dabe5335ec54fe811fc8495174cf7cdb13a000c8ba9c4c9fa018b45730c0f62c",
-      "url": "https://github.com/mudbourn/mudscript/releases/download/plugin-virtualpad-v0.2.6/VirtualPad.spoon.zip",
-      "size": 741062,
+      "sha256": "a0176a60b39b20dc66fbd33c0af80c5b1482ce4ae70cdbe09073175715864d7c",
+      "url": "https://github.com/mudbourn/mudscript/releases/download/plugin-virtualpad-v0.2.7/VirtualPad.spoon.zip",
+      "size": 741176,
       "format": "spoon",
       "provides": [
         "vpad"
@@ -73,5 +73,5 @@
       "trust": "trusted"
     }
   ],
-  "signature": "IOH5yqWUTxOfoq+E+2rgv6VD+ls8K0INsIpdcj2NIJIDA3FBRU+jVSmGUqXohZdy6Rl4mvh909Ojv2R4msmXw2lyIFV9mZjwF3XsYkS71jWQJQAQQIqH+n79ifeB6X63eXxHt5MmIlXadidtlFBbBWkK9x655J1VX7ZZbmUKY+v8H6L8gP9Lyw51dgyPxltkZY5upIlE7pMOLseZGjvp8osidkpOI09Wxcr46Yc/088454DkLLQ0ICZ4EfjjQN6lYxM789DOXNrvY/4YSPIfbQbn+K53v8NTVA6ZG2QnQg5RaWLBmzQ33lPcrUMvelq5chk6sMo4bJ2uOdqtPcf9nQ=="
+  "signature": "MeZxVl31EwpRxIBw0tE/ZOq5dz+VckwmaOmGZLo49xcLU+/NkaPcy85Iykknyr56seKjTnD5qeH9R37+ccQgpPtpgXAbBxYEAy2d5mbTSX66jD2wvHk3asvnwTLp7R1wNBXazChgWg3mQcNLBnu66ycLj33X8fPNf8Tn76umydZpvxehnWIsRPkEhl27+XiIdYs8A5u8GqfRvvetXzAGpoPrNyykkQZ3B/cFumpsJ/CqPZi+XLsc03BceSdW1TV4MGCWwd3a4Y9Nn2EfcpMPZRx5Q2Gk9hxLmU49Fa2ev4zAFGCyD17nqTFiIQUTviecwRo6P0ICSQN1Y2PhU7H1fw=="
 }
