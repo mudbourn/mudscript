@@ -197,6 +197,17 @@ func emit(_ obj: [String: Any]) {
         }
     }
 
+    func twinPID(vid: Int, pid: Int) -> Int? {
+        guard vid == 0x054C else { return nil }
+        let twins: [Int: Int] = [
+            0x05C4: 0x09CC,
+            0x09CC: 0x05C4,
+            0x0CE6: 0x0DF2,
+            0x0DF2: 0x0CE6,
+        ]
+        return twins[pid]
+    }
+
     func axisUsages(_ name: String, _ f: Family) -> [(UInt32, UInt32)] {
         switch name {
         case "lx": return [(0x01, 0x30)]
@@ -209,6 +220,37 @@ func emit(_ obj: [String: Any]) {
         }
     }
 // END Name Map //
+
+// Real Pad Hiding //
+    let ignoreKeys = [
+        "SDL_GAMECONTROLLER_IGNORE_DEVICES",
+        "SDL_HIDAPI_IGNORE_DEVICES",
+    ]
+
+    func launchctl(_ args: [String]) {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        p.arguments = args
+        try? p.run()
+        p.waitUntilExit()
+    }
+
+    func hideReal(vid: Int, pid: Int) {
+        guard twinPID(vid: vid, pid: pid) != nil else { return }
+        let entry = String(format: "0x%04x/0x%04x", vid, pid)
+        for key in ignoreKeys { launchctl(["setenv", key, entry]) }
+    }
+
+    func unhideReal() {
+        for key in ignoreKeys { launchctl(["unsetenv", key]) }
+    }
+
+    func shutdown() -> Never {
+        unhideReal()
+        if let path = socketPath { unlink(path) }
+        exit(0)
+    }
+// END Real Pad Hiding //
 
 // Report Patching //
     func writeBits(_ buf: inout [UInt8], _ bitOffset: Int, _ size: Int, _ value: Int) {
@@ -248,6 +290,15 @@ func emit(_ obj: [String: Any]) {
     func signed(_ raw: Int, _ f: Field) -> Int {
         guard f.min < 0, f.size < 64, raw >= (1 << (f.size - 1)) else { return raw }
         return raw - (1 << f.size)
+    }
+
+    func crc32<S: Sequence>(_ bytes: S) -> UInt32 where S.Element == UInt8 {
+        var c: UInt32 = 0xFFFFFFFF
+        for b in bytes {
+            c ^= UInt32(b)
+            for _ in 0..<8 { c = (c & 1) != 0 ? (c >> 1) ^ 0xEDB88320 : c >> 1 }
+        }
+        return ~c
     }
 
     func hatValue(up: Bool, down: Bool, left: Bool, right: Bool, f: Field) -> Int? {
@@ -353,6 +404,7 @@ func emit(_ obj: [String: Any]) {
         var device: HIDVirtualDevice?
         var delegate: Delegate?
         var last: [UInt8: [UInt8]] = [:]
+        var fullLast: [UInt8]?
         var buttons: Set<String> = []
         var owned: Set<String> = []
         var axes: [String: Double] = [:]
@@ -380,7 +432,7 @@ func emit(_ obj: [String: Any]) {
             let props = HIDVirtualDevice.Properties(
                 descriptor: id.descriptor,
                 vendorID: UInt32(id.vid),
-                productID: UInt32(id.pid),
+                productID: UInt32(twinPID(vid: id.vid, pid: id.pid) ?? id.pid),
                 transport: id.bluetooth ? .bluetooth : .usb,
                 product: id.name,
                 manufacturer: id.maker,
@@ -392,6 +444,7 @@ func emit(_ obj: [String: Any]) {
                 return nil
             }
             device = dev
+            hideReal(vid: id.vid, pid: id.pid)
             if fam == .sony && usesIDs && padRIDs.contains(1) {
                 simpleLen = neutral(for: 1).count
             }
@@ -419,6 +472,7 @@ func emit(_ obj: [String: Any]) {
             real = nil
             delegate?.real = nil
             last = [:]
+            fullLast = nil
             physButtons = []
             physAxes = [:]
             resend()
@@ -475,6 +529,10 @@ func emit(_ obj: [String: Any]) {
         }
 
         func send(_ rid: UInt8) {
+            if rid == 0x01, let full = fullLast {
+                queue?.yield(Data(patchFull(full)))
+                return
+            }
             let base = last[rid] ?? neutral(for: rid)
             queue?.yield(Data(patch(base)))
         }
@@ -572,6 +630,18 @@ func emit(_ obj: [String: Any]) {
             return [0x01] + Array(report[3..<(simpleLen + 2)])
         }
 
+        func patchFull(_ full: [UInt8]) -> [UInt8] {
+            var out = full
+            let simple = patch(normalize(full))
+            out.replaceSubrange(3..<(simpleLen + 2), with: simple[1...])
+            if out.count >= 78 {
+                let n = out.count - 4
+                let crc = crc32([0xA1] + out[0..<n])
+                for k in 0..<4 { out[n + k] = UInt8((crc >> (8 * UInt32(k))) & 0xFF) }
+            }
+            return out
+        }
+
         func onReal(_ raw: [UInt8]) {
             let report = normalize(raw)
             let rid: UInt8 = usesIDs ? (report.first ?? 0) : 0
@@ -580,7 +650,12 @@ func emit(_ obj: [String: Any]) {
                 return
             }
             last[rid] = report
-            queue?.yield(Data(patch(report)))
+            if report.count != raw.count {
+                fullLast = raw
+                queue?.yield(Data(patchFull(raw)))
+            } else {
+                queue?.yield(Data(patch(report)))
+            }
             decode(report)
         }
     }
@@ -649,10 +724,7 @@ func emit(_ obj: [String: Any]) {
     func handle(_ line: String) {
         let parts = line.split(separator: " ").map(String.init)
         guard let cmd = parts.first else { return }
-        if cmd == "quit" {
-            if let path = socketPath { unlink(path) }
-            exit(0)
-        }
+        if cmd == "quit" { shutdown() }
         guard let p = pad else {
             emit(["e": "error", "m": "no controller connected"])
             return
@@ -737,6 +809,15 @@ func emit(_ obj: [String: Any]) {
         replay()
     }
 
+    var stopSources: [DispatchSourceSignal] = []
+    for sig in [SIGTERM, SIGINT, SIGHUP] {
+        signal(sig, SIG_IGN)
+        let s = DispatchSource.makeSignalSource(signal: sig, queue: .main)
+        s.setEventHandler { shutdown() }
+        s.resume()
+        stopSources.append(s)
+    }
+
     if listenFD >= 0 {
         signal(SIGPIPE, SIG_IGN)
         let acceptSource = DispatchSource.makeReadSource(fileDescriptor: listenFD, queue: .main)
@@ -749,7 +830,7 @@ func emit(_ obj: [String: Any]) {
     } else {
         FileHandle.standardInput.readabilityHandler = { h in
             let data = h.availableData
-            if data.isEmpty { exit(0) }
+            if data.isEmpty { shutdown() }
             guard let text = String(data: data, encoding: .utf8) else { return }
             DispatchQueue.main.async {
                 for line in text.split(separator: "\n") { handle(String(line)) }

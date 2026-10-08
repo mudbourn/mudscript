@@ -7,11 +7,19 @@ restricted and only an AMFI-disabled system lets an ad-hoc signed helper use it.
 ## How it works
 
 On load the plugin compiles `bin/ms_vpad.swift` to `~/.local/bin/ms_vpad` and
-signs it with `bin/ms_vpad.entitlements`. The helper waits for a gamepad, seizes
-it so games stop seeing it directly, and creates a virtual copy with the same
-vendor ID, product ID, name and report descriptor. Every real input report is
-forwarded through the copy with macro input merged on top, so the game sees one
-controller. Unplugging the pad tears the copy down, and quitting the helper
+signs it with `bin/ms_vpad.entitlements`. The helper waits for a gamepad, opens
+it and creates a virtual copy with the same vendor ID, name and report
+descriptor. Every real input report is forwarded through the copy with macro
+input merged on top. Bluetooth PlayStation pads keep their full report format,
+with the checksum recomputed after patching.
+
+Seizing the real pad does not hide it from other processes on current macOS, so
+games would see two controllers. For PlayStation pads the copy takes a sibling
+product ID (DS4 v1 and v2 swap, DualSense and DualSense Edge swap), and the
+helper publishes the real pad's ID in `SDL_GAMECONTROLLER_IGNORE_DEVICES` and
+`SDL_HIDAPI_IGNORE_DEVICES` with `launchctl setenv`. SDL games launched after
+that, Roblox included, see only the copy. The helper clears both on exit, so
+relaunch the game after arming or disarming the plugin. Unplugging the pad tears the copy down, and quitting the helper
 hands the real pad back to the system.
 
 The helper saves the pad's identity to `~/.hammerspoon/data/ms_vpad_pad.json`.
