@@ -1,9 +1,12 @@
+<<<<<<< ours
 //! ms_layer - mudscript's native input layer.
 //!
 //! Owns the OS input hook and answers pass/swallow itself, so the host
 //! (Hammerspoon Lua today) is never on the per-event critical path. See
 //! README.md for the protocol.
 
+=======
+>>>>>>> theirs
 mod engine;
 mod keys;
 mod platform;
@@ -17,8 +20,11 @@ use std::time::Instant;
 use engine::{Engine, Inject, Input, Verdict};
 use protocol::{Command, Event};
 
+<<<<<<< ours
 /// Tag stamped on events we post so our own hook (and Hammerspoon's, which
 /// uses the same value) lets them through untouched.
+=======
+>>>>>>> theirs
 pub const SYNTHETIC_TAG: i64 = 999;
 
 pub struct Shared {
@@ -28,7 +34,10 @@ pub struct Shared {
 
 impl Shared {
     fn lock(&self) -> std::sync::MutexGuard<'_, Engine> {
+<<<<<<< ours
         // A panic aborts the process (profile), so poisoning can't really happen.
+=======
+>>>>>>> theirs
         self.engine.lock().unwrap_or_else(|p| p.into_inner())
     }
 
@@ -38,7 +47,10 @@ impl Shared {
         }
     }
 
+<<<<<<< ours
     /// Hot path: called from the OS hook for every event.
+=======
+>>>>>>> theirs
     pub fn handle(&self, input: Input) -> Verdict {
         let mut e = self.lock();
         let v = e.handle(input, Instant::now());
@@ -46,8 +58,11 @@ impl Shared {
         v
     }
 
+<<<<<<< ours
     /// Backends call this once their hook is live: the host keeps its own
     /// taps running until then, so a failed hook never leaves input dead.
+=======
+>>>>>>> theirs
     pub fn ready(&self) {
         self.emit(Event::Ready {
             version: env!("CARGO_PKG_VERSION"),
@@ -101,8 +116,11 @@ fn main() {
         tx,
     });
 
+<<<<<<< ours
     // Writer: the host reading our stdout going away means it died; exit so
     // a hook that swallows input is never left orphaned.
+=======
+>>>>>>> theirs
     std::thread::spawn(move || {
         let stdout = std::io::stdout();
         let mut out = stdout.lock();
@@ -114,7 +132,10 @@ fn main() {
         }
     });
 
+<<<<<<< ours
     // Reader: commands from the host. EOF means the host is gone.
+=======
+>>>>>>> theirs
     let reader = Arc::clone(&shared);
     std::thread::spawn(move || {
         let stdin = std::io::stdin();
@@ -138,7 +159,10 @@ fn main() {
 
     if let Err((code, msg)) = platform::run(Arc::clone(&shared)) {
         shared.emit(Event::Error { msg, code });
+<<<<<<< ours
         // Give the writer a moment to deliver the error before exiting.
+=======
+>>>>>>> theirs
         std::thread::sleep(std::time::Duration::from_millis(100));
         std::process::exit(2);
     }

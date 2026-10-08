@@ -22,12 +22,28 @@
             print("ms_layer: skipped after repeated failures; using Lua taps until next reload")
             return
         end
+<<<<<<< ours
         if hs.settings.get(DISABLED_KEY) or not hs.fs.attributes(BIN) then return end
 
         local REPLACED = {
             "_keyListener", "_mouseListener", "_scrollListener", "_socdListener",
             "_trackpadLeftListener", "_trackpadRightListener", "_trackpadDragTap",
         }
+=======
+
+        if hs.settings.get(DISABLED_KEY) or not hs.fs.attributes(BIN) then return end
+
+        local REPLACED = {
+            "_keyListener",
+            "_mouseListener",
+            "_scrollListener",
+            "_socdListener",
+            "_trackpadLeftListener",
+            "_trackpadRightListener",
+            "_trackpadDragTap",
+        }
+
+>>>>>>> theirs
         local STUB = {
             start = function(self) return self end,
             stop = function(self) return self end,
@@ -37,27 +53,55 @@
 
         local function neuter()
             local dead = {}
+<<<<<<< ours
             for _, field in ipairs(REPLACED) do
                 local tap = ms[field]
+=======
+
+            for _, field in ipairs(REPLACED) do
+                local tap = ms[field]
+
+>>>>>>> theirs
                 if tap ~= STUB then
                     if tap then
                         pcall(function() tap:stop() end)
                         dead[tap] = true
                     end
+<<<<<<< ours
                     ms[field] = STUB
                 end
             end
             local panicTap = ms._hotkeyHandles and ms._hotkeyHandles.panic
+=======
+
+                    ms[field] = STUB
+                end
+            end
+
+            local panicTap = ms._hotkeyHandles and ms._hotkeyHandles.panic
+
+>>>>>>> theirs
             if panicTap and panicTap ~= STUB then
                 pcall(function() panicTap:stop() end)
                 dead[panicTap] = true
                 ms._hotkeyHandles.panic = STUB
             end
+<<<<<<< ours
             if next(dead) and ms._resilientTaps then
                 local kept = {}
                 for _, t in ipairs(ms._resilientTaps) do
                     if not dead[t] then kept[#kept + 1] = t end
                 end
+=======
+
+            if next(dead) and ms._resilientTaps then
+                local kept = {}
+
+                for _, t in ipairs(ms._resilientTaps) do
+                    if not dead[t] then kept[#kept + 1] = t end
+                end
+
+>>>>>>> theirs
                 ms._resilientTaps = kept
             end
         end
@@ -65,19 +109,34 @@
         local idOf = setmetatable({}, { __mode = "k" })
         local byId = setmetatable({}, { __mode = "v" })
         local nextId = 0
+<<<<<<< ours
         local function idFor(ref)
             local id = idOf[ref]
+=======
+
+        local function idFor(ref)
+            local id = idOf[ref]
+
+>>>>>>> theirs
             if not id then
                 nextId = nextId + 1
                 id = nextId
                 idOf[ref] = id
             end
+<<<<<<< ours
+=======
+
+>>>>>>> theirs
             byId[id] = ref
             return id
         end
 
         local function modList(set)
             local out = {}
+<<<<<<< ours
+=======
+
+>>>>>>> theirs
             for _, m in ipairs({
                 "cmd",
                 "alt",
@@ -86,6 +145,10 @@
             }) do
                 if set and set[m] then out[#out + 1] = m end
             end
+<<<<<<< ours
+=======
+
+>>>>>>> theirs
             return #out > 0 and out or nil
         end
 
@@ -94,6 +157,7 @@
 
         local function buildConfig()
             local binds = {}
+<<<<<<< ours
             for _, b in ipairs(ms._keyBindings or {}) do
                 local name = hs.keycodes.map[b.keyCode]
                 if name then
@@ -101,6 +165,19 @@
                     for _, oc in ipairs(b.alsoHeld or {}) do
                         also[#also + 1] = hs.keycodes.map[oc]
                     end
+=======
+
+            for _, b in ipairs(ms._keyBindings or {}) do
+                local name = hs.keycodes.map[b.keyCode]
+
+                if name then
+                    local also = {}
+
+                    for _, oc in ipairs(b.alsoHeld or {}) do
+                        also[#also + 1] = hs.keycodes.map[oc]
+                    end
+
+>>>>>>> theirs
                     kind[b] = "key"
                     binds[#binds + 1] = {
                         id = idFor(b),
@@ -115,6 +192,7 @@
                     }
                 end
             end
+<<<<<<< ours
             for _, mb in ipairs(ms._modBindings or {}) do
                 local mods = modList(mb.modSet)
                 if mods then
@@ -124,6 +202,23 @@
                     }
                 end
             end
+=======
+
+            for _, mb in ipairs(ms._modBindings or {}) do
+                local mods = modList(mb.modSet)
+
+                if mods then
+                    kind[mb] = "mods"
+                    binds[#binds + 1] = {
+                        id = idFor(mb),
+                        t = "mods",
+                        mods = mods,
+                        system = mb.system and true or false,
+                    }
+                end
+            end
+
+>>>>>>> theirs
             for button, cb in pairs(ms._mouseCallbacks or {}) do
                 kind[cb] = "mouse"
                 binds[#binds + 1] = {
@@ -134,15 +229,29 @@
                     system = cb.system and true or false,
                 }
             end
+<<<<<<< ours
             for dir, fn in pairs(ms._scrollCallbacks or {}) do
                 local ref = scrollRefs[dir]
+=======
+
+            for dir, fn in pairs(ms._scrollCallbacks or {}) do
+                local ref = scrollRefs[dir]
+
+>>>>>>> theirs
                 if not ref or ref.fn ~= fn then
                     ref = {
                         fn = fn,
                         dir = dir,
                     }
+<<<<<<< ours
                     scrollRefs[dir] = ref
                 end
+=======
+
+                    scrollRefs[dir] = ref
+                end
+
+>>>>>>> theirs
                 kind[ref] = "scroll"
                 binds[#binds + 1] = {
                     id = idFor(ref),
@@ -153,6 +262,10 @@
 
             local hk = ms._hotkeys and ms._hotkeys.panic
             local panic = nil
+<<<<<<< ours
+=======
+
+>>>>>>> theirs
             if hk and hk.key then
                 panic = {
                     key = hk.key,
@@ -208,15 +321,29 @@
             if not task then return end
             if ms.layer.active then neuter() end
             local ok, cfg = pcall(buildConfig)
+<<<<<<< ours
+=======
+
+>>>>>>> theirs
             if not ok then
                 print("ms_layer: config build failed: " .. tostring(cfg))
                 return
             end
+<<<<<<< ours
             local encoded = hs.json.encode(cfg)
+=======
+
+            local encoded = hs.json.encode(cfg)
+
+>>>>>>> theirs
             if encoded ~= lastConfig or force then
                 lastConfig = encoded
                 task:setInput(encoded .. "\n")
             end
+<<<<<<< ours
+=======
+
+>>>>>>> theirs
             pushState(force)
         end
 
@@ -225,6 +352,10 @@
             if pending or not task then return end
             pending = hs.timer.doAfter(0, function() sync(false) end)
         end
+<<<<<<< ours
+=======
+
+>>>>>>> theirs
         ms.layer.sync = scheduleSync
 
         local function runFn(fn, label)
@@ -238,15 +369,29 @@
             56,
             62,
         }
+<<<<<<< ours
         local ALT_CODES = { 58 }
+=======
+
+        local ALT_CODES = { 58 }
+
+>>>>>>> theirs
         local CTRL_CODES = {
             59,
             61,
         }
+<<<<<<< ours
+=======
+
+>>>>>>> theirs
         local CMD_CODES = {
             55,
             54,
         }
+<<<<<<< ours
+=======
+
+>>>>>>> theirs
         local MOD_TRACK = {
             shift = SHIFT_CODES,
             rightshift = SHIFT_CODES,
@@ -257,6 +402,10 @@
             cmd = CMD_CODES,
             rightcmd = CMD_CODES,
         }
+<<<<<<< ours
+=======
+
+>>>>>>> theirs
         local MOUSE_TRACK = {
             [0] = 997,
             [1] = 999,
@@ -264,27 +413,50 @@
             [3] = 996,
             [4] = 995,
         }
+<<<<<<< ours
+=======
+
+>>>>>>> theirs
         local MOD_BITS = {
             cmd = 1,
             alt = 2,
             ctrl = 4,
             shift = 8,
         }
+<<<<<<< ours
         local function flagsOf(m)
             local f = {}
             for name, bit in pairs(MOD_BITS) do
                 if math.floor(m / bit) % 2 == 1 then f[name] = true end
             end
+=======
+
+        local function flagsOf(m)
+            local f = {}
+
+            for name, mask in pairs(MOD_BITS) do
+                if math.floor(m / mask) % 2 == 1 then f[name] = true end
+            end
+
+>>>>>>> theirs
             return f
         end
 
         local function onEvent(ev)
             local e = ev.e
+<<<<<<< ours
+=======
+
+>>>>>>> theirs
             if e == "fire" then
                 local ref = byId[ev.id]
                 if not ref then return end
                 ms._currentFlags = flagsOf(ev.m or 0)
                 local k = kind[ref]
+<<<<<<< ours
+=======
+
+>>>>>>> theirs
                 if k == "key" then
                     if ev.edge == "up" then
                         runFn(ref.releaseFn, "ms.key")
@@ -302,14 +474,26 @@
                 end
             elseif e == "k" then
                 local codes = MOD_TRACK[ev.k]
+<<<<<<< ours
                 if codes then
                     local flags = flagsOf(ev.m or 0)
                     local mod = ev.k:gsub("^right", "")
+=======
+
+                if codes then
+                    local flags = flagsOf(ev.m or 0)
+                    local mod = ev.k:gsub("^right", "")
+
+>>>>>>> theirs
                     for _, c in ipairs(codes) do ms.keytrack[c] = flags[mod] or false end
                 else
                     local code = hs.keycodes.map[ev.k]
                     if code then ms.keytrack[code] = ev.d end
                 end
+<<<<<<< ours
+=======
+
+>>>>>>> theirs
                 if ms.dev and ms.dev._wantsKeyEvents and ms.dev._wantsKeyEvents() then
                     local code = hs.keycodes.map[ev.k]
                     if code then pcall(ms.dev._onKeyEvent, code, ev.k, ev.d) end
@@ -317,6 +501,10 @@
             elseif e == "m" then
                 local code = MOUSE_TRACK[ev.b]
                 if code then ms.keytrack[code] = ev.d end
+<<<<<<< ours
+=======
+
+>>>>>>> theirs
                 if ms.dev and ms.dev._wantsMouseEvents and ms.dev._wantsMouseEvents() then
                     local p = hs.mouse.absolutePosition()
                     pcall(ms.dev._onMouseEvent, ev.b, ev.d, math.floor(p.x), math.floor(p.y))
@@ -339,6 +527,10 @@
             elseif e == "error" then
                 print("ms_layer error (" .. tostring(ev.code) .. "): " .. tostring(ev.msg))
                 fatal = ev.code == "permission"
+<<<<<<< ours
+=======
+
+>>>>>>> theirs
                 if fatal and ms.alert then
                     ms.alert("Native input layer needs permission\n"
                         .. "System Settings > Privacy & Security > Accessibility\nand Input Monitoring: allow ms_layer", 10)
@@ -347,6 +539,10 @@
         end
 
         local start
+<<<<<<< ours
+=======
+
+>>>>>>> theirs
         local function onExit(_, code)
             local wasActive = ms.layer.active
             task = nil
@@ -354,10 +550,18 @@
             lastConfig, lastState = nil, nil
             if stopping then return end
             restarts = restarts + 1
+<<<<<<< ours
+=======
+
+>>>>>>> theirs
             if not wasActive and (fatal or restarts > MAX_RESTARTS) then
                 print("ms_layer: never came up (exit " .. tostring(code) .. "); Lua taps stay in charge")
                 return
             end
+<<<<<<< ours
+=======
+
+>>>>>>> theirs
             if restarts > MAX_RESTARTS then
                 print("ms_layer: exited " .. tostring(code) .. " repeatedly; falling back to Lua taps")
                 if ms.alert then ms.alert("Native input layer failed; using Lua input until next reload", 6) end
@@ -365,6 +569,10 @@
                 hs.timer.doAfter(0.5, hs.reload)
                 return
             end
+<<<<<<< ours
+=======
+
+>>>>>>> theirs
             hs.timer.doAfter(0.25 * restarts, start)
         end
 
@@ -373,34 +581,64 @@
             task = hs.task.new(BIN, onExit, function(_, stdOut)
                 if not stdOut or stdOut == "" then return true end
                 buf = buf .. stdOut
+<<<<<<< ours
+=======
+
+>>>>>>> theirs
                 while true do
                     local nl = buf:find("\n", 1, true)
                     if not nl then break end
                     local line = buf:sub(1, nl - 1)
                     buf = buf:sub(nl + 1)
                     local ok, ev = pcall(hs.json.decode, line)
+<<<<<<< ours
+=======
+
+>>>>>>> theirs
                     if ok and type(ev) == "table" then
                         local okEv, err = pcall(onEvent, ev)
                         if not okEv then print("ms_layer event error: " .. tostring(err)) end
                     end
                 end
+<<<<<<< ours
                 return true
             end)
+=======
+
+                return true
+            end)
+
+>>>>>>> theirs
             if not task or not task:start() then
                 task = nil
                 print("ms_layer: failed to launch " .. BIN)
             end
         end
 
+<<<<<<< ours
+=======
+        local function passThrough(fn, ...)
+            fn()
+            return ...
+        end
+
+>>>>>>> theirs
         local function after(name, fn)
             local orig = ms[name]
             if type(orig) ~= "function" then return end
             ms[name] = function(...)
+<<<<<<< ours
                 local r = table.pack(orig(...))
                 fn()
                 return table.unpack(r, 1, r.n)
             end
         end
+=======
+                return passThrough(fn, orig(...))
+            end
+        end
+
+>>>>>>> theirs
         local function wrapHandle(h)
             if type(h) == "table" and type(h.delete) == "function" then
                 local del = h.delete
@@ -410,14 +648,25 @@
                     return r
                 end
             end
+<<<<<<< ours
             return h
         end
+=======
+
+            return h
+        end
+
+>>>>>>> theirs
         for _, name in ipairs({
             "key",
             "keyCombo",
             "scrollBind",
         }) do
             local orig = ms[name]
+<<<<<<< ours
+=======
+
+>>>>>>> theirs
             if type(orig) == "function" then
                 ms[name] = function(...)
                     local h = orig(...)
@@ -426,11 +675,30 @@
                 end
             end
         end
+<<<<<<< ours
         for _, name in ipairs({ "mouse", "socdStart", "socdStop", "socdApply", "_bindHotkeys",
             "saveSettings", "_ownUiFocus", "_ensureMouseListener" }) do
             after(name, scheduleSync)
         end
         after("setMacros", function() pushState(false) end)
+=======
+
+        for _, name in ipairs({
+            "mouse",
+            "socdStart",
+            "socdStop",
+            "socdApply",
+            "_bindHotkeys",
+            "saveSettings",
+            "_ownUiFocus",
+            "_ensureMouseListener",
+        }) do
+            after(name, scheduleSync)
+        end
+
+        after("setMacros", function() pushState(false) end)
+
+>>>>>>> theirs
         if ms.bind then
             for _, name in ipairs({
                 "rebind",
@@ -438,16 +706,29 @@
                 "rebindSystem",
             }) do
                 local orig = ms.bind[name]
+<<<<<<< ours
                 if type(orig) == "function" then
                     ms.bind[name] = function(...)
                         local r = table.pack(orig(...))
                         scheduleSync()
                         return table.unpack(r, 1, r.n)
+=======
+
+                if type(orig) == "function" then
+                    ms.bind[name] = function(...)
+                        return passThrough(scheduleSync, orig(...))
+>>>>>>> theirs
                     end
                 end
             end
         end
+<<<<<<< ours
         local releaseHolds = ms._releaseTrackpadHolds
+=======
+
+        local releaseHolds = ms._releaseTrackpadHolds
+
+>>>>>>> theirs
         ms._releaseTrackpadHolds = function()
             if not ms.layer.active and releaseHolds then releaseHolds() end
         end
@@ -457,10 +738,20 @@
         ms.layer.stop = function()
             if ms._layerStateWatch then ms._layerStateWatch:stop() end
             stopping = true
+<<<<<<< ours
             if task then
                 send({ c = "quit" })
                 local t = task
                 hs.timer.doAfter(0.2, function() if t:isRunning() then t:terminate() end end)
+=======
+
+            if task then
+                send({ c = "quit" })
+                local t = task
+                hs.timer.doAfter(0.2, function()
+                    if t:isRunning() then t:terminate() end
+                end)
+>>>>>>> theirs
             end
         end
 

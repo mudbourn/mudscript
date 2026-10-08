@@ -1,3 +1,4 @@
+<<<<<<< ours
 //! Platform-independent input engine.
 //!
 //! Every OS backend feeds normalized `Input`s through one `Engine::handle`
@@ -5,6 +6,8 @@
 //! events to post). This replaces the separate Lua taps (key listener, panic
 //! watcher, SOCD, trackpad holds, mouse, scroll) with a single pass.
 
+=======
+>>>>>>> theirs
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
@@ -31,8 +34,11 @@ pub enum Inject {
 pub struct Verdict {
     pub swallow: bool,
     pub inject: Vec<Inject>,
+<<<<<<< ours
     /// While a trackpad hold is active, plain moves should be retyped as
     /// drags of this button (macOS needs this; other platforms ignore it).
+=======
+>>>>>>> theirs
     pub drag: Option<u8>,
 }
 
@@ -99,9 +105,13 @@ pub struct Engine {
     mod_binds: Vec<ModBind>,
     mouse: HashMap<u8, Bind>,
     scroll: HashMap<bool, Bind>,
+<<<<<<< ours
     /// Keys/buttons whose down we swallowed: swallow their repeats and up too.
     swallowed: HashSet<Key>,
     /// Key -> (bind id, wants release) for presses a bind took.
+=======
+    swallowed: HashSet<Key>,
+>>>>>>> theirs
     pressed: HashMap<Key, (u32, bool)>,
     swallowed_buttons: HashSet<u8>,
 
@@ -110,9 +120,13 @@ pub struct Engine {
 
     socd: Option<SocdMode>,
     socd_pairs: Vec<(Key, Key)>,
+<<<<<<< ours
     /// Physically held but released on the OS side by us.
     socd_suppressed: HashSet<Key>,
     /// Physically held but never let through.
+=======
+    socd_suppressed: HashSet<Key>,
+>>>>>>> theirs
     socd_blocked: HashSet<Key>,
 
     trackpad_on: bool,
@@ -147,8 +161,11 @@ impl Engine {
         self.outbox.push(Event::Fire { id, edge, m });
     }
 
+<<<<<<< ours
     /// Replace binds and feature settings. Returns synthetic events needed to
     /// unwind state the new config no longer covers (e.g. an active hold).
+=======
+>>>>>>> theirs
     pub fn configure(&mut self, cfg: Config) -> Vec<Inject> {
         self.keys.clear();
         self.mod_binds.clear();
@@ -263,8 +280,11 @@ impl Engine {
         Ok(())
     }
 
+<<<<<<< ours
     /// Update runtime flags. Held-key tracking is deliberately kept across
     /// enable/disable so a key held through an app switch still counts.
+=======
+>>>>>>> theirs
     pub fn set_state(&mut self, enabled: bool, target: bool) -> Vec<Inject> {
         let mut out = Vec::new();
         if !enabled || !target {
@@ -292,8 +312,11 @@ impl Engine {
         out
     }
 
+<<<<<<< ours
     /// Forget SOCD bookkeeping, re-pressing keys we had released on the OS side
     /// that the user is still physically holding.
+=======
+>>>>>>> theirs
     fn reset_socd(&mut self) -> Vec<Inject> {
         let out = self
             .socd_suppressed
@@ -328,7 +351,10 @@ impl Engine {
     }
 
     fn on_key(&mut self, key: Key, down: bool, now: Instant) -> Verdict {
+<<<<<<< ours
         // Backends that can't flag autorepeat (Windows LL hooks) rely on this.
+=======
+>>>>>>> theirs
         let repeat = down && self.held.contains(&key);
         if down {
             self.held.insert(key);
@@ -361,7 +387,10 @@ impl Engine {
             return v;
         }
         if key.is_modifier() {
+<<<<<<< ours
             // Modifier changes always reach the OS (the Lua flagsChanged path did too).
+=======
+>>>>>>> theirs
             return v;
         }
         v.swallow = self.on_key_bind(key, down, repeat, mods);
@@ -398,7 +427,10 @@ impl Engine {
         }
     }
 
+<<<<<<< ours
     /// Returns true when the event belongs to the panic hotkey and is swallowed.
+=======
+>>>>>>> theirs
     fn on_panic(&mut self, key: Key, down: bool, repeat: bool, mods: u8, now: Instant) -> bool {
         let swallow = self.swallow_hotkeys;
         let Some(p) = &mut self.panic else { return false };
@@ -426,7 +458,10 @@ impl Engine {
         }
     }
 
+<<<<<<< ours
     /// Hold-a-key-to-hold-a-mouse-button. Returns true when it consumed the event.
+=======
+>>>>>>> theirs
     fn on_trackpad(&mut self, key: Key, down: bool, v: &mut Verdict) -> bool {
         if !self.trackpad_on {
             return false;
@@ -469,8 +504,11 @@ impl Engine {
         })
     }
 
+<<<<<<< ours
     /// Simultaneous-opposite-cardinal-direction cleaning. Returns true when it
     /// decided the event's fate (binds are skipped for it).
+=======
+>>>>>>> theirs
     fn on_socd(&mut self, key: Key, down: bool, repeat: bool, v: &mut Verdict) -> bool {
         let Some(mode) = self.socd else { return false };
         if !self.enabled {
@@ -524,14 +562,20 @@ impl Engine {
         } else {
             let opp_held = self.held.contains(&opp);
             if self.socd_blocked.remove(&key) || self.socd_suppressed.remove(&key) {
+<<<<<<< ours
                 // Never reached the OS as "down" (or already released there).
+=======
+>>>>>>> theirs
                 if mode == SocdMode::Neutral && opp_held && self.socd_suppressed.remove(&opp) {
                     v.inject.push(Inject::Key { key: opp, down: true });
                 }
                 v.swallow = true;
                 return true;
             }
+<<<<<<< ours
             // The live key was released: hand the axis back to the other one.
+=======
+>>>>>>> theirs
             if opp_held && (self.socd_suppressed.remove(&opp) || self.socd_blocked.remove(&opp)) {
                 v.inject.push(Inject::Key { key: opp, down: true });
             }
@@ -544,7 +588,10 @@ impl Engine {
             return self.swallowed.contains(&key);
         }
         if !down {
+<<<<<<< ours
             // Release belongs to whichever bind took the press, if any.
+=======
+>>>>>>> theirs
             if let Some((id, release)) = self.pressed.remove(&key) {
                 if release {
                     self.fire(id, "up");
@@ -572,7 +619,10 @@ impl Engine {
     fn on_button(&mut self, button: u8, down: bool) -> Verdict {
         let mut v = Verdict::default();
         if down == self.buttons.contains(&button) {
+<<<<<<< ours
             // Duplicate transition; nothing new to report.
+=======
+>>>>>>> theirs
         } else {
             if down {
                 self.buttons.insert(button);

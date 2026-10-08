@@ -1,8 +1,11 @@
+<<<<<<< ours
 //! OS input backends. Each provides:
 //!   NAME                 platform label reported in `ready`
 //!   run(shared)          install the hook and block on the OS event loop
 //!   inject(&[Inject])    post synthetic events tagged with SYNTHETIC_TAG
 
+=======
+>>>>>>> theirs
 #[cfg(target_os = "macos")]
 mod macos;
 #[cfg(target_os = "macos")]
