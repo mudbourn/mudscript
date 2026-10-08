@@ -508,6 +508,13 @@
                 pcall(function() _shellView:level(hs.canvas.windowLevels.popUpMenu or 101) end)
                 pcall(function() _shellView:allowTextEntry(true) end)
                 pcall(function() _shellView:shadow(true) end)
+                pcall(function()
+                    _shellView:windowCallback(function(action, _, hasFocus)
+                        if action == "focusChange" and ms._ownUiFocus then
+                            ms._ownUiFocus(hasFocus)
+                        end
+                    end)
+                end)
                 _shellView:alpha(0)
 
                 local htmlPath = hs.configdir .. "/ui/ms_shell.html"

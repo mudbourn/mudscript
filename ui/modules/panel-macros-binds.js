@@ -213,6 +213,7 @@
             }
 
             function setMacroList(ids) {
+                M.macroIds = ids.slice();
                 var opts = [];
                 for (var i = 0; i < ids.length; i++) {
                     opts.push({ value: ids[i], label: ids[i] });
@@ -288,7 +289,15 @@
                         nameInput.focus();
                         return;
                     }
-                    M.currentMacroId = name.replace(/[^a-zA-Z0-9_]/g, "_");
+                    var baseId = name.replace(/[^a-zA-Z0-9_]/g, "_");
+                    var taken = M.macroIds || [];
+                    var uniqueId = baseId;
+                    var n = 2;
+                    while (taken.indexOf(uniqueId) !== -1) {
+                        uniqueId = baseId + "_" + n;
+                        n++;
+                    }
+                    M.currentMacroId = uniqueId;
                 }
 
                 var name = nameInput.value.trim() || M.currentMacroId;

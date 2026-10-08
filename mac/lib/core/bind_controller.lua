@@ -82,9 +82,8 @@
                         ms.setMacros(1)
                     end
                 else
-                    local shellOpen = ms._shellState and ms._shellState.visible
-                    if (ms.ui._open or shellOpen) and appName == "Hammerspoon" then return end
-                    ms._inputOpen    = (appName == "Hammerspoon") and ms._targetActive
+                    if appName == "Hammerspoon" and ms._ownUiHeld then return end
+                    ms._inputOpen    = (appName == "Hammerspoon") and (ms._targetActive or ms._inputOpen)
                     ms._targetActive = false
                     ms.dev.log({
                         type = "system",
@@ -99,6 +98,25 @@
             end
         end):start()
         _G.__ms_appWatcher = ms._appWatcher
+
+        ms._ownUiFocus = function(hasFocus)
+            if hasFocus then
+                if ms._ownUiHeld then return end
+                ms._ownUiHeld = true
+                ms._inputOpen = ms._targetActive or ms._inputOpen
+                ms._targetActive = false
+                if BindValidity == 1 then ms.setMacros(0, true) end
+                return
+            end
+            if not ms._ownUiHeld then return end
+            ms._ownUiHeld = false
+            local front = hs.application.frontmostApplication()
+            if front and front:name() == ms._targetApp then
+                ms._inputOpen = false
+                ms._targetActive = true
+                if ms._loadComplete then ms.setMacros(1, true) end
+            end
+        end
 
         _G._initTimer = hs.timer.doAfter(0.3, function()
             local frontApp = hs.application.frontmostApplication()

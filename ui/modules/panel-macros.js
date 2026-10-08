@@ -1144,20 +1144,25 @@
     newBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
     newBtn.addEventListener("click", function() {
         if (window.playSlot) playSlot("interact");
-        M.currentMacroId = null;
+        if (M.macroDirty && M.currentMacroId) saveMacro();
+        var taken = M.macroIds || [];
+        var n = 1;
+        while (taken.indexOf("New_Macro_" + n) !== -1) n++;
+        M.currentMacroId = "New_Macro_" + n;
         M.currentMacroDef = null;
         M.canvas.load([]);
-        nameInput.value = "";
+        nameInput.value = "New Macro " + n;
         nameInput.focus();
+        nameInput.select();
         setMacroClass("main");
         M.currentMacroCooldown = null;
         cooldownInput.value = "";
         M.currentMacroShared = "";
         sharedInput.value = "";
-        M.macroDirty = false;
-        updateSaveBtnState();
         if (_history) _history.reset();
-        macroSelect.value = "";
+        M.macroIds = taken.concat([M.currentMacroId]);
+        M.macroDirty = true;
+        saveMacro();
     });
 
     saveBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
