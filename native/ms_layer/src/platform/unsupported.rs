@@ -1,9 +1,3 @@
-<<<<<<< ours
-//! Placeholder for platforms without a hook backend yet (Linux needs an
-//! evdev grab + uinput pair). The engine and protocol still build and test.
-
-=======
->>>>>>> theirs
 use std::sync::Arc;
 
 use crate::engine::Inject;

@@ -3,11 +3,32 @@ return function(ms)
 
     local _lWebView, _lFadingOut
     local _lMsgBuffer = {}
+    local _lPct = 0
+    local _lStagesFired = 0
+    local _lStages = {
+        {
+            pct = 20,
+            js = "shiftBrand()",
+        },
+        {
+            pct = 25,
+            js = "showDivider();showContent()",
+        },
+    }
 
     ms.loading = {}
 
     -- Update --
+        local function _applyStages()
+            if not _lWebView then return end
+            while _lStagesFired < #_lStages and _lPct >= _lStages[_lStagesFired + 1].pct do
+                _lStagesFired = _lStagesFired + 1
+                pcall(function() _lWebView:evaluateJavaScript(_lStages[_lStagesFired].js) end)
+            end
+        end
+
         ms.loading.update = function(pct, msg)
+            if pct > _lPct then _lPct = pct end
             if not _lWebView then
                 _lMsgBuffer[#_lMsgBuffer + 1] = {
                     pct = pct,
@@ -17,6 +38,7 @@ return function(ms)
             end
             local encoded = msg and ('"' .. msg:gsub('\\', '\\\\'):gsub('"', '\\"'):gsub('\n', '\\n') .. '"') or "null"
             _lWebView:evaluateJavaScript(string.format("setProgress(%d, %s)", pct, encoded))
+            if _G._bootChoreographyStarted then _applyStages() end
         end
     -- END Update --
 
@@ -113,10 +135,6 @@ return function(ms)
                 if _G._bootChoreographyStarted then return end
                 _G._bootChoreographyStarted = true
 
-                if type(ms._onBootAnchor) == "function" then
-                    pcall(ms._onBootAnchor)
-                end
-
                 _G._loadTimers = {}
 
                 pcall(function() ms.loadTheme() end)
@@ -150,14 +168,11 @@ return function(ms)
                 pcall(function() ms.sound(SoundDefaultsDir .. "d_Boot.wav") end)
 
                 js("showBrand()")
-                _G._loadTimers[2] = hs.timer.doAfter(0.2, function() js("showBrand()") end)
+                _applyStages()
 
-                _G._loadTimers[3] = hs.timer.doAfter(1.7, function() js("shiftBrand()") end)
-
-                _G._loadTimers[4] = hs.timer.doAfter(2.5, function()
-                    js("showDivider()")
-                    js("showContent()")
-                end)
+                if type(ms._onBootAnchor) == "function" then
+                    pcall(ms._onBootAnchor)
+                end
             end
 
             hs.timer.doAfter(0.9, function()
@@ -172,10 +187,19 @@ return function(ms)
         ms.loading.fadeOut = function(onDone)
             if not _lWebView or _lFadingOut then return end
             _lFadingOut = true
+            local fadeIn = _G._loadTimers and _G._loadTimers.fadeIn
+            if fadeIn then
+                fadeIn:stop()
+                _G._loadTimers.fadeIn = nil
+            end
+            local startAlpha = 1
+            local okAlpha, curAlpha = pcall(function() return _lWebView:alpha() end)
+            if okAlpha and type(curAlpha) == "number" then startAlpha = curAlpha end
+            _G._loadTimers = _G._loadTimers or {}
             local step, steps = 0, 25
             _G._loadTimers.fadeOut = hs.timer.doEvery((ms._theme.fadeMs or 250) / 1000 / steps, function()
                 step = step + 1
-                if _lWebView then _lWebView:alpha(1 - (step / steps)) end
+                if _lWebView then _lWebView:alpha(startAlpha * (1 - (step / steps))) end
                 if step >= steps then
                     if _G._loadTimers.fadeOut then
                         _G._loadTimers.fadeOut:stop()

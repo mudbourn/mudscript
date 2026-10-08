@@ -1,11 +1,3 @@
-<<<<<<< ours
-//! macOS backend: one CGEventTap for keys, mouse buttons, scroll and moves.
-//!
-//! Needs Accessibility (or Input Monitoring) permission for the binary. When
-//! macOS disables the tap for being slow, it is re-armed in the callback.
-
-=======
->>>>>>> theirs
 use std::ffi::c_void;
 use std::ptr;
 use std::sync::atomic::{AtomicPtr, Ordering};
@@ -68,10 +60,6 @@ extern "C" {
     fn CFRelease(cf: CFTypeRef);
 }
 
-<<<<<<< ours
-// CGEventType
-=======
->>>>>>> theirs
 const LEFT_DOWN: u32 = 1;
 const LEFT_UP: u32 = 2;
 const RIGHT_DOWN: u32 = 3;
@@ -89,10 +77,6 @@ const OTHER_DRAGGED: u32 = 27;
 const TAP_DISABLED_TIMEOUT: u32 = 0xFFFF_FFFE;
 const TAP_DISABLED_USER: u32 = 0xFFFF_FFFF;
 
-<<<<<<< ours
-// CGEventField
-=======
->>>>>>> theirs
 const F_MOUSE_BUTTON: u32 = 3;
 const F_KEYCODE: u32 = 9;
 const F_SCROLL_Y: u32 = 11;
@@ -107,10 +91,6 @@ static SHARED: OnceLock<Arc<Shared>> = OnceLock::new();
 static TAP: AtomicPtr<c_void> = AtomicPtr::new(ptr::null_mut());
 static KEYMAP: OnceLock<NativeMap> = OnceLock::new();
 
-<<<<<<< ours
-/// kVK_* virtual key codes -> mudscript key names.
-=======
->>>>>>> theirs
 #[rustfmt::skip]
 const KEYCODES: &[(u16, &str)] = &[
     (0, "a"), (1, "s"), (2, "d"), (3, "f"), (4, "h"), (5, "g"), (6, "z"), (7, "x"),
@@ -137,22 +117,6 @@ fn keymap() -> &'static NativeMap {
     KEYMAP.get_or_init(|| NativeMap::build(KEYCODES))
 }
 
-<<<<<<< ours
-/// Device-dependent flag bit for each modifier key, used to tell press from
-/// release on flagsChanged (the event itself doesn't say).
-fn modifier_flag(code: i64) -> Option<u64> {
-    Some(match code {
-        59 => 0x0000_0001, // left ctrl
-        56 => 0x0000_0002, // left shift
-        60 => 0x0000_0004, // right shift
-        55 => 0x0000_0008, // left cmd
-        54 => 0x0000_0010, // right cmd
-        58 => 0x0000_0020, // left alt
-        61 => 0x0000_0040, // right alt
-        62 => 0x0000_2000, // right ctrl
-        57 => 0x0001_0000, // caps lock
-        63 => 0x0080_0000, // fn
-=======
 fn modifier_flag(code: i64) -> Option<u64> {
     Some(match code {
         59 => 0x0000_0001,
@@ -165,7 +129,6 @@ fn modifier_flag(code: i64) -> Option<u64> {
         62 => 0x0000_2000,
         57 => 0x0001_0000,
         63 => 0x0080_0000,
->>>>>>> theirs
         _ => return None,
     })
 }
@@ -175,10 +138,6 @@ unsafe fn translate(etype: u32, ev: CGEventRef) -> Option<Input> {
         KEY_DOWN | KEY_UP => {
             let code = CGEventGetIntegerValueField(ev, F_KEYCODE);
             let key = keymap().key(code as u32)?;
-<<<<<<< ours
-            // Autorepeat needs no flag: the engine sees the key already held.
-=======
->>>>>>> theirs
             Input::Key {
                 key,
                 down: etype == KEY_DOWN,

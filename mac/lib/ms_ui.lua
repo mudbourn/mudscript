@@ -587,6 +587,7 @@ return function(ms)
     -- UI State Cache --
         local _uiStateDirty = true
         local _uiStateJSON  = nil
+        local _shellStale   = true
 
         local function _rebuildUICache()
             local ok, json = pcall(hs.json.encode, _buildUIState())
@@ -599,7 +600,12 @@ return function(ms)
             end
         end
 
-        ms.ui.markDirty = function() _uiStateDirty = true end
+        ms.ui.markDirty = function()
+            _uiStateDirty = true
+            _shellStale   = true
+        end
+
+        ms.ui.needsRefresh = function() return _shellStale end
 
         ms.ui.refresh = function()
             if _uiStateDirty or not _uiStateJSON then _rebuildUICache() end
@@ -609,6 +615,7 @@ return function(ms)
                 pcall(function()
                     ms.shell.eval("shellReceive('settings', 'state', " .. stateArg .. ")")
                 end)
+                _shellStale = false
             end
             pcall(function() ms.ui.pushBindList() end)
         end

@@ -1347,8 +1347,8 @@
                 if event:getKeyCode() ~= code then return false end
                 local isDown = event:getType() == hs.eventtap.event.types.keyDown
                 if not isDown then release() end
-                if BindValidity ~= 1 then return false end
                 ms.keytrack[code] = isDown
+                if BindValidity ~= 1 then return false end
                 if isDown and not active and ms._targetActive then
                     active = true
                     ms._runInCoroutine(function()

@@ -102,7 +102,7 @@
     "lua-inline-table": 1
   },
   "mac/ms_core.lua": {
-    "comment": 12,
+    "comment": 8,
     "marker-blank-before-end": 1,
     "marker-body-indent": 1
   },

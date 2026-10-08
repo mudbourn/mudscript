@@ -1,12 +1,3 @@
-<<<<<<< ours
-//! Platform-neutral key vocabulary.
-//!
-//! Names follow Hammerspoon's `hs.keycodes.map` so the Lua side can pass bind
-//! specs through unchanged. Each platform backend maps its native codes onto
-//! these names; the engine and the wire protocol only ever see `Key`.
-
-=======
->>>>>>> theirs
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Key(pub u16);
 
@@ -51,10 +42,6 @@ impl Key {
         NAMES.get(self.0 as usize).copied().unwrap_or("?")
     }
 
-<<<<<<< ours
-    /// Modifier bit this key contributes to the held-modifier mask.
-=======
->>>>>>> theirs
     pub fn modifier_bit(self) -> Option<u8> {
         match self.name() {
             "cmd" | "rightcmd" => Some(MOD_CMD),
@@ -82,10 +69,6 @@ pub fn mods_from_names<S: AsRef<str>>(names: &[S]) -> u8 {
     })
 }
 
-<<<<<<< ours
-/// Lookup table from a native code (< 256) to a Key, built once per backend.
-=======
->>>>>>> theirs
 #[cfg_attr(not(any(target_os = "macos", windows)), allow(dead_code))]
 pub struct NativeMap([Option<Key>; 256]);
 

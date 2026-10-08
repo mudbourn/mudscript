@@ -31,9 +31,10 @@
             if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
             local shellVisible = ms._shellState and ms._shellState.visible
             if shellVisible or (ms.ui and ms.ui._open) then
-                if ms.ui and ms.ui.refresh then ms.ui.refresh() end
-            elseif ms.ui then
-                ms.ui._stale = true
+                if ms.shell and ms.shell.eval then
+                    pcall(ms.shell.eval, "window.updateMacrosToggleBtn&&updateMacrosToggleBtn("
+                        .. tostring(BindValidity == 1) .. ")")
+                end
             end
         end
 

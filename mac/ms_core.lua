@@ -495,6 +495,7 @@
                     ms.ui.toggle      = function() end
                     ms.ui.refresh     = function() end
                     ms.ui.markDirty   = function() end
+                    ms.ui.needsRefresh = function() return false end
                     ms.ui.prebuild    = function() end
                     ms.ui.prewarm     = function() end
                     ms.ui.modal       = function(_, cb) if cb then pcall(cb, { confirmed = false }) end end
@@ -631,6 +632,8 @@
                 end
             end
 
+            ms._waitWarned = {}
+
             ms.wait = function(ms_time)
                 local co, isMain = coroutine.running()
                 if co and not isMain then
@@ -652,11 +655,13 @@
                     end)
                     if ms._branchTrace then ms.devtools:flushTraceBuffer(co) end
                     coroutine.yield()
-                elseif not ms._waitOffCoroutineWarned then
-                    ms._waitOffCoroutineWarned = true
-                    print("ms.wait called outside a coroutine, skipping (chain: "
-                        .. tostring(ms._getCallChain and ms._getCallChain() or "unknown")
-                        .. ")\n" .. debug.traceback("", 2))
+                else
+                    local chain = tostring(ms._getCallChain and ms._getCallChain() or "unknown")
+                    if not ms._waitWarned[chain] then
+                        ms._waitWarned[chain] = true
+                        print("ms.wait called outside a coroutine in macro " .. chain
+                            .. ", skipping\n" .. debug.traceback("", 2))
+                    end
                 end
             end
         -- END 5. Timing --
@@ -1007,6 +1012,7 @@
                     end)
                     ms.loading.applyTheme()
                     ms._loadComplete = true
+                    loadfinish = 1
                     pcall(function() ms.prewarmExitCurtain() end)
                     ms.dev.log({
                         type = "system",
@@ -1126,92 +1132,84 @@
 
             _G._timers = {}
 
-            -- Boot sequence anchored to the loading choreography start, with a safety cap
-            local BOOT_ANCHOR_LEAD = 2.9
-            local BOOT_ANCHOR_CAP  = 5.0
-            local _initSeqArmed    = false
+            local BOOT_ANCHOR_CAP = 5.0
+            local _initSeqArmed   = false
 
             local function _runInitSequence()
-            ms.loading.update(20, "Initializing...")
-            local t1 = 0.3
-            local t2 = 0.5
-            local t3 = 0.8
-            local t4 = 1.3
-            local t5 = 2.0
-            local t6 = 2.6
-            local t7 = 3.2
-            local t8 = 3.8
-            _G._timers[1] = hs.timer.doAfter(0, function()
-                print("[startup] t=0: prebuild")
-                pcall(function() ms.ui.prebuild() end)
-                pcall(function() ms.ui._precacheHTML() end)
-                ms.loading.update(25, "Building UI state cache...")
-            end)
-            _G._timers[2] = hs.timer.doAfter(t1, function()
-                print("[startup] t=" .. t1 .. ": prep settings")
-                ms.loading.update(32, "Preparing settings panel...")
-            end)
-            _G._timers[3] = hs.timer.doAfter(t2, function()
-                print("[startup] t=" .. t2 .. ": prewarm")
-                pcall(function() ms.ui.prewarm() end)
-                ms.loading.update(40, "Loading settings panel...")
-            end)
-            _G._timers[4] = hs.timer.doAfter(t3, function()
-                print("[startup] t=" .. t3 .. ": theme")
-                ms.loading.update(48, "Applying theme...")
-                if ms.loading.isVisible() then
-                    local themeJson = hs.json.encode(ms._theme or {})
-                    pcall(function() ms.loading.eval("applyTheme(" .. themeJson .. ")") end)
-                    local ver = ms._bootVersionLabel and ms._bootVersionLabel()
-                    if ver then
-                        pcall(function() ms.loading.eval("setVersion('" .. ver:gsub("'", "\\'") .. "')") end)
+            local steps = {
+                function()
+                    ms.loading.update(20, "Initializing...")
+                end,
+                function()
+                    print("[startup] prebuild")
+                    pcall(function() ms.ui.prebuild() end)
+                    pcall(function() ms.ui._precacheHTML() end)
+                    ms.loading.update(25, "Building UI state cache...")
+                end,
+                function()
+                    print("[startup] prep settings")
+                    ms.loading.update(32, "Preparing settings panel...")
+                end,
+                function()
+                    print("[startup] prewarm")
+                    pcall(function() ms.ui.prewarm() end)
+                    ms.loading.update(40, "Loading settings panel...")
+                end,
+                function()
+                    print("[startup] theme")
+                    ms.loading.update(48, "Applying theme...")
+                    if ms.loading.isVisible() then
+                        local themeJson = hs.json.encode(ms._theme or {})
+                        pcall(function() ms.loading.eval("applyTheme(" .. themeJson .. ")") end)
+                        local ver = ms._bootVersionLabel and ms._bootVersionLabel()
+                        if ver then
+                            pcall(function() ms.loading.eval("setVersion('" .. ver:gsub("'", "\\'") .. "')") end)
+                        end
+                        pcall(function() ms.loading.eval("showProfile()") end)
+                        pcall(function() ms.loading.eval("showCreator()") end)
+                        pcall(function() ms.loading.eval("showVersion()") end)
                     end
-                    pcall(function() ms.loading.eval("showProfile()") end)
-                    pcall(function() ms.loading.eval("showCreator()") end)
-                    pcall(function() ms.loading.eval("showVersion()") end)
-                end
-                pcall(function() ms.playSlot("themeLoaded") end)
-            end)
-            _G._timers[5] = hs.timer.doAfter(t4, function()
-                print("[startup] t=" .. t4 .. ": integrity seed")
-                ms.loading.update(55, "Seeding integrity hash...")
-            end)
-            _G._timers[6] = hs.timer.doAfter(t5, function()
-                print("[startup] t=" .. t5 .. ": console")
-                ms.loading.update(62, "Loading console...")
-                _G._timers[60] = hs.timer.doAfter(0, function()
+                    pcall(function() ms.playSlot("themeLoaded") end)
+                end,
+                function()
+                    print("[startup] integrity seed")
+                    ms.loading.update(55, "Seeding integrity hash...")
+                end,
+                function()
+                    print("[startup] console")
+                    ms.loading.update(62, "Loading console...")
                     pcall(function() ms.dev.prewarmStep("console") end)
-                end)
-            end)
-            _G._timers[7] = hs.timer.doAfter(t6, function()
-                print("[startup] t=" .. t6 .. ": watcher")
-                ms.loading.update(72, "Loading macro monitor...")
-                _G._timers[70] = hs.timer.doAfter(0, function()
+                end,
+                function()
+                    print("[startup] watcher")
+                    ms.loading.update(72, "Loading macro monitor...")
                     pcall(function() ms.dev.prewarmStep("watcher") end)
-                end)
-            end)
-            _G._timers[8] = hs.timer.doAfter(t7, function()
-                print("[startup] t=" .. t7 .. ": keys")
-                ms.loading.update(82, "Loading input monitor...")
-                _G._timers[80] = hs.timer.doAfter(0, function()
+                end,
+                function()
+                    print("[startup] keys")
+                    ms.loading.update(82, "Loading input monitor...")
                     pcall(function() ms.dev.prewarmStep("keys") end)
-                end)
-            end)
-            _G._timers[9] = hs.timer.doAfter(t8, function()
-                print("[startup] t=" .. t8 .. ": window")
-                ms.loading.update(90, "Loading window monitor...")
-                _G._timers[90] = hs.timer.doAfter(0, function()
+                end,
+                function()
+                    print("[startup] window")
+                    ms.loading.update(90, "Loading window monitor...")
                     pcall(function() ms.dev.prewarmStep("window") end)
                     print("[startup] prewarm complete")
                     if not ms.loading.isFadingOut() then
                         ms.loading.update(100, "Ready.")
-                        _G._timers[12] = hs.timer.doAfter(0.4, function()
-                            print("[startup] fade out")
-                            pcall(function() ms.loading.fadeOut(_announceLoad) end)
-                        end)
+                        print("[startup] fade out")
+                        pcall(function() ms.loading.fadeOut(_announceLoad) end)
                     end
-                end)
-            end)
+                end,
+            }
+            local function runStep(i)
+                local ok, err = pcall(steps[i])
+                if not ok then print("[startup] step " .. i .. " failed: " .. tostring(err)) end
+                if steps[i + 1] then
+                    _G._timers.initStep = hs.timer.doAfter(0, function() runStep(i + 1) end)
+                end
+            end
+            runStep(1)
             _G._timers.guard = hs.timer.doAfter(8, function()
                 print("[startup] t=8: GUARD fired")
                 pcall(function()
@@ -1244,15 +1242,8 @@
             end)
 
 
-            if ms._targetHandle then pcall(function() ms._targetHandle:activate() end) end
-
             notice = 0
             loadfinish = 0
-
-            _G._loadfinishTimer = hs.timer.doAfter(3000 / 1000, function()
-                _G._loadfinishTimer = nil
-                loadfinish = 1
-            end)
 
             _G._integrityPollTimer = hs.timer.doEvery(180, function()
                 if loadfinish ~= 1 then return end
@@ -1261,8 +1252,9 @@
             end)
 
             if notice ~= 1 then
-                _G._announceTimer = hs.timer.doAfter(7.0, function()
+                _G._announceTimer = hs.timer.doAfter(8.5, function()
                     _G._announceTimer = nil
+                    if _loadAnnounced then return end
                     pcall(function() _announceLoad() end)
                     _G._announceGuardTimer = hs.timer.doAfter(1, function()
                         _G._announceGuardTimer = nil
@@ -1270,6 +1262,7 @@
                         ms._hotkeysReady = true
                         if not ms._loadComplete then
                             ms._loadComplete = true
+                            loadfinish = 1
                             if ms._targetActive then pcall(function() ms.setMacros(1, true) end) end
                         end
                     end)
@@ -1278,16 +1271,13 @@
             end
             end
 
-            -- Arm the sequence once, on the first anchor to fire
             local function _armInitSequence()
                 if _initSeqArmed then return end
                 _initSeqArmed = true
-                _G._timers.animGate = hs.timer.doAfter(BOOT_ANCHOR_LEAD, _runInitSequence)
+                _runInitSequence()
             end
             ms._onBootAnchor = _armInitSequence
-            -- If the choreography already started (fast re-entry), arm immediately.
             if _G._bootChoreographyStarted then _armInitSequence() end
-            -- Safety net: a webview that never handshakes must not strand the boot.
             _G._timers.animGateCap = hs.timer.doAfter(BOOT_ANCHOR_CAP, _armInitSequence)
 
             local _migration = ms._profileMigration

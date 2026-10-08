@@ -1,11 +1,3 @@
-<<<<<<< ours
-//! Windows backend: WH_KEYBOARD_LL + WH_MOUSE_LL on a message-loop thread.
-//!
-//! Low-level hooks don't flag autorepeat; the engine infers it from its held
-//! set. Our own SendInput events carry SYNTHETIC_TAG in dwExtraInfo.
-
-=======
->>>>>>> theirs
 use std::mem::size_of;
 use std::ptr;
 use std::sync::atomic::{AtomicPtr, Ordering};
@@ -36,10 +28,6 @@ static KEYMAP: OnceLock<NativeMap> = OnceLock::new();
 static KB_HOOK: AtomicPtr<core::ffi::c_void> = AtomicPtr::new(ptr::null_mut());
 static MOUSE_HOOK: AtomicPtr<core::ffi::c_void> = AtomicPtr::new(ptr::null_mut());
 
-<<<<<<< ours
-/// Virtual-key codes -> mudscript key names. "cmd" is the Windows key.
-=======
->>>>>>> theirs
 #[rustfmt::skip]
 const KEYCODES: &[(u16, &str)] = &[
     (0x41, "a"), (0x42, "b"), (0x43, "c"), (0x44, "d"), (0x45, "e"), (0x46, "f"),
@@ -115,10 +103,6 @@ unsafe extern "system" fn mouse_proc(code: i32, wparam: WPARAM, lparam: LPARAM) 
         return CallNextHookEx(hook, code, wparam, lparam);
     }
     let hi = (info.mouseData >> 16) as u16;
-<<<<<<< ours
-    // Button numbering follows macOS: 0 left, 1 right, 2 middle, 3 back, 4 forward.
-=======
->>>>>>> theirs
     let input = match wparam as u32 {
         WM_LBUTTONDOWN => Some(Input::Button {
             button: 0,
@@ -153,10 +137,6 @@ unsafe extern "system" fn mouse_proc(code: i32, wparam: WPARAM, lparam: LPARAM) 
             down: false,
         }),
         WM_MOUSEWHEEL if hi as i16 != 0 => Some(Input::Scroll { up: (hi as i16) > 0 }),
-<<<<<<< ours
-        // Moves with a button held are already drags on Windows; skip them.
-=======
->>>>>>> theirs
         WM_MOUSEMOVE => None,
         _ => None,
     };
