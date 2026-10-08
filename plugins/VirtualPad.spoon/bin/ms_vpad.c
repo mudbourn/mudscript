@@ -966,6 +966,8 @@
 
         SDL_SetHint("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", "1");
 
+        SDL_SetHint("SDL_JOYSTICK_RAWINPUT", "0");
+
         if (SDL_Init(SDL_INIT_GAMECONTROLLER) != 0) {
             emitRaw("{\"e\":\"error\",\"m\":\"SDL init failed\"}");
             return 4;
