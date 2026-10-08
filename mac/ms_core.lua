@@ -1206,7 +1206,7 @@
                 end,
             }
             local PACED_FROM = 5
-            local STEP_DELAY = 0.25
+            local STEP_DELAY = 0.35
             local function runStep(i)
                 local ok, err = pcall(steps[i])
                 if not ok then print("[startup] step " .. i .. " failed: " .. tostring(err)) end

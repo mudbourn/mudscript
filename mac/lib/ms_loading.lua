@@ -7,7 +7,7 @@ return function(ms)
     local _lContentQueue = {}
     local _lHoldUntil = 0
     local _lFadePending = false
-    local CONTENT_HOLD = 1.2
+    local CONTENT_HOLD = 1.5
 
     ms.loading = {}
 
@@ -171,8 +171,8 @@ return function(ms)
                 if okBoot then ms.loading.holdForSound(bootSnd) end
 
                 js("showBrand()")
-                _G._loadTimers.shift = hs.timer.doAfter(1.7, function() js("shiftBrand()") end)
-                _G._loadTimers.content = hs.timer.doAfter(2.5, function()
+                _G._loadTimers.shift = hs.timer.doAfter(2.0, function() js("shiftBrand()") end)
+                _G._loadTimers.content = hs.timer.doAfter(2.9, function()
                     js("showDivider()")
                     js("showContent()")
                     _lContentShown = true
