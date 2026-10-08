@@ -30,6 +30,8 @@ return function(ms)
         }
 
         local STUB_MACROS = "-- New profile. Add your macros below.\n"
+
+        local TEMPLATE_MACROS = hsDir .. "/templates/ms_macros.lua"
     -- END Paths --
 
     -- Helpers --
@@ -351,7 +353,8 @@ return function(ms)
                 mkdirp(dst .. "/" .. rel)
             end
             if not macroBody then
-                if not writeBin(dst .. "/ms_macros.lua", STUB_MACROS) then
+                macroBody = readBin(TEMPLATE_MACROS)
+                if not writeBin(dst .. "/ms_macros.lua", macroBody or STUB_MACROS) then
                     return false, "cannot write stub macros"
                 end
             end
@@ -572,7 +575,14 @@ return function(ms)
             return bk
         end
 
+        local function dropTemplateCopy()
+            local root = readBin(hsDir .. "/ms_macros.lua")
+            local template = readBin(TEMPLATE_MACROS)
+            if root and template and root == template then os.remove(hsDir .. "/ms_macros.lua") end
+        end
+
         local function leftovers()
+            dropTemplateCopy()
             if isFile(hsDir .. "/ms_macros.lua") then return true end
             for _, rel in ipairs(ROOT_FILES) do
                 if isFile(hsDir .. "/" .. rel) then return true end

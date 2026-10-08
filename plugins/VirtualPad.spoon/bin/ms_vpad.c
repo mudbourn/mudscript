@@ -353,6 +353,14 @@
         runHidHide(args);
     }
 
+    static int isHidden(const char *id) {
+        for (int i = 0; i < nHidden; i++) {
+            if (strcmp(hidden[i], id) == 0) return 1;
+        }
+
+        return 0;
+    }
+
     static void hidePad(unsigned short vid, unsigned short pid) {
         char key[32];
         char id[256];
@@ -376,6 +384,8 @@
             if (!strstr(id, key)) continue;
 
             if (strncmp(id, "HID\\", 4) != 0 && strncmp(id, "USB\\", 4) != 0) continue;
+
+            if (isHidden(id)) continue;
 
             strcpy(hidden[nHidden++], id);
 
@@ -893,8 +903,6 @@
         pad.gc = NULL;
 
         unplugVirtual();
-
-        unhidePads();
 
         EnterCriticalSection(&cmdLock);
 
