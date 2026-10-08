@@ -976,8 +976,11 @@
                     _G._loadTimers.announce6 = hs.timer.doAfter(_TOAST_LEAD + 6, function()
                         if ms.macroMeta then
                             local msg = "\"" .. (ms.macroMeta.name or "Unknown Macro Pack") .. "\"\n"
-                            if ms.macroMeta.author  then msg = msg .. "By: " .. ms.macroMeta.author end
-                            if ms.macroMeta.website then msg = msg .. " - " .. ms.macroMeta.website end
+                            local author  = ms.macroMeta.author  ~= "" and ms.macroMeta.author  or nil
+                            local website = ms.macroMeta.website ~= "" and ms.macroMeta.website or nil
+                            if author then msg = msg .. "By: " .. author end
+                            if author and website then msg = msg .. " - " end
+                            if website then msg = msg .. website end
                             ms.alert(msg, _TOAST_HOLD, true, { priority = "low" })
                         end
                     end)

@@ -1119,11 +1119,14 @@ return function(ms, ctx)
                         title = "About",
                         fn = function()
                         ms.playSlot("interact")
-                        ms.alert("mudscript HS utilities\nBy: mudbourn, https://mudbourn.info", 6)
+                        ms.alert("mudscript HS utilities\nBy: mudbourn - https://mudbourn.info", 6)
                         if ms.macroMeta then
                             local msg = "\"" .. (ms.macroMeta.name or "Unknown Macro Pack") .. "\"\n"
-                            if ms.macroMeta.author then msg = msg .. "By: " .. ms.macroMeta.author end
-                            if ms.macroMeta.website then msg = msg .. ", " .. ms.macroMeta.website end
+                            local author  = ms.macroMeta.author  ~= "" and ms.macroMeta.author  or nil
+                            local website = ms.macroMeta.website ~= "" and ms.macroMeta.website or nil
+                            if author then msg = msg .. "By: " .. author end
+                            if author and website then msg = msg .. " - " end
+                            if website then msg = msg .. website end
                             ms.alert(msg, 10)
                         end
                     end },
