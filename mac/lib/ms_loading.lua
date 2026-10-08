@@ -5,6 +5,10 @@ return function(ms)
     local _lMsgBuffer = {}
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
     local _lContentShown = false
@@ -13,7 +17,10 @@ return function(ms)
     local _lFadePending = false
     local CONTENT_HOLD = 1.2
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
     local _lPct = 0
     local _lStagesFired = 0
     local _lStages = {
@@ -26,6 +33,11 @@ return function(ms)
             js = "showDivider();showContent()",
         },
     }
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -194,6 +206,10 @@ return function(ms)
                 js("showBrand()")
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
                 _G._loadTimers.shift = hs.timer.doAfter(1.7, function() js("shiftBrand()") end)
@@ -207,6 +223,12 @@ return function(ms)
                     for _, cb in ipairs(queue) do pcall(cb) end
                 end)
 <<<<<<< ours
+<<<<<<< ours
+=======
+                _applyStages()
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 =======
                 _applyStages()
 >>>>>>> theirs

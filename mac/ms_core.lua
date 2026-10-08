@@ -1160,6 +1160,10 @@
                     ms.loading.update(48, "Applying theme...")
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
                     ms.loading.onContent(function()
@@ -1174,11 +1178,14 @@
                             pcall(function() ms.loading.eval("showCreator()") end)
                             pcall(function() ms.loading.eval("showVersion()") end)
 <<<<<<< ours
+<<<<<<< ours
                         end
                         local okSnd, themeSnd = pcall(function() return ms.playSlot("themeLoaded") end)
                         if okSnd then ms.loading.holdForSound(themeSnd) end
                     end)
 =======
+=======
+>>>>>>> theirs
                     if ms.loading.isVisible() then
                         local themeJson = hs.json.encode(ms._theme or {})
                         pcall(function() ms.loading.eval("applyTheme(" .. themeJson .. ")") end)
@@ -1191,6 +1198,15 @@
                         pcall(function() ms.loading.eval("showVersion()") end)
                     end
                     pcall(function() ms.playSlot("themeLoaded") end)
+<<<<<<< ours
+>>>>>>> theirs
+=======
+                        end
+                        local okSnd, themeSnd = pcall(function() return ms.playSlot("themeLoaded") end)
+                        if okSnd then ms.loading.holdForSound(themeSnd) end
+                    end)
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
                         end
@@ -1230,6 +1246,8 @@
                     end
                 end,
             }
+<<<<<<< ours
+<<<<<<< ours
             local PACED_FROM = 5
             local STEP_DELAY = 0.25
             local function runStep(i)
@@ -1243,6 +1261,26 @@
                 ms.loading.onContent(function()
                     _G._timers.initStep = hs.timer.doAfter(STEP_DELAY, function() runStep(i + 1) end)
                 end)
+=======
+=======
+            local PACED_FROM = 5
+            local STEP_DELAY = 0.25
+>>>>>>> theirs
+            local function runStep(i)
+                local ok, err = pcall(steps[i])
+                if not ok then print("[startup] step " .. i .. " failed: " .. tostring(err)) end
+                if not steps[i + 1] then return end
+                if i < PACED_FROM then
+                    _G._timers.initStep = hs.timer.doAfter(0, function() runStep(i + 1) end)
+                    return
+                end
+<<<<<<< ours
+>>>>>>> theirs
+=======
+                ms.loading.onContent(function()
+                    _G._timers.initStep = hs.timer.doAfter(STEP_DELAY, function() runStep(i + 1) end)
+                end)
+>>>>>>> theirs
             end
             runStep(1)
             _G._timers.guard = hs.timer.doAfter(8, function()

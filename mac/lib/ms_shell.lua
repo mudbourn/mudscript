@@ -674,11 +674,17 @@
                 if ms.bus then ms.bus.emit("macroLab:toggled", { visible = true }) end
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
                 if _shellReady and ms.ui and ms.ui.needsRefresh and ms.ui.needsRefresh() then
                     pcall(ms.ui.refresh)
                 end
 
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
