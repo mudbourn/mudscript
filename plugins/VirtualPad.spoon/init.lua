@@ -46,6 +46,11 @@ obj.license = "MIT"
         return os.getenv("HOME") .. "/.hammerspoon/Spoons/VirtualPad.spoon"
     end
 
+    local function sipOff()
+        local out = hs.execute("/usr/bin/csrutil status 2>/dev/null") or ""
+        return out:find("disabled", 1, true) ~= nil
+    end
+
     local function amfiOff()
         local out = hs.execute("/usr/sbin/nvram boot-args 2>/dev/null") or ""
         return out:find("amfi_get_out_of_my_way=0x1", 1, true) ~= nil
@@ -93,6 +98,8 @@ function obj:init()
         axes      = {},
         stopped   = false,
         virtual   = false,
+        blocked   = nil,
+        warned    = false,
         outBuf    = "",
     }
 
@@ -114,6 +121,18 @@ function obj:init()
 
         local function setExternal(on)
             if ms.gamepadSetExternal then ms.gamepadSetExternal(on) end
+        end
+
+        local function warnBlocked()
+            if not state.blocked or state.warned then return end
+            state.warned = true
+            ms.alert("Virtual Pad: " .. state.blocked, 6)
+        end
+
+        local function usable()
+            if ms.vpad.available() then return true end
+            warnBlocked()
+            return false
         end
 
         local function owner()
@@ -336,8 +355,14 @@ function obj:init()
                 install(function(ok) if ok then launch() end end)
                 return
             end
-            if not amfiOff() then
-                state.lastError = "AMFI is on (needs SIP off and amfi_get_out_of_my_way=0x1)"
+            if not sipOff() then
+                state.blocked = "SIP is on. Boot into Recovery and run csrutil disable to use the virtual pad"
+            elseif not amfiOff() then
+                state.blocked = "AMFI is on. Set boot-args amfi_get_out_of_my_way=0x1 to use the virtual pad"
+            end
+            if state.blocked then
+                state.lastError = state.blocked
+                warnBlocked()
                 return
             end
             compile(function(ok) if ok then launch() end end)
@@ -376,7 +401,7 @@ function obj:init()
 
         ms.vpad.press = function(name)
             local b = normButton(name)
-            if not b or not ms.vpad.available() then return false end
+            if not b or not usable() then return false end
             state.held[b] = owner()
             send("btn " .. b .. " 1")
             return true
@@ -398,7 +423,7 @@ function obj:init()
         end
 
         ms.vpad.stick = function(side, x, y)
-            if not ms.vpad.available() then return false end
+            if not usable() then return false end
             local p = tostring(side or ""):lower():match("^r") and "r" or "l"
             if x == nil then
                 state.axes[p .. "x"] = nil
@@ -417,7 +442,7 @@ function obj:init()
         ms.vpad.trigger = function(name, value)
             local t = normButton(name)
             if t ~= "l2" and t ~= "r2" then return false end
-            if not ms.vpad.available() then return false end
+            if not usable() then return false end
             if value == nil then
                 state.axes[t] = nil
                 send("axis " .. t .. " off")
