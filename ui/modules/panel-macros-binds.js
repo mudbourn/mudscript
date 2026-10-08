@@ -212,12 +212,16 @@
                 if (window.msBindMenu) window.msBindMenu.refresh(M.bindList);
             }
 
-            function setMacroList(ids) {
-                M.macroIds = ids.slice();
+            function setMacroList(list) {
+                var ids = [];
                 var opts = [];
-                for (var i = 0; i < ids.length; i++) {
-                    opts.push({ value: ids[i], label: ids[i] });
+                for (var i = 0; i < list.length; i++) {
+                    var e = list[i];
+                    var id = (e && typeof e === "object") ? e.id : e;
+                    ids.push(id);
+                    opts.push({ value: id, label: (e && e.name) || id });
                 }
+                M.macroIds = ids;
                 macroSelect.setOptions(opts);
 
                 if (M.currentMacroId) {

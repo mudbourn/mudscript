@@ -1138,26 +1138,8 @@
             local function _runInitSequence()
             local steps = {
                 function()
-                    ms.loading.update(20, "Initializing...")
-                end,
-                function()
-                    print("[startup] prebuild")
-                    pcall(function() ms.ui.prebuild() end)
-                    pcall(function() ms.ui._precacheHTML() end)
-                    ms.loading.update(25, "Building UI state cache...")
-                end,
-                function()
-                    print("[startup] prep settings")
-                    ms.loading.update(32, "Preparing settings panel...")
-                end,
-                function()
-                    print("[startup] prewarm")
-                    pcall(function() ms.ui.prewarm() end)
-                    ms.loading.update(40, "Loading settings panel...")
-                end,
-                function()
                     print("[startup] theme")
-                    ms.loading.update(48, "Applying theme...")
+                    ms.loading.update(20, "Applying theme...")
                     ms.loading.onContent(function()
                         if ms.loading.isVisible() then
                             local themeJson = hs.json.encode(ms._theme or {})
@@ -1173,6 +1155,24 @@
                         local okSnd, themeSnd = pcall(function() return ms.playSlot("themeLoaded") end)
                         if okSnd then ms.loading.holdForSound(themeSnd) end
                     end)
+                end,
+                function()
+                    ms.loading.update(25, "Initializing...")
+                end,
+                function()
+                    print("[startup] prebuild")
+                    pcall(function() ms.ui.prebuild() end)
+                    pcall(function() ms.ui._precacheHTML() end)
+                    ms.loading.update(32, "Building UI state cache...")
+                end,
+                function()
+                    print("[startup] prep settings")
+                    ms.loading.update(40, "Preparing settings panel...")
+                end,
+                function()
+                    print("[startup] prewarm")
+                    pcall(function() ms.ui.prewarm() end)
+                    ms.loading.update(48, "Loading settings panel...")
                 end,
                 function()
                     print("[startup] integrity seed")
@@ -1206,11 +1206,21 @@
                 end,
             }
             local PACED_FROM = 5
-            local STEP_DELAY = 0.25
+            local STEP_DELAY = 0.35
+            local THEME_GAP = 0.8
             local function runStep(i)
                 local ok, err = pcall(steps[i])
                 if not ok then print("[startup] step " .. i .. " failed: " .. tostring(err)) end
                 if not steps[i + 1] then return end
+                if i == 1 then
+                    ms.loading.onContent(function()
+                        _G._timers.initStep = hs.timer.doAfter(THEME_GAP, function()
+                            ms.loading.eval("wakeProgress()")
+                            runStep(2)
+                        end)
+                    end)
+                    return
+                end
                 if i < PACED_FROM then
                     _G._timers.initStep = hs.timer.doAfter(0, function() runStep(i + 1) end)
                     return
