@@ -1138,26 +1138,8 @@
             local function _runInitSequence()
             local steps = {
                 function()
-                    ms.loading.update(20, "Initializing...")
-                end,
-                function()
-                    print("[startup] prebuild")
-                    pcall(function() ms.ui.prebuild() end)
-                    pcall(function() ms.ui._precacheHTML() end)
-                    ms.loading.update(25, "Building UI state cache...")
-                end,
-                function()
-                    print("[startup] prep settings")
-                    ms.loading.update(32, "Preparing settings panel...")
-                end,
-                function()
-                    print("[startup] prewarm")
-                    pcall(function() ms.ui.prewarm() end)
-                    ms.loading.update(40, "Loading settings panel...")
-                end,
-                function()
                     print("[startup] theme")
-                    ms.loading.update(48, "Applying theme...")
+                    ms.loading.update(20, "Applying theme...")
                     ms.loading.onContent(function()
                         if ms.loading.isVisible() then
                             local themeJson = hs.json.encode(ms._theme or {})
@@ -1173,6 +1155,24 @@
                         local okSnd, themeSnd = pcall(function() return ms.playSlot("themeLoaded") end)
                         if okSnd then ms.loading.holdForSound(themeSnd) end
                     end)
+                end,
+                function()
+                    ms.loading.update(25, "Initializing...")
+                end,
+                function()
+                    print("[startup] prebuild")
+                    pcall(function() ms.ui.prebuild() end)
+                    pcall(function() ms.ui._precacheHTML() end)
+                    ms.loading.update(32, "Building UI state cache...")
+                end,
+                function()
+                    print("[startup] prep settings")
+                    ms.loading.update(40, "Preparing settings panel...")
+                end,
+                function()
+                    print("[startup] prewarm")
+                    pcall(function() ms.ui.prewarm() end)
+                    ms.loading.update(48, "Loading settings panel...")
                 end,
                 function()
                     print("[startup] integrity seed")
