@@ -1136,6 +1136,7 @@
             local _initSeqArmed   = false
 
             local function _runInitSequence()
+            local DONE_GAP = 0.8
             local steps = {
                 function()
                     print("[startup] theme")
@@ -1199,9 +1200,11 @@
                     pcall(function() ms.dev.prewarmStep("window") end)
                     print("[startup] prewarm complete")
                     if not ms.loading.isFadingOut() then
-                        ms.loading.update(100, "Ready.")
-                        print("[startup] fade out")
-                        pcall(function() ms.loading.fadeOut(_announceLoad) end)
+                        ms.loading.update(100, "Done.")
+                        _G._timers.doneGap = hs.timer.doAfter(DONE_GAP, function()
+                            print("[startup] fade out")
+                            pcall(function() ms.loading.fadeOut(_announceLoad) end)
+                        end)
                     end
                 end,
             }
