@@ -1,6 +1,6 @@
 {
   "formatVersion": 1,
-  "generated": "2026-10-08T07:05:38Z",
+  "generated": "2026-10-08T07:12:43Z",
   "entries": [
     {
       "id": "plugin-roblox",
@@ -73,5 +73,5 @@
       "trust": "trusted"
     }
   ],
-  "signature": "MeZxVl31EwpRxIBw0tE/ZOq5dz+VckwmaOmGZLo49xcLU+/NkaPcy85Iykknyr56seKjTnD5qeH9R37+ccQgpPtpgXAbBxYEAy2d5mbTSX66jD2wvHk3asvnwTLp7R1wNBXazChgWg3mQcNLBnu66ycLj33X8fPNf8Tn76umydZpvxehnWIsRPkEhl27+XiIdYs8A5u8GqfRvvetXzAGpoPrNyykkQZ3B/cFumpsJ/CqPZi+XLsc03BceSdW1TV4MGCWwd3a4Y9Nn2EfcpMPZRx5Q2Gk9hxLmU49Fa2ev4zAFGCyD17nqTFiIQUTviecwRo6P0ICSQN1Y2PhU7H1fw=="
+  "signature": "3JbXiAFoKz3QA0MPT0m44jr5G/ZZPKOpr//ChUPNkFMA6MfFlhbyuQUBjOKSOa45gvr11DduvY5XCKIGCnhpRuExkjxToKzp9urGYOtcvLbYnezPhhs3KecXJlljrRtSwu1uBgAvGkh0wmJrb/AFjdQBThPQB73tAlpiHhucdT/7oGBL0Acosv6f36JUxn0s/892UdbaVxPtEr5ikjTQLgx65pL9v7J8Mbn8QbfHkb9aczI/HsV5vL6e76z1vkWGxJ4xBwrommH/tmcR7L5xYaPzlrq91IlWrWALleHQceYNCqzOI2Wg2M+FKWJbUQ9X2wVtcIsUiXkOl68jw+EOcA=="
 }
