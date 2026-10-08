@@ -144,6 +144,7 @@ function obj:init()
                     if msg.e == "pad" then
                         if ms.gamepadFeed then ms.gamepadFeed(msg.ev) end
                     elseif msg.e == "virtual" then
+                        setExternal(true)
                         state.virtual = true
                     elseif msg.e == "ready" then
                         setExternal(true)
@@ -157,7 +158,6 @@ function obj:init()
                         state.pad = nil
                         state.held = {}
                         state.axes = {}
-                        setExternal(false)
                         ms.bus.emit("vpad:lost", msg)
                     elseif msg.e == "hello" then
                         local built = mtime(BIN)
