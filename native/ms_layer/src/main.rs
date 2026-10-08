@@ -116,7 +116,7 @@ fn main() {
             match serde_json::from_str::<Command>(&line) {
                 Ok(cmd) => {
                     let inject = reader.command(cmd);
-                    platform::inject(&inject);
+                    platform::submit(&inject);
                 }
                 Err(err) => reader.emit(Event::Warn {
                     msg: format!("bad command: {err}"),

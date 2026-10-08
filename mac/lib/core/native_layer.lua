@@ -1,6 +1,9 @@
 -- core/native_layer (Native Input Layer) --
     return function(ms)
         local _isWin = package.config:sub(1, 1) == "\\"
+
+        if _G.__ms_layerStop then pcall(_G.__ms_layerStop) end
+
         local BIN = os.getenv("HOME") .. "/.local/bin/ms_layer" .. (_isWin and ".exe" or "")
         local DISABLED_KEY = "ms.nativeLayer.disabled"
         local SKIP_ONCE_KEY = "ms.nativeLayer.skipOnce"
@@ -420,24 +423,39 @@
                 fatal = ev.code == "permission"
 
                 if fatal and ms.alert then
-                    ms.alert(_isWin
-                        and ("Native input layer could not install its input hook\n" .. tostring(ev.msg))
-                        or ("Native input layer needs permission\n"
-                            .. "System Settings > Privacy & Security > Accessibility\nand Input Monitoring: allow ms_layer"), 10)
+                    local message
+
+                    if _isWin then
+                        message = "Native input layer could not install its input hook\n" .. tostring(ev.msg)
+                    else
+                        message = "Native input layer needs permission\n"
+                            .. "System Settings > Privacy & Security > Accessibility\nand Input Monitoring: allow ms_layer"
+                    end
+
+                    ms.alert(message, 10)
                 end
             end
         end
 
         local start
 
-        local function onExit(_, code)
+        local function onExit(owner, code)
+            if owner ~= task then return end
+
             local wasActive = ms.layer.active
+
             task = nil
+
             ms.layer.active = false
+
             stopPing()
+
             externalOwner(false)
+
             lastConfig, lastState = nil, nil
+
             if stopping then return end
+
             restarts = restarts + 1
 
             if not wasActive and (fatal or restarts > MAX_RESTARTS) then
@@ -459,7 +477,9 @@
         start = function()
             stopping = false
             buf = ""
-            task = hs.task.new(BIN, onExit, function(_, stdOut)
+            local mine
+
+            mine = hs.task.new(BIN, function(exitCode) onExit(mine, exitCode) end, function(_, stdOut)
                 if not stdOut or stdOut == "" then return true end
                 buf = buf .. stdOut
 
@@ -478,6 +498,8 @@
 
                 return true
             end)
+
+            task = mine
 
             if not task or not task:start() then
                 task = nil
@@ -587,11 +609,18 @@
             end
         end
 
-        local priorShutdown = hs.shutdownCallback
+        _G.__ms_layerStop = ms.layer.stop
 
-        hs.shutdownCallback = function()
-            pcall(ms.layer.stop)
-            if priorShutdown then priorShutdown() end
+        if hs.shutdownCallback ~= _G.__ms_layerShutdownWrapper then
+            local priorShutdown = hs.shutdownCallback
+
+            _G.__ms_layerShutdownWrapper = function()
+                if _G.__ms_layerStop then pcall(_G.__ms_layerStop) end
+
+                if priorShutdown then priorShutdown() end
+            end
+
+            hs.shutdownCallback = _G.__ms_layerShutdownWrapper
         end
 
         start()

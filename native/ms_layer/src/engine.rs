@@ -5,7 +5,7 @@ use crate::keys::{mods_from_names, Key};
 use crate::protocol::{BindSpec, Config, Event};
 
 const HOTKEY_COOLDOWN: Duration = Duration::from_millis(150);
-const LIVENESS_DEADLINE: Duration = Duration::from_millis(1000);
+const LIVENESS_DEADLINE: Duration = Duration::from_millis(2000);
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Input {
@@ -127,27 +127,30 @@ impl Engine {
             .is_some_and(|t| now.saturating_duration_since(t) > LIVENESS_DEADLINE)
     }
 
-    fn track_only(&mut self, input: Input) -> Verdict {
-        self.swallowed.clear();
-        self.swallowed_buttons.clear();
+    fn track_only(&mut self, input: Input, now: Instant) -> Verdict {
         match input {
-            Input::Key { key, down } => {
-                if down {
-                    self.held.insert(key);
-                } else {
-                    self.held.remove(&key);
+            Input::Key { key, down: false } => self.on_key(key, false, now),
+            Input::Key { key, down: true } => {
+                let repeat = !self.held.insert(key);
+                if !repeat && self.trace {
+                    let m = self.mods();
+                    self.outbox.push(Event::K {
+                        k: key.name(),
+                        d: true,
+                        m,
+                    });
                 }
+                Verdict::default()
             }
-            Input::Button { button, down } => {
-                if down {
-                    self.buttons.insert(button);
-                } else {
-                    self.buttons.remove(&button);
+            Input::Button { button, down: false } => self.on_button(button, false),
+            Input::Button { button, down: true } => {
+                if self.buttons.insert(button) && self.trace {
+                    self.outbox.push(Event::M { b: button, d: true });
                 }
+                Verdict::default()
             }
-            Input::Scroll { .. } | Input::Move => {}
+            Input::Scroll { .. } | Input::Move => Verdict::default(),
         }
-        Verdict::default()
     }
 
     pub fn drain_events(&mut self) -> Vec<Event> {
@@ -325,7 +328,7 @@ impl Engine {
 
     pub fn handle(&mut self, input: Input, now: Instant) -> Verdict {
         if self.expired(now) {
-            return self.track_only(input);
+            return self.track_only(input, now);
         }
         match input {
             Input::Key { key, down } => self.on_key(key, down, now),
@@ -384,6 +387,10 @@ impl Engine {
             return v;
         }
         v.swallow = self.on_key_bind(key, down, repeat, mods);
+        if cfg!(windows) && down && !repeat && !v.swallow && !v.inject.is_empty() {
+            v.swallow = true;
+            v.inject.push(Inject::Key { key, down: true });
+        }
         v
     }
 
@@ -841,14 +848,18 @@ mod tests {
         let mut e = socd("lastWins");
         assert_eq!(press(&mut e, "a", true), Verdict::default());
         let v = press(&mut e, "d", true);
-        assert!(!v.swallow);
-        assert_eq!(
-            v.inject,
-            vec![Inject::Key {
-                key: k("a"),
-                down: false
-            }]
-        );
+        let mut expected = vec![Inject::Key {
+            key: k("a"),
+            down: false,
+        }];
+        if cfg!(windows) {
+            expected.push(Inject::Key {
+                key: k("d"),
+                down: true,
+            });
+        }
+        assert_eq!(v.swallow, cfg!(windows));
+        assert_eq!(v.inject, expected);
         let v = press(&mut e, "d", false);
         assert!(!v.swallow);
         assert_eq!(
@@ -1062,29 +1073,104 @@ mod tests {
         assert!(evs.iter().any(|ev| matches!(ev, Event::M { .. })));
     }
 
-    #[test]
-    fn stale_host_stops_swallowing_until_next_command() {
+    fn stale(e: &mut Engine) -> Instant {
         let t0 = Instant::now();
+        e.touch(t0);
+        t0 + LIVENESS_DEADLINE + Duration::from_millis(500)
+    }
+
+    fn key_at(e: &mut Engine, n: &str, down: bool, at: Instant) -> Verdict {
+        e.handle(Input::Key { key: k(n), down }, at)
+    }
+
+    #[test]
+    fn stale_host_stops_swallowing_downs_until_next_command() {
         let mut b = bind(1, "key", "e", &[]);
         b.swallow = true;
         let mut e = engine(Config {
             binds: vec![b],
             ..Default::default()
         });
-        e.touch(t0);
-        let key = Input::Key {
-            key: k("e"),
-            down: true,
-        };
-        assert!(e.handle(key, t0 + Duration::from_millis(500)).swallow);
-        let late = t0 + Duration::from_millis(1500);
-        assert!(!e.handle(key, late).swallow);
-        let up = Input::Key {
-            key: k("e"),
-            down: false,
-        };
-        e.handle(up, late);
+        let late = stale(&mut e);
+        assert!(!key_at(&mut e, "e", true, late).swallow);
+        key_at(&mut e, "e", false, late);
         e.touch(late);
-        assert!(e.handle(key, late + Duration::from_millis(10)).swallow);
+        assert!(key_at(&mut e, "e", true, late + Duration::from_millis(10)).swallow);
+    }
+
+    #[test]
+    fn stale_trackpad_key_release_injects_button_up() {
+        let mut e = engine(Config {
+            trackpad: TrackpadSpec {
+                on: true,
+                left: Some("n".into()),
+                right: None,
+            },
+            ..Default::default()
+        });
+        let t0 = Instant::now();
+        e.touch(t0);
+        assert!(key_at(&mut e, "n", true, t0).swallow);
+        let late = t0 + LIVENESS_DEADLINE + Duration::from_millis(500);
+        let v = key_at(&mut e, "n", false, late);
+        assert!(v.swallow);
+        assert_eq!(
+            v.inject,
+            vec![Inject::Button {
+                button: 0,
+                down: false
+            }]
+        );
+    }
+
+    #[test]
+    fn stale_release_of_socd_suppressed_key_is_swallowed_once() {
+        let mut e = socd("lastWins");
+        let t0 = Instant::now();
+        e.touch(t0);
+        key_at(&mut e, "a", true, t0);
+        key_at(&mut e, "d", true, t0);
+        let late = t0 + LIVENESS_DEADLINE + Duration::from_millis(500);
+        assert!(key_at(&mut e, "a", false, late).swallow);
+        e.touch(late);
+        assert!(!key_at(&mut e, "a", false, late).swallow);
+    }
+
+    #[test]
+    fn stale_release_edge_bind_still_fires_up() {
+        let mut b = bind(1, "key", "e", &[]);
+        b.release = true;
+        let mut e = engine(Config {
+            binds: vec![b],
+            ..Default::default()
+        });
+        let t0 = Instant::now();
+        e.touch(t0);
+        key_at(&mut e, "e", true, t0);
+        let late = t0 + LIVENESS_DEADLINE + Duration::from_millis(500);
+        key_at(&mut e, "e", false, late);
+        assert_eq!(fires(&mut e), vec![(1, "down"), (1, "up")]);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn socd_last_wins_orders_opposite_up_before_own_down() {
+        let mut e = socd("lastWins");
+        press(&mut e, "a", true);
+        let v = press(&mut e, "d", true);
+        assert!(v.swallow);
+        assert_eq!(
+            v.inject,
+            vec![
+                Inject::Key {
+                    key: k("a"),
+                    down: false
+                },
+                Inject::Key {
+                    key: k("d"),
+                    down: true
+                }
+            ]
+        );
     }
 }

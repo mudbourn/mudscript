@@ -14,12 +14,17 @@ pub enum Command {
     Quit,
 }
 
+fn default_trace() -> bool {
+    true
+}
+
 #[derive(Deserialize, Debug, Default)]
 #[serde(default)]
 pub struct Config {
     pub binds: Vec<BindSpec>,
     pub panic: Option<HotkeySpec>,
     pub swallow_hotkeys: bool,
+    #[serde(default = "default_trace")]
     pub trace: bool,
     pub socd: SocdSpec,
     pub trackpad: TrackpadSpec,

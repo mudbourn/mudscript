@@ -70,7 +70,7 @@ Commands:
 
 ```
 {"c":"config","binds":[...],"panic":{"key":"p","mods":["ctrl"]},"swallow_hotkeys":true,
- "trace":false,
+ "trace":true,
  "socd":{"on":true,"mode":"lastWins","pairs":[["a","d"],["w","s"]]},
  "trackpad":{"on":true,"left":"n","right":"j"}}
 {"c":"state","enabled":true,"target":true}
@@ -79,7 +79,7 @@ Commands:
 {"c":"quit"}
 ```
 
-- `trace`: emit `k` and `m` events, off by default
+- `trace`: emit `k` and `m` events, on by default
 - `ping`: replies `pong` and counts as a command for liveness
 - `rehook`: uninstalls and reinstalls both Windows hooks on the hook thread, a no-op elsewhere
 - liveness: one second after the last command (any command, ping included) the daemon

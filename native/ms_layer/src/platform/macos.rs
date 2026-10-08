@@ -292,4 +292,8 @@ pub fn inject(events: &[Inject]) {
     }
 }
 
+pub fn submit(events: &[Inject]) {
+    inject(events);
+}
+
 pub fn rehook() {}

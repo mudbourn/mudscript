@@ -239,6 +239,10 @@ pub fn rehook() {
     }
 }
 
+pub fn submit(events: &[Inject]) {
+    defer_inject(events);
+}
+
 fn defer_inject(events: &[Inject]) {
     if events.is_empty() {
         return;
