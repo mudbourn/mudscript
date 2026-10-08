@@ -61,11 +61,11 @@
       "id": "plugin-virtualpad",
       "type": "plugin",
       "name": "VirtualPad",
-      "version": "0.2.7",
+      "version": "0.2.8",
       "author": "mudbourn",
-      "sha256": "a0176a60b39b20dc66fbd33c0af80c5b1482ce4ae70cdbe09073175715864d7c",
-      "url": "https://github.com/mudbourn/mudscript/releases/download/plugin-virtualpad-v0.2.7/VirtualPad.spoon.zip",
-      "size": 741176,
+      "sha256": "2ce10a68871b1e0de67557a9d2d858d49c3e2f3b7b6cc5f08cc2f59f304452cd",
+      "url": "https://github.com/mudbourn/mudscript/releases/download/plugin-virtualpad-v0.2.8/VirtualPad.spoon.zip",
+      "size": 741607,
       "format": "spoon",
       "provides": [
         "vpad"
