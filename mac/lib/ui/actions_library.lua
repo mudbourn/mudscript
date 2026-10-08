@@ -384,6 +384,20 @@ return function(ms, ctx)
                                 end
                             end
                         end
+                        local slicesById = {}
+                        if ms.package and ms.package.libraryList then
+                            for _, kind in ipairs({ "theme", "sound", "macro" }) do
+                                local okL, recs = pcall(ms.package.libraryList, kind)
+                                if okL and type(recs) == "table" then
+                                    for _, rec in ipairs(recs) do
+                                        if rec.owner then
+                                            slicesById[rec.owner] = slicesById[rec.owner] or {}
+                                            slicesById[rec.owner][kind] = rec.version or true
+                                        end
+                                    end
+                                end
+                            end
+                        end
                         local out = {}
                         for _, e in ipairs(entries) do
                             local instV = installedById[e.id]
@@ -399,6 +413,7 @@ return function(ms, ctx)
                                 components  = e.components,
                                 installed        = instV ~= nil or nil,
                                 installedVersion = (type(instV) == "string") and instV or nil,
+                                installedComponents = slicesById[e.id],
                                 url         = e.url,
                                 sha256      = e.sha256,
                             }

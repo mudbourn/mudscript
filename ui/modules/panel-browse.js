@@ -67,6 +67,7 @@
             for (const k of ["theme", "sound", "macro"]) {
                 const ck = c[k];
                 if (!ck) continue;
+                const slice = e.installedComponents && e.installedComponents[k];
                 out.push({
                     id: e.id + "::" + k,
                     installId: e.id,
@@ -82,8 +83,8 @@
                     url: e.url,
                     sha256: e.sha256,
                     trust: e.trust,
-                    installed:        e.installed,
-                    installedVersion: e.installedVersion,
+                    installed:        e.installed || !!slice,
+                    installedVersion: (typeof slice === "string") ? slice : e.installedVersion,
                     themeBonus: (k === "theme") && !!c.sound
                         && !(c.theme && c.theme.includesSounds),
                 });
