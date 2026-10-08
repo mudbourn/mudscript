@@ -1287,6 +1287,29 @@
             cmd=55,
         }
 
+        ms._trackpadHeld = ms._trackpadHeld or {}
+        if not ms._trackpadDragTap then
+            local T = hs.eventtap.event.types
+            ms._trackpadDragTap = hs.eventtap.new({ T.mouseMoved }, function(event)
+                local held = ms._trackpadHeld
+                if held[1] then
+                    event:setType(T.rightMouseDragged)
+                    event:setProperty(hs.eventtap.event.properties.mouseEventButtonNumber, 1)
+                elseif held[0] then
+                    event:setType(T.leftMouseDragged)
+                end
+                return false
+            end)
+        end
+        local function setTrackpadHeld(btn, isHeld)
+            ms._trackpadHeld[btn] = isHeld or nil
+            if next(ms._trackpadHeld) then
+                ms._trackpadDragTap:start()
+            else
+                ms._trackpadDragTap:stop()
+            end
+        end
+
         if not ms._trackpadLeftListener then
             local leftPhysicallyHeld = false
             local leftActive = false
@@ -1309,7 +1332,9 @@
                     leftActive = true
                     local co = coroutine.create(function()
                         ms.Mouse(Press, Left, Mouse, 0, 0)
+                        setTrackpadHeld(0, true)
                         while leftPhysicallyHeld and BindValidity == 1 and ms._targetActive do ms.wait(1) end
+                        setTrackpadHeld(0, false)
                         ms.Mouse(Release, Left, Mouse, 0, 0)
                         ms.wait(50)
                         leftActive = false
@@ -1342,7 +1367,9 @@
                     rightActive = true
                     local co = coroutine.create(function()
                         ms.Mouse(Press, Right, Mouse, 0, 0)
+                        setTrackpadHeld(1, true)
                         while rightPhysicallyHeld and BindValidity == 1 and ms._targetActive do ms.wait(1) end
+                        setTrackpadHeld(1, false)
                         ms.Mouse(Release, Right, Mouse, 0, 0)
                         ms.wait(50)
                         rightActive = false

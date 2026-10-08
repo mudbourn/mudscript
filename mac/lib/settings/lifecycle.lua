@@ -22,7 +22,7 @@ return function(ms, ctx)
 
             local handles = {
                 "_keyListener", "_mouseListener", "_scrollListener",
-                "_trackpadLeftListener", "_trackpadRightListener",
+                "_trackpadLeftListener", "_trackpadRightListener", "_trackpadDragTap",
                 "_appWatcher", "_tapWatchdog", "_menuHoverWatcher",
             }
             for _, key in ipairs(handles) do
