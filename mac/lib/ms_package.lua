@@ -374,12 +374,6 @@ return function(ms)
                 end
             end
 
-            if fp.arch and fp.arch ~= "" and here.arch ~= "" and fp.arch ~= here.arch then
-                warnings[#warnings + 1] =
-                    "Built for " .. tostring(fp.arch) .. ", this machine is " .. here.arch ..
-                    ". Only matters for plugins shipping native code."
-            end
-
             local rq  = manifest.requires
             local req = (type(rq) == "table" and rq.mudscript)
                      or (type(rq) == "string" and rq)

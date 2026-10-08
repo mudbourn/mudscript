@@ -436,14 +436,18 @@ return function(ms, ctx)
         -- END Version comparison helpers --
 
         -- _fetchReleaseInfo [GitHub Releases API helper] --
+            local function _appAssetUrl(rel)
+                for _, asset in ipairs(type(rel) == "table" and rel.assets or {}) do
+                    if asset.name and asset.name:match("^mudscript%-macos%-.*%.zip$") then
+                        return asset.browser_download_url
+                    end
+                end
+                return nil
+            end
+
             local function _fetchReleaseInfo(channel, callback)
                 local repo = ms._testingRepo or "mudbourn/mudscript"
-                local apiURL
-                if channel == "stable" then
-                    apiURL = "https://api.github.com/repos/" .. repo .. "/releases/latest"
-                else
-                    apiURL = "https://api.github.com/repos/" .. repo .. "/releases?per_page=5"
-                end
+                local apiURL = "https://api.github.com/repos/" .. repo .. "/releases?per_page=30"
                 hs.http.asyncGet(apiURL, {
                     ["Accept"] = "application/vnd.github+json",
                 }, function(code, body, _)
@@ -467,28 +471,25 @@ return function(ms, ctx)
                         if callback then pcall(callback, nil) end
                         return
                     end
-                    local release
-                    if channel == "stable" then
-                        release = data
-                    else
-                        if type(data) ~= "table" or #data == 0 then
-                            ms.dev.log({
-                                type    = "error",
-                                event   = "release_parse_failed",
-                                channel = channel,
-                                reason  = "empty_array",
-                            })
-                            if callback then pcall(callback, nil) end
-                            return
-                        end
-                        local bestPre, bestStable
-                        for _, rel in ipairs(data) do
+                    if type(data) ~= "table" or #data == 0 then
+                        ms.dev.log({
+                            type    = "error",
+                            event   = "release_parse_failed",
+                            channel = channel,
+                            reason  = "empty_array",
+                        })
+                        if callback then pcall(callback, nil) end
+                        return
+                    end
+                    local bestPre, bestStable
+                    for _, rel in ipairs(data) do
+                        if rel.tag_name and not rel.draft and _appAssetUrl(rel) then
                             local n = _preBuild(rel.tag_name)
                             if n then
                                 if not bestPre or n > _preBuild(bestPre.tag_name) then
                                     bestPre = rel
                                 end
-                            elseif rel.tag_name and not rel.draft then
+                            elseif not rel.prerelease then
                                 if not bestStable
                                     or _remoteIsNewer(bestStable.tag_name, rel.tag_name)
                                 then
@@ -496,6 +497,9 @@ return function(ms, ctx)
                                 end
                             end
                         end
+                    end
+                    local release = bestStable
+                    if channel ~= "stable" then
                         release = bestPre or bestStable
                         if bestPre and bestStable
                             and (bestStable.published_at or "") > (bestPre.published_at or "")
@@ -513,14 +517,7 @@ return function(ms, ctx)
                         if callback then pcall(callback, nil) end
                         return
                     end
-                    local downloadUrl
-                    local assets = release.assets or {}
-                    for _, asset in ipairs(assets) do
-                        if asset.name and asset.name:match("^mudscript%-macos%-.*%.zip$") then
-                            downloadUrl = asset.browser_download_url
-                            break
-                        end
-                    end
+                    local downloadUrl = _appAssetUrl(release)
                     if not downloadUrl then
                         ms.dev.log({
                             type    = "error",
