@@ -1207,10 +1207,20 @@
             }
             local PACED_FROM = 5
             local STEP_DELAY = 0.35
+            local THEME_GAP = 0.8
             local function runStep(i)
                 local ok, err = pcall(steps[i])
                 if not ok then print("[startup] step " .. i .. " failed: " .. tostring(err)) end
                 if not steps[i + 1] then return end
+                if i == 1 then
+                    ms.loading.onContent(function()
+                        _G._timers.initStep = hs.timer.doAfter(THEME_GAP, function()
+                            ms.loading.eval("wakeProgress()")
+                            runStep(2)
+                        end)
+                    end)
+                    return
+                end
                 if i < PACED_FROM then
                     _G._timers.initStep = hs.timer.doAfter(0, function() runStep(i + 1) end)
                     return

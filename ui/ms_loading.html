@@ -250,7 +250,7 @@
             <div id="divider"></div>
             <div id="content">
                 <div id="version"></div>
-                <div id="status">Starting up...</div>
+                <div id="status">Initializing...</div>
                 <div id="track"></div>
                 <div id="fill"></div>
             </div>
@@ -353,8 +353,14 @@
                 el.classList.add("visible");
             }
 
-            /* -- Progress -- */
+            var _progressAwake = false;
+
+            function wakeProgress() {
+                _progressAwake = true;
+            }
+
             function setProgress(pct, msg) {
+                if (!_progressAwake) return;
                 document.getElementById("fill").style.width =
                     Math.max(0, Math.min(100, pct)) + "%";
                 if (msg) document.getElementById("status").textContent = msg;
