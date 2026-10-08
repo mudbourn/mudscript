@@ -1158,18 +1158,21 @@
                 function()
                     print("[startup] theme")
                     ms.loading.update(48, "Applying theme...")
-                    if ms.loading.isVisible() then
-                        local themeJson = hs.json.encode(ms._theme or {})
-                        pcall(function() ms.loading.eval("applyTheme(" .. themeJson .. ")") end)
-                        local ver = ms._bootVersionLabel and ms._bootVersionLabel()
-                        if ver then
-                            pcall(function() ms.loading.eval("setVersion('" .. ver:gsub("'", "\\'") .. "')") end)
+                    ms.loading.onContent(function()
+                        if ms.loading.isVisible() then
+                            local themeJson = hs.json.encode(ms._theme or {})
+                            pcall(function() ms.loading.eval("applyTheme(" .. themeJson .. ")") end)
+                            local ver = ms._bootVersionLabel and ms._bootVersionLabel()
+                            if ver then
+                                pcall(function() ms.loading.eval("setVersion('" .. ver:gsub("'", "\\'") .. "')") end)
+                            end
+                            pcall(function() ms.loading.eval("showProfile()") end)
+                            pcall(function() ms.loading.eval("showCreator()") end)
+                            pcall(function() ms.loading.eval("showVersion()") end)
                         end
-                        pcall(function() ms.loading.eval("showProfile()") end)
-                        pcall(function() ms.loading.eval("showCreator()") end)
-                        pcall(function() ms.loading.eval("showVersion()") end)
-                    end
-                    pcall(function() ms.playSlot("themeLoaded") end)
+                        local okSnd, themeSnd = pcall(function() return ms.playSlot("themeLoaded") end)
+                        if okSnd then ms.loading.holdForSound(themeSnd) end
+                    end)
                 end,
                 function()
                     print("[startup] integrity seed")

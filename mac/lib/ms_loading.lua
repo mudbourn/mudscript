@@ -3,32 +3,16 @@ return function(ms)
 
     local _lWebView, _lFadingOut
     local _lMsgBuffer = {}
-    local _lPct = 0
-    local _lStagesFired = 0
-    local _lStages = {
-        {
-            pct = 20,
-            js = "shiftBrand()",
-        },
-        {
-            pct = 25,
-            js = "showDivider();showContent()",
-        },
-    }
+    local _lContentShown = false
+    local _lContentQueue = {}
+    local _lHoldUntil = 0
+    local _lFadePending = false
+    local CONTENT_HOLD = 1.2
 
     ms.loading = {}
 
     -- Update --
-        local function _applyStages()
-            if not _lWebView then return end
-            while _lStagesFired < #_lStages and _lPct >= _lStages[_lStagesFired + 1].pct do
-                _lStagesFired = _lStagesFired + 1
-                pcall(function() _lWebView:evaluateJavaScript(_lStages[_lStagesFired].js) end)
-            end
-        end
-
         ms.loading.update = function(pct, msg)
-            if pct > _lPct then _lPct = pct end
             if not _lWebView then
                 _lMsgBuffer[#_lMsgBuffer + 1] = {
                     pct = pct,
@@ -38,7 +22,6 @@ return function(ms)
             end
             local encoded = msg and ('"' .. msg:gsub('\\', '\\\\'):gsub('"', '\\"'):gsub('\n', '\\n') .. '"') or "null"
             _lWebView:evaluateJavaScript(string.format("setProgress(%d, %s)", pct, encoded))
-            if _G._bootChoreographyStarted then _applyStages() end
         end
     -- END Update --
 
@@ -46,6 +29,25 @@ return function(ms)
         ms.loading.isFadingOut = function() return _lFadingOut == true end
 
         ms.loading.isVisible = function() return _lWebView ~= nil end
+
+        ms.loading.holdFor = function(seconds)
+            local untilAt = hs.timer.secondsSinceEpoch() + (tonumber(seconds) or 0)
+            if untilAt > _lHoldUntil then _lHoldUntil = untilAt end
+        end
+
+        ms.loading.holdForSound = function(snd)
+            if type(snd) ~= "userdata" then return end
+            local ok, dur = pcall(function() return snd:duration() end)
+            if ok and type(dur) == "number" then ms.loading.holdFor(dur) end
+        end
+
+        ms.loading.onContent = function(cb)
+            if _lContentShown or not _lWebView then
+                pcall(cb)
+                return
+            end
+            _lContentQueue[#_lContentQueue + 1] = cb
+        end
     -- END State --
 
     -- Eval --
@@ -165,10 +167,20 @@ return function(ms)
                     end
                 end)
 
-                pcall(function() ms.sound(SoundDefaultsDir .. "d_Boot.wav") end)
+                local okBoot, bootSnd = pcall(function() return ms.sound(SoundDefaultsDir .. "d_Boot.wav") end)
+                if okBoot then ms.loading.holdForSound(bootSnd) end
 
                 js("showBrand()")
-                _applyStages()
+                _G._loadTimers.shift = hs.timer.doAfter(1.7, function() js("shiftBrand()") end)
+                _G._loadTimers.content = hs.timer.doAfter(2.5, function()
+                    js("showDivider()")
+                    js("showContent()")
+                    _lContentShown = true
+                    ms.loading.holdFor(CONTENT_HOLD)
+                    local queue = _lContentQueue
+                    _lContentQueue = {}
+                    for _, cb in ipairs(queue) do pcall(cb) end
+                end)
 
                 if type(ms._onBootAnchor) == "function" then
                     pcall(ms._onBootAnchor)
@@ -185,7 +197,24 @@ return function(ms)
 
     -- Fade Out --
         ms.loading.fadeOut = function(onDone)
-            if not _lWebView or _lFadingOut then return end
+            if not _lWebView or _lFadingOut or _lFadePending then return end
+            if not _lContentShown then
+                _lFadePending = true
+                _lContentQueue[#_lContentQueue + 1] = function()
+                    _lFadePending = false
+                    ms.loading.fadeOut(onDone)
+                end
+                return
+            end
+            local wait = _lHoldUntil - hs.timer.secondsSinceEpoch()
+            if wait > 0 then
+                _lFadePending = true
+                _G._loadTimers.hold = hs.timer.doAfter(wait, function()
+                    _lFadePending = false
+                    ms.loading.fadeOut(onDone)
+                end)
+                return
+            end
             _lFadingOut = true
             local fadeIn = _G._loadTimers and _G._loadTimers.fadeIn
             if fadeIn then
