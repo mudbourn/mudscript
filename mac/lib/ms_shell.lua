@@ -655,6 +655,7 @@
                 ms.safeShow(_shellView)
                 pcall(function() _shellView:bringToFront(true) end)
                 pcall(hs.focus)
+                if ms._ownUiFocus then pcall(ms._ownUiFocus, true) end
                 ms._shellState = ms._shellState or {}
                 ms._shellState.visible = true
                 if ms.ui then ms.ui._open = true end
@@ -720,6 +721,7 @@
                     ms.shell.saveState()
                     ms._shellState = ms._shellState or {}
                     ms._shellState.visible = false
+                    ms._ownUiHeld = false
                     if ms.ui then ms.ui._open = false end
                     local view = _shellView
                     local startAlpha = 1

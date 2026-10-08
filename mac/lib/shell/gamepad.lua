@@ -124,6 +124,11 @@ return function(ms, ctx)
 
         ms.shell._gpNavHandler = function(kind, button, a, b)
             local n = ms._gpNav
+            if n.target == "shell" and not ms._ownUiHeld then
+                _gpStopTimers()
+                n.lsDir = nil
+                return
+            end
 
             if kind == "move" then
                 if button == "left" then
