@@ -602,7 +602,7 @@
             ms.plugins.loadAll = function()
                 if not (ms.package and ms.package.listPlugins) then return end
                 for _, p in ipairs(ms.package.listPlugins()) do
-                    if p.enabled and p.status == "ok" then
+                    if p.enabled and (p.status == "ok" or (p.status == "modified" and _G._guardianDevMode)) then
                         local ok, err = ms.plugins.load(p.dir)
                         if not ok then
                             print("Plugin " .. p.dir .. " failed to load: " .. tostring(err))

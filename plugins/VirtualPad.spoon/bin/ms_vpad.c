@@ -638,7 +638,7 @@
     static Pad pad;
 
     static int isVirtual(int index) {
-        return serial && SDL_JoystickGetDeviceVendor(index) == virtVid && SDL_JoystickGetDeviceProduct(index) == virtPid;
+        return virtVid && SDL_JoystickGetDeviceVendor(index) == virtVid && SDL_JoystickGetDeviceProduct(index) == virtPid;
     }
 
     static double dz(double v) {
