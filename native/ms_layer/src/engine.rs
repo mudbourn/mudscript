@@ -5,6 +5,7 @@ use crate::keys::{mods_from_names, Key};
 use crate::protocol::{BindSpec, Config, Event};
 
 const HOTKEY_COOLDOWN: Duration = Duration::from_millis(150);
+const LIVENESS_DEADLINE: Duration = Duration::from_millis(1000);
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Input {
@@ -106,12 +107,47 @@ pub struct Engine {
     trackpad_keys: [Option<Key>; 2],
     trackpad_active: [bool; 2],
 
+    trace: bool,
+    last_command: Option<Instant>,
+
     outbox: Vec<Event>,
 }
 
 impl Engine {
     pub fn new() -> Engine {
         Engine::default()
+    }
+
+    pub fn touch(&mut self, now: Instant) {
+        self.last_command = Some(now);
+    }
+
+    fn expired(&self, now: Instant) -> bool {
+        self.last_command
+            .is_some_and(|t| now.saturating_duration_since(t) > LIVENESS_DEADLINE)
+    }
+
+    fn track_only(&mut self, input: Input) -> Verdict {
+        self.swallowed.clear();
+        self.swallowed_buttons.clear();
+        match input {
+            Input::Key { key, down } => {
+                if down {
+                    self.held.insert(key);
+                } else {
+                    self.held.remove(&key);
+                }
+            }
+            Input::Button { button, down } => {
+                if down {
+                    self.buttons.insert(button);
+                } else {
+                    self.buttons.remove(&button);
+                }
+            }
+            Input::Scroll { .. } | Input::Move => {}
+        }
+        Verdict::default()
     }
 
     pub fn drain_events(&mut self) -> Vec<Event> {
@@ -160,6 +196,7 @@ impl Engine {
             }
         });
         self.swallow_hotkeys = cfg.swallow_hotkeys;
+        self.trace = cfg.trace;
 
         let mut out = self.reset_socd();
         self.socd = if cfg.socd.on {
@@ -287,6 +324,9 @@ impl Engine {
     }
 
     pub fn handle(&mut self, input: Input, now: Instant) -> Verdict {
+        if self.expired(now) {
+            return self.track_only(input);
+        }
         match input {
             Input::Key { key, down } => self.on_key(key, down, now),
             Input::Button { button, down } => self.on_button(button, down),
@@ -316,7 +356,7 @@ impl Engine {
             self.held.remove(&key);
         }
         let mods = self.mods();
-        if !repeat {
+        if !repeat && self.trace {
             self.outbox.push(Event::K {
                 k: key.name(),
                 d: down,
@@ -550,7 +590,9 @@ impl Engine {
             } else {
                 self.buttons.remove(&button);
             }
-            self.outbox.push(Event::M { b: button, d: down });
+            if self.trace {
+                self.outbox.push(Event::M { b: button, d: down });
+            }
         }
         if !down {
             v.swallow = self.swallowed_buttons.remove(&button);
@@ -989,5 +1031,60 @@ mod tests {
             ..Default::default()
         });
         assert!(matches!(e.drain_events()[0], Event::Warn { .. }));
+    }
+
+    #[test]
+    fn trace_gates_key_and_button_events() {
+        let mut e = engine(Config::default());
+        press(&mut e, "a", true);
+        e.handle(
+            Input::Button {
+                button: 0,
+                down: true,
+            },
+            Instant::now(),
+        );
+        assert!(e.drain_events().is_empty());
+        e.configure(Config {
+            trace: true,
+            ..Default::default()
+        });
+        press(&mut e, "a", false);
+        e.handle(
+            Input::Button {
+                button: 0,
+                down: false,
+            },
+            Instant::now(),
+        );
+        let evs = e.drain_events();
+        assert!(evs.iter().any(|ev| matches!(ev, Event::K { .. })));
+        assert!(evs.iter().any(|ev| matches!(ev, Event::M { .. })));
+    }
+
+    #[test]
+    fn stale_host_stops_swallowing_until_next_command() {
+        let t0 = Instant::now();
+        let mut b = bind(1, "key", "e", &[]);
+        b.swallow = true;
+        let mut e = engine(Config {
+            binds: vec![b],
+            ..Default::default()
+        });
+        e.touch(t0);
+        let key = Input::Key {
+            key: k("e"),
+            down: true,
+        };
+        assert!(e.handle(key, t0 + Duration::from_millis(500)).swallow);
+        let late = t0 + Duration::from_millis(1500);
+        assert!(!e.handle(key, late).swallow);
+        let up = Input::Key {
+            key: k("e"),
+            down: false,
+        };
+        e.handle(up, late);
+        e.touch(late);
+        assert!(e.handle(key, late + Duration::from_millis(10)).swallow);
     }
 }

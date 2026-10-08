@@ -10,6 +10,7 @@ pub enum Command {
         target: bool,
     },
     Ping,
+    Rehook,
     Quit,
 }
 
@@ -19,6 +20,7 @@ pub struct Config {
     pub binds: Vec<BindSpec>,
     pub panic: Option<HotkeySpec>,
     pub swallow_hotkeys: bool,
+    pub trace: bool,
     pub socd: SocdSpec,
     pub trackpad: TrackpadSpec,
 }

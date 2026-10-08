@@ -291,3 +291,5 @@ pub fn inject(events: &[Inject]) {
         }
     }
 }
+
+pub fn rehook() {}

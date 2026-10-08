@@ -49,11 +49,16 @@ impl Shared {
 
     fn command(&self, cmd: Command) -> Vec<Inject> {
         let mut e = self.lock();
+        e.touch(Instant::now());
         let out = match cmd {
             Command::Config(cfg) => e.configure(cfg),
             Command::State { enabled, target } => e.set_state(enabled, target),
             Command::Ping => {
                 let _ = self.tx.send(Event::Pong);
+                Vec::new()
+            }
+            Command::Rehook => {
+                platform::rehook();
                 Vec::new()
             }
             Command::Quit => std::process::exit(0),

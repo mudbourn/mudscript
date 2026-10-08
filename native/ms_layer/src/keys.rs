@@ -11,7 +11,7 @@ pub const NAMES: &[&str] = &[
     "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
     "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
     "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
-    "return", "tab", "space", "delete", "escape", "forwarddelete", "help",
+    "return", "tab", "space", "delete", "escape", "forwarddelete", "help", "insert",
     "home", "end", "pageup", "pagedown", "left", "right", "up", "down",
     "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10",
     "f11", "f12", "f13", "f14", "f15", "f16", "f17", "f18", "f19", "f20",
@@ -103,6 +103,8 @@ mod tests {
             assert_eq!(Key::from_name(n), Some(Key(i as u16)), "{n}");
         }
         assert_eq!(Key::from_name("Enter").unwrap().name(), "return");
+        assert!(Key::from_name("insert").is_some());
+        assert!(Key::from_name("pad=").is_some());
         assert_eq!(mods_from_names(&["cmd", "shift"]), MOD_CMD | MOD_SHIFT);
     }
 }

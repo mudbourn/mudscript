@@ -1,6 +1,7 @@
 -- core/native_layer (Native Input Layer) --
     return function(ms)
-        local BIN = os.getenv("HOME") .. "/.local/bin/ms_layer"
+        local _isWin = package.config:sub(1, 1) == "\\"
+        local BIN = os.getenv("HOME") .. "/.local/bin/ms_layer" .. (_isWin and ".exe" or "")
         local DISABLED_KEY = "ms.nativeLayer.disabled"
         local SKIP_ONCE_KEY = "ms.nativeLayer.skipOnce"
         local MAX_RESTARTS = 3
@@ -202,6 +203,7 @@
                 binds = #binds > 0 and binds or nil,
                 panic = panic,
                 swallow_hotkeys = ms._swallowHotkeys and true or false,
+                trace = true,
                 socd = {
                     on = ms.socdEnabled and true or false,
                     mode = ms.socdMode or "lastWins",
@@ -221,6 +223,20 @@
         local lastConfig, lastState = nil, nil
         local pending = nil
         local buf = ""
+        local pingTimer = nil
+        local hostRehookSet = false
+
+        local function externalOwner(on)
+            local fn = hs.eventtap and hs.eventtap._externalOwner
+            if fn then pcall(fn, on) end
+        end
+
+        local function stopPing()
+            if pingTimer then
+                pingTimer:stop()
+                pingTimer = nil
+            end
+        end
 
         local function send(tbl)
             if not task then return end
@@ -382,10 +398,18 @@
                 ms.setMacros(0)
             elseif e == "ready" then
                 ms.layer.active = true
+                externalOwner(true)
                 neuter()
                 ms.layer.version = ev.version
                 restarts = 0
                 sync(true)
+
+                local onRehook = hs.eventtap and hs.eventtap._onHostRehook
+
+                if onRehook and not hostRehookSet then
+                    hostRehookSet = true
+                    pcall(onRehook, function() send({ c = "rehook" }) end)
+                end
                 print("ms_layer " .. tostring(ev.version) .. " owns input (" .. tostring(ev.platform) .. ")")
             elseif e == "revived" then
                 if ms.dev then print("ms_layer: OS disabled the input hook; re-armed") end
@@ -396,8 +420,10 @@
                 fatal = ev.code == "permission"
 
                 if fatal and ms.alert then
-                    ms.alert("Native input layer needs permission\n"
-                        .. "System Settings > Privacy & Security > Accessibility\nand Input Monitoring: allow ms_layer", 10)
+                    ms.alert(_isWin
+                        and ("Native input layer could not install its input hook\n" .. tostring(ev.msg))
+                        or ("Native input layer needs permission\n"
+                            .. "System Settings > Privacy & Security > Accessibility\nand Input Monitoring: allow ms_layer"), 10)
                 end
             end
         end
@@ -408,6 +434,8 @@
             local wasActive = ms.layer.active
             task = nil
             ms.layer.active = false
+            stopPing()
+            externalOwner(false)
             lastConfig, lastState = nil, nil
             if stopping then return end
             restarts = restarts + 1
@@ -429,6 +457,7 @@
         end
 
         start = function()
+            stopping = false
             buf = ""
             task = hs.task.new(BIN, onExit, function(_, stdOut)
                 if not stdOut or stdOut == "" then return true end
@@ -453,6 +482,12 @@
             if not task or not task:start() then
                 task = nil
                 print("ms_layer: failed to launch " .. BIN)
+            end
+
+            stopPing()
+
+            if task then
+                pingTimer = hs.timer.doEvery(0.25, function() send({ c = "ping" }) end)
             end
         end
 
@@ -540,6 +575,8 @@
         ms.layer.stop = function()
             if ms._layerStateWatch then ms._layerStateWatch:stop() end
             stopping = true
+            stopPing()
+            externalOwner(false)
 
             if task then
                 send({ c = "quit" })
@@ -548,6 +585,13 @@
                     if t:isRunning() then t:terminate() end
                 end)
             end
+        end
+
+        local priorShutdown = hs.shutdownCallback
+
+        hs.shutdownCallback = function()
+            pcall(ms.layer.stop)
+            if priorShutdown then priorShutdown() end
         end
 
         start()

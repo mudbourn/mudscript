@@ -28,7 +28,10 @@ src/platform/        macos.rs (CGEventTap)
 ```
 
 Synthetic events carry the tag `999` (`eventSourceUserData` on macOS,
-`dwExtraInfo` on Windows). Hammerspoon's `ms.press` uses the same tag, so
+`dwExtraInfo` on Windows). On Windows the hooks also pass through events tagged
+`0x6D756473`, the mudspoon injection tag, and the phantom left Ctrl that AltGr
+produces (scan code `0x21D`, not injected). Injections requested from the hook
+are queued and sent from the hook thread's message loop. Hammerspoon's `ms.press` uses the same tag, so
 neither side reacts to the other's injected input.
 
 ## Build and install
@@ -41,8 +44,11 @@ mkdir -p ~/.local/bin
 cp target/release/ms_layer ~/.local/bin/
 ```
 
+On Windows, build with cargo and copy `target\release\ms_layer.exe` to
+`~/.local/bin/ms_layer.exe`.
+
 `mac/lib/core/native_layer.lua` starts the daemon when
-`~/.local/bin/ms_layer` exists, and `deploy.sh` rebuilds it once it is
+`~/.local/bin/ms_layer` (`ms_layer.exe` on Windows) exists, and `deploy.sh` rebuilds it once it is
 installed. Hammerspoon launches the daemon, so macOS normally counts it under
 Hammerspoon's Accessibility and Input Monitoring grant. If the hook cannot be
 created, the daemon reports a `permission` error and the Lua eventtaps stay in
@@ -64,12 +70,20 @@ Commands:
 
 ```
 {"c":"config","binds":[...],"panic":{"key":"p","mods":["ctrl"]},"swallow_hotkeys":true,
+ "trace":false,
  "socd":{"on":true,"mode":"lastWins","pairs":[["a","d"],["w","s"]]},
  "trackpad":{"on":true,"left":"n","right":"j"}}
 {"c":"state","enabled":true,"target":true}
 {"c":"ping"}
+{"c":"rehook"}
 {"c":"quit"}
 ```
+
+- `trace`: emit `k` and `m` events, off by default
+- `ping`: replies `pong` and counts as a command for liveness
+- `rehook`: uninstalls and reinstalls both Windows hooks on the hook thread, a no-op elsewhere
+- liveness: one second after the last command (any command, ping included) the daemon
+  passes every input through until the next command arrives
 
 A bind:
 
@@ -91,8 +105,8 @@ Events:
 | `{"e":"ready","version":"0.1.0","platform":"macos"}` | the hook is live |
 | `{"e":"fire","id":7,"edge":"down","m":8}` | a bind matched, `m` is cmd 1, alt 2, ctrl 4, shift 8 |
 | `{"e":"panic"}` | the panic hotkey was pressed, the host decides what to do |
-| `{"e":"k","k":"w","d":true,"m":0}` | a physical key went down or up |
-| `{"e":"m","b":0,"d":true}` | a physical mouse button went down or up |
+| `{"e":"k","k":"w","d":true,"m":0}` | a physical key went down or up, only when `trace` is on |
+| `{"e":"m","b":0,"d":true}` | a physical mouse button went down or up, only when `trace` is on |
 | `{"e":"revived"}` | the OS disabled the hook and the daemon re-armed it |
 | `{"e":"warn","msg":"..."}` | a bad bind or command was skipped |
 | `{"e":"error","code":"permission","msg":"..."}` | the hook could not start |
@@ -101,6 +115,7 @@ Events:
 ## Platform status
 
 - macOS and Windows backends compile but are untested on hardware.
-- Windows has no Lua host wired to the daemon yet.
+- On Windows, mudspoon launches the daemon through `hs.task` and talks to it
+  over stdin and stdout.
 - Linux needs an evdev and uinput backend.
 - `ms.systemBinds` and the open-menu hotkey still use Lua eventtaps.

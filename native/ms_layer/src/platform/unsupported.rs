@@ -13,3 +13,5 @@ pub fn run(_shared: Arc<Shared>) -> Result<(), (&'static str, String)> {
 }
 
 pub fn inject(_events: &[Inject]) {}
+
+pub fn rehook() {}
