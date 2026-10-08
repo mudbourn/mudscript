@@ -1310,74 +1310,62 @@
             end
         end
 
-        if not ms._trackpadLeftListener then
-            local leftPhysicallyHeld = false
-            local leftActive = false
-            ms._trackpadLeftListener = hs.eventtap.new({
+        ms._trackpadReleasers = ms._trackpadReleasers or {}
+        ms._releaseTrackpadHolds = function()
+            for _, release in pairs(ms._trackpadReleasers) do
+                release()
+            end
+        end
+
+        local function makeTrackpadListener(side, mouseBtn, heldIdx)
+            local active = false
+            local cachedName = nil
+            local cachedCode = nil
+            local function holdCode()
+                local name = ms.trackpadHoldKeys[side]
+                if name ~= cachedName then
+                    cachedName = name
+                    cachedCode = _tpModMap[name] or hs.keycodes.map[name]
+                end
+                return cachedCode
+            end
+            local function release()
+                if not active then return end
+                active = false
+                setTrackpadHeld(heldIdx, false)
+                ms._runInCoroutine(ms.Mouse, Release, mouseBtn, Mouse, 0, 0)
+            end
+            ms._trackpadReleasers[side] = release
+            return hs.eventtap.new({
                 hs.eventtap.event.types.keyDown,
                 hs.eventtap.event.types.keyUp,
             }, function(event)
-                if BindValidity ~= 1 then return false end
                 local isSynthetic = event:getProperty(hs.eventtap.event.properties.eventSourceUserData) == 999
                 if isSynthetic then return false end
-                local leftHoldCode = _tpModMap[ms.trackpadHoldKeys.left] or hs.keycodes.map[ms.trackpadHoldKeys.left]
-                if not leftHoldCode then return false end
-                local evType  = event:getType()
-                local keyCode = event:getKeyCode()
-                if keyCode ~= leftHoldCode then return false end
-                local isDown = evType == hs.eventtap.event.types.keyDown
-                leftPhysicallyHeld = isDown
-                ms.keytrack[keyCode] = isDown
-                if isDown and not leftActive then
-                    leftActive = true
-                    local co = coroutine.create(function()
-                        ms.Mouse(Press, Left, Mouse, 0, 0)
-                        setTrackpadHeld(0, true)
-                        while leftPhysicallyHeld and BindValidity == 1 and ms._targetActive do ms.wait(1) end
-                        setTrackpadHeld(0, false)
-                        ms.Mouse(Release, Left, Mouse, 0, 0)
-                        ms.wait(50)
-                        leftActive = false
+                local code = holdCode()
+                if not code then return false end
+                if event:getKeyCode() ~= code then return false end
+                local isDown = event:getType() == hs.eventtap.event.types.keyDown
+                if not isDown then release() end
+                if BindValidity ~= 1 then return false end
+                ms.keytrack[code] = isDown
+                if isDown and not active and ms._targetActive then
+                    active = true
+                    ms._runInCoroutine(function()
+                        ms.Mouse(Press, mouseBtn, Mouse, 0, 0)
+                        setTrackpadHeld(heldIdx, true)
                     end)
-                    coroutine.resume(co)
                 end
                 return true
             end)
         end
 
+        if not ms._trackpadLeftListener then
+            ms._trackpadLeftListener = makeTrackpadListener("left", Left, 0)
+        end
+
         if not ms._trackpadRightListener then
-            local rightPhysicallyHeld = false
-            local rightActive = false
-            ms._trackpadRightListener = hs.eventtap.new({
-                hs.eventtap.event.types.keyDown,
-                hs.eventtap.event.types.keyUp,
-            }, function(event)
-                if BindValidity ~= 1 then return false end
-                local isSynthetic = event:getProperty(hs.eventtap.event.properties.eventSourceUserData) == 999
-                if isSynthetic then return false end
-                local rightHoldCode = _tpModMap[ms.trackpadHoldKeys.right] or hs.keycodes.map[ms.trackpadHoldKeys.right]
-                if not rightHoldCode then return false end
-                local evType  = event:getType()
-                local keyCode = event:getKeyCode()
-                if keyCode ~= rightHoldCode then return false end
-                local isDown = evType == hs.eventtap.event.types.keyDown
-                rightPhysicallyHeld = isDown
-                ms.keytrack[keyCode] = isDown
-                if isDown and not rightActive then
-                    rightActive = true
-                    local co = coroutine.create(function()
-                        ms.Mouse(Press, Right, Mouse, 0, 0)
-                        setTrackpadHeld(1, true)
-                        while rightPhysicallyHeld and BindValidity == 1 and ms._targetActive do ms.wait(1) end
-                        setTrackpadHeld(1, false)
-                        ms.Mouse(Release, Right, Mouse, 0, 0)
-                        ms.wait(50)
-                        rightActive = false
-                    end)
-                    coroutine.resume(co)
-                end
-                return true
-            end)
+            ms._trackpadRightListener = makeTrackpadListener("right", Right, 1)
         end
     end
 -- END core/bind_system --

@@ -7,15 +7,41 @@
         local _shellEvalQ    = {}
         local _shellFadeTimer = nil
         local _shellReadyWait = nil
+        local _shellFadeInStarted = false
+
+        local function _stopFade()
+            if _shellFadeTimer then
+                _shellFadeTimer:stop()
+                _shellFadeTimer = nil
+            end
+        end
+
+        local function _fade(view, fromAlpha, toAlpha, onDone)
+            _stopFade()
+            local step, steps = 0, 30
+            local fadeMs = (ms._theme and ms._theme.fadeMs) or 250
+            local timer = nil
+            timer = hs.timer.doEvery(fadeMs / 1000 / steps, function()
+                step = step + 1
+                pcall(function() view:alpha(fromAlpha + (toAlpha - fromAlpha) * (step / steps)) end)
+                if step >= steps then
+                    timer:stop()
+                    if _shellFadeTimer == timer then _shellFadeTimer = nil end
+                    if onDone then onDone() end
+                end
+            end)
+            _shellFadeTimer = timer
+        end
+
+        local function _fadeIn(view)
+            if _shellFadeInStarted then return end
+            _shellFadeInStarted = true
+            _fade(view, 0, 1)
+        end
 
         local ctx = {
             view = function() return _shellView end,
-            stopFade = function()
-                if _shellFadeTimer then
-                    _shellFadeTimer:stop()
-                    _shellFadeTimer = nil
-                end
-            end,
+            stopFade = _stopFade,
         }
 
         local function _loadPart(name)
@@ -228,19 +254,7 @@
                     if panel == "_shell" and action == "ready" then
                         _hydrateShell()
                         if ms._shellState and ms._shellState.visible and _shellView then
-                            local view = _shellView
-                            local step, steps = 0, 30
-                            local fadeMs = (ms._theme and ms._theme.fadeMs) or 250
-                            _shellFadeTimer = hs.timer.doEvery(fadeMs / 1000 / steps, function()
-                                step = step + 1
-                                pcall(function() view:alpha(step / steps) end)
-                                if step >= steps then
-                                    if _shellFadeTimer then
-                                        _shellFadeTimer:stop()
-                                        _shellFadeTimer = nil
-                                    end
-                                end
-                            end)
+                            _fadeIn(_shellView)
                         end
                     end
                     if action == "close" then
@@ -644,10 +658,8 @@
                     end
                 end
                 if not _shellView then ms.shell.init() end
-                if _shellFadeTimer then
-                    _shellFadeTimer:stop()
-                    _shellFadeTimer = nil
-                end
+                _stopFade()
+                _shellFadeInStarted = false
                 ms.shell._restoreFrame()
                 if ms.syncExitCurtainFrame then pcall(ms.syncExitCurtainFrame) end
                 pcall(function() ms.playSlot("settingsOpen") end)
@@ -660,26 +672,14 @@
                 ms._shellState.visible = true
                 if ms.ui then ms.ui._open = true end
                 if ms.bus then ms.bus.emit("macroLab:toggled", { visible = true }) end
-
-                local view = _shellView
-                local function _fadeIn()
-                    local step, steps = 0, 30
-                    local fadeMs = (ms._theme and ms._theme.fadeMs) or 250
-                    _shellFadeTimer = hs.timer.doEvery(fadeMs / 1000 / steps, function()
-                        step = step + 1
-                        pcall(function() view:alpha(step / steps) end)
-                        if step >= steps then
-                            if _shellFadeTimer then
-                                _shellFadeTimer:stop()
-                                _shellFadeTimer = nil
-                            end
-                        end
-                    end)
+                if ms.ui and ms.ui._stale then
+                    ms.ui._stale = false
+                    if _shellReady and ms.ui.refresh then pcall(ms.ui.refresh) end
                 end
 
-                -- Fade in now if ready, else poll briefly and force it after a timeout.
+                local view = _shellView
                 if _shellReady then
-                    _fadeIn()
+                    _fadeIn(view)
                 else
                     if _shellReadyWait then _shellReadyWait:stop() end
                     local waited = 0
@@ -690,7 +690,7 @@
                                 _shellReadyWait:stop()
                                 _shellReadyWait = nil
                             end
-                            _fadeIn()
+                            _fadeIn(view)
                         elseif waited >= 1.5 then
                             if _shellReadyWait then
                                 _shellReadyWait:stop()
@@ -698,9 +698,8 @@
                             end
                             print("[shell] ready handshake timed out (1.5s) -- forcing "
                                 .. "visible and hydrating anyway; page->Lua bridge may be slow")
-                            -- Last-resort hydrate so the shell is not left a bare frame.
                             _hydrateShell()
-                            _fadeIn()
+                            _fadeIn(view)
                         end
                     end)
                 end
@@ -711,10 +710,8 @@
             ms.shell.hide = function()
                 pcall(function() ms.shell.osk.hide() end)
                 if _shellView then
-                    if _shellFadeTimer then
-                        _shellFadeTimer:stop()
-                        _shellFadeTimer = nil
-                    end
+                    _stopFade()
+                    _shellFadeInStarted = false
                     if ms._shellState and ms._shellState.visible then
                         pcall(function() ms.playSlot("settingsClose") end)
                     end
@@ -726,21 +723,11 @@
                     local view = _shellView
                     local startAlpha = 1
                     pcall(function() startAlpha = view:alpha() or 1 end)
-                    local step, steps = 0, 30
-                    local fadeMs = (ms._theme and ms._theme.fadeMs) or 250
-                    _shellFadeTimer = hs.timer.doEvery(fadeMs / 1000 / steps, function()
-                        step = step + 1
-                        pcall(function() view:alpha(startAlpha * (1 - (step / steps))) end)
-                        if step >= steps then
-                            if _shellFadeTimer then
-                                _shellFadeTimer:stop()
-                                _shellFadeTimer = nil
-                            end
-                            pcall(function() view:hide() end)
-                            if ms._shellPrevApp then
-                                pcall(function() ms._shellPrevApp:activate() end)
-                                ms._shellPrevApp = nil
-                            end
+                    _fade(view, startAlpha, 0, function()
+                        pcall(function() view:hide() end)
+                        if ms._shellPrevApp then
+                            pcall(function() ms._shellPrevApp:activate() end)
+                            ms._shellPrevApp = nil
                         end
                     end)
                     if ms.bus then ms.bus.emit("macroLab:toggled", { visible = false }) end
@@ -763,10 +750,7 @@
 
         -- destroy --
             ms.shell.destroy = function()
-                if _shellFadeTimer then
-                    _shellFadeTimer:stop()
-                    _shellFadeTimer = nil
-                end
+                _stopFade()
                 if ms._shellDragTap then
                     ms._shellDragTap:stop()
                     ms._shellDragTap = nil

@@ -616,9 +616,19 @@
                     if capturedStack then
                         ms._capturedStack = capturedStack
                     end
-                    fn()
+                    ms._runInCoroutine(fn)
                     ms._capturedStack = nil
                 end)
+            end
+
+            ms._runInCoroutine = function(fn, ...)
+                local co, isMain = coroutine.running()
+                if co and not isMain then return fn(...) end
+                local runner = coroutine.create(fn)
+                local ok, err = coroutine.resume(runner, ...)
+                if not ok then
+                    print("ms._runInCoroutine error: " .. tostring(err))
+                end
             end
 
             ms.wait = function(ms_time)
@@ -642,8 +652,11 @@
                     end)
                     if ms._branchTrace then ms.devtools:flushTraceBuffer(co) end
                     coroutine.yield()
-                else
-                    hs.timer.usleep(ms_time * 1000)
+                elseif not ms._waitOffCoroutineWarned then
+                    ms._waitOffCoroutineWarned = true
+                    print("ms.wait called outside a coroutine, skipping (chain: "
+                        .. tostring(ms._getCallChain and ms._getCallChain() or "unknown")
+                        .. ")\n" .. debug.traceback("", 2))
                 end
             end
         -- END 5. Timing --
@@ -1123,8 +1136,6 @@
             local t6 = 2.6
             local t7 = 3.2
             local t8 = 3.8
-            local t9 = 4.2
-            local t10 = 4.6
             _G._timers[1] = hs.timer.doAfter(0, function()
                 print("[startup] t=0: prebuild")
                 pcall(function() ms.ui.prebuild() end)
@@ -1186,21 +1197,15 @@
                 ms.loading.update(90, "Loading window monitor...")
                 _G._timers[90] = hs.timer.doAfter(0, function()
                     pcall(function() ms.dev.prewarmStep("window") end)
+                    print("[startup] prewarm complete")
+                    if not ms.loading.isFadingOut() then
+                        ms.loading.update(100, "Ready.")
+                        _G._timers[12] = hs.timer.doAfter(0.4, function()
+                            print("[startup] fade out")
+                            pcall(function() ms.loading.fadeOut(_announceLoad) end)
+                        end)
+                    end
                 end)
-            end)
-            _G._timers[10] = hs.timer.doAfter(t9, function()
-                print("[startup] t=" .. t9 .. ": finalize")
-                if not ms.loading.isFadingOut() then ms.loading.update(96, "Finalizing...") end
-            end)
-            _G._timers[11] = hs.timer.doAfter(t10, function()
-                print("[startup] t=" .. t10 .. ": fade start")
-                if not ms.loading.isFadingOut() then
-                    ms.loading.update(100, "Ready.")
-                    _G._timers[12] = hs.timer.doAfter(0.8, function()
-                        print("[startup] fade out")
-                        pcall(function() ms.loading.fadeOut(_announceLoad) end)
-                    end)
-                end
             end)
             _G._timers.guard = hs.timer.doAfter(8, function()
                 print("[startup] t=8: GUARD fired")

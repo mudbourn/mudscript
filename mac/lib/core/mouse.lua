@@ -628,10 +628,15 @@
             upEv:setProperty(_camBtn, 5)
             downEv:setProperty(hs.eventtap.event.properties.eventSourceUserData, 999)
             upEv:setProperty(hs.eventtap.event.properties.eventSourceUserData, 999)
-            downEv:post()
-            hs.timer.usleep(10000)
-            upEv:post()
             _camActivated = true
+            downEv:post()
+            local co, isMain = coroutine.running()
+            if co and not isMain then
+                ms.wait(10)
+                upEv:post()
+            else
+                hs.timer.doAfter(0.01, function() upEv:post() end)
+            end
         end
 
         ms._updateCamAnchor = _updateCamAnchor
@@ -725,7 +730,9 @@
             local perX, remX = math.floor(dx / count), dx % count
             local perY, remY = math.floor(dy / count), dy % count
             local accX, accY = 0, 0
-            for i = 1, count do
+            local i = 0
+            local function step()
+                i = i + 1
                 local ex = perX
                 accX = accX + remX
                 if accX >= count then ex = ex + 1
@@ -735,8 +742,20 @@
                 if accY >= count then ey = ey + 1
                 accY = accY - count end
                 ms.cam(ex, ey)
-                if i < count then hs.timer.usleep(gapUs) end
             end
+            local co, isMain = coroutine.running()
+            if co and not isMain then
+                for n = 1, count do
+                    step()
+                    if n < count then ms.wait(gapUs / 1000) end
+                end
+                return
+            end
+            local function schedule()
+                step()
+                if i < count then hs.timer.doAfter(gapUs / 1000000, schedule) end
+            end
+            schedule()
         end
 
         local _sweepQueue = {}

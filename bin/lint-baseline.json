@@ -81,7 +81,7 @@
     "marker-unclosed": 1
   },
   "mac/lib/ms_shell.lua": {
-    "comment": 8,
+    "comment": 6,
     "lua-inline-table": 1
   },
   "mac/lib/ms_ui.lua": {

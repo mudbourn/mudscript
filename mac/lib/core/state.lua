@@ -572,19 +572,9 @@ return function(ms)
             require("hs.application")
 
             hs.timer.doAfter(0.3, function()
-                local targetApp = hs.application.get(ms._targetApp)
-                if targetApp then
+                local front = hs.application.frontmostApplication()
+                if ms._targetApp and front and front:name() == ms._targetApp then
                     ms._targetActive = true
-
-                    local hs_app = hs.application.get("Hammerspoon")
-                    if hs_app then hs_app:activate() end
-
-                    hs.timer.doAfter(0.25, function()
-                        local app = hs.application.get(ms._targetApp) or targetApp
-                        local ok, win = pcall(function() return app:mainWindow() end)
-                        if ok and win then pcall(function() win:focus() end) end
-                        pcall(function() app:activate() end)
-                    end)
                 end
             end)
     -- END State & Config --

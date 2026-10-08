@@ -188,9 +188,9 @@
             local def = ms.fn and ms.fn.registry and ms.fn.registry._defs[id]
             if def and callable(def.fn) then return def.fn() end
             local wired = ms.bind and ms.bind._wires and ms.bind._wires[id]
-            if callable(wired) then return wired() end
+            if callable(wired) then return ms._runInCoroutine(wired) end
             local tool = ms._toolIndex and ms._toolIndex[id]
-            if tool and callable(tool.run) then return tool.run() end
+            if tool and callable(tool.run) then return ms._runInCoroutine(tool.run) end
             print("ms.callFn: no function tool or macro named '" .. tostring(id) .. "'")
         end
 

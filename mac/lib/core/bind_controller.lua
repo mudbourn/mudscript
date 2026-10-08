@@ -27,26 +27,34 @@
             end)
         end
 
+        local function _refreshUIState()
+            if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
+            local shellVisible = ms._shellState and ms._shellState.visible
+            if shellVisible or (ms.ui and ms.ui._open) then
+                if ms.ui and ms.ui.refresh then ms.ui.refresh() end
+            elseif ms.ui then
+                ms.ui._stale = true
+            end
+        end
+
         ms.setMacros = function(state, silent)
             if state == 1 and BindValidity ~= 1 then
                 BindValidity = 1
                 hs.timer.doAfter(0, function()
                     if BindValidity ~= 1 then return end
-                    if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
                     if ms._updateCamAnchor then ms._updateCamAnchor() end
                     ms.dev.log({
                         type = "system",
                         event = "macros_enabled",
                     })
                     if not silent then _doNotify(1) end
-                    if ms.ui and ms.ui._open then ms.ui.refresh() end
+                    _refreshUIState()
                 end)
             elseif state == 0 and BindValidity ~= 0 then
                 BindValidity = 0
-                ms.keytrack = {}
+                if ms._releaseTrackpadHolds then ms._releaseTrackpadHolds() end
                 hs.timer.doAfter(0, function()
                     if BindValidity ~= 0 then return end
-                    if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
                     for _, timer in pairs(ms.running) do
                         if timer and timer.stop then timer:stop() end
                     end
@@ -56,7 +64,7 @@
                         event = "macros_disabled",
                     })
                     if not silent then _doNotify(0) end
-                    if ms.ui and ms.ui.refresh then ms.ui.refresh() end
+                    _refreshUIState()
                     ms.cancelMacros()
                 end)
             end
@@ -79,7 +87,7 @@
                     if fromDialog then
                         BindValidity = 1
                     else
-                        ms.setMacros(1)
+                        ms.setMacros(1, true)
                     end
                 else
                     if appName == "Hammerspoon" and ms._ownUiHeld then return end
@@ -92,7 +100,7 @@
                     })
                     if ms._camActivated ~= nil then ms._camActivated = false end
                     if BindValidity == 1 then
-                        ms.setMacros(0, ms._inputOpen)
+                        ms.setMacros(0, true)
                     end
                 end
             end
