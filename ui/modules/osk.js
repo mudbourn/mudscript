@@ -54,9 +54,7 @@
         if (send) { try { send('_osk', 'osk', payload); } catch (e) {} }
     }
 
-    // Face-button glyphs per controller type. GameController reports buttons by
-    // position (a=bottom, b=right, x=left, y=top), so PlayStation maps to its
-    // shapes and Nintendo swaps the printed labels to match its layout.
+    // Face-button glyphs per controller type
     var PS_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
         + ' stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">';
     var PS = {
@@ -69,7 +67,7 @@
         xbox:    { a: 'A', b: 'B', x: 'X', y: 'Y', menu: MENU_SVG, l1: 'LB', r1: 'RB', l2: 'LT', r2: 'RT' },
         generic: { a: 'A', b: 'B', x: 'X', y: 'Y', menu: MENU_SVG, l1: 'LB', r1: 'RB', l2: 'LT', r2: 'RT' },
         ds4:     { a: PS.cross, b: PS.circle, x: PS.square, y: PS.triangle, menu: 'Options', l1: 'L1', r1: 'R1', l2: 'L2', r2: 'R2' },
-        'switch': { a: 'B', b: 'A', x: 'Y', y: 'X', menu: '+', l1: 'L', r1: 'R', l2: 'ZL', r2: 'ZR' },
+        'switch': { a: 'A', b: 'B', x: 'X', y: 'Y', menu: '+', l1: 'L', r1: 'R', l2: 'ZL', r2: 'ZR' },
     };
     var HINTS = [['a', 'Select'], ['b', 'Close'], ['x', BACK_SVG], ['y', 'Space'],
         ['l1', PREV_SVG], ['r1', NEXT_SVG], ['l2', '#+='], ['r2', SHIFT_SVG], ['menu', 'Done']];

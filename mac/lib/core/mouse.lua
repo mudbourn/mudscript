@@ -295,10 +295,10 @@
                 home = "PS",
             },
             ["switch"] = {
-                a = "B",
-                b = "A",
-                x = "Y",
-                y = "X",
+                a = "A",
+                b = "B",
+                x = "X",
+                y = "Y",
                 l1 = "L",
                 r1 = "R",
                 l2 = "ZL",
@@ -771,8 +771,6 @@
         local _camBtn     = hs.eventtap.event.properties.mouseEventButtonNumber
         local _camDx      = hs.eventtap.event.properties.mouseEventDeltaX
         local _camDy      = hs.eventtap.event.properties.mouseEventDeltaY
-        local _camTotalX  = 0
-        local _camTotalY  = 0
         local _camAnchor  = nil
         local _camActivated = false
         local _camTransforms = {}
@@ -835,9 +833,6 @@
                 ev:setProperty(_camDy, dy)
                 ev:setProperty(hs.eventtap.event.properties.eventSourceUserData, 999)
                 ev:post()
-
-                _camTotalX = _camTotalX + dx
-                _camTotalY = _camTotalY + dy
             end,
         })
 
@@ -865,11 +860,6 @@
             assert(fn == nil or type(fn) == "function",
                 "ms.cam.setTransform: fn must be a function or nil")
             _camTransforms[app] = fn
-        end
-
-        ms.cam.reset = function()
-            _camTotalX = 0
-            _camTotalY = 0
         end
 
         ms.flick = function(dx, dy, opts)

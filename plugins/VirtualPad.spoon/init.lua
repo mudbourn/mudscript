@@ -108,6 +108,8 @@ function obj:init()
     -- Helpers --
         local function armed() return ms.settings.get("vpadArmed") ~= false end
 
+        local function emulatingDs4() return IS_WIN and ms.settings.get("vpadEmulate") == "ds4" end
+
         local function normButton(name)
             local n = ms.padName(name)
             return BUTTONS[n] and n or nil
@@ -430,6 +432,11 @@ function obj:init()
             save    = true,
             section = "vpad",
             onChange = function(v)
+                if ms.ui and ms.ui.markDirty then
+                    ms.ui.markDirty()
+                    pcall(ms.ui.refresh)
+                end
+
                 if not IS_WIN or not armed() or v == state.emulate then return end
 
                 if state.task and state.task:isRunning() then
@@ -455,6 +462,7 @@ function obj:init()
             default = 17,
             save    = true,
             section = "vpad",
+            visible = function() return not emulatingDs4() end,
         })
     -- END Tap Edge Slider --
 
@@ -489,7 +497,7 @@ function obj:init()
         local tapReleased = {}
 
         ms.vpad.tap = function(name, holdMs)
-            local edge = tonumber(ms.settings.get("vpadTapEdgeMs")) or 17
+            local edge = emulatingDs4() and 0 or tonumber(ms.settings.get("vpadTapEdgeMs")) or 17
             local b = normButton(name)
             local since = b and tapReleased[b] and (hs.timer.secondsSinceEpoch() - tapReleased[b]) * 1000
 

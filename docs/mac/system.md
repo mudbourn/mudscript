@@ -142,6 +142,7 @@ Registers a setting or visual item in the **Settings** section of the panel. Ite
 | `hint` | - | Optional subtitle shown below the label. |
 | `save` | - | `false` to skip persisting to `ms_settings.json`. Default: `true`. |
 | `default` | - | Initial value used when no saved value exists. |
+| `visible()` | - | Returns `false` to hide the row. Checked each time the panel state is rebuilt. Call `ms.ui.markDirty()` then `ms.ui.refresh()` when its answer changes. |
 | `onChange(value)` | - | Called when the user changes the value. Also called once at startup with `default`, **only if `default` is not `nil`**. If a saved value exists, a second call follows with the saved value. |
 
 **Type-specific fields:**

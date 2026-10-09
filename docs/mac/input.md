@@ -337,7 +337,7 @@ The camera engine drives Roblox's camera using synthetic button-5 drag events, b
 
 ### `ms.cam(dx, dy)`
 
-`ms.cam` is a callable table. Calling it posts a single camera drag delta: `dx` is the horizontal delta, `dy` the vertical delta, both in Roblox sensitivity units. The engine scales them by the current sensitivity ratio so the same numbers produce the same on-screen movement regardless of the user's configured sensitivity. Values are rounded to whole deltas, and the running total is accumulated.
+`ms.cam` is a callable table. Calling it posts a single camera drag delta: `dx` is the horizontal delta, `dy` the vertical delta, both in Roblox sensitivity units. The engine scales them by the current sensitivity ratio so the same numbers produce the same on-screen movement regardless of the user's configured sensitivity. Values are rounded to whole deltas.
 
 ```lua
 ms.cam(-3145, 0)   -- large horizontal delta
@@ -352,12 +352,6 @@ The horizontal delta comes first. There is no `ms.cam.move`.
 ### `ms.cam.setTransform(app, fn)`
 
 Registers `fn(dx, dy) -> dx, dy` for `app`. While `app` is the target app, every `ms.cam` move runs through `fn` before it is rounded and posted. Pass `nil` to remove it. Core never transforms on its own: a game plugin owns its sensitivity model and registers the conversion here. With no transform for the target app, moves are sent as written.
-
----
-
-### `ms.cam.reset()`
-
-Clears the accumulated `(dx, dy)` total without moving the camera.
 
 ---
 

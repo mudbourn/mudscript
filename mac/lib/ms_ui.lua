@@ -352,7 +352,13 @@ return function(ms)
 
             local userSettings = {}
             for _, def in ipairs(ms._userSettingDefs) do
-                table.insert(userSettings, _serItem(def))
+                local okV, shown = true, true
+                if type(def.visible) == "function" then
+                    okV, shown = pcall(def.visible)
+                end
+                if not okV or shown ~= false then
+                    table.insert(userSettings, _serItem(def))
+                end
             end
 
             local userSections = {}

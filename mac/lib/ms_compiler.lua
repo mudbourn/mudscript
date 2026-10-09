@@ -423,10 +423,6 @@
                 return indent(lvl) .. "ms.cam(" .. numArg(p.dx, 0) .. ", " .. numArg(p.dy, 0) .. ")"
             end
 
-            emitters["ms.cam.reset"] = function(step, lvl)
-                return indent(lvl) .. "ms.cam.reset()"
-            end
-
             emitters["ms.scroll"] = function(step, lvl)
                 local p = step.params or {}
                 local dir = serialize(p.direction or "up")

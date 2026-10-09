@@ -310,15 +310,6 @@
                 ]
             },
             {
-                id: "ms.cam.reset",
-                name: "ms.cam.reset",
-                label: "Reset Camera",
-                sig: "ms.cam.reset()",
-                desc: "Reset camera to default.",
-                category: "camera",
-                params: []
-            },
-            {
                 id: "ms.flick",
                 name: "ms.flick",
                 label: "Flick Camera",
