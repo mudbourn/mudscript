@@ -493,7 +493,6 @@ function obj:init()
             return true
         end
 
-        -- Release time of each tapped button, in seconds
         local tapReleased = {}
 
         ms.vpad.tap = function(name, holdMs)

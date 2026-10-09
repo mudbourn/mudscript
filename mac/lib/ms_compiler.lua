@@ -375,7 +375,12 @@
 
             emitters["ms.release"] = function(step, lvl)
                 local p = step.params or {}
-                return indent(lvl) .. "ms.release(" .. keyArgs({ key = p.key or "", mods = p.mods }) .. ")"
+                local args = keyArgs({
+                    key  = p.key or "",
+                    mods = p.mods,
+                })
+
+                return indent(lvl) .. "ms.release(" .. args .. ")"
             end
 
             emitters["ms.sound"] = function(step, lvl)
