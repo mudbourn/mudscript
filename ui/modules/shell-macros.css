@@ -158,6 +158,8 @@
     .macro-toolbar-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-shrink: 0; }
     .macro-name-input { background: transparent; border: 1px solid transparent; border-radius: var(--radius); color: var(--text); font-size: 12px; font-weight: 700; padding: 3px 6px; outline: none; flex: 1 1 120px; min-width: 90px; font-family: inherit; user-select: text; -webkit-user-select: text; }
     .macro-name-input::placeholder { color: var(--text2); opacity: 0.55; }
+    .macro-id-chip { display: inline-flex; align-items: center; gap: 4px; background: transparent; border: 1px solid var(--border-dim); border-radius: var(--radius); color: var(--text3); font-family: ui-monospace, Consolas, monospace; font-size: 10px; padding: 2px 6px; margin-left: 4px; cursor: pointer; max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .macro-id-chip:hover { color: var(--text); }
     .macro-name-input:hover { border-color: var(--border-dim); }
     .macro-name-input:focus { border-color: var(--accent); background: var(--surface2); }
     .macro-flow-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 2px 4px; }

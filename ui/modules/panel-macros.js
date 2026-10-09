@@ -164,6 +164,51 @@
     });
     toolbar.appendChild(nameInput);
 
+    var idChip = document.createElement("button");
+    idChip.type = "button";
+    idChip.className = "macro-id-chip";
+    idChip.title = "Macro id, used by ms.bindstate(\"id\"). Click to copy.";
+
+    var idText = document.createElement("span");
+    idChip.appendChild(idText);
+
+    idChip.appendChild(window.iconNode("copy", "icon-inline"));
+
+    toolbar.appendChild(idChip);
+
+    idChip.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
+
+    idChip.addEventListener("click", function() {
+        var id = M.currentMacroId;
+
+        if (!id) return;
+
+        var viaHost = function() {
+            if (typeof shellDispatch === "function") shellDispatch("_shell", "clipboard", { text: id });
+        };
+
+        try {
+            navigator.clipboard.writeText(id).catch(viaHost);
+        } catch (_) {
+            viaHost();
+        }
+
+        if (window.playSlot) playSlot("update");
+    });
+
+    var _currentMacroId = M.currentMacroId || null;
+
+    Object.defineProperty(M, "currentMacroId", {
+        get: function() { return _currentMacroId; },
+        set: function(v) {
+            _currentMacroId = v;
+            idText.textContent = v || "";
+            idChip.style.display = v ? "" : "none";
+        },
+    });
+
+    M.currentMacroId = _currentMacroId;
+
     var histSlot = document.createElement("div");
     histSlot.className = "macro-hist-slot";
     histSlot.style.cssText = "display:flex;gap:4px;margin-left:8px";

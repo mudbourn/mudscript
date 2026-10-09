@@ -558,6 +558,8 @@
                 return false
             end
 
+            ms._bindstateWarned = {}
+
             ms.bindstate = function(id)
                 if not id then
                     local co = coroutine.running()
@@ -571,6 +573,26 @@
                             break
                         end
                     end
+                elseif not (ms.registry._defs or {})[id] then
+                    local want = tostring(id):lower()
+                    local hits = {}
+
+                    for _, defId in ipairs(ms.registry._defList or {}) do
+                        local def = ms.registry._defs[defId]
+
+                        if def and type(def.label) == "string" and def.label:lower() == want then
+                            hits[#hits + 1] = defId
+                        end
+                    end
+
+                    if #hits > 1 and not ms._bindstateWarned[want] then
+                        ms._bindstateWarned[want] = true
+
+                        print("ms.bindstate: label '" .. tostring(id) .. "' matches "
+                            .. table.concat(hits, ", ") .. ". Using " .. hits[1] .. ".")
+                    end
+
+                    id = hits[1]
                 end
 
                 local c = id and ms.effectiveBind(id)
