@@ -15,7 +15,6 @@
 
             ms.SOCD_TAG = 0x6D736F63
 
-            -- Whether an event was posted by mudscript itself
             ms.isSynthetic = function(ev)
                 local tag = ev:getProperty(hs.eventtap.event.properties.eventSourceUserData)
 

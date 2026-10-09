@@ -386,7 +386,11 @@ return function(ms, ctx)
                         end
                         local slicesById = {}
                         if ms.package and ms.package.libraryList then
-                            for _, kind in ipairs({ "theme", "sound", "macro" }) do
+                            for _, kind in ipairs({
+                                "theme",
+                                "sound",
+                                "macro",
+                            }) do
                                 local okL, recs = pcall(ms.package.libraryList, kind)
                                 if okL and type(recs) == "table" then
                                     for _, rec in ipairs(recs) do

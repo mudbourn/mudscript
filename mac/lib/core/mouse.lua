@@ -558,7 +558,6 @@
                 return false
             end
 
-            -- Whether every input of a bind is held, resolved from its current config
             ms.bindstate = function(id)
                 if not id then
                     local co = coroutine.running()
