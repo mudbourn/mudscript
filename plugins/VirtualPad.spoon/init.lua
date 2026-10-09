@@ -169,6 +169,10 @@ function obj:init()
                         state.virtual = true
                         state.pad = msg.name
                         state.lastError = nil
+                        if IS_WIN and msg.virt == "x360" and not state.xboxWarned then
+                            state.xboxWarned = true
+                            ms.alert("Virtual Pad: Xbox emulation can drop fast taps. Set Emulate As to PlayStation in Virtual Pad settings", 8)
+                        end
                         ms.bus.emit("vpad:ready", msg)
                     elseif msg.e == "lost" then
                         state.ready = false
@@ -296,12 +300,19 @@ function obj:init()
             if not IS_WIN then return connectHelper(0) end
             if state.task and state.task:isRunning() then return end
             state.outBuf = ""
+            state.emulate = ms.settings.get("vpadEmulate")
             state.task = hs.task.new(BIN, function(code)
                 state.ready = false
+                state.virtual = false
                 state.pad = nil
                 state.task = nil
                 setExternal(false)
-                if code ~= 0 and IS_WIN then
+                if state.restartOnExit then
+                    state.restartOnExit = false
+                    hs.timer.doAfter(0, start)
+                end
+                if IS_WIN and (code ~= 0 or state.unhideOnExit) then
+                    state.unhideOnExit = false
                     hs.task.new(BIN, nil, {
                         "--unhide",
                     }):start()
@@ -309,7 +320,9 @@ function obj:init()
                 if code ~= 0 and not state.stopped then
                     state.lastError = "helper exited with code " .. tostring(code)
                 end
-            end, onOutput, {})
+            end, onOutput, ms.settings.get("vpadEmulate") == "ds4" and {
+                "--ds4",
+            } or {})
             state.task:start()
         end
 
@@ -388,6 +401,7 @@ function obj:init()
             section = "vpad",
             onChange = function(v)
                 if v == false then
+                    state.unhideOnExit = true
                     quitHelper()
                 else
                     start()
@@ -395,6 +409,54 @@ function obj:init()
             end,
         })
     -- END Armed Toggle --
+
+    -- Emulation Type --
+        ms.settings.define({
+            type    = "seg",
+            key     = "vpadEmulate",
+            label   = "Emulate As",
+            hint    = "Windows only. PlayStation emulation for any controller. Relaunch the game after changing",
+            options = {
+                {
+                    label = "Match Controller",
+                    value = "match",
+                },
+                {
+                    label = "PlayStation",
+                    value = "ds4",
+                },
+            },
+            default = "match",
+            save    = true,
+            section = "vpad",
+            onChange = function(v)
+                if not IS_WIN or not armed() or v == state.emulate then return end
+
+                if state.task and state.task:isRunning() then
+                    state.restartOnExit = true
+
+                    quitHelper()
+                else
+                    start()
+                end
+            end,
+        })
+    -- END Emulation Type --
+
+    -- Tap Edge Slider --
+        ms.settings.define({
+            type    = "slider",
+            key     = "vpadTapEdgeMs",
+            label   = "Minimum Tap Edge (ms)",
+            hint    = "Shortest press and gap ms.vpad.tap sends. One game frame: 17 at 60 fps, 8 at 120, 4 at 240",
+            min     = 0,
+            max     = 50,
+            step    = 1,
+            default = 17,
+            save    = true,
+            section = "vpad",
+        })
+    -- END Tap Edge Slider --
 
     -- Simulation API (ms.vpad) --
         ms.vpad = {}
@@ -423,10 +485,24 @@ function obj:init()
             return true
         end
 
+        -- Release time of each tapped button, in seconds
+        local tapReleased = {}
+
         ms.vpad.tap = function(name, holdMs)
+            local edge = tonumber(ms.settings.get("vpadTapEdgeMs")) or 17
+            local b = normButton(name)
+            local since = b and tapReleased[b] and (hs.timer.secondsSinceEpoch() - tapReleased[b]) * 1000
+
+            if since and since < edge then ms.wait(edge - since) end
+
             if not ms.vpad.press(name) then return false end
-            ms.wait(math.max(holdMs or 50, 20))
+
+            ms.wait(math.max(holdMs or 50, edge))
+
             ms.vpad.release(name)
+
+            tapReleased[b] = hs.timer.secondsSinceEpoch()
+
             return true
         end
 
@@ -693,6 +769,7 @@ function obj:stop(opts)
         if opts and opts.reload and not IS_WIN then
             self._dropSocket()
         else
+            state.unhideOnExit = not (opts and opts.reload)
             self._quitHelper()
         end
         state.stopped = true

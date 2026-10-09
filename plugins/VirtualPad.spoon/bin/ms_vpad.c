@@ -364,6 +364,7 @@
 
     static void hidePad(unsigned short vid, unsigned short pid) {
         char key[32];
+        char btKey[32];
         char id[256];
         char args[320];
         SP_DEVINFO_DATA dev;
@@ -372,6 +373,8 @@
         if (!hidHideCli[0]) return;
 
         snprintf(key, sizeof(key), "VID_%04X&PID_%04X", vid, pid);
+
+        snprintf(btKey, sizeof(btKey), "%04X_PID&%04X", vid, pid);
 
         set = SetupDiGetClassDevsA(NULL, NULL, NULL, DIGCF_ALLCLASSES | DIGCF_PRESENT);
 
@@ -382,7 +385,7 @@
         for (DWORD i = 0; SetupDiEnumDeviceInfo(set, i, &dev) && nHidden < 16; i++) {
             if (!SetupDiGetDeviceInstanceIdA(set, &dev, id, sizeof(id), NULL)) continue;
 
-            if (!strstr(id, key)) continue;
+            if (!strstr(id, key) && !(strstr(id, "_VID&") && strstr(id, btKey))) continue;
 
             if (strncmp(id, "HID\\", 4) != 0 && strncmp(id, "USB\\", 4) != 0) continue;
 
@@ -416,7 +419,7 @@
         saveHidden();
     }
 
-    static void unhideLeftovers(void) {
+    static void loadHidden(void) {
         char line[256];
         FILE *f;
 
@@ -433,8 +436,6 @@
         }
 
         fclose(f);
-
-        unhidePads();
     }
 // END HidHide //
 
@@ -442,6 +443,7 @@
     static HANDLE bus = INVALID_HANDLE_VALUE;
     static ULONG serial;
     static ULONG virtType;
+    static int forceDs4;
     static USHORT virtVid;
     static USHORT virtPid;
 
@@ -901,7 +903,7 @@
     }
 
     static int plugClone(unsigned short vid, unsigned short pid) {
-        if (strcmp(pad.type, "ds4") != 0) return plugVirtual(TARGET_X360, X360_VID, X360_PID);
+        if (!forceDs4 && strcmp(pad.type, "ds4") != 0) return plugVirtual(TARGET_X360, X360_VID, X360_PID);
 
         if (vid == SONY_VID && (pid == DS4_PID || pid == DS4_V2_PID)) return plugVirtual(TARGET_DS4, vid, pid);
 
@@ -939,7 +941,8 @@
 
         jsonEscape(SDL_GameControllerName(pad.gc), name, sizeof(name));
 
-        emitf("{\"e\":\"ready\",\"name\":\"%s\",\"vid\":%u,\"pid\":%u}", name, vid, pid);
+        emitf("{\"e\":\"ready\",\"name\":\"%s\",\"vid\":%u,\"pid\":%u,\"type\":\"%s\",\"virt\":\"%s\"}",
+            name, vid, pid, pad.type, virtType == TARGET_DS4 ? "ds4" : "x360");
 
         if (!hidHideCli[0]) emitRaw("{\"e\":\"nohidhide\"}");
 
@@ -1010,8 +1013,6 @@
     static void teardown(void) {
         if (pad.gc) detach();
 
-        unhidePads();
-
         if (bus != INVALID_HANDLE_VALUE) CloseHandle(bus);
 
         if (timerBegun) {
@@ -1039,10 +1040,30 @@
         return EXCEPTION_CONTINUE_SEARCH;
     }
 
+    // Opt out of power throttling of timer resolution and execution speed
+    static void keepTimerPrecision(void) {
+        struct {
+            ULONG Version;
+            ULONG ControlMask;
+            ULONG StateMask;
+        } st = {
+            1,
+            0x1 | 0x4,
+            0,
+        };
+
+        BOOL (WINAPI *setInfo)(HANDLE, int, LPVOID, DWORD) =
+            (BOOL (WINAPI *)(HANDLE, int, LPVOID, DWORD))GetProcAddress(GetModuleHandleA("kernel32"), "SetProcessInformation");
+
+        if (setInfo) setInfo(GetCurrentProcess(), 4, &st, sizeof(st));
+    }
+
     int main(int argc, char **argv) {
         InitializeCriticalSection(&outLock);
 
         InitializeCriticalSection(&cmdLock);
+
+        keepTimerPrecision();
 
         timeBeginPeriod(1);
 
@@ -1050,9 +1071,15 @@
 
         hidHideInit();
 
-        unhideLeftovers();
+        loadHidden();
 
-        if (argc > 1 && strcmp(argv[1], "--unhide") == 0) return 0;
+        if (argc > 1 && strcmp(argv[1], "--unhide") == 0) {
+            unhidePads();
+
+            return 0;
+        }
+
+        forceDs4 = argc > 1 && strcmp(argv[1], "--ds4") == 0;
 
         SetUnhandledExceptionFilter(onCrash);
 

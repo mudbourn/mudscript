@@ -323,6 +323,31 @@
                 category: "camera",
                 params: []
             },
+            {
+                id: "ms.flick",
+                name: "ms.flick",
+                label: "Flick Camera",
+                sig: "ms.flick(dx, dy)",
+                desc: "Snap the camera by a delta in fast micro-moves.",
+                category: "camera",
+                params: [
+                    { name: "dx", type: "number", label: "Delta X", required: true },
+                    { name: "dy", type: "number", label: "Delta Y", required: true }
+                ]
+            },
+            {
+                id: "ms.cam.sweepBlocking",
+                name: "ms.cam.sweepBlocking",
+                label: "Sweep Camera",
+                sig: "ms.cam.sweepBlocking(dx, dy, durationMs)",
+                desc: "Move the camera smoothly over a duration, then continue.",
+                category: "camera",
+                params: [
+                    { name: "dx",         type: "number", label: "Delta X",       required: true },
+                    { name: "dy",         type: "number", label: "Delta Y",       required: true },
+                    { name: "durationMs", type: "number", label: "Duration (ms)", required: true }
+                ]
+            },
 
             {
                 id: "ms.pixelColor",
@@ -496,6 +521,17 @@
                 category: "state",
                 params: [
                     { name: "key", type: "key", label: "Key", required: true }
+                ]
+            },
+            {
+                id: "ms.bindstate",
+                name: "ms.bindstate",
+                label: "Bind Is Held",
+                sig: "ms.bindstate(id)",
+                desc: "Check if every input of a bind is held. Blank = this macro's bind.",
+                category: "state",
+                params: [
+                    { name: "id", type: "string", label: "Bind ID", required: false }
                 ]
             },
             {

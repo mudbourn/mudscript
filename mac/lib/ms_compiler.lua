@@ -241,6 +241,18 @@
                 ["ms.keystate"] = {
                     "key",
                 },
+                ["ms.bindstate"] = {
+                    "id",
+                },
+                ["ms.flick"] = {
+                    "dx",
+                    "dy",
+                },
+                ["ms.cam.sweepBlocking"] = {
+                    "dx",
+                    "dy",
+                    "durationMs",
+                },
                 ["ms.mousestate"] = {
                     "button",
                 },

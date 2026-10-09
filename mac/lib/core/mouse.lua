@@ -558,6 +558,53 @@
                 return false
             end
 
+            -- Whether every input of a bind is held, resolved from its current config
+            ms.bindstate = function(id)
+                if not id then
+                    local co = coroutine.running()
+                    local ctx = co and ms._coroContext and ms._coroContext[co]
+                    local label = ctx and ctx.callStack and ctx.callStack[1]
+
+                    for defId, def in pairs(ms.registry._defs or {}) do
+                        if def.label == label then
+                            id = defId
+
+                            break
+                        end
+                    end
+                end
+
+                local c = id and ms.effectiveBind(id)
+
+                if type(c) ~= "table" then return false end
+
+                if c.type == "gamepad" then
+                    _padEnsure()
+
+                    local buttons = ms.gpButtons(c)
+
+                    if #buttons == 0 then return false end
+
+                    for _, b in ipairs(buttons) do
+                        if not ms._gamepadHeld[ms.padName(b)] then return false end
+                    end
+
+                    return true
+                end
+
+                if c.key then
+                    if not ms.keystate(c.key) then return false end
+
+                    for _, m in ipairs(type(c.mods) == "table" and c.mods or {}) do
+                        if not ms.keystate(m) then return false end
+                    end
+
+                    return true
+                end
+
+                return false
+            end
+
             ms.padaxis = function(name)
                 _padEnsure()
                 local n = ms.padName(name or "left")
