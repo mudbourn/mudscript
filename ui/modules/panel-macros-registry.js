@@ -29,12 +29,13 @@
                 id: "ms.type",
                 name: "ms.type",
                 label: "Type Key",
-                sig: "ms.type(key, mods)",
-                desc: "Type a key with optional modifiers. Full keypress cycle (down+up).",
+                sig: "ms.type(key, mods, holdMs)",
+                desc: "Type a key with optional modifiers. Full keypress cycle (down+up). Hold sets how long the key stays down, 15 ms when blank.",
                 category: "input",
                 params: [
-                    { name: "key",  type: "key",   label: "Key",        required: true },
-                    { name: "mods", type: "mods",   label: "Modifiers",  required: false }
+                    { name: "key",  type: "key",    label: "Key",        required: true },
+                    { name: "mods", type: "mods",   label: "Modifiers",  required: false },
+                    { name: "hold", type: "number", label: "Hold (ms)",  required: false }
                 ]
             },
             {
@@ -53,22 +54,25 @@
                 id: "ms.release",
                 name: "ms.release",
                 label: "Release Key",
-                sig: "ms.release(key)",
+                sig: "ms.release(key, mods)",
                 desc: "Send key-up only.",
                 category: "input",
                 params: [
-                    { name: "key", type: "key", label: "Key", required: true }
+                    { name: "key",  type: "key",  label: "Key",       required: true },
+                    { name: "mods", type: "mods", label: "Modifiers", required: false }
                 ]
             },
             {
                 id: "ms.hold",
                 name: "ms.hold",
                 label: "Hold Key",
-                sig: "ms.hold(key)",
-                desc: "Hold a key down without releasing.",
+                sig: "ms.hold(key, mods, durationMs)",
+                desc: "Hold a key down. With no duration it stays down until released. With a duration it holds with key repeat, then releases.",
                 category: "input",
                 params: [
-                    { name: "key", type: "key", label: "Key", required: true }
+                    { name: "key",      type: "key",    label: "Key",           required: true },
+                    { name: "mods",     type: "mods",   label: "Modifiers",     required: false },
+                    { name: "duration", type: "number", label: "Duration (ms)", required: false }
                 ]
             },
             {
@@ -297,22 +301,13 @@
                 id: "ms.cam",
                 name: "ms.cam",
                 label: "Move Camera",
-                sig: "ms.cam(dy, dx)",
-                desc: "Move camera by delta. Note: params are (dy, dx), vertical first.",
+                sig: "ms.cam(dx, dy)",
+                desc: "Move camera by delta, horizontal first.",
                 category: "camera",
                 params: [
-                    { name: "dy", type: "number", label: "Delta Y", required: true },
-                    { name: "dx", type: "number", label: "Delta X", required: true }
+                    { name: "dx", type: "number", label: "Delta X", required: true },
+                    { name: "dy", type: "number", label: "Delta Y", required: true }
                 ]
-            },
-            {
-                id: "ms.cam.rebalance",
-                name: "ms.cam.rebalance",
-                label: "Rebalance Camera",
-                sig: "ms.cam.rebalance()",
-                desc: "Rebalance camera to neutral.",
-                category: "camera",
-                params: []
             },
             {
                 id: "ms.cam.reset",
@@ -588,12 +583,13 @@
                 id: "ms.sound",
                 name: "ms.sound",
                 label: "Play Sound",
-                sig: "ms.sound(path, async)",
-                desc: "Play a sound file.",
+                sig: "ms.sound(path, async, device)",
+                desc: "Play a sound file. Check Wait to hold the macro until the sound finishes. Output Device is an output device name, blank uses the default.",
                 category: "audio",
                 params: [
-                    { name: "path",  type: "string", label: "Path",  required: true },
-                    { name: "async", type: "number", label: "Async", required: false }
+                    { name: "path",   type: "string",  label: "Path",                      required: true },
+                    { name: "async",  type: "boolean", label: "Wait for sound to finish",  required: false },
+                    { name: "device", type: "string",  label: "Output Device",             required: false }
                 ]
             },
             {
@@ -665,7 +661,7 @@
                 name: "ms.notify",
                 label: "Notification",
                 sig: "ms.notify(title, subTitle, infoText)",
-                desc: "Show native macOS notification.",
+                desc: "Show a native notification.",
                 category: "utility",
                 params: [
                     { name: "title",    type: "string", label: "Title",    required: true },
@@ -678,11 +674,21 @@
                 id: "ms.setMacros",
                 name: "ms.setMacros",
                 label: "Enable or Disable Macros",
-                sig: "ms.setMacros(state)",
-                desc: "Enable (1) or disable (0) macros.",
+                sig: "ms.setMacros(state, silent)",
+                desc: "Enable or disable macros. Silent skips the toast.",
                 category: "flow",
                 params: [
-                    { name: "state", type: "number", label: "State (0/1)", required: true }
+                    {
+                        name: "state",
+                        type: "enum",
+                        options: [
+                            { value: "1", label: "On" },
+                            { value: "0", label: "Off" }
+                        ],
+                        label: "State",
+                        required: true
+                    },
+                    { name: "silent", type: "boolean", label: "Silent", required: false }
                 ]
             },
             {
@@ -700,28 +706,41 @@
                 id: "ms.pause",
                 name: "ms.pause",
                 label: "Pause Macro",
-                sig: "ms.pause()",
-                desc: "Pause the current macro.",
+                sig: "ms.pause(macro)",
+                desc: "Pause a running macro. Leave Macro on All to pause every running macro.",
                 category: "flow",
-                params: []
+                params: [
+                    { name: "macro", type: "choice", source: "macros", label: "Macro", required: false }
+                ]
             },
             {
                 id: "ms.resume",
                 name: "ms.resume",
                 label: "Resume Macro",
-                sig: "ms.resume()",
-                desc: "Resume a paused macro.",
+                sig: "ms.resume(macro)",
+                desc: "Resume a paused macro. Leave Macro on All to resume every paused macro.",
                 category: "flow",
-                params: []
+                params: [
+                    { name: "macro", type: "choice", source: "macros", label: "Macro", required: false }
+                ]
             },
             {
                 id: "ms.done",
                 name: "ms.done",
                 label: "Mark Macro Done",
-                sig: "ms.done()",
-                desc: "Signal macro completion.",
+                sig: "ms.done(macro)",
+                desc: "Mark a macro done. Leave Macro blank to mark this macro.",
                 category: "flow",
-                params: []
+                params: [
+                    {
+                        name: "macro",
+                        type: "choice",
+                        source: "macros",
+                        label: "Macro",
+                        required: false,
+                        blankLabel: "This macro"
+                    }
+                ]
             },
             {
                 id: "ms.switchProfile",

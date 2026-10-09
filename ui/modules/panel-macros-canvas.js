@@ -20,7 +20,7 @@
       var ACTION_ICON = {
           "ms.type":"keyboard","ms.press":"keyboard","ms.hold":"keyboard","ms.release":"keyboard",
           "ms.wait":"timer","ms.copy":"clipboard","ms.paste":"clipboard",
-          "ms.cam":"camera","ms.cam.rebalance":"camera","ms.cam.reset":"camera",
+          "ms.cam":"camera","ms.cam.reset":"camera",
           "ms.Mouse":"click","ms.click":"click","ms.scroll":"scroll","ms.move":"move","ms.select":"select",
           "ms.search":"search","ms.record":"record","ms.stop":"stop","break":"stop","ms.cancelMacros":"stop","ms.pause":"pause",
           "ms.play":"play","ms.save":"save","ms.load":"upload","ms.alert":"alert",

@@ -773,7 +773,6 @@
         local _camDy      = hs.eventtap.event.properties.mouseEventDeltaY
         local _camTotalX  = 0
         local _camTotalY  = 0
-        local _camRebalancing = false
         local _camAnchor  = nil
         local _camActivated = false
         local _camTransforms = {}
@@ -837,11 +836,8 @@
                 ev:setProperty(hs.eventtap.event.properties.eventSourceUserData, 999)
                 ev:post()
 
-
-                if not _camRebalancing then
-                    _camTotalX = _camTotalX + dx
-                    _camTotalY = _camTotalY + dy
-                end
+                _camTotalX = _camTotalX + dx
+                _camTotalY = _camTotalY + dy
             end,
         })
 
@@ -861,23 +857,6 @@
             if ms.dev and ms.devtools then
                 ms.devtools:accCamMove(dx, dy, ms._getCallChain())
             end
-        end
-
-        ms.cam.rebalance = function(granularity)
-            if granularity == nil then
-                granularity = 4
-            end
-            if _camTotalX == 0 and _camTotalY == 0 then return end
-            _camRebalancing = true
-            local div1 = 1/granularity
-            local div2 = div1/2
-            for i = 1, granularity * 2 do
-                ms.cam(-_camTotalX * div2, -_camTotalY * div2)
-                ms.wait(2)
-            end
-            _camTotalX = 0
-            _camTotalY = 0
-            _camRebalancing = false
         end
 
         ms.cam.setTransform = function(app, fn)

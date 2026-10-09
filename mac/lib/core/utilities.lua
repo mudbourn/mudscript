@@ -383,9 +383,14 @@
                 for _, ctx in pairs(ms._activeContexts) do ctx.paused = true end
                 return
             end
+            local def = ms.registry and ms.registry._defs[id]
+            local label = def and def.label or id
             for _, ctx in pairs(ms._activeContexts) do
-                if ctx.callStack and ctx.callStack[1] == id then ctx.paused = true
-                return end
+                local root = ctx.callStack and ctx.callStack[1]
+                if root == id or root == label or root == "test:" .. id then
+                    ctx.paused = true
+                    return
+                end
             end
         end
 
@@ -409,9 +414,14 @@
                 for co in pairs(ms._coroContext) do _resume(co) end
                 return
             end
+            local def = ms.registry and ms.registry._defs[id]
+            local label = def and def.label or id
             for co, ctx in pairs(ms._coroContext) do
-                if ctx.callStack and ctx.callStack[1] == id then _resume(co)
-                return end
+                local root = ctx.callStack and ctx.callStack[1]
+                if root == id or root == label or root == "test:" .. id then
+                    _resume(co)
+                    return
+                end
             end
         end
 

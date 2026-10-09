@@ -262,9 +262,11 @@
                 ["ms.padaxis"] = {
                     "axis",
                 },
-                ["ms.sound"] = {
-                    "path",
-                    "async",
+                ["ms.pause"] = {
+                    "macro",
+                },
+                ["ms.resume"] = {
+                    "macro",
                 },
                 ["ms.playSlot"] = {
                     "slotId",
@@ -279,9 +281,6 @@
                     "title",
                     "subTitle",
                     "infoText",
-                },
-                ["ms.setMacros"] = {
-                    "state",
                 },
                 ["ms.cancelMacros"] = {
                     "macro",
@@ -319,15 +318,29 @@
 
             local emitters = {}
 
+            local function optNum(v)
+                local ref = toolRef(v)
+                if ref then return ref end
+                local n = tonumber(v)
+                if n and n > 0 then return tostring(n) end
+                return nil
+            end
+
+            local function keyArgs(p, extra)
+                local hasMods = type(p.mods) == "table" and #p.mods > 0
+                local args = serialize(p.key)
+                if hasMods or extra then
+                    args = args .. ", " .. (hasMods and serialize(p.mods) or "nil")
+                end
+                if extra then args = args .. ", " .. extra end
+                return args
+            end
+
+            local currentMacroId
+
             emitters["ms.type"] = function(step, lvl)
                 local p = step.params or {}
-                local args
-                if p.mods and #p.mods > 0 then
-                    args = serialize(p.key) .. ", " .. serialize(p.mods)
-                else
-                    args = serialize(p.key)
-                end
-                return indent(lvl) .. "ms.type(" .. args .. ")"
+                return indent(lvl) .. "ms.type(" .. keyArgs(p, optNum(p.hold)) .. ")"
             end
 
             emitters["ms.wait"] = function(step, lvl)
@@ -357,27 +370,57 @@
 
             emitters["ms.hold"] = function(step, lvl)
                 local p = step.params or {}
-                local args
-                if p.mods and #p.mods > 0 then
-                    args = serialize(p.key) .. ", " .. serialize(p.mods)
-                else
-                    args = serialize(p.key)
-                end
-                return indent(lvl) .. "ms.hold(" .. args .. ")"
+                return indent(lvl) .. "ms.hold(" .. keyArgs(p, optNum(p.duration)) .. ")"
             end
 
             emitters["ms.release"] = function(step, lvl)
-                local key = (step.params and step.params.key) or ""
-                return indent(lvl) .. "ms.release(" .. serialize(key) .. ")"
+                local p = step.params or {}
+                return indent(lvl) .. "ms.release(" .. keyArgs({ key = p.key or "", mods = p.mods }) .. ")"
+            end
+
+            emitters["ms.sound"] = function(step, lvl)
+                local p = step.params or {}
+                local wait = p.async == true or p.async == "true"
+                local device = p.device ~= nil and p.device ~= ""
+                local args = serialize(p.path or "")
+                if wait or device then
+                    args = args .. ", " .. (wait and "false" or "nil")
+                end
+                if device then
+                    args = args .. ", " .. serialize(p.device)
+                end
+                return indent(lvl) .. "ms.sound(" .. args .. ")"
+            end
+
+            emitters["ms.setMacros"] = function(step, lvl)
+                local p = step.params or {}
+                local on = p.state == true or p.state == "on" or (tonumber(p.state) or 0) ~= 0
+                local args = on and "1" or "0"
+                if p.silent == true then args = args .. ", true" end
+                return indent(lvl) .. "ms.setMacros(" .. args .. ")"
+            end
+
+            emitters["ms.done"] = function(step, lvl)
+                local p = step.params or {}
+                local id
+                if type(p.macro) == "string" and p.macro ~= "" then
+                    id = serialize(p.macro)
+                elseif currentMacroId then
+                    id = serialize(currentMacroId)
+                else
+                    id = "(function() local c = ms._coroContext[coroutine.running()]"
+                        .. " local l = c and c.callStack and c.callStack[1]"
+                        .. " l = l and l:gsub(\"^test:\", \"\")"
+                        .. " if l and (ms.registry._defs or {})[l] then return l end"
+                        .. " for d, def in pairs(ms.registry._defs or {}) do"
+                        .. " if def.label == l then return d end end end)()"
+                end
+                return indent(lvl) .. "ms.done(" .. id .. ")"
             end
 
             emitters["ms.cam"] = function(step, lvl)
                 local p = step.params or {}
                 return indent(lvl) .. "ms.cam(" .. numArg(p.dx, 0) .. ", " .. numArg(p.dy, 0) .. ")"
-            end
-
-            emitters["ms.cam.rebalance"] = function(step, lvl)
-                return indent(lvl) .. "ms.cam.rebalance()"
             end
 
             emitters["ms.cam.reset"] = function(step, lvl)
@@ -796,9 +839,15 @@
                 if tvDecl then lines[#lines + 1] = tvDecl end
                 _actionDelay = 0
                 _loopDepth = 0
-                for _, step in ipairs(steps) do
-                    lines[#lines + 1] = emitStep(step, 1)
-                end
+                local prevMacroId = currentMacroId
+                currentMacroId = id
+                local emitOk, emitErr = pcall(function()
+                    for _, step in ipairs(steps) do
+                        lines[#lines + 1] = emitStep(step, 1)
+                    end
+                end)
+                currentMacroId = prevMacroId
+                if not emitOk then error(emitErr, 0) end
                 lines[#lines + 1] = "end, " .. string.format("%q", name) .. ")"
                 lines[#lines + 1] = ""
 
@@ -854,6 +903,7 @@
                 if tvDecl then lines[#lines + 1] = tvDecl end
                 _actionDelay = 0
                 _loopDepth = 0
+                currentMacroId = nil
                 for _, step in ipairs(steps) do
                     lines[#lines + 1] = emitStep(step, 1)
                 end
@@ -1172,11 +1222,17 @@
                     "return function()",
                     indent(1) .. "local t = 100",
                 }
+                local prevMacroId = currentMacroId
+                currentMacroId = type(macroDef.id) == "string" and macroDef.id or nil
                 for _, step in ipairs(steps) do
                     local okc, line = pcall(emitStep, step, 1)
-                    if not okc then return done(false, "compile error: " .. tostring(line)) end
+                    if not okc then
+                        currentMacroId = prevMacroId
+                        return done(false, "compile error: " .. tostring(line))
+                    end
                     lines[#lines + 1] = line
                 end
+                currentMacroId = prevMacroId
                 lines[#lines + 1] = "end"
                 local src = table.concat(lines, "\n")
 

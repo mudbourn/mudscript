@@ -944,7 +944,7 @@
                 opts.push({ value: String(value), label: label });
             }
             if (p.source === "macros") {
-                add("", "All macros");
+                add("", p.blankLabel || "All macros");
                 (window.msMacroCatalog || []).forEach(function(m) {
                     add(m.id, m.label || m.id);
                     (m.subs || []).forEach(function(sub) { add(sub.id, (sub.label || sub.id) + " (sub)"); });

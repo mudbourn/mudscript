@@ -337,7 +337,7 @@ The camera engine drives Roblox's camera using synthetic button-5 drag events, b
 
 ### `ms.cam(dx, dy)`
 
-`ms.cam` is a callable table. Calling it posts a single camera drag delta: `dx` is the horizontal delta, `dy` the vertical delta, both in Roblox sensitivity units. The engine scales them by the current sensitivity ratio so the same numbers produce the same on-screen movement regardless of the user's configured sensitivity. Values are rounded to whole deltas, and the running total is accumulated for `ms.cam.rebalance`.
+`ms.cam` is a callable table. Calling it posts a single camera drag delta: `dx` is the horizontal delta, `dy` the vertical delta, both in Roblox sensitivity units. The engine scales them by the current sensitivity ratio so the same numbers produce the same on-screen movement regardless of the user's configured sensitivity. Values are rounded to whole deltas, and the running total is accumulated.
 
 ```lua
 ms.cam(-3145, 0)   -- large horizontal delta
@@ -357,13 +357,7 @@ Registers `fn(dx, dy) -> dx, dy` for `app`. While `app` is the target app, every
 
 ### `ms.cam.reset()`
 
-Clears the accumulated `(dx, dy)` total without moving the camera. Use it when you have moved the view by other means and want `rebalance` to treat the current position as the new zero.
-
----
-
-### `ms.cam.rebalance(granularity)`
-
-Walks the camera back to its accumulated-zero position by emitting the inverse of the running total in `granularity * 2` steps (`granularity` defaults to `4`), with a short `ms.wait` between steps, then clears the total. Yields, so it must run inside an `ms.fn`-wrapped function.
+Clears the accumulated `(dx, dy)` total without moving the camera.
 
 ---
 
