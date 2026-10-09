@@ -69,6 +69,71 @@
                     end
                 end)
 
+                ms.bus.on("ui:macros:renameMacro", function(_, body)
+                    if not body or not body.oldId or not body.id or not body.def then return end
+
+                    local oldId, newId = body.oldId, body.id
+
+                    if ms.bindConfig then
+                        if ms.bindConfig[oldId] ~= nil then
+                            ms.bindConfig[newId] = ms.bindConfig[oldId]
+                            ms.bindConfig[oldId] = nil
+                        end
+
+                        for _, cfg in pairs(ms.bindConfig) do
+                            if type(cfg) == "table" and cfg.type == oldId then cfg.type = newId end
+                        end
+                    end
+
+                    if ms.binds and ms.binds[oldId] ~= nil then
+                        ms.binds[newId] = ms.binds[oldId]
+                        ms.binds[oldId] = nil
+                    end
+
+                    if ms.saveSettings then pcall(ms.saveSettings) end
+
+                    local ok, err = pcall(function()
+                        local prev = ms.compiler.get(oldId)
+
+                        if body.def.bind == nil and type(prev) == "table" then body.def.bind = prev.bind end
+
+                        ms.compiler.write(newId, body.def)
+
+                        for _, vid in ipairs(ms.compiler.list()) do
+                            local other = vid ~= oldId and vid ~= newId and ms.compiler.get(vid)
+
+                            if other and type(other.bind) == "table" and other.bind.type == oldId then
+                                other.bind.type = newId
+
+                                ms.compiler.write(vid, other)
+                            end
+                        end
+
+                        ms.compiler.delete(oldId)
+                    end)
+
+                    if not ok then
+                        print("ms.compiler.renameMacro error: " .. tostring(err))
+
+                        local payload = hs.json.encode({
+                            id  = newId,
+                            err = tostring(err),
+                        })
+
+                        _macroShellEval("if(window.shellReceive)shellReceive('macros','saveError',"
+                            .. payload .. ")")
+
+                        _registerAndNotify()
+
+                        return
+                    end
+
+                    _registerAndNotify()
+
+                    print("ms.compiler.renameMacro: '" .. tostring(oldId) .. "' is now '" .. tostring(newId)
+                        .. "'. Handwritten scripts using the old id must be updated.")
+                end)
+
                 ms.bus.on("ui:macros:deleteMacro", function(_, body)
                     if not body or not body.id then return end
                     local id = body.id

@@ -286,22 +286,53 @@
             bindOptsBtn.addEventListener("mouseenter", function() { if (window.playSlot) playSlot("hover"); });
             bindOptsBtn.addEventListener("click", openCurrentBindMenu);
 
+            function idFromName(name) {
+                var baseId = name.replace(/[^a-zA-Z0-9_]/g, "_");
+
+                return /^[0-9]/.test(baseId) ? "_" + baseId : baseId;
+            }
+
+            function uniqueIdFor(baseId, ownId) {
+                var taken = (M.macroIds || []).filter(function(x) { return x !== ownId; });
+                var uniqueId = baseId;
+                var n = 2;
+
+                while (taken.indexOf(uniqueId) !== -1) {
+                    uniqueId = baseId + "_" + n;
+                    n++;
+                }
+
+                return uniqueId;
+            }
+
             function saveMacro() {
+                var oldId = null;
+
+                var typed = nameInput.value.trim();
+
                 if (!M.currentMacroId) {
-                    var name = nameInput.value.trim();
-                    if (!name) {
+                    if (!typed) {
                         nameInput.focus();
                         return;
                     }
-                    var baseId = name.replace(/[^a-zA-Z0-9_]/g, "_");
-                    var taken = M.macroIds || [];
-                    var uniqueId = baseId;
-                    var n = 2;
-                    while (taken.indexOf(uniqueId) !== -1) {
-                        uniqueId = baseId + "_" + n;
-                        n++;
+
+                    M.currentMacroId = uniqueIdFor(idFromName(typed), null);
+                } else if (typed && M.currentMacroDef) {
+                    var baseId = idFromName(typed);
+
+                    var cur = M.currentMacroId;
+
+                    var suffixed = cur.indexOf(baseId + "_") === 0 && /^[0-9]+$/.test(cur.slice(baseId.length + 1));
+
+                    if (cur !== baseId && !suffixed) {
+                        oldId = cur;
+
+                        M.currentMacroId = uniqueIdFor(baseId, cur);
+
+                        M.macroIds = (M.macroIds || [])
+                            .filter(function(x) { return x !== oldId; })
+                            .concat([M.currentMacroId]);
                     }
-                    M.currentMacroId = uniqueId;
                 }
 
                 var name = nameInput.value.trim() || M.currentMacroId;
@@ -327,7 +358,13 @@
                 }
                 M.currentMacroDef = def;
 
-                if (window.shellPost) {
+                if (window.shellPost && oldId) {
+                    shellPost("macros", "renameMacro", {
+                        oldId: oldId,
+                        id: M.currentMacroId,
+                        def: def
+                    });
+                } else if (window.shellPost) {
                     shellPost("macros", "saveMacro", { id: M.currentMacroId, def: def });
                 }
                 updateSaveBtnState();
