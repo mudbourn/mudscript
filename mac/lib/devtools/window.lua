@@ -102,6 +102,85 @@ return function(ms, ctx)
             return not (st and st.visible == false)
         end
 
+        local function _winSpyHandler(ev)
+            if not (S.winElementInspect and S.winElementTab and _winStillOpen()) then return end
+            if _G.ms and _G.ms._shellDragging then return end
+
+            local sx = math.floor(ev.sx or 0)
+            local sy = math.floor(ev.sy or 0)
+            local wf = S.winSpyFrame
+
+            if not wf then
+                local win = hs.window.focusedWindow()
+                local f = win and _winG(function() return win:frame() end)
+
+                if f then
+                    wf = {
+                        x = math.floor(f.x),
+                        y = math.floor(f.y),
+                    }
+                    S.winSpyFrame = wf
+                end
+            end
+
+            local pixel = ev.pixel
+
+            if pixel then pixel.a = 255 end
+
+            local payload = {
+                mouse = {
+                    sx = sx,
+                    sy = sy,
+                    wx = wf and (sx - wf.x) or nil,
+                    wy = wf and (sy - wf.y) or nil,
+                    pixel = pixel,
+                },
+            }
+
+            local el = ev.element
+
+            if type(el) == "table" then
+                local fr = el.frame
+                local frame
+
+                if type(fr) == "table" and fr.x then
+                    frame = {
+                        x = math.floor(fr.x),
+                        y = math.floor(fr.y),
+                        w = math.floor(fr.w),
+                        h = math.floor(fr.h),
+                    }
+                end
+
+                payload.element = {
+                    axPermission = true,
+                    role = el.role,
+                    roleDescription = el.roleDescription,
+                    title = el.title,
+                    value = el.value,
+                    identifier = el.identifier,
+                    frame = frame,
+                }
+            end
+
+            S.winPush("updateAll", payload)
+        end
+
+        local function _winSpySync()
+            local want = S.winElementInspect and S.winElementTab and _winStillOpen()
+
+            if want and not S.winSpyRequested then
+                if not ms.spy then
+                    pcall(function() require("lib.core.native_spy")(ms) end)
+                end
+
+                S.winSpyRequested = ms.spy ~= nil and ms.spy.start(_winSpyHandler) or false
+            elseif not want and S.winSpyRequested then
+                S.winSpyRequested = false
+                if ms.spy then ms.spy.stop() end
+            end
+        end
+
         function MsDevTools:_winEngineStop()
             if S.winAppWatcher then pcall(function() S.winAppWatcher:stop() end)
             S.winAppWatcher = nil end
@@ -110,17 +189,21 @@ return function(ms, ctx)
             if S.winMonitor then S.winMonitor:stop()
             S.winMonitor = nil end
             S.winElementInspect = false
+            S.winSpyFrame = nil
+            _winSpySync()
         end
 
         function MsDevTools:setWinElementInspect(enabled)
             S.winElementInspect = (enabled == true)
             if not S.winElementInspect then S.winLastMouse = nil end
+            _winSpySync()
         end
 
         function MsDevTools:_winEngineStart()
             self:_winEngineStop()
             S.winDirty, S.winMoveN, S.winResizeN, S.winLastMouse = false, 0, 0, nil
             S.winElementTab = true
+            S.winSpyFrame = nil
             local _winLastFullState = nil
 
             local _winLastWin = nil
@@ -146,7 +229,10 @@ return function(ms, ctx)
                     st = S.winRead(win or _winSubject())
                     _winLastFullState = st
                 end
-                if st then S.winPush("updateCurrentWindow", st) end
+                if st then
+                    S.winSpyFrame = st.frame
+                    S.winPush("updateCurrentWindow", st)
+                end
                 return st
             end
 
@@ -234,6 +320,7 @@ return function(ms, ctx)
                     end
                     if st then
                         payload.window = st
+                        S.winSpyFrame = st.frame
                         hasData = true
                     end
                     local f = st and st.frame
@@ -280,7 +367,23 @@ return function(ms, ctx)
                     end
                 end
 
-                if S.winElementInspect and S.winElementTab and hs.accessibilityState() then
+                _winSpySync()
+
+                local spyServing = S.winSpyRequested and ms.spy and ms.spy.serving()
+
+                if spyServing then
+                    local fw = hs.window.focusedWindow()
+                    local ff = fw and fw:frame()
+
+                    if ff then
+                        S.winSpyFrame = {
+                            x = math.floor(ff.x),
+                            y = math.floor(ff.y),
+                        }
+                    end
+                end
+
+                if not spyServing and S.winElementInspect and S.winElementTab and hs.accessibilityState() then
                     local p = hs.mouse.absolutePosition()
                     local _now = hs.timer.secondsSinceEpoch()
                     local _stationaryDue = (not S.winLastInspectAt) or (_now - S.winLastInspectAt) >= 0.5
@@ -288,8 +391,7 @@ return function(ms, ctx)
                         S.winLastMouse = p
                         S.winLastInspectAt = _now
                         local pixel = _winG(function()
-                            return ms.screen and ms.screen.sampleAt
-                               and ms.screen.sampleAt(p.x, p.y) or nil
+                            return ms.screen and ms.screen.sampleAt and ms.screen.sampleAt(p.x, p.y) or nil
                         end)
                         local win = hs.window.focusedWindow()
                         local wf = win and _winG(function() return win:frame() end)
@@ -380,6 +482,12 @@ return function(ms, ctx)
 
                 elseif data.action == "close" then
                     self:hideWindow()
+
+                elseif data.action == "tab" then
+                    S.winElementTab = (data.tab == "window")
+                    S.winElementInspect = S.winElementTab
+                    S.winLastMouse = nil
+                    _winSpySync()
 
                 elseif data.action == "dragStart" then
                     _devDragStart(function() return S.windowPanel end, S.windowPanelPos)

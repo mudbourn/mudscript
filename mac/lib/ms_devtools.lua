@@ -527,6 +527,34 @@ return function(ms)
             end
         end
 
+        -- Pushes the held keys and buttons to a keys panel
+        function S.pushInputState(panel)
+            local keys = {}
+            local buttons = {}
+
+            for code, name in pairs(S.activeKeys) do
+                table.insert(keys, {
+                    name = name,
+                    code = code,
+                })
+            end
+
+            for btn in pairs(S.activeButtons) do
+                table.insert(buttons, btn)
+            end
+
+            local kok, kj = pcall(hs.json.encode, keys)
+            local bok, bj = pcall(hs.json.encode, { buttons = buttons })
+
+            if kok then
+                pcall(function() _pushToPanel(panel, "keys", "updateActiveKeys(" .. kj .. ")") end)
+            end
+
+            if bok then
+                pcall(function() _pushToPanel(panel, "keys", "updateMouseState(" .. bj .. ")") end)
+            end
+        end
+
         if ms.bus then
             ms.bus.on("ui:console:*", function(topic, body)
                 if not body or type(body) ~= "table" then return end
@@ -632,6 +660,7 @@ return function(ms)
                         }
                     end
                     S.loadDevHistory(nil, {"input"}, "keys")
+                    S.pushInputState(nil)
                 elseif action == "setCoordMode" then
                     S.coordMode = body.mode or "screen"
                 end
@@ -646,10 +675,8 @@ return function(ms)
                     ms.playSlot(body.slot)
                 elseif action == "tab" then
                     S.winElementTab = (body.tab == "window")
-                    if S.winElementTab then S.winLastMouse = nil end
-                elseif action == "setInspect" then
-                    S.winElementInspect = (body.enabled == true)
-                    if not S.winElementInspect then S.winLastMouse = nil end
+                    S.winElementInspect = S.winElementTab
+                    S.winLastMouse = nil
                 elseif action == "ready" then
                     hs.timer.doAfter(0.05, function()
                         if S.windowOpen then
@@ -671,6 +698,7 @@ return function(ms)
                 S.windowOpen = true
                 if not (_G.ms and _G.ms._octaneMode) then
                     self:_winEngineStart()
+                    S.winElementInspect = S.winElementTab
                 end
             end)
 
@@ -753,6 +781,10 @@ return function(ms)
                     end)
                     if not _octaneActive then
                         self:_winEngineStart()
+                        S.winElementInspect = S.winElementTab
+                        hs.timer.doAfter(0.15, function()
+                            pcall(function() ms.shell.eval("shellReceive('window','syncTab',{})") end)
+                        end)
                     end
                 end
             end)
@@ -1082,7 +1114,7 @@ return function(ms)
         })
 
         if isDown then
-            S.activeKeys[keyCode] = keyName or tostring(keyCode)
+            S.activeKeys[keyCode] = keyName or ("code:" .. tostring(keyCode))
         else
             S.activeKeys[keyCode] = nil
         end

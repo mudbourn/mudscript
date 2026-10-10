@@ -34,91 +34,13 @@
             window.onCoordModeChange = onCoordModeChange;
             window.keysApplyTheme = lp.applyTheme;
 
-            // -- Constants --
-            const BTN_NAMES = {
-                0: "Left",
-                1: "Right",
-                2: "Middle",
-                3: "Btn4",
-                4: "Btn5",
-            };
-
-            function btnName(n) { return BTN_NAMES[n] ?? "M" + n; }
-
             // -- Entry builder --
-            function mkSpan(cls, text) {
-                const s = document.createElement("span");
-                s.className = cls;
-                s.textContent = text;
-                return s;
-            }
-
-            function mkIcon(cls, name) {
-                const s = document.createElement("span");
-                s.className = cls;
-                s.innerHTML = icon(name, "icon-inline");
-                return s;
-            }
-
             function buildRow(entry) {
-                const row = document.createElement("div");
-                const t = entry.type;
-
-                if (t === "mousemove") {
-                    row.className = "entry move-entry";
-                    row.append(
-                        mkSpan("ts", "[" + (entry.ts || "") + "]"),
-                        mkSpan("arrow arrow-move", "->"),
-                        mkSpan("move-name", entry.x + ", " + entry.y),
-                    );
-                    row.onmouseenter = function() { lp.playSlot("hover"); };
-                    row.onclick = lp._handleEntryClick;
-                    return row;
-                }
-
-                row.className = "entry";
-                row.appendChild(mkSpan("ts", "[" + (entry.ts || "") + "]"));
-
-                if (t === "key") {
-                    row.append(
-                        mkSpan("badge badge-key", "key"),
-                        mkIcon(
-                            "arrow " +
-                                (entry.down ? "arrow-key" : "arrow-key-up"),
-                            entry.down ? "arrow-down" : "arrow-up",
-                        ),
-                        mkSpan("key-name", entry.key || ""),
-                        mkSpan("dim", " (" + (entry.keyCode ?? "?") + ")"),
-                    );
-                } else if (t === "mouse") {
-                    row.append(
-                        mkSpan("badge badge-mouse", "mouse"),
-                        mkIcon(
-                            "arrow " +
-                                (entry.down ? "arrow-mouse" : "arrow-up"),
-                            entry.down ? "arrow-down" : "arrow-up",
-                        ),
-                        mkSpan("mouse-name", btnName(entry.button)),
-                        mkSpan("dim", " (" + entry.button + ")"),
-                        mkSpan("dim", "  " + entry.x + ", " + entry.y),
-                    );
-                } else if (t === "scroll") {
-                    row.append(
-                        mkSpan("badge badge-scroll", "scroll"),
-                        mkIcon(
-                            "arrow arrow-scroll",
-                            entry.direction === "up" ? "arrow-up" : "arrow-down",
-                        ),
-                        mkSpan(
-                            "scroll-name",
-                            entry.direction +
-                                (entry.amount > 1 ? " x" + entry.amount : ""),
-                        ),
-                    );
-                }
+                const row = devfmt.inputRow(entry);
 
                 row.onmouseenter = function() { lp.playSlot("hover"); };
                 row.onclick = lp._handleEntryClick;
+
                 return row;
             }
 
@@ -126,9 +48,9 @@
             function appendEntry(entry) {
                 if (lp.isPaused()) return;
                 if (entry.type === "key" && entry.down)
-                    flagKey(entry.key || "?");
+                    flagKey(entry);
                 if (entry.type === "mouse" && entry.down)
-                    flagMouse(btnName(entry.button) + " (" + entry.button + ")");
+                    flagMouse(entry);
 
                 const t = entry.type;
                 const isMouseSide =
@@ -167,61 +89,37 @@
                 ml.appendChild(mf);
                 kl.scrollTop = kl.scrollHeight;
                 ml.scrollTop = ml.scrollHeight;
+
+                const last = devfmt.lastInput(capped);
+
+                if (last.key) flagKey(last.key);
+                if (last.mouse) flagMouse(last.mouse);
             }
 
             // -- Active keys pills --
             function updateActiveKeys(keys) {
-                const row = document.getElementById("keys-pills");
-                row.innerHTML = "";
-                if (!keys || keys.length === 0) {
-                    const p = document.createElement("span");
-                    p.className = "pill pill-empty";
-                    p.textContent = ",";
-                    row.appendChild(p);
-                    return;
-                }
-                keys.forEach((entry) => {
-                    const p = document.createElement("span");
-                    p.className = "pill pill-key";
-                    if (typeof entry === "object" && entry !== null) {
-                        p.textContent = entry.name + " (" + entry.code + ")";
-                    } else {
-                        p.textContent = entry;
-                    }
-                    row.appendChild(p);
-                });
+                devfmt.renderPills(
+                    document.getElementById("keys-pills"),
+                    "key",
+                    devfmt.keyPills(keys),
+                );
             }
 
             // -- Mouse state (position + active buttons) --
             function updateMouseState(state) {
                 const mx = _panel ? _panel.querySelector("#mx-display") : document.getElementById("mx-display");
                 const my = _panel ? _panel.querySelector("#my-display") : document.getElementById("my-display");
+
                 if (state.x != null && mx) mx.textContent = state.x;
                 if (state.y != null && my) my.textContent = state.y;
-                const row = _panel ? _panel.querySelector("#mouse-pills") : document.getElementById("mouse-pills");
-                if (!row) return;
-                row.innerHTML = "";
-                const btns = Array.isArray(state.buttons)
-                    ? state.buttons
-                    : Object.values(state.buttons || {});
-                if (
-                    !btns ||
-                    (Array.isArray(btns)
-                        ? btns.length === 0
-                        : Object.keys(btns).length === 0)
-                ) {
-                    const emp = document.createElement("span");
-                    emp.className = "pill pill-key pill-empty";
-                    emp.textContent = "-";
-                    row.appendChild(emp);
-                    return;
-                }
-                btns.forEach((b) => {
-                    const p = document.createElement("span");
-                    p.className = "pill pill-mouse";
-                    p.textContent = btnName(b) + " (" + b + ")";
-                    row.appendChild(p);
-                });
+
+                if (state.buttons === undefined) return;
+
+                devfmt.renderPills(
+                    _panel ? _panel.querySelector("#mouse-pills") : document.getElementById("mouse-pills"),
+                    "mouse",
+                    devfmt.buttonPills(state.buttons),
+                );
             }
 
             function updateMousePos(pos) {
@@ -235,34 +133,37 @@
             let _lastKeyTime = 0,
                 _lastMouseTime = 0;
 
-            function flagKey(name) {
+            function flagKey(entry) {
                 _lastKeyTime = Date.now();
-                document.getElementById("flag-key-name").textContent =
-                    name || ",";
+                devfmt.renderFlag(
+                    document.getElementById("flag-key-pill"),
+                    "Key",
+                    devfmt.key(entry.key, entry.keyCode),
+                    null,
+                    false,
+                );
                 _updateFlagStyles();
             }
 
-            function flagMouse(name) {
+            function flagMouse(entry) {
                 _lastMouseTime = Date.now();
-                document.getElementById("flag-mouse-name").textContent =
-                    name || ",";
+                devfmt.renderFlag(
+                    document.getElementById("flag-mouse-pill"),
+                    "Mouse",
+                    devfmt.button(entry.button),
+                    null,
+                    false,
+                );
                 _updateFlagStyles();
             }
 
             function _updateFlagStyles() {
                 const kRecent = _lastKeyTime >= _lastMouseTime;
-                document
-                    .getElementById("flag-key-pill")
-                    .classList.toggle(
-                        "flag-recent",
-                        kRecent && _lastKeyTime > 0,
-                    );
-                document
-                    .getElementById("flag-mouse-pill")
-                    .classList.toggle(
-                        "flag-recent",
-                        !kRecent && _lastMouseTime > 0,
-                    );
+                const kp = document.getElementById("flag-key-pill");
+                const mp = document.getElementById("flag-mouse-pill");
+
+                if (kp) kp.classList.toggle("flag-recent", kRecent && _lastKeyTime > 0);
+                if (mp) mp.classList.toggle("flag-recent", !kRecent && _lastMouseTime > 0);
             }
 
             // -- Tab switching --

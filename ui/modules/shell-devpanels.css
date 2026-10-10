@@ -35,10 +35,11 @@
 
 /* Keys-Specific */
     #flag-row { display: flex; align-items: center; padding: 7px 12px; gap: 8px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
-    .flag-pill { display: flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: var(--radius); background: var(--surface2); border: 1px solid var(--border); font-size: 11px; color: var(--text2); transition: border-color 0.2s, color 0.2s; flex: 1; }
+    .flag-pill { display: flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: var(--radius); background: var(--surface2); border: 1px solid var(--border); font-size: 11px; color: var(--text2); transition: border-color 0.2s, color 0.2s; flex: 1; min-width: 0; }
     .flag-pill.flag-recent { border-color: var(--accent); color: var(--text); }
-    .flag-label { font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
-    #flag-key-name, #flag-mouse-name { font: 12px var(--font-mono); }
+    .flag-label { font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0; }
+    .flag-value { font: 12px var(--font-mono); flex-shrink: 0; }
+    .flag-detail { font-size: 11px; color: var(--text3); margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .flag-sep { color: var(--border); font-size: 16px; flex-shrink: 0; }
 
     .state-section { padding: 8px 12px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
@@ -47,7 +48,7 @@
     .panel-keys .pill { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: var(--radius); font-size: 12px; font-family: inherit; white-space: nowrap; }
     .pill-key { background: color-mix(in srgb, var(--key, var(--accent)) 15%, transparent); border: 1px solid var(--key, var(--accent)); color: var(--key, var(--accent)); }
     .pill-mouse { background: color-mix(in srgb, var(--warning) 15%, transparent); border: 1px solid var(--warning); color: var(--warning); }
-    .pill-empty { opacity: 0.4; }
+    .pill-empty { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); opacity: 0.4; }
 
     #coord-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
     #pos-display { font: 12px var(--font-mono); color: var(--text2); flex: 1; }
@@ -94,9 +95,6 @@
 
 /* Window Spy */
     .panel-window .win-flag-row { display: flex; align-items: center; padding: 7px 12px; gap: 8px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
-    .panel-window .win-flag-pill { min-width: 0; }
-    .panel-window .win-flag-name { font: 12px var(--font-mono); flex-shrink: 0; }
-    .panel-window .win-flag-detail { font-size: 11px; color: var(--text3); margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .panel-window .wtabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
     .panel-window .wtab { flex: 1; padding: 7px 12px; font-size: 12px; font-weight: 600; color: var(--text2); text-align: center; cursor: pointer; border: none; border-bottom: 2px solid transparent; background: none; transition: color 0.15s, border-color 0.15s; }
     .panel-window .wtab:hover { color: var(--text); }

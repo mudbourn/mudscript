@@ -236,15 +236,9 @@
         </div>
 
         <div id="flag-row">
-            <div class="flag-pill" id="flag-key-pill">
-                <span class="flag-label">Key</span>
-                <span id="flag-key-name">,</span>
-            </div>
+            <div class="flag-pill" id="flag-key-pill" data-flag-label="Key"></div>
             <span class="flag-sep">|</span>
-            <div class="flag-pill" id="flag-mouse-pill">
-                <span id="flag-mouse-name">,</span>
-                <span class="flag-label">Mouse</span>
-            </div>
+            <div class="flag-pill" id="flag-mouse-pill" data-flag-label="Mouse"></div>
         </div>
 
         <!-- Tab bar -->
@@ -283,8 +277,8 @@
                 <div class="section-label">Position</div>
                 <div id="coord-row">
                     <div id="pos-display">
-                        x:&nbsp;<span id="mx-display">,</span
-                        >&nbsp;&nbsp;y:&nbsp;<span id="my-display">,</span>
+                        x:&nbsp;<span id="mx-display">-</span
+                        >&nbsp;&nbsp;y:&nbsp;<span id="my-display">-</span>
                     </div>
                     <div class="coord-dropdown" id="coordDropdown">
                         <button class="coord-dd-btn" id="coord-dd-btn" onmouseenter="playSlot('hover')" onclick="playSlot('interact'); document.getElementById('coordDropdown').classList.toggle('open');">Screen <svg class="icon-inline" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 13L12 18L17 13M7 6L12 11L17 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
@@ -314,14 +308,6 @@
         <div id="header">
             <span id="panel-title">mudscript :// window monitor</span>
             <div class="header-btns">
-                <button
-                    id="inspectToggle"
-                    class="btn-ghost"
-                    onmouseenter="playSlot('hover')"
-                    onclick="toggleInspect()"
-                >
-                    Inspect
-                </button>
                 <button
                     id="pause-btn"
                     class="btn-ghost"
@@ -364,11 +350,7 @@
 
         <!-- Flag row: last event -->
         <div class="win-flag-row">
-            <div class="flag-pill win-flag-pill">
-                <span class="flag-label">Event</span>
-                <span class="win-flag-name">&mdash;</span>
-                <span class="win-flag-detail"></span>
-            </div>
+            <div class="flag-pill" data-flag-label="Event" data-flag-detail></div>
         </div>
 
         <!-- Tabs -->
@@ -393,14 +375,14 @@
                     </div>
                     <div class="section-body">
                         <div class="kv-grid">
-                            <div class="kv-key">App</div>    <div class="kv-val empty" data-k="app">&mdash;</div>
-                            <div class="kv-key">PID</div>    <div class="kv-val empty" data-k="pid">&mdash;</div>
-                            <div class="kv-key">Bundle</div> <div class="kv-val empty" data-k="bundle">&mdash;</div>
-                            <div class="kv-key">Title</div>  <div class="kv-val empty" data-k="title">&mdash;</div>
-                            <div class="kv-key">Role</div>   <div class="kv-val empty" data-k="role">&mdash;</div>
-                            <div class="kv-key">Frame</div>  <div class="kv-val empty" data-k="frame">&mdash;</div>
-                            <div class="kv-key">Screen</div> <div class="kv-val empty" data-k="screen">&mdash;</div>
-                            <div class="kv-key">Win ID</div> <div class="kv-val empty" data-k="id">&mdash;</div>
+                            <div class="kv-key">App</div>    <div class="kv-val empty" data-k="app">-</div>
+                            <div class="kv-key">PID</div>    <div class="kv-val empty" data-k="pid">-</div>
+                            <div class="kv-key">Bundle</div> <div class="kv-val empty" data-k="bundle">-</div>
+                            <div class="kv-key">Title</div>  <div class="kv-val empty" data-k="title">-</div>
+                            <div class="kv-key">Role</div>   <div class="kv-val empty" data-k="role">-</div>
+                            <div class="kv-key">Frame</div>  <div class="kv-val empty" data-k="frame">-</div>
+                            <div class="kv-key">Screen</div> <div class="kv-val empty" data-k="screen">-</div>
+                            <div class="kv-key">Win ID</div> <div class="kv-val empty" data-k="id">-</div>
                         </div>
                     </div>
                 </div>
@@ -413,12 +395,12 @@
                     <div class="ax-banner"><b>Accessibility permission required.</b><br />Grant Hammerspoon access in System Settings &rarr; Privacy &amp; Security &rarr; Accessibility, then hover over any control.</div>
                     <div class="section-body">
                         <div class="kv-grid">
-                            <div class="kv-key">Role</div>  <div class="kv-val empty" data-e="role">&mdash;</div>
-                            <div class="kv-key">Desc</div>  <div class="kv-val empty" data-e="desc">&mdash;</div>
-                            <div class="kv-key">Title</div> <div class="kv-val empty" data-e="title">&mdash;</div>
-                            <div class="kv-key">Value</div> <div class="kv-val empty" data-e="value">&mdash;</div>
-                            <div class="kv-key">Ident</div> <div class="kv-val empty" data-e="ident">&mdash;</div>
-                            <div class="kv-key">Frame</div> <div class="kv-val empty" data-e="frame">&mdash;</div>
+                            <div class="kv-key">Role</div>  <div class="kv-val empty" data-e="role">-</div>
+                            <div class="kv-key">Desc</div>  <div class="kv-val empty" data-e="desc">-</div>
+                            <div class="kv-key">Title</div> <div class="kv-val empty" data-e="title">-</div>
+                            <div class="kv-key">Value</div> <div class="kv-val empty" data-e="value">-</div>
+                            <div class="kv-key">Ident</div> <div class="kv-val empty" data-e="ident">-</div>
+                            <div class="kv-key">Frame</div> <div class="kv-val empty" data-e="frame">-</div>
                         </div>
                     </div>
                 </div>
@@ -430,12 +412,12 @@
                     </div>
                     <div class="section-body">
                         <div class="kv-grid">
-                            <div class="kv-key">Screen</div> <div class="kv-val empty" data-cursor="screen">&mdash;</div>
-                            <div class="kv-key">Window</div> <div class="kv-val empty" data-cursor="win">&mdash;</div>
+                            <div class="kv-key">Screen</div> <div class="kv-val empty" data-cursor="screen">-</div>
+                            <div class="kv-key">Window</div> <div class="kv-val empty" data-cursor="win">-</div>
                             <div class="kv-key">Pixel</div>
                             <div class="kv-val empty" data-cursor="pixel" style="display:flex;align-items:center;gap:7px;">
                                 <span class="pixel-swatch" style="width:12px;height:12px;border-radius:2px;border:1px solid var(--border);flex-shrink:0;display:none;"></span>
-                                <span class="pixel-hex">&mdash;</span>
+                                <span class="pixel-hex">-</span>
                             </div>
                         </div>
                     </div>
@@ -658,6 +640,7 @@
     </main>
 
     <!-- -- Shared: ui-tabs.js -- -->
+    <script src="./modules/devfmt.js"></script>
     <script src="./modules/ui-tabs.js"></script>
 
     <!-- -- Shared: log-panel.js -- -->

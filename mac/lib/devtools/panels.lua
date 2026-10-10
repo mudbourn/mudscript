@@ -447,6 +447,8 @@ return function(ms, ctx)
 
                 S.loadDevHistory(S.keysPanel, {"input"})
 
+                S.pushInputState(S.keysPanel)
+
                 pcall(function() S.pushMouseState() end)
             end)
 

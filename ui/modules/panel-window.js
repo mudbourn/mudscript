@@ -1,38 +1,12 @@
 (function() {
 "use strict";
   // Window buildRow //
-      const BADGE = { focus:"badge-focus", move:"badge-move", resize:"badge-resize",
-          minimize:"badge-state", unminimize:"badge-state", fullscreen:"badge-state" };
-      const LABEL = { focus:"focused", move:"moved", resize:"resized",
-          minimize:"minimized", unminimize:"restored", fullscreen:"fullscreen",
-          hide:"hidden", show:"shown" };
-
-      function mkSpan(cls, txt) { const s = document.createElement("span"); s.className = cls; s.textContent = txt; return s; }
-
       function buildRow(entry) {
-          const row = document.createElement("div");
-          const t = entry.type;
-          row.className = "entry" + (t === "move" || t === "resize" ? " move-entry" : "");
-          row.appendChild(mkSpan("ts", "[" + (entry.ts || "") + "]"));
-          row.appendChild(mkSpan("badge " + (BADGE[t] || "badge-state"), LABEL[t] || t));
-          if (t === "focus") {
-              row.appendChild(mkSpan("ename", entry.app || "?"));
-              if (entry.title) row.appendChild(mkSpan("edetail", "- " + entry.title));
-          } else if (t === "move") {
-              row.appendChild(mkSpan("edetail", (entry.x ?? "?") + ", " + (entry.y ?? "?")));
-              if (entry.count > 1) row.appendChild(mkSpan("ecount", "x" + entry.count));
-          } else if (t === "resize") {
-              row.appendChild(mkSpan("edetail", (entry.w ?? "?") + " x " + (entry.h ?? "?")));
-              if (entry.count > 1) row.appendChild(mkSpan("ecount", "x" + entry.count));
-          } else if (t === "fullscreen") {
-              row.appendChild(mkSpan("ename", entry.on ? "entered" : "exited"));
-              if (entry.app) row.appendChild(mkSpan("edetail", "- " + entry.app));
-          } else {
-              if (entry.app) row.appendChild(mkSpan("ename", entry.app));
-              if (entry.title) row.appendChild(mkSpan("edetail", "- " + entry.title));
-          }
+          const row = devfmt.windowRow(entry);
+
           row.onmouseenter = function() { lp.playSlot("hover"); };
           row.onclick = lp._handleEntryClick;
+
           return row;
       }
   // END Window buildRow //
@@ -55,7 +29,6 @@
           const txt = on ? FLAG_ON_LABEL[name] : FLAG_OFF_LABEL[name];
           if (txt) el.textContent = txt;
       }
-      function frameStr(f) { return f ? (f.x + ", " + f.y + "  -  " + f.w + " x " + f.h) : ""; }
   // END Field helpers //
 
   // State updates //
@@ -66,7 +39,7 @@
           setVal('[data-k="bundle"]', s.bundleID);
           setVal('[data-k="title"]', s.title);
           setVal('[data-k="role"]', [s.role, s.subrole].filter(Boolean).join(" / "));
-          setVal('[data-k="frame"]', frameStr(s.frame));
+          setVal('[data-k="frame"]', devfmt.frame(s.frame));
           setVal('[data-k="screen"]', s.screen);
           setVal('[data-k="id"]', s.id != null ? String(s.id) : "");
           setFlag("standard", s.standard); setFlag("minimized", s.minimized);
@@ -87,24 +60,24 @@
           setVal('[data-e="title"]', e.title);
           setVal('[data-e="value"]', e.value);
           setVal('[data-e="ident"]', e.identifier);
-          setVal('[data-e="frame"]', frameStr(e.frame));
+          setVal('[data-e="frame"]', devfmt.frame(e.frame));
       }
 
       function updateMousePos(p) {
           if (!p) return;
-          if (p.sx != null) setVal('[data-cursor="screen"]', p.sx + ", " + p.sy);
-          if (p.wx != null) setVal('[data-cursor="win"]', p.wx + ", " + p.wy);
+          if (p.sx != null) setVal('[data-cursor="screen"]', devfmt.coord(p.sx, p.sy));
+          if (p.wx != null) setVal('[data-cursor="win"]', devfmt.coord(p.wx, p.wy));
           const cell = _q('[data-cursor="pixel"]');
           if (cell) {
               const sw = cell.querySelector(".pixel-swatch");
               const hx = cell.querySelector(".pixel-hex");
               if (p.pixel && p.pixel.hex) {
                   if (sw) { sw.style.background = p.pixel.hex; sw.style.display = ""; }
-                  if (hx) hx.textContent = p.pixel.hex + "  -  " + p.pixel.r + ", " + p.pixel.g + ", " + p.pixel.b;
+                  if (hx) hx.textContent = p.pixel.hex + devfmt.SEP + p.pixel.r + ", " + p.pixel.g + ", " + p.pixel.b;
                   cell.classList.remove("empty");
               } else {
                   if (sw) sw.style.display = "none";
-                  if (hx) hx.textContent = ",";
+                  if (hx) hx.textContent = devfmt.EMPTY;
                   cell.classList.add("empty");
               }
           }
@@ -122,15 +95,7 @@
   // Flag event //
       function flagEvent(entry) {
           if (!entry) return;
-          const nm = _q(".win-flag-name"), dt = _q(".win-flag-detail"), pill = _q(".win-flag-pill");
-          if (nm) nm.textContent = LABEL[entry.type] || entry.type;
-          let detail = "";
-          if (entry.type === "focus") detail = entry.app || "";
-          else if (entry.type === "move") detail = (entry.x ?? "") + ", " + (entry.y ?? "");
-          else if (entry.type === "resize") detail = (entry.w ?? "") + " x " + (entry.h ?? "");
-          else detail = entry.app || "";
-          if (dt) dt.textContent = detail;
-          if (pill) pill.classList.add("flag-recent");
+          devfmt.windowFlag(_q(".flag-pill"), entry);
       }
   // END Flag event //
 
@@ -161,16 +126,12 @@
       window.switchWindowTab = switchWindowTab;
   // END Window tabs //
 
-  // Inspect toggle //
-      let inspectOn = false;
-      function toggleInspect() {
-          inspectOn = !inspectOn;
-          const btn = document.getElementById('inspectToggle');
-          if (btn) btn.classList.toggle('active', inspectOn);
-          lp.sendToHost({ action: 'setInspect', enabled: inspectOn });
+  // Tab sync //
+      function syncTab() {
+          const active = _panel ? _panel.querySelector(".wtab.active") : null;
+          lp.sendToHost({ action: "tab", tab: active ? active.dataset.wtab : "window" });
       }
-      window.toggleInspect = toggleInspect;
-  // END Inspect toggle //
+  // END Tab sync //
 
   // Create LogPanel //
       const _panel = document.querySelector('.panel-window');
@@ -242,11 +203,7 @@
                   else if (action === "updateElement" && body) { if (!lp.isPaused()) updateElement(body); }
                   else if (action === "updateMousePos" && body) { if (!lp.isPaused()) updateMousePos(body); }
                   else if (action === "loadHistory" && body) loadHistory(body);
-                  else if (action === "updateInspect" && body) {
-                      inspectOn = !!body.enabled;
-                      const btn = document.getElementById('inspectToggle');
-                      if (btn) btn.classList.toggle('active', inspectOn);
-                  }
+                  else if (action === "syncTab") syncTab();
               });
           }
           if (window.shellPost) {
@@ -254,6 +211,7 @@
               if (p) { p.style.borderRadius = "0"; p.style.clipPath = "none"; }
           }
           lp.sendToHost({ action: "ready" });
+          syncTab();
       });
   // END Init //
 })();
