@@ -135,7 +135,7 @@
       function windowRow(entry) {
           const row = document.createElement("div");
           const t = entry.type;
-          row.className = "entry" + (t === "move" || t === "resize" ? " move-entry" : "");
+          row.className = "entry";
           row.appendChild(mkSpan("ts", "[" + (entry.ts || "") + "]"));
           row.appendChild(mkSpan("badge " + (BADGE[t] || "badge-state"), eventLabel(t)));
           if (t === "focus") {
