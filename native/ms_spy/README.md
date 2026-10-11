@@ -30,7 +30,7 @@ cargo build --release
 ```
 
 On Windows copy `target\release\ms_spy.exe` to `~/.local/bin/ms_spy.exe`.
-`deploy_mudscript.ps1` in mudspoon builds and installs it.
+`win\deploy.ps1` builds and installs it.
 `mac/lib/core/native_spy.lua` starts the daemon on demand when that file
 exists.
 
