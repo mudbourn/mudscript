@@ -56,6 +56,21 @@
 
             return $null
         }
+
+        function Get-HostVersion($dir) {
+            if (-not $dir) { return $null }
+
+            $file = Join-Path $dir 'VERSION'
+
+            if (-not (Test-Path $file)) { return $null }
+
+            try {
+                return [version]((Get-Content $file -Raw).Trim())
+            }
+            catch {
+                return $null
+            }
+        }
     # END #
 
     Write-Host ""
@@ -91,17 +106,26 @@
             Step "1. Checking for Hammerspoon for Windows ..."
 
             $hostDir = Get-HostDir
+            $installed = Get-HostVersion $hostDir
 
-            if ($hostDir) {
-                Ok "Installed at $hostDir"
+            $release = Invoke-RestMethod "https://api.github.com/repos/$HostRepo/releases/latest" -Headers $Headers
+            $latest = [version]($release.tag_name.TrimStart('v'))
+            $asset = $release.assets | Where-Object { $_.name -eq 'Mudspoon-Setup.exe' } | Select-Object -First 1
+
+            if ($hostDir -and $installed -and $installed -ge $latest) {
+                Ok "v$installed is current at $hostDir"
+            }
+            elseif ($hostDir -and -not $asset) {
+                Warn "The latest $HostRepo release has no Mudspoon-Setup.exe yet. Keeping the install at $hostDir."
             }
             else {
-                $release = Invoke-RestMethod "https://api.github.com/repos/$HostRepo/releases/latest" -Headers $Headers
-                $asset = $release.assets | Where-Object { $_.name -eq 'Mudspoon-Setup.exe' } | Select-Object -First 1
-
                 if (-not $asset) { throw "The latest $HostRepo release has no Mudspoon-Setup.exe." }
 
                 $setup = Join-Path $Tmp 'Mudspoon-Setup.exe'
+
+                if ($hostDir) {
+                    Write-Host "   Upgrading from $(if ($installed) { "v$installed" } else { 'an unknown version' }) to $($release.tag_name) ..."
+                }
 
                 Write-Host "   Downloading $($release.tag_name) ..."
 
