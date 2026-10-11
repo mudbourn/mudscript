@@ -572,10 +572,14 @@ impl Engine {
             return self.swallowed.remove(&key);
         }
         let hit = self.keys.get(&key).and_then(|bucket| {
-            let b = bucket
+            bucket
                 .iter()
-                .find(|b| b.mods_ok(mods) && b.also.iter().all(|k| self.held.contains(k)))?;
-            (self.enabled || b.system).then_some((b.id, b.swallow, b.release))
+                .find(|b| {
+                    (self.enabled || b.system)
+                        && b.mods_ok(mods)
+                        && b.also.iter().all(|k| self.held.contains(k))
+                })
+                .map(|b| (b.id, b.swallow, b.release))
         });
         let Some((id, swallow, release)) = hit else {
             return false;
@@ -716,6 +720,20 @@ mod tests {
         assert_eq!(fires(&mut e), vec![(2, "down")]);
         e.set_state(true, true);
         assert!(e.held.contains(&k("w")), "held keys survive disable");
+    }
+
+    #[test]
+    fn disabled_macro_on_same_key_does_not_shadow_system_bind() {
+        let mut sys = bind(2, "key", "return", &[]);
+        sys.system = true;
+        sys.mode = Some("any".into());
+        let mut e = engine(Config {
+            binds: vec![bind(1, "key", "return", &[]), sys],
+            ..Default::default()
+        });
+        e.set_state(false, true);
+        press(&mut e, "return", true);
+        assert_eq!(fires(&mut e), vec![(2, "down")]);
     }
 
     #[test]

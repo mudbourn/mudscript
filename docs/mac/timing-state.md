@@ -406,12 +406,13 @@ Global integer. `1` means macros active, `0` means macros disabled. All bind han
 
 ---
 
-### `ms.setMacros(state [, silent])`
+### `ms.setMacros(state [, silent [, mute]])`
 
 ```lua
-ms.setMacros(1)          -- enable
-ms.setMacros(0)          -- disable + show alert
-ms.setMacros(0, true)    -- disable silently
+ms.setMacros(1)              -- enable
+ms.setMacros(0)              -- disable + show alert and play the disabled sound
+ms.setMacros(0, true)        -- disable silently
+ms.setMacros(0, false, true) -- disable + show alert with no sound
 ```
 
 Enabling starts the camera engine. Disabling calls `ms.cancelMacros()`, clears `ms.keytrack`, cancels all running cooldown timers, and stops the camera engine.
@@ -447,7 +448,19 @@ The app watcher monitors focus changes and enables/disables macros based on the 
 | Hammerspoon activated while target was in front | `ms.setMacros(0, true)`, disables silently (settings dialog cycle) |
 | Target app launched | Camera watcher set up (Roblox only) |
 
-The in-game keys `/` (disable) and `Enter` (enable) toggle macros while the target app is focused (Roblox mode only).
+With **Require focus** turned off in the Target App card, switching apps never turns macros on or off, and system binds work in every app.
+
+### System binds
+
+**Enable Macros**, **Disable Macros** and **Toggle Macros** are system binds. They fire while macros are off, and only while the target app is focused unless **Require focus** is off. Their defaults are `Enter` (enable), `/` (disable) and `Escape` (toggle), all with any modifiers held. Enable and Disable show their toast without a sound. Toggle plays the enabled or disabled sound.
+
+Each system bind has its own bind menu options:
+
+- **Ignore extra modifiers**: fire even when other modifier keys are held.
+- **Swallow input**: keep the key or button from reaching the app. It only swallows while the bind is live, so a swallowed `/` still types in other apps.
+- **Unbind**: turn the bind off. Capture or Reset brings it back.
+
+For a single on/off key, unbind Enable and Disable, rebind Toggle (for example to `Alt+\`) and turn on Swallow input.
 
 ---
 

@@ -87,7 +87,7 @@
                         if not ok then
                             print("ms.mouse callback error: " .. tostring(err))
                         end
-                        return callbackData.swallow
+                        return ms._swallowNow(callbackData.swallow)
                     end
 
                     return false

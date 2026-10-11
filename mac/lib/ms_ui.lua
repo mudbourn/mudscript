@@ -128,6 +128,7 @@ return function(ms)
                         bindable  = bindable,
                         bindType  = eff and eff.type or nil,
                         ignoreMods = (ms.bindIgnoreMods and ms.bindIgnoreMods[id]) and true or false,
+                        swallow   = ms.bind.swallows(id),
                         subs      = {},
                     }
                     byId[id] = entry
@@ -162,6 +163,7 @@ return function(ms)
                             bindable = subBindable,
                             bindType = eff and eff.type or nil,
                             ignoreMods = (ms.bindIgnoreMods and ms.bindIgnoreMods[id]) and true or false,
+                            swallow  = ms.bind.swallows(id),
                         })
                     end
                 end
@@ -178,11 +180,25 @@ return function(ms)
             }) do
                 local def = ms.systemBinds._defs[id]
                 if def then
+                    local eff = ms.systemBinds.effective(id)
+                    local ignore = ms.systemBinds.ignoreMods(id)
+                    local shown = eff
+                    if eff and eff.mods == "any" and not ignore then
+                        shown = {
+                            type   = eff.type,
+                            key    = eff.key,
+                            button = eff.button,
+                            mods   = {},
+                        }
+                    end
                     table.insert(macros, {
                         id         = id,
                         label      = def.label,
                         group      = "system",
-                        bind       = _bindDisplay(ms.systemBinds.effective(id)),
+                        bind       = _bindDisplay(shown, ignore),
+                        bindType   = eff and eff.type or nil,
+                        ignoreMods = ignore,
+                        swallow    = ms.systemBinds._swallow[id] == true,
                         systemBind = true,
                         subs       = {},
                     })
@@ -533,6 +549,7 @@ return function(ms)
                 backupIntervalHours     = ms._backupIntervalHours or 12,
                 backupKeep              = ms._backupKeep or 10,
                 updateChannel           = ms._updateChannel or "stable",
+                requireTargetFocus      = ms._requireTargetFocus ~= false,
                 updateAlertsDisabled    = ms._updateAlertsDisabled or false,
                 testingSource           = ms._testingSource or "release",
                 uiZoom                  = ms._uiZoom or 1.0,

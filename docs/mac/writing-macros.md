@@ -65,6 +65,7 @@ Both `fn` and `opts` are optional, and types are detected automatically.
 | `sub` | `nil` | Parent macro `id`. Makes this a sub-item of that parent. Parent must be defined first. |
 | `mod` | `nil` | Default modifier key for this sub-item (e.g. `"alt"`, `"v"`). |
 | `shared` | `nil` | Explicit cooldown group key. Overrides the auto-derived `"G_<rootId>"`. |
+| `swallow` | `false` | Keep the trigger key, combo or mouse button from reaching the focused app while macros are on. Users can override it per macro with **Swallow input** in the bind menu. Mouse binds that share a button swallow it if any of them asks to. Scroll and gamepad binds never swallow. |
 | `info` | `nil` | Description string written to `ms_macro_info.txt` (Settings > Macro Info). |
 
 ### Examples

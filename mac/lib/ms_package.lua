@@ -294,9 +294,40 @@ return function(ms)
             return writeFile(_contentLedgerPath, json .. "\n")
         end
 
+        local function contentPresent(id, rec)
+            local kind = type(rec) == "table" and rec.type or nil
+            if kind == "profile" then
+                for _, name in ipairs(ms.profile.list()) do
+                    local meta = ms.profile.readMeta(name)
+                    if meta and meta.owner == id then return true end
+                end
+                return false
+            end
+            if ms.package.isLibraryKind and ms.package.isLibraryKind(kind) then
+                for _, lib in ipairs(ms.package.libraryList(kind)) do
+                    if lib.owner == id then return true end
+                end
+                return false
+            end
+            return true
+        end
+
         ms.package.listContent = function()
             local ledger = readContentLedger()
-            return (ledger and ledger.content) or {}
+            if not ledger then return {} end
+            local pruned = false
+            for id, rec in pairs(ledger.content) do
+                local ok, present = pcall(contentPresent, id, rec)
+                if ok and not present then
+                    ledger.content[id] = nil
+                    pruned = true
+                end
+            end
+            if pruned then
+                local ok, json = pcall(hs.json.encode, ledger)
+                if ok then writeFile(_contentLedgerPath, json .. "\n") end
+            end
+            return ledger.content
         end
 
         local function pathAllowed(kind, rel, formatVersion)

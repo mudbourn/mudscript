@@ -31,6 +31,7 @@ return function(ms)
         ms.bindConfig = {}
         ms.bindHandles = {}
         ms.bindIgnoreMods = ms.bindIgnoreMods or {}
+        ms.bindSwallow = ms.bindSwallow or {}
 
         ms.parseBind = function(str)
             local btn = str:match("^mouse:(%d+)$")

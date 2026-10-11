@@ -3,7 +3,7 @@
         local _debounceTimer = nil
         local _stateSound    = nil
 
-        local function _doNotify(state)
+        local function _doNotify(state, mute)
             if loadfinish ~= 1 then return end
             if _debounceTimer then _debounceTimer:stop()
             _debounceTimer = nil end
@@ -12,13 +12,13 @@
                 if _stateSound then pcall(function() _stateSound:stop() end)
                 _stateSound = nil end
                 if state == 1 then
-                    _stateSound = ms.playSlot("enabled")
+                    if not mute then _stateSound = ms.playSlot("enabled") end
                     ms.alert("Macros enabled!",  3, true, {
                         id = "_state",
                         source = "system",
                     })
                 else
-                    _stateSound = ms.playSlot("disabled")
+                    if not mute then _stateSound = ms.playSlot("disabled") end
                     ms.alert("Macros disabled.", 3, true, {
                         id = "_state",
                         source = "system",
@@ -38,7 +38,7 @@
             end
         end
 
-        ms.setMacros = function(state, silent)
+        ms.setMacros = function(state, silent, mute)
             if state == 1 and BindValidity ~= 1 then
                 BindValidity = 1
                 hs.timer.doAfter(0, function()
@@ -48,7 +48,7 @@
                         type = "system",
                         event = "macros_enabled",
                     })
-                    if not silent then _doNotify(1) end
+                    if not silent then _doNotify(1, mute) end
                     _refreshUIState()
                 end)
             elseif state == 0 and BindValidity ~= 0 then
@@ -64,7 +64,7 @@
                         type = "system",
                         event = "macros_disabled",
                     })
-                    if not silent then _doNotify(0) end
+                    if not silent then _doNotify(0, mute) end
                     _refreshUIState()
                     ms.cancelMacros()
                 end)
@@ -73,7 +73,7 @@
 
         ms._appWatcher = hs.application.watcher.new(function(appName, eventType, app)
             if eventType == hs.application.watcher.activated then
-                if appName == (ms._targetApp) then
+                if ms._isTargetName(appName) then
                     local fromDialog = ms._inputOpen
                     ms._inputOpen = false
                     ms._targetActive = true
@@ -84,7 +84,7 @@
                     })
                     if ms._updateCamAnchor then ms._updateCamAnchor() end
                     if ms._resetCamActivated then ms._resetCamActivated() end
-                    if not ms._loadComplete then return end
+                    if not ms._loadComplete or not ms._requireTargetFocus then return end
                     if fromDialog then
                         BindValidity = 1
                     else
@@ -100,7 +100,7 @@
                         to = appName,
                     })
                     if ms._camActivated ~= nil then ms._camActivated = false end
-                    if BindValidity == 1 then
+                    if BindValidity == 1 and ms._requireTargetFocus then
                         ms.setMacros(0, true)
                     end
                 end
@@ -112,6 +112,7 @@
             if hasFocus then
                 if ms._ownUiHeld then return end
                 ms._ownUiHeld = true
+                ms._ownUiResume = BindValidity == 1
                 ms._inputOpen = ms._targetActive or ms._inputOpen
                 ms._targetActive = false
                 if BindValidity == 1 then ms.setMacros(0, true) end
@@ -119,8 +120,11 @@
             end
             if not ms._ownUiHeld then return end
             ms._ownUiHeld = false
-            local front = hs.application.frontmostApplication()
-            if front and front:name() == ms._targetApp then
+            if not ms._requireTargetFocus then
+                if ms._ownUiResume and ms._loadComplete then ms.setMacros(1, true) end
+                return
+            end
+            if ms._targetFrontmost() then
                 ms._inputOpen = false
                 ms._targetActive = true
                 if ms._loadComplete then ms.setMacros(1, true) end
@@ -128,8 +132,7 @@
         end
 
         _G._initTimer = hs.timer.doAfter(0.3, function()
-            local frontApp = hs.application.frontmostApplication()
-            if ms._targetApp and frontApp and frontApp:name() == ms._targetApp then
+            if ms._targetFrontmost() then
                 ms._targetActive = true
             end
         end)
@@ -334,7 +337,7 @@
             local hk = ms._hotkeys.panic
             local tap = ms._makeKeyWatcher(hk.mods, hk.key, function()
                 if not ms._hotkeysReady then return end
-                if not ms._targetActive and not ms._isSafeZone() then return end
+                if ms._requireTargetFocus and not ms._targetActive and not ms._isSafeZone() then return end
                 ms.setMacros(0)
             end)
             if tap then _register("panic", tap) end

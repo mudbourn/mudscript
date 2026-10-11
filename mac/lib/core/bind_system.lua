@@ -32,6 +32,7 @@
                 info     = opts.info,
                 default  = opts.default,
                 system   = opts.system or false,
+                swallow  = opts.swallow == true,
             }
             table.insert(ms.registry._defList, id)
             if fn ~= nil then
@@ -39,6 +40,13 @@
                     "ms.bind.define: fn must be a function for id '" .. id .. "'")
                 ms.bind._wires[id] = fn
             end
+        end
+
+        ms.bind.swallows = function(id)
+            local flag = ms.bindSwallow and ms.bindSwallow[id]
+            if flag ~= nil then return flag == true end
+            local def = ms.registry._defs[id]
+            return def ~= nil and def.swallow == true
         end
 
         ms.bind._registerSystemBinds = function()
@@ -168,8 +176,8 @@
         end
 
         ms.systemBinds._actions = {
-            enable  = function() ms.setMacros(1) end,
-            disable = function() ms.setMacros(0) end,
+            enable  = function() ms.setMacros(1, false, true) end,
+            disable = function() ms.setMacros(0, false, true) end,
             toggle  = function() ms.setMacros(BindValidity == 1 and 0 or 1) end,
             octane  = function() ms.octane.toggle() end,
             zoomIn    = function() _applyUiZoom((ms._uiZoom or 1.0) + 0.1) end,
@@ -178,8 +186,17 @@
         }
 
         ms.systemBinds.effective = function(id)
-            return ms.systemBinds._config[id]
+            local c = ms.systemBinds._config[id]
                 or (ms.systemBinds._defs[id] and ms.systemBinds._defs[id].default)
+            if c and c.type == "none" then return nil end
+            return c
+        end
+
+        ms.systemBinds.ignoreMods = function(id)
+            local flag = ms.systemBinds._ignoreMods[id]
+            if flag ~= nil then return flag end
+            local c = ms.systemBinds.effective(id)
+            return c ~= nil and c.mods == "any"
         end
 
         ms.systemBinds.bindStr = function(id)
@@ -212,19 +229,33 @@
                 local c = ms.systemBinds.effective(id)
                 if not c then goto sysBindContinue end
                 local ungated = ms.systemBinds._defs[id] and ms.systemBinds._defs[id].ungated
+                local function armed()
+                    if ungated then return true end
+                    if ms._requireTargetFocus and not ms._targetActive and ms._targetFrontmost() then
+                        ms._targetActive = true
+                        ms._inputOpen = false
+                    end
+                    if not ms._targetActive and ms._ownUiFocused() then return c.type ~= "key" end
+                    return ms._targetActive or not ms._requireTargetFocus or ms._isSafeZone()
+                end
                 local function fire()
-                    if not ungated and not ms._targetActive and not ms._isSafeZone() then return end
-                    if c.type == "key" and not ungated and not ms._targetActive and ms._ownUiFocused() then return end
+                    if not armed() then return end
                     local co = coroutine.create(action)
                     local ok, err = coroutine.resume(co)
                     if not ok then print("ms.systemBind error: " .. tostring(err)) end
                 end
+                local function swallow()
+                    return ms.systemBinds._swallow[id] == true and armed()
+                end
                 if c.type == "key" then
-                    ms.systemBinds._handles[id] = ms.key(c.mods, c.key, false, function()
+                    local ignore = ms.systemBinds.ignoreMods(id)
+                    local mods = type(c.mods) == "table" and c.mods or {}
+                    if ignore and #mods == 0 then mods = "any" end
+                    ms.systemBinds._handles[id] = ms.key(mods, c.key, swallow, function()
                         hs.timer.doAfter(0, fire)
-                    end, nil, true)
+                    end, nil, true, ignore)
                 elseif c.type == "mouse" then
-                    ms.systemBinds._handles[id] = ms.mouse(c.button, false, fire, true)
+                    ms.systemBinds._handles[id] = ms.mouse(c.button, swallow, fire, true)
                 elseif c.type == "scroll" then
                     ms.systemBinds._handles[id] = ms.scrollBind(c.direction, fire)
                 elseif c.type == "gamepad" then
@@ -1093,8 +1124,9 @@
                     fn()
                 end
                 local ignoreMods = ms.bindIgnoreMods and ms.bindIgnoreMods[id] or false
+                local swallow = ms.bind.swallows(id)
                 if c.type == "key" then
-                    ms.bindHandles[id] = ms.key(c.mods, c.key, false, firedFn, nil, false, ignoreMods)
+                    ms.bindHandles[id] = ms.key(c.mods, c.key, swallow, firedFn, nil, false, ignoreMods)
                 elseif c.type == "mods" then
                     local modSet = {}
                     for _, m in ipairs(c.mods or {}) do modSet[m] = true end
@@ -1107,7 +1139,7 @@
                         }
                     end
                 elseif c.type == "combo" then
-                    ms.bindHandles[id] = ms.keyCombo(c.mods, c.keys, false, firedFn, false, ignoreMods)
+                    ms.bindHandles[id] = ms.keyCombo(c.mods, c.keys, swallow, firedFn, false, ignoreMods)
                 elseif c.type == "mouse" or c.type == "scroll" or c.type == "gamepad" then
                     local tkey = triggerKey(c)
                     local grp  = deviceGroups[tkey]
@@ -1126,6 +1158,7 @@
                         mods = c.mods or {},
                         firedFn = firedFn,
                     }
+                    grp.swallow = grp.swallow or swallow
                 end
 
                 ::continue::
@@ -1149,7 +1182,7 @@
                     end
                 end
                 if grp.ctype == "mouse" then
-                    ms.mouse(grp.button, false, dispatch)
+                    ms.mouse(grp.button, grp.swallow == true, dispatch)
                 elseif grp.ctype == "scroll" then
                     ms.bindHandles["_disp:" .. tkey] = ms.scrollBind(grp.direction, dispatch)
                 elseif grp.ctype == "gamepad" then

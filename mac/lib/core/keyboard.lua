@@ -180,15 +180,13 @@
                         if binding then
                             local modsMatch = true
                             if binding.modsAny then
-                                -- Fire on the keycode regardless of modifiers.
+                                modsMatch = true
                             elseif binding.subsetMods then
-                                -- Subset: declared modifiers must be held, extras tolerated
                                 if binding.mods.cmd   and not flags.cmd   then modsMatch = false end
                                 if binding.mods.alt   and not flags.alt   then modsMatch = false end
                                 if binding.mods.ctrl  and not flags.ctrl  then modsMatch = false end
                                 if binding.mods.shift and not flags.shift then modsMatch = false end
                             else
-                                -- Exact: declared set must equal held set.
                                 if (not binding.mods.cmd)   ~= (not flags.cmd)   then modsMatch = false end
                                 if (not binding.mods.alt)   ~= (not flags.alt)   then modsMatch = false end
                                 if (not binding.mods.ctrl)  ~= (not flags.ctrl)  then modsMatch = false end
@@ -201,17 +199,13 @@
                                     break end
                                 end
                             end
-                            if modsMatch and heldMatch then
-                                if BindValidity == 1 or binding.system then
-                                    if binding.pressFn then
-                                        local co = coroutine.create(binding.pressFn)
-                                        local ok, err = coroutine.resume(co)
-                                        if not ok then print("ms.key error: " .. tostring(err)) end
-                                    end
-                                    return binding.swallow
-                                else
-                                    return false
+                            if modsMatch and heldMatch and (BindValidity == 1 or binding.system) then
+                                if binding.pressFn then
+                                    local co = coroutine.create(binding.pressFn)
+                                    local ok, err = coroutine.resume(co)
+                                    if not ok then print("ms.key error: " .. tostring(err)) end
                                 end
+                                return ms._swallowNow(binding.swallow)
                             end
                         end
                     end
@@ -233,17 +227,13 @@
                                 if binding.mods.ctrl  and not flags.ctrl  then modsMatch = false end
                                 if binding.mods.shift and not flags.shift then modsMatch = false end
                             end
-                            if modsMatch then
-                                if BindValidity == 1 or binding.system then
-                                    if binding.releaseFn then
-                                        local co = coroutine.create(binding.releaseFn)
-                                        local ok, err = coroutine.resume(co)
-                                        if not ok then print("ms.key error: " .. tostring(err)) end
-                                    end
-                                    return binding.swallow
-                                else
-                                    return false
+                            if modsMatch and (BindValidity == 1 or binding.system) then
+                                if binding.releaseFn then
+                                    local co = coroutine.create(binding.releaseFn)
+                                    local ok, err = coroutine.resume(co)
+                                    if not ok then print("ms.key error: " .. tostring(err)) end
                                 end
+                                return ms._swallowNow(binding.swallow)
                             end
                         end
                     end

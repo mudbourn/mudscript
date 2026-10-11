@@ -75,6 +75,24 @@
                     post("resetBind", { id: m.id, systemBind: m.systemBind || false });
                 }));
             }
+            if (m.systemBind && m.bindType) {
+                if (m.bindType === "key") {
+                    p.row("Ignore extra modifiers", "Fire even when other modifier keys are held.",
+                        p.toggle(m.ignoreMods, function(on) {
+                            post("setSystemBindIgnoreMods", { id: m.id, value: on });
+                        }));
+                }
+                if (m.bindType === "key" || m.bindType === "mouse") {
+                    p.row("Swallow input", "Keep the key or button from reaching the app while the bind is live.",
+                        p.toggle(m.swallow, function(on) {
+                            post("setSystemBindSwallow", { id: m.id, value: on });
+                        }));
+                }
+                p.row("Unbind", "Turn this bind off. Capture or Reset brings it back.", p.button("Unbind", function() {
+                    p.close();
+                    post("unbindSystem", { id: m.id });
+                }));
+            }
             if (!editable) return;
             p.row("Enabled", null, p.toggle(m.enabled, function(on) {
                 post("setMacroEnabled", { id: m.id, value: on });
@@ -83,6 +101,12 @@
                 p.row("Ignore extra modifiers", "Fire even when other modifier keys are held.",
                     p.toggle(m.ignoreMods, function(on) {
                         post("setBindIgnoreMods", { id: m.id, value: on });
+                    }));
+            }
+            if (m.bindType === "key" || m.bindType === "combo" || m.bindType === "mouse") {
+                p.row("Swallow input", "Keep the trigger from reaching the app while macros are on.",
+                    p.toggle(m.swallow, function(on) {
+                        post("setBindSwallow", { id: m.id, value: on });
                     }));
             }
             var targets = linkTargets(m, ctx);

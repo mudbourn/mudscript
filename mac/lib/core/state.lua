@@ -7,11 +7,19 @@ return function(ms)
         ms.bindConfig = {}
         ms.bindHandles = {}
         ms.bindIgnoreMods = ms.bindIgnoreMods or {}
+        ms.bindSwallow = ms.bindSwallow or {}
         ms._modBindings = {}
         ms.systemBinds             = {
             _config = {},
             _handles = {},
+            _ignoreMods = {},
+            _swallow = {},
         }
+        ms._requireTargetFocus = true
+        ms._swallowNow = function(sw)
+            if type(sw) == "function" then return sw() == true end
+            return sw == true
+        end
 
         ms.trackpadMode          = false
         ms.trackpadHoldKeys      = {
@@ -34,6 +42,14 @@ return function(ms)
         ms._isSafeZone = function()
             local front = hs.application.frontmostApplication()
             return front and ms._safeApps[front:name()] or false
+        end
+        ms._isTargetName = function(name)
+            return type(name) == "string" and type(ms._targetApp) == "string"
+                and name:lower() == ms._targetApp:lower()
+        end
+        ms._targetFrontmost = function()
+            local front = hs.application.frontmostApplication()
+            return front ~= nil and ms._isTargetName(front:name())
         end
         ms._ownUiFocused = function()
             local front = hs.application.frontmostApplication()
@@ -158,6 +174,7 @@ return function(ms)
                 setting  = ms._targetAppSetting or nil,
                 declared = ms._targetAppDeclared,
                 options  = options,
+                requireFocus = ms._requireTargetFocus ~= false,
             }
         end
         notice = 0
@@ -572,8 +589,7 @@ return function(ms)
             require("hs.application")
 
             hs.timer.doAfter(0.3, function()
-                local front = hs.application.frontmostApplication()
-                if ms._targetApp and front and front:name() == ms._targetApp then
+                if ms._targetFrontmost() then
                     ms._targetActive = true
                 end
             end)

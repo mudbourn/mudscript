@@ -184,6 +184,7 @@ return function(ms, ctx)
             if data.octaneMuteSounds ~= nil then ms._octaneMuteSounds = (data.octaneMuteSounds == true) end
             if data.uiTransparencyOff ~= nil then ms._uiTransparencyOff = (data.uiTransparencyOff == true) end
             if data.swallowHotkeys ~= nil then ms._swallowHotkeys = (data.swallowHotkeys == true) end
+            if data.requireTargetFocus ~= nil then ms._requireTargetFocus = (data.requireTargetFocus ~= false) end
             if data.updateAlertsDisabled ~= nil then ms._updateAlertsDisabled = (data.updateAlertsDisabled == true) end
             if data.antiTimeoutEnabled ~= nil then
                 ms._pendingUserSettings = ms._pendingUserSettings or {}
@@ -219,14 +220,29 @@ return function(ms, ctx)
                     if entry.ignoreMods then
                         ms.bindIgnoreMods[id] = true
                     end
+                    if entry.swallow ~= nil then
+                        ms.bindSwallow[id] = (entry.swallow == true)
+                    end
                 end
             end
             if data.systemBinds and type(data.systemBinds) == "table" then
                 ms.systemBinds._config = {}
                 for id, cfg in pairs(data.systemBinds) do
-                    if cfg.type and (cfg.key or cfg.button) then
+                    if cfg.type == "none" or (cfg.type and (cfg.key or cfg.button)) then
                         ms.systemBinds._config[id] = cfg
                     end
+                end
+            end
+            if type(data.systemBindIgnoreMods) == "table" then
+                ms.systemBinds._ignoreMods = {}
+                for id, v in pairs(data.systemBindIgnoreMods) do
+                    ms.systemBinds._ignoreMods[id] = (v == true)
+                end
+            end
+            if type(data.systemBindSwallow) == "table" then
+                ms.systemBinds._swallow = {}
+                for id, v in pairs(data.systemBindSwallow) do
+                    if v == true then ms.systemBinds._swallow[id] = true end
                 end
             end
             if data.shell and type(data.shell) == "table" then
@@ -359,6 +375,7 @@ return function(ms, ctx)
                 octaneMuteSounds   = ms._octaneMuteSounds or false,
                 uiTransparencyOff  = ms._uiTransparencyOff or false,
                 swallowHotkeys     = ms._swallowHotkeys or false,
+                requireTargetFocus = ms._requireTargetFocus ~= false,
                 updateAlertsDisabled = ms._updateAlertsDisabled or false,
                 macroLabEnabled    = ms._macroLabEnabled ~= false,
                 targetApp          = ms._targetAppSetting,
@@ -374,10 +391,18 @@ return function(ms, ctx)
                 },
                 user             = _userSnapshot(),
                 systemBinds      = {},
+                systemBindIgnoreMods = {},
+                systemBindSwallow    = {},
                 macros = {},
             }
             for id, cfg in pairs(ms.systemBinds._config or {}) do
                 data.systemBinds[id] = cfg
+            end
+            for id, v in pairs(ms.systemBinds._ignoreMods or {}) do
+                data.systemBindIgnoreMods[id] = v
+            end
+            for id, v in pairs(ms.systemBinds._swallow or {}) do
+                if v then data.systemBindSwallow[id] = true end
             end
             for id, enabled in pairs(ms.binds or {}) do
                 data.macros[id] = data.macros[id] or {}
@@ -416,6 +441,10 @@ return function(ms, ctx)
                     data.macros[id] = data.macros[id] or {}
                     data.macros[id].ignoreMods = true
                 end
+            end
+            for id, v in pairs(ms.bindSwallow or {}) do
+                data.macros[id] = data.macros[id] or {}
+                data.macros[id].swallow = v
             end
             for id in pairs(ms._suppressedMacros or {}) do
                 data.macros[id] = data.macros[id] or {}
@@ -557,6 +586,7 @@ return function(ms, ctx)
             ms.bindConfig = {}
             ms.cooldowns  = {}
             ms.bindIgnoreMods = {}
+            ms.bindSwallow = {}
             ms._applySettings(data)
             for key, def in pairs(ms._userSettingIndex) do
                 if def.type ~= "action" and def.default ~= nil then

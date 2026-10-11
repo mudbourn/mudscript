@@ -357,6 +357,56 @@ return function(ms, ctx)
                     ms.ui.refresh()
                 end,
 
+                setBindSwallow = function(data)
+                    if not data.id then return end
+                    local def = ms.registry._defs[data.id]
+                    if not def or def.system then return end
+                    local want = data.value == true
+                    ms.bindSwallow = ms.bindSwallow or {}
+                    if want == (def.swallow == true) then
+                        ms.bindSwallow[data.id] = nil
+                    else
+                        ms.bindSwallow[data.id] = want
+                    end
+                    ms.saveSettings()
+                    ms.bind.rebind()
+                    ms.ui.refresh()
+                end,
+
+                setSystemBindIgnoreMods = function(data)
+                    if not (data.id and ms.systemBinds._defs[data.id]) then return end
+                    ms.systemBinds._ignoreMods[data.id] = (data.value == true)
+                    ms.saveSettings()
+                    ms.systemBinds.rebind()
+                    ms.ui.refresh()
+                end,
+
+                setSystemBindSwallow = function(data)
+                    if not (data.id and ms.systemBinds._defs[data.id]) then return end
+                    ms.systemBinds._swallow[data.id] = (data.value == true) or nil
+                    ms.saveSettings()
+                    ms.systemBinds.rebind()
+                    ms.ui.refresh()
+                end,
+
+                unbindSystem = function(data)
+                    if not (data.id and ms.systemBinds._defs[data.id]) then return end
+                    ms.systemBinds._config[data.id] = { type = "none" }
+                    ms.saveSettings()
+                    ms.systemBinds.rebind()
+                    ms.playSlot("back")
+                    ms.ui.refresh()
+                end,
+
+                setRequireTargetFocus = function(data)
+                    ms._requireTargetFocus = (data.value ~= false)
+                    if ms._requireTargetFocus and not ms._targetFrontmost() and BindValidity == 1 then
+                        ms.setMacros(0, true)
+                    end
+                    ms.saveSettings()
+                    ms.ui.refresh()
+                end,
+
                 setTrackpadMode = function(data)
                     ms.trackpadMode = (data.value == true)
                     ms.saveSettings()
@@ -717,6 +767,7 @@ return function(ms, ctx)
 
                     if data.systemBind then
                         ms.systemBinds._config[data.id] = nil
+                        ms.systemBinds._ignoreMods[data.id] = nil
                         ms.saveSettings()
                         ms.systemBinds.rebind()
                         ms.playSlot("reset")

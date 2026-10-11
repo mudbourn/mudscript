@@ -564,8 +564,15 @@
         },
     });
     var targetRow = _kit.row("Target App", "Binds only fire while this app is focused", targetSelect);
+    var focusToggle = _kit.toggle(true, function(e) {
+        if (window.shellPost) shellPost("macros", "setRequireTargetFocus", { value: e.target.checked });
+    });
+    var focusRow = _kit.row("Require focus",
+        "Off: macros and system binds work in every app, and switching apps never turns macros on or off",
+        focusToggle);
     var targetCard = _kit.section("macro-target", "Target App", function(body) {
         body.appendChild(targetRow);
+        body.appendChild(focusRow);
     }, "The app your macros drive");
     var targetDesc = targetCard.querySelector(".section-desc");
     bindsScroll.insertBefore(targetCard, bindList);
@@ -744,6 +751,7 @@
         (state.options || []).forEach(function(n) { opts.push({ value: n, label: n }); });
         targetSelect.setOptions(opts);
         targetSelect.value = state.current || "";
+        focusToggle.querySelector("input").checked = state.requireFocus !== false;
         var declared = !!state.declared;
         targetSelect.classList.toggle("meta-input-locked", declared);
         targetSelect.style.pointerEvents = declared ? "none" : "";

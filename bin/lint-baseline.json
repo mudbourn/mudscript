@@ -42,7 +42,7 @@
     "comment": 8
   },
   "mac/lib/core/keyboard.lua": {
-    "comment": 9,
+    "comment": 6,
     "marker-indent": 1,
     "marker-label": 1,
     "marker-orphan-end": 1

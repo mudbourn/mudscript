@@ -157,11 +157,10 @@
         const isUpdate = !!e.installed;
         const isCurrent = isUpdate && !!e.installedVersion && !!e.version
             && versionAtLeast(e.installedVersion, e.version);
-        const installLabel = isCurrent ? "Installed" : (isUpdate ? "Update" : "Install");
+        const installLabel = isCurrent ? "Reinstall" : (isUpdate ? "Update" : "Install");
 
         const actions = h("div", { cls: "browse-actions" });
-        actions.appendChild(actionBtn(installLabel, isCurrent ? "disabled" : "accent", () => {
-            if (isCurrent) return;
+        actions.appendChild(actionBtn(installLabel, isCurrent ? "" : "accent", () => {
             if (isVirtual) {
                 send("browseInstall", {
                     id: e.installId,

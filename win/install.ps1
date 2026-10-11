@@ -15,6 +15,9 @@
         $HS = Join-Path $env:USERPROFILE '.hammerspoon'
         $Tmp = Join-Path $env:TEMP ('mudscript-install-' + [guid]::NewGuid().ToString('N'))
         $Headers = @{ 'User-Agent' = 'mudscript-installer' }
+        $DevFlag = Join-Path $env:ProgramData ('mudscript\devmode\' + $env:USERNAME)
+        $Stamp = Get-Date -Format 'yyyy-MM-dd_HHmmss'
+        $Backup = $HS + '-backup-' + $Stamp
     # END #
 
     # Helpers #
@@ -26,6 +29,21 @@
         function Ok($m) { Write-Host "   OK   $m" -ForegroundColor Green }
 
         function Warn($m) { Write-Host "   WARN $m" -ForegroundColor Yellow }
+
+        function Ask($question, $default) {
+            if (-not [Environment]::UserInteractive) { return $default }
+
+            try {
+                $answer = Read-Host "   $question"
+            }
+            catch {
+                return $default
+            }
+
+            if ([string]::IsNullOrWhiteSpace($answer)) { return $default }
+
+            return $answer.Trim().Substring(0, 1).ToUpper()
+        }
 
         function Get-HostDir {
             $key = Get-ItemProperty $UninstallKey -ErrorAction SilentlyContinue
@@ -46,6 +64,29 @@
     New-Item -ItemType Directory -Force -Path $Tmp | Out-Null
 
     try {
+        # Existing config #
+            $clean = $false
+
+            if ((Test-Path $HS) -and (Get-ChildItem $HS -Force -ErrorAction SilentlyContinue | Select-Object -First 1)) {
+                Step "0. Found an existing $HS folder."
+
+                Write-Host "   Clean install moves it to $Backup and starts fresh."
+                Write-Host "   Update keeps your profiles, settings and update channel."
+
+                $clean = (Ask '[C]lean install or [U]pdate in place? (C/u)' 'C') -ne 'U'
+            }
+
+            $devOff = $false
+
+            if (Test-Path $DevFlag) {
+                Step "0b. Developer mode is on for $env:USERNAME ($DevFlag)."
+
+                Write-Host "   It skips integrity checks and the plugin gate, and survives reinstalls."
+
+                $devOff = (Ask 'Turn developer mode off? Needs administrator approval. (Y/n)' 'Y') -ne 'N'
+            }
+        # END #
+
         # Hammerspoon for Windows #
             Step "1. Checking for Hammerspoon for Windows ..."
 
@@ -106,6 +147,36 @@
             Ok "Stopped"
         # END #
 
+        # Clean install #
+            if ($clean) {
+                Step "3b. Moving the existing config aside ..."
+
+                Move-Item -LiteralPath $HS -Destination $Backup
+
+                Ok "Backed up to $Backup"
+            }
+        # END #
+
+        # Developer mode #
+            if ($devOff) {
+                Step "3c. Turning developer mode off ..."
+
+                $cmd = "Remove-Item -LiteralPath '" + $DevFlag.Replace("'", "''") + "' -Force"
+                $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($cmd))
+
+                try {
+                    $p = Start-Process powershell -Verb RunAs -Wait -PassThru -WindowStyle Hidden -ArgumentList '-NoProfile', '-NonInteractive', '-EncodedCommand', $encoded
+
+                    if ($p.ExitCode -ne 0) { throw "exit code $($p.ExitCode)" }
+                }
+                catch {
+                    Warn "Could not remove the flag ($_). Turn it off in Settings -> Developer."
+                }
+
+                if (-not (Test-Path $DevFlag)) { Ok "Developer mode is off" }
+            }
+        # END #
+
         # Deploy #
             Step "4. Installing mudscript into $HS ..."
 
@@ -148,7 +219,7 @@
             Ok "Started"
 
             Write-Host ""
-            Write-Host "Done. Run this command again to update mudscript."
+            Write-Host "Done. Run this command again and pick Update to update mudscript in place."
         # END #
     }
     finally {

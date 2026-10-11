@@ -51,7 +51,7 @@ return function(ms, ctx)
                 pcall(function() ms.dev.window.hide() end)
             end)
 
-            step("logs", function() ms.dev:closeLogHandles() end)
+            step("logs", function() ms.devtools:closeLogHandles() end)
         end
 
         local SLOT_HOLD_MAX = 4.0
@@ -498,8 +498,7 @@ return function(ms, ctx)
         ms._refocusTarget = function()
             pcall(function()
                 if not ms._targetApp then return end
-                local front = hs.application.frontmostApplication()
-                if front and front:name() == ms._targetApp then
+                if ms._targetFrontmost() then
                     ms._targetActive = true
                     ms.setMacros(1, true)
                     return

@@ -356,6 +356,7 @@
                         getTraceSuppress = function() return false end,
                         stopAllPollers         = function() end,
                         restartPollersIfActive = function() end,
+                        closeLogHandles        = function() end,
                     }
 
                     print("MsDevTools: running without dev panels (module not loaded)")

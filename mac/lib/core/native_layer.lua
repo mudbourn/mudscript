@@ -137,7 +137,7 @@
                         mods = modList(b.mods),
                         mode = b.modsAny and "any" or (b.subsetMods and "subset" or "exact"),
                         also = #also > 0 and also or nil,
-                        swallow = b.swallow and true or false,
+                        swallow = ms._swallowNow(b.swallow),
                         system = b.system and true or false,
                         release = b.releaseFn ~= nil,
                     }
@@ -164,7 +164,7 @@
                     id = idFor(cb),
                     t = "mouse",
                     button = button,
-                    swallow = cb.swallow and true or false,
+                    swallow = ms._swallowNow(cb.swallow),
                     system = cb.system and true or false,
                 }
             end
@@ -255,6 +255,7 @@
                 enabled = BindValidity == 1,
                 target = ms._targetActive and true or false,
             })
+            if not force and ms.layer.sync then ms.layer.sync() end
         end
 
         local function sync(force)
@@ -397,7 +398,7 @@
                 end
             elseif e == "panic" then
                 if not ms._hotkeysReady then return end
-                if not ms._targetActive and not ms._isSafeZone() then return end
+                if ms._requireTargetFocus and not ms._targetActive and not ms._isSafeZone() then return end
                 ms.setMacros(0)
             elseif e == "ready" then
                 ms.layer.active = true
