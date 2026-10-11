@@ -170,11 +170,28 @@
         -- isReady --
             ms.shell.isReady = function() return _shellReady end
             ms.shell.webview = function() return _shellView end
-            -- Whether the shell window is actually on screen right now.
             ms.shell.isVisible = function()
                 if not _shellView then return false end
                 local ok, w = pcall(function() return _shellView:hswindow() end)
                 return ok and w ~= nil and w:isVisible() == true
+            end
+
+            ms.shell.offScreenReason = function()
+                if not _shellView then return "no window" end
+                local ok, w = pcall(function() return _shellView:hswindow() end)
+                if not ok or w == nil then return "window not shown" end
+                if w:isVisible() ~= true then return "window or app hidden" end
+                if hs.spaces then
+                    local sok, here = pcall(function()
+                        local active = hs.spaces.focusedSpace()
+                        for _, sp in ipairs(hs.spaces.windowSpaces(w) or {}) do
+                            if sp == active then return true end
+                        end
+                        return false
+                    end)
+                    if sok and here == false then return "on another Space" end
+                end
+                return nil
             end
         -- END --
 
@@ -524,6 +541,10 @@
                     })
                 end)
                 pcall(function() _shellView:level(hs.canvas.windowLevels.popUpMenu or 101) end)
+                pcall(function()
+                    local B = hs.drawing.windowBehaviors or {}
+                    _shellView:behavior((B.moveToActiveSpace or 2) + (B.fullScreenAuxiliary or 256))
+                end)
                 pcall(function() _shellView:allowTextEntry(true) end)
                 pcall(function() _shellView:shadow(true) end)
                 pcall(function()
@@ -739,8 +760,16 @@
 
         -- toggle --
             ms.shell.toggle = function()
-                local isOpen = ms._shellState and ms._shellState.visible
-                if _shellView and isOpen then
+                if ms._shellInterlude then return end
+                local isOpen = _shellView and ms._shellState and ms._shellState.visible
+                if isOpen then
+                    local why = ms.shell.offScreenReason()
+                    if why then
+                        if ms.debug then ms.debug.log("shell", "toggle: marked open but " .. why .. ", showing") end
+                        isOpen = false
+                    end
+                end
+                if isOpen then
                     ms.shell.hide()
                 else
                     ms.shell.show()

@@ -71,7 +71,9 @@ return function(ms, ctx)
         end
 
         hs.focus()
+        ms._shellInterlude = true
         local ok, a, b, c = pcall(fn)
+        ms._shellInterlude = false
 
         if restore.shell then
             pcall(function() ms.safeShow(ctx.view()) end)
