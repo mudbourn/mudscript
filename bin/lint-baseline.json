@@ -148,7 +148,7 @@
     "comment": 9
   },
   "ui/modules/panel-keys.js": {
-    "comment": 19
+    "comment": 18
   },
   "ui/modules/panel-theme.js": {
     "comment": 28
@@ -173,7 +173,7 @@
     "marker-unclosed": 3
   },
   "ui/ms_keys.html": {
-    "comment": 29,
+    "comment": 28,
     "marker-unclosed": 2
   },
   "ui/ms_loading.html": {
@@ -192,7 +192,7 @@
     "comment": 19
   },
   "ui/ms_window.html": {
-    "comment": 25,
+    "comment": 24,
     "marker-unclosed": 5
   },
   "win/bin/README.md": {

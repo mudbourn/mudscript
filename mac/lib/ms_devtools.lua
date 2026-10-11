@@ -527,7 +527,6 @@ return function(ms)
             end
         end
 
-        -- Pushes the held keys and buttons to a keys panel
         function S.pushInputState(panel)
             local keys = {}
             local buttons = {}
