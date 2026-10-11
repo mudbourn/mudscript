@@ -68,6 +68,16 @@ This installs mudscript to `~/.hammerspoon/`, sets up the Guardian, and reloads 
 
 **Requirements:** [cURL](https://curl.se/) (free, open-source)
 
+### Windows
+
+In PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/mudbourn/mudscript/main/win/install.ps1 | iex
+```
+
+This installs [Hammerspoon for Windows](https://github.com/mudbourn/mudspoon) if it is missing, installs mudscript into `%USERPROFILE%\.hammerspoon\` and starts it. Run it again to update.
+
 ---
 
 ## Keybindings
