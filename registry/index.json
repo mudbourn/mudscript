@@ -39,7 +39,7 @@
       "version": "1.1.2",
       "author": "mudbourn",
       "website": "https://mudbourn.info",
-      "sha256": "99c37bf6023e388e1f39b0cc2732032071eeebcbbd6cba5b14f1c2d58a0f9bed",
+      "sha256": "e92e7ae5a1ce26ea6c4b7e8c8249ac4cfbe9b911378385c04af8a863a5b115fd",
       "url": "https://github.com/mudbourn/mudscript/releases/download/profile-combat-warriors-macros-profile-v1.1.2/Combat.Warriors.Macros-profile.mspkg",
       "size": 3616004,
       "requires": {
@@ -52,22 +52,22 @@
           "includesSounds": false,
           "name": "DMC Sans Theme",
           "url": "https://github.com/mudbourn/mudscript/releases/download/profile-combat-warriors-macros-profile-v1.1.2/dmc-sans-theme.mspkg",
-          "sha256": "7b423aa8f8be5c0adafe1d3f85a680c6b0abeb7426eade12d1f53a314579ff3c",
+          "sha256": "cde981ad5f8cae92d2fede85d9cea3e9ff10e0cbdfd5a32b42e80e8c0d9c5392",
           "size": 655
         },
         "sound": {
           "present": true,
           "name": "DMC Sans  Sounds",
           "url": "https://github.com/mudbourn/mudscript/releases/download/profile-combat-warriors-macros-profile-v1.1.2/dmc-sans-sound.mspkg",
-          "sha256": "3f9a24148b4a7ae942d18e0ffa7a43f247257853c4912e126d0303e5fac447f3",
-          "size": 3607793
+          "sha256": "6d86b1cbac606b500bfabeae40cab93c2ab83a85c2961eeb203c8d61aac4931d",
+          "size": 3607794
         },
         "macro": {
           "present": true,
           "name": "Combat Warriors Macros",
           "url": "https://github.com/mudbourn/mudscript/releases/download/profile-combat-warriors-macros-profile-v1.1.2/combat-warriors-macro.mspkg",
-          "sha256": "4fd4f6f710ad93ce5e45cbe685009555513e19e2a8763bf7f8f9daa458625c4a",
-          "size": 268101
+          "sha256": "87a88d6defc02a63a2213546a9d4d1930d9ee1b05e489fe4c558ff17647336e9",
+          "size": 268102
         }
       },
       "trust": "trusted"
