@@ -58,7 +58,6 @@ return function(ms)
         end
 
         ms.shell.beginDrag = function(name, stopFn)
-            if _drags[name] then _finish(name, "restarted") end
             local now = hs.timer.secondsSinceEpoch()
             _drags[name] = {
                 stop        = stopFn,
