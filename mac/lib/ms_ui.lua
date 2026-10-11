@@ -516,8 +516,12 @@ return function(ms)
                 integrityStatus         = status,
                 integrityHash           = curHash,
                 devMode                 = ms.devmode ~= nil and ms.devmode.isOn() or false,
-                devIpcRunning           = ms.devmode ~= nil and ms.devmode.ipcRunning() or false,
+                cliAccess               = ms.cli ~= nil and ms.cli.isOn() or false,
+                cliRunning              = ms.cli ~= nil and ms.cli.running() or false,
                 devBooted               = ms.devmode ~= nil and ms.devmode.bootedInDevMode() or false,
+                debugMode               = ms.debug ~= nil and ms.debug.isOn() or false,
+                debugLogPath            = ms.debug ~= nil and ms.debug.path() or "",
+                debugLogSize            = ms.debug ~= nil and ms.debug.size() or 0,
                 plugins                 = (function()
                     if not (ms.package and ms.package.listPlugins) then return {} end
                     local ok, list = pcall(ms.package.listPlugins)

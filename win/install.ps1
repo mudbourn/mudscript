@@ -235,6 +235,23 @@
             }
         # END #
 
+        # Beta tester #
+            Step "5b. Beta testing ..."
+
+            $debugFlag = Join-Path $HS 'data\.ms_debug_on'
+
+            if ((Ask 'Are you a beta tester? Debug logging will start from first launch. (y/N)' 'N') -eq 'Y') {
+                New-Item -ItemType Directory -Force -Path (Join-Path $HS 'data') | Out-Null
+
+                Set-Content $debugFlag '1' -Encoding Ascii
+
+                Ok "Debug mode on. Turn it off in Settings > Developer."
+            }
+            else {
+                Ok "Debug mode left as is"
+            }
+        # END #
+
         # Start #
             Step "6. Starting Hammerspoon ..."
 

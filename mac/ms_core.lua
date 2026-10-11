@@ -275,6 +275,27 @@
                 end
             -- END MsBackups --
 
+            -- MsDebug (debug mode log) --
+                local _dbgOk, _dbgErr = pcall(function()
+                    package.loaded["lib.ms_debug"] = nil
+                    require("lib.ms_debug")(ms)
+                end)
+                if not _dbgOk then
+                    print("MsDebug: load failed, " .. tostring(_dbgErr))
+                    ms.debug = {
+                        isOn       = function() return false end,
+                        path       = function() return "" end,
+                        size       = function() return 0 end,
+                        log        = function() end,
+                        enable     = function() return false end,
+                        disable    = function() return false end,
+                        openFolder = function() end,
+                        copyReport = function() return 0 end,
+                        bootDone   = function() end,
+                    }
+                end
+            -- END MsDebug --
+
             -- MsDevTools (logging & dev panels) --
                 ms.loading.update(6, "Configuring Dev Tools...")
                 local _msDevOk, _msDevErr = pcall(function()
@@ -905,13 +926,28 @@
                 print("MsDevmode: failed to load: " .. tostring(_devErr))
                 ms.devmode = {
                     isOn            = function() return false end,
-                    ipcRunning      = function() return false end,
                     bootedInDevMode = function() return false end,
+                    rootFlag        = function() return nil end,
                     enable          = function() return false end,
                     disable         = function() return false end,
                 }
             end
         -- END 13f. Developer Mode --
+
+        -- 13g. Command Line Access (ms.cli) --
+            package.loaded["lib.ms_cli"] = nil
+            local _cliOk, _cliErr = pcall(function() require("lib.ms_cli")(ms) end)
+            if not _cliOk then
+                print("MsCli: failed to load: " .. tostring(_cliErr))
+                ms.cli = {
+                    isOn    = function() return false end,
+                    running = function() return false end,
+                    enable  = function(cb) if cb then cb(false) end end,
+                    disable = function(cb) if cb then cb(true) end end,
+                    run     = function() return "Command line is unavailable." end,
+                }
+            end
+        -- END 13g. Command Line Access --
 
         -- 14. Safety Nets --
             package.loaded["lib.core.safety_nets"] = nil
@@ -1023,6 +1059,7 @@
                     ms.loading.applyTheme()
                     ms._loadComplete = true
                     loadfinish = 1
+                    pcall(ms.debug.bootDone)
                     pcall(function() ms.prewarmExitCurtain() end)
                     ms.dev.log({
                         type = "system",

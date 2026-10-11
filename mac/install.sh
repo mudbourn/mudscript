@@ -196,6 +196,24 @@ echo "5. Locking bootstrap stub (chmod 444) ..."
 chmod 444 "$HS/init.lua" 2>/dev/null && echo "   OK   init.lua locked." || echo "   WARN Could not chmod init.lua."
 
 echo ""
+echo "5b. Beta testing ..."
+BETA=""
+if [ -r /dev/tty ]; then
+    printf "   Are you a beta tester? Debug logging will start from first launch. (y/N) "
+    read -r BETA < /dev/tty || BETA=""
+fi
+case "$BETA" in
+    [yY]*)
+        mkdir -p "$HS/data"
+        printf '1' > "$HS/data/.ms_debug_on"
+        echo "   OK   Debug mode on. Turn it off in Settings > Developer."
+        ;;
+    *)
+        echo "   OK   Debug mode left as is."
+        ;;
+esac
+
+echo ""
 echo "6. Reloading Hammerspoon ..."
 if command -v open &>/dev/null; then
     open -g "hammerspoon://reload" 2>/dev/null && echo "   OK   Hammerspoon reloaded." || echo "   WARN Reload manually (menubar icon -> Reload)."

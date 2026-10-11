@@ -773,6 +773,48 @@ return function(ms, ctx)
                     ms.ui.refresh()
                 end,
 
+                setDebugMode = function(data)
+                    if not ms.debug then return end
+                    if data.value == true then
+                        ms.debug.enable()
+                        ms.alert("Debug mode on.\nmudscript is now writing a debug log, including from boot.", 4)
+                    else
+                        ms.debug.disable()
+                        ms.alert("Debug mode off.", 2)
+                    end
+                    ms.ui.refresh()
+                end,
+
+                openDebugLogs = function()
+                    if ms.debug then ms.debug.openFolder() end
+                end,
+
+                copyDebugReport = function()
+                    if not ms.debug then return end
+                    local n = ms.debug.copyReport()
+                    ms.alert("Debug report copied (" .. math.floor(n / 1024) .. " KB).\nPaste it into your bug report.", 4)
+                end,
+
+                setCliAccess = function(data)
+                    if not ms.cli then return end
+                    if data.value == true then
+                        if data.confirm ~= "command line" then return end
+                        ms.cli.enable(function(ok)
+                            if ok then
+                                ms.alert("Command line access on.\nTry: mscli help", 5)
+                            else
+                                ms.alert("Command line access was not turned on.", 3)
+                            end
+                            ms.ui.refresh()
+                        end)
+                    else
+                        ms.cli.disable(function(ok)
+                            ms.alert(ok and "Command line access off." or "Command line access is still on.", 3)
+                            ms.ui.refresh()
+                        end)
+                    end
+                end,
+
                 setDevMode = function(data)
                     if not ms.devmode then return end
                     if data.value == true then

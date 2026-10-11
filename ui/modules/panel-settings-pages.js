@@ -243,13 +243,13 @@
                 const on = S.devMode === true;
                 let pillText = "Off";
                 if (on && !S.devBooted) pillText = "On, takes effect on reload";
-                else if (on) pillText = S.devIpcRunning ? "On" : "On, IPC failed";
+                else if (on) pillText = "On";
                 body.appendChild(
                     row(
                         "Developer Mode",
                         on
-                            ? "Integrity checks, the Guardian agent and the plugin library gate are off. hs.ipc is listening."
-                            : "Turns off integrity checks and the plugin library gate, and starts hs.ipc",
+                            ? "Integrity checks, the Guardian agent and the plugin library gate are off."
+                            : "For building and testing plugins. Turns off integrity checks and the plugin library gate.",
                         h("span", { cls: "pill" + (on ? " danger" : ""), style: "font-weight:600" }, pillText),
                     ),
                 );
@@ -265,7 +265,7 @@
                                       "Developer mode removes mudscript's protections:\n\n" +
                                           "- Guardian stops checking file hashes at boot, and the background agent stops killing Hammerspoon on a mismatch.\n" +
                                           "- Plugins outside the validated library can be imported and will load.\n" +
-                                          "- hs.ipc starts, so any program running as you can send Lua to Hammerspoon.\n\n" +
+                                          "\n" +
                                           "Modified or malicious files will load without warning while it is on.\n\n" +
                                           "Type developer to confirm. Your system will then ask for administrator permission, and turning it off asks again.",
                                       "Turn On",
@@ -283,7 +283,76 @@
                 );
             }
 
+            function buildDebugMode(body) {
+                const on = S.debugMode === true;
+                const kb = Math.round((S.debugLogSize || 0) / 1024);
+                body.appendChild(
+                    row(
+                        "Debug Mode",
+                        on
+                            ? "Writing a debug log (" + kb + " KB) from boot onward. Turn off once the bug is reported."
+                            : "Records boot steps, freezes, app switches, sleep and wake, shell events and the Hammerspoon console to a separate debug log. Use it when something breaks and the normal logs show nothing.",
+                        toggle(on, (e) =>
+                            sendToHost({ action: "setDebugMode", value: e.target.checked }),
+                        ),
+                    ),
+                );
+                body.appendChild(
+                    btnRow(
+                        actionBtn("Copy Debug Report", "", () =>
+                            sendToHost({ action: "copyDebugReport" }),
+                        ),
+                        actionBtn("Open Debug Log Folder", "", () =>
+                            sendToHost({ action: "openDebugLogs" }),
+                        ),
+                    ),
+                );
+            }
+
+            function buildCliAccess(body) {
+                const on = S.cliAccess === true;
+                let pillText = "Off";
+                if (on) pillText = S.cliRunning ? "Listening" : "On, failed to start";
+                body.appendChild(
+                    row(
+                        "Command Line Access",
+                        "Lets you, or a tool you trust, inspect mudscript from Terminal with mscli. Separate from Developer Mode.",
+                        h("span", { cls: "pill" + (on ? " danger" : ""), style: "font-weight:600" }, pillText),
+                    ),
+                );
+                body.appendChild(
+                    btnRow(
+                        on
+                            ? actionBtn("Turn Off Command Line Access", "", () =>
+                                  sendToHost({ action: "setCliAccess", value: false }),
+                              )
+                            : actionBtn("Turn On Command Line Access...", "danger", async () => {
+                                  const r = await openModal(
+                                      "Command Line Access",
+                                      "This lets Terminal talk to mudscript, so you can run mscli status, mscli macros or mscli log.\n\n" +
+                                          "Any program running as you can then also send Lua to Hammerspoon and control your keyboard and mouse. Only keep it on while you need it.\n\n" +
+                                          "Guardian and the plugin gate stay on.\n\n" +
+                                          "Type command line to confirm. Your system will then ask for administrator permission.",
+                                      "Turn On",
+                                      "Cancel",
+                                      true,
+                                      "",
+                                  );
+                                  const v = (r.value || "").trim().toLowerCase();
+                                  if (r.confirmed && v === "command line")
+                                      sendToHost({ action: "setCliAccess", value: true, confirm: v });
+                                  else if (r.confirmed)
+                                      showAlert("Confirmation did not match. Command line access stays off.");
+                              }),
+                    ),
+                );
+            }
+
             function buildDeveloper(body) {
+                buildDebugMode(body);
+                body.appendChild(divider());
+                buildCliAccess(body);
+                body.appendChild(divider());
                 buildDevMode(body);
                 body.appendChild(divider());
                 body.appendChild(
