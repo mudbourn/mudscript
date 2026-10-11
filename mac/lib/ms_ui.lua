@@ -1054,8 +1054,8 @@ return function(ms)
                 if not action then return end
                 local handler = ms.ui._actions[action]
                 if handler then
-                    local ok, err = pcall(handler, body)
-                    if not ok then print("[MsUI] handler error: " .. tostring(err)) end
+                    local ok, err = xpcall(handler, debug.traceback, body)
+                    if not ok then print("[MsUI] handler error in " .. tostring(action) .. ": " .. tostring(err)) end
                 end
             end
 

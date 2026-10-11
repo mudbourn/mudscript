@@ -871,16 +871,16 @@
                 scroll.innerHTML = "";
 
                 scroll.appendChild(
+                    section("defaults", "Defaults", buildDefaults,
+                        "Save or restore every setting at once"),
+                );
+                scroll.appendChild(
                     section("runtime", "Runtime", buildRuntime,
                         "Macro engine and what a reload touches"),
                 );
                 scroll.appendChild(
                     section("accessibility", "Accessibility", buildAccessibility,
                         "Input handling and performance"),
-                );
-                scroll.appendChild(
-                    section("defaults", "Defaults", buildDefaults,
-                        "Save or restore every setting at once"),
                 );
                 scroll.appendChild(
                     section("backups", "Backups", (b) => P.buildBackups(b),

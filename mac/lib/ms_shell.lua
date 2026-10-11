@@ -51,6 +51,7 @@
 
         ms.shell = {}
 
+        _loadPart("drag")
         _loadPart("osk")
 
         -- Flush queued JS and push host-owned content into the panels, once.
@@ -279,15 +280,10 @@
                                 function(ev)
                                     if not _shellView then return false end
                                     if ev:getType() == et.leftMouseUp then
-                                        if ms._shellDragTap then
-                                            ms._shellDragTap:stop()
-                                            ms._shellDragTap = nil
-                                        end
-                                        ms._shellDragging = false
-                                        pcall(function() _shellView:shadow(true) end)
-                                        pcall(ms.shell.saveState)
+                                        ms.shell.endDrag("shell move")
                                         return false
                                     end
+                                    ms.shell.dragMoved("shell move")
                                     local mp = hs.mouse.absolutePosition()
                                     pcall(function()
                                         _shellView:frame({
@@ -300,6 +296,15 @@
                                     return false
                                 end)
                             ms._shellDragTap:start()
+                            ms.shell.beginDrag("shell move", function()
+                                if ms._shellDragTap then
+                                    ms._shellDragTap:stop()
+                                    ms._shellDragTap = nil
+                                end
+                                ms._shellDragging = false
+                                pcall(function() _shellView:shadow(true) end)
+                                pcall(ms.shell.saveState)
+                            end)
                         end)
                         return
                     end
@@ -323,16 +328,10 @@
                                 function(ev)
                                     if not _shellView then return false end
                                     if ev:getType() == et.leftMouseUp then
-                                        if ms._shellResizeTap then
-                                            ms._shellResizeTap:stop()
-                                            ms._shellResizeTap = nil
-                                        end
-                                        ms._shellDragging = false
-                                        pcall(function() _shellView:shadow(true) end)
-                                        ms.shell.eval("window.__msResizing = false")
-                                        pcall(ms.shell.saveState)
+                                        ms.shell.endDrag("shell resize")
                                         return false
                                     end
+                                    ms.shell.dragMoved("shell resize")
                                     local mp = hs.mouse.absolutePosition()
                                     local dx = mp.x - startMouse.x
                                     local dy = mp.y - startMouse.y
@@ -341,17 +340,22 @@
                                     return false
                                 end)
                             ms._shellResizeTap:start()
+                            ms.shell.beginDrag("shell resize", function()
+                                if ms._shellResizeTap then
+                                    ms._shellResizeTap:stop()
+                                    ms._shellResizeTap = nil
+                                end
+                                ms._shellDragging = false
+                                pcall(function() _shellView:shadow(true) end)
+                                ms.shell.eval("window.__msResizing = false")
+                                pcall(ms.shell.saveState)
+                            end)
                         end)
                         return
                     end
                     if action == "moveEnd" then
                         pcall(function()
-                            if ms._shellDragTap then
-                                ms._shellDragTap:stop()
-                                ms._shellDragTap = nil
-                            end
-                            ms._shellDragging = false
-                            pcall(function() _shellView:shadow(true) end)
+                            ms.shell.endDrag("shell move", "page")
                             local f = _shellView:frame()
                             local sf = hs.screen.mainScreen():frame()
                             local visW = math.max(0, math.min(f.x + f.w, sf.x + sf.w) - math.max(f.x, sf.x))

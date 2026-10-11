@@ -465,14 +465,10 @@ return function(ms, ctx)
                             function(ev)
                                 if not popView then return false end
                                 if ev:getType() == et.leftMouseUp then
-                                    if _popDragTaps and _popDragTaps[panelId] then
-                                        _popDragTaps[panelId]:stop()
-                                        _popDragTaps[panelId] = nil
-                                    end
-                                    ms._shellDragging = false
-                                    pcall(function() popView:shadow(true) end)
+                                    ms.shell.endDrag("popout move " .. panelId)
                                     return false
                                 end
+                                ms.shell.dragMoved("popout move " .. panelId)
                                 local mp = hs.mouse.absolutePosition()
                                 pcall(function()
                                     popView:frame({
@@ -486,17 +482,20 @@ return function(ms, ctx)
                             end)
                         _popDragTaps[panelId] = tap
                         tap:start()
+                        ms.shell.beginDrag("popout move " .. panelId, function()
+                            if _popDragTaps and _popDragTaps[panelId] then
+                                _popDragTaps[panelId]:stop()
+                                _popDragTaps[panelId] = nil
+                            end
+                            ms._shellDragging = false
+                            pcall(function() popView:shadow(true) end)
+                        end)
                     end)
                     return
                 end
                 if action == "moveEnd" then
                     pcall(function()
-                        if _popDragTaps and _popDragTaps[panelId] then
-                            _popDragTaps[panelId]:stop()
-                            _popDragTaps[panelId] = nil
-                        end
-                        ms._shellDragging = false
-                        pcall(function() popView:shadow(true) end)
+                        ms.shell.endDrag("popout move " .. panelId, "page")
                     end)
                     return
                 end
@@ -522,14 +521,10 @@ return function(ms, ctx)
                             function(ev)
                                 if not popView then return false end
                                 if ev:getType() == et.leftMouseUp then
-                                    if _popResizeTaps and _popResizeTaps[panelId] then
-                                        _popResizeTaps[panelId]:stop()
-                                        _popResizeTaps[panelId] = nil
-                                    end
-                                    ms._shellDragging = false
-                                    pcall(function() popView:shadow(true) end)
+                                    ms.shell.endDrag("popout resize " .. panelId)
                                     return false
                                 end
+                                ms.shell.dragMoved("popout resize " .. panelId)
                                 local mp = hs.mouse.absolutePosition()
                                 local dx = mp.x - startMouse.x
                                 local dy = mp.y - startMouse.y
@@ -544,6 +539,14 @@ return function(ms, ctx)
                             end)
                         _popResizeTaps[panelId] = tap
                         tap:start()
+                        ms.shell.beginDrag("popout resize " .. panelId, function()
+                            if _popResizeTaps and _popResizeTaps[panelId] then
+                                _popResizeTaps[panelId]:stop()
+                                _popResizeTaps[panelId] = nil
+                            end
+                            ms._shellDragging = false
+                            pcall(function() popView:shadow(true) end)
+                        end)
                     end)
                     return
                 end

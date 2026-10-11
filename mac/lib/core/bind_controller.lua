@@ -336,6 +336,10 @@
 
             local hk = ms._hotkeys.panic
             local tap = ms._makeKeyWatcher(hk.mods, hk.key, function()
+                if ms.shell and ms.shell.releaseDrags then
+                    local n = ms.shell.releaseDrags("panic key")
+                    if n > 0 then ms.alert("Released a stuck window drag.", 3) end
+                end
                 if not ms._hotkeysReady then return end
                 if ms._requireTargetFocus and not ms._targetActive and not ms._isSafeZone() then return end
                 ms.setMacros(0)

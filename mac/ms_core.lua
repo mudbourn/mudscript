@@ -212,7 +212,7 @@
                         local subs = _busSubs[topic]
                         if subs then
                             for fn, _ in pairs(subs) do
-                                local ok, err = pcall(fn, topic, payload)
+                                local ok, err = xpcall(fn, debug.traceback, topic, payload)
                                 if not ok then
                                     print("ms.bus handler error [" .. topic .. "]: " .. tostring(err))
                                 end
@@ -224,7 +224,7 @@
                                 lp = lp:gsub("%*$", "\1"):gsub("%*", "[^:]*"):gsub("\1$", ".*")
                                 if topic:match("^" .. lp .. "$") then
                                     for fn, _ in pairs(fns) do
-                                        local ok, err = pcall(fn, topic, payload)
+                                        local ok, err = xpcall(fn, debug.traceback, topic, payload)
                                         if not ok then
                                             print("ms.bus handler error [" .. pattern .. "]: " .. tostring(err))
                                         end
