@@ -84,6 +84,20 @@
 
         function Uninstall-All {
             $dir = Get-HostDir
+            $keep = $true
+
+            if (Test-Path $HS) {
+                Write-Host "   Uninstalling removes $HS, which holds your macros, profiles and settings."
+
+                $keep = (Ask "Keep a copy at $Backup? (Y/n)" 'Y') -ne 'N'
+
+                if (-not $keep -and (Ask 'Delete them for good? This cannot be undone. (y/N)' 'N') -ne 'Y') {
+                    $keep = $true
+
+                    Ok "A backup will be kept"
+                }
+            }
+
             $removeHost = $dir -and ((Ask 'Also remove Hammerspoon for Windows? (y/N)' 'N') -eq 'Y')
 
             Step "1. Stopping Hammerspoon if it is running ..."
@@ -92,12 +106,17 @@
 
             Ok "Stopped"
 
-            Step "2. Moving $HS aside ..."
+            Step "2. Removing $HS ..."
 
-            if (Test-Path $HS) {
+            if ((Test-Path $HS) -and $keep) {
                 Move-Item -LiteralPath $HS -Destination $Backup
 
                 Ok "Your macros and settings are kept in $Backup"
+            }
+            elseif (Test-Path $HS) {
+                Remove-Item -LiteralPath $HS -Recurse -Force
+
+                Ok "Removed"
             }
             else {
                 Ok "Nothing to move"
@@ -123,7 +142,12 @@
             }
 
             Write-Host ""
-            Write-Host "mudscript is uninstalled. Delete $Backup when you no longer need it."
+            if ($keep -and (Test-Path $Backup)) {
+                Write-Host "mudscript is uninstalled. Delete $Backup when you no longer need it."
+            }
+            else {
+                Write-Host "mudscript is uninstalled."
+            }
         }
 
         function Get-LatestRelease($repo) {

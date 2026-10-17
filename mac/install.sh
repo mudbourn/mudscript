@@ -24,9 +24,18 @@ ask() {
 if [ -f "$HS/ms_core.lua" ] || [ -d "/Applications/Hammerspoon.app" ]; then
     echo "0. Found an existing install."
     if [ "$(ask '[I]nstall or update, or [U]ninstall? (I/u)' I)" = "U" ]; then
-        REMOVE_HS="$(ask 'Also remove Hammerspoon itself? (y/N)' N)"
         STAMP="$(date +%Y-%m-%d_%H%M%S)"
         BACKUP="$HS-backup-$STAMP"
+        KEEP="N"
+        if [ -d "$HS" ]; then
+            echo "   Uninstalling removes $HS, which holds your macros, profiles and settings."
+            KEEP="$(ask "Keep a copy at $BACKUP? (Y/n)" Y)"
+            if [ "$KEEP" = "N" ] && [ "$(ask 'Delete them for good? This cannot be undone. (y/N)' N)" != "Y" ]; then
+                KEEP="Y"
+                echo "   OK   A backup will be kept."
+            fi
+        fi
+        REMOVE_HS="$(ask 'Also remove Hammerspoon itself? (y/N)' N)"
         PLIST="$HOME/Library/LaunchAgents/com.mudscript.guardian.plist"
 
         echo ""
@@ -43,11 +52,16 @@ if [ -f "$HS/ms_core.lua" ] || [ -d "/Applications/Hammerspoon.app" ]; then
         echo "   OK   Hammerspoon stopped."
 
         echo ""
-        echo "3. Moving $HS aside ..."
+        echo "3. Removing $HS ..."
         if [ -d "$HS" ]; then
             chmod 644 "$HS/init.lua" 2>/dev/null || true
-            mv "$HS" "$BACKUP"
-            echo "   OK   Your macros and settings are kept in $BACKUP"
+            if [ "$KEEP" = "N" ]; then
+                rm -rf "$HS"
+                echo "   OK   Removed."
+            else
+                mv "$HS" "$BACKUP"
+                echo "   OK   Your macros and settings are kept in $BACKUP"
+            fi
         else
             echo "   OK   Nothing to move."
         fi
@@ -63,7 +77,11 @@ if [ -f "$HS/ms_core.lua" ] || [ -d "/Applications/Hammerspoon.app" ]; then
         fi
 
         echo ""
-        echo "mudscript is uninstalled. Delete $BACKUP when you no longer need it."
+        if [ "$KEEP" = "N" ]; then
+            echo "mudscript is uninstalled."
+        else
+            echo "mudscript is uninstalled. Delete $BACKUP when you no longer need it."
+        fi
         echo ""
         exit 0
     fi
