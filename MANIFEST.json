@@ -4,8 +4,8 @@
   "url": "https://raw.githubusercontent.com/mudbourn/mudscript/main/mac/ms_core.lua",
   "bundle": {
     "url": "https://github.com/mudbourn/mudscript/releases/download/v1.3.8.1/mudscript-macos-1.3.8.1.zip",
-    "sha256": "8eb096d5c9d45d0ba327e3af387ad1aabbbfd6ee592019d6f581a72c6341cd0d"
+    "sha256": "7470c589b0c180ea7bcf3eac9f1d4eee58d5d622182188364397269235ff4160"
   },
-  "signature": "tOQSoyN8UZwx9o132wiwdSmvrG8LbNpSEqqc4E3HQgE1pDOkqsEueG9jvYU5s5MhYjZHFjFb6tIk3jm6YUYCblqdstt3K/6mCybyYq2lSxQTPdLsiiNqBt20bPVPLtiTgAFOeF/3nHC8hDHRKW1HUuWBHa02shPLo6p1oXB1b7+AYzLyTG0UEzLtE/lSzZe+qDtkl9QJ/Ow2OdY0MwxEuGO02vD6WFxq1JhZnkNVGghnGpU4TYDldPdJbuG6NwftfRJPYQYl7h7XRAJ8QE/r+9Hha8NSG89I0PnmeHPMwTMQW9PsPQQprXvo4YlAhol9SmboBIUPgk2mvTJe5vF24Q==",
+  "signature": "ZR/I/0pIwL6FY7UtTF7/rSdGjwQSKlTWBtlpcAMnxOfTyJrqdXnx5bzwwsF5svoByYeG2uVsFY8FJSk7Rv8xXSq3hYrTpzio3hKA61CRW32qo79xY8YfkYkWQNkS12yByB7Ko2widpaAsv6epnDvdQBoylcre81Rq2Q65S3X1JJYN7YT8EHqPInopMwQcstdjjqDD6tjh2pbZ27BciOxzGBqyu1TBnQU/pdrLOWzjm082BqSb1buzCnU0lRPNaZHtcQcLK9IWbUC7g9pUvfhnJN5yGxOFuyqTrn5Y/NQLDyuwA0A8PKypDpSb+aM/0Ac+rtHHPG19CxCRFbmyH9AUw==",
   "fileManifest": "data/.ms_file_manifest.json"
 }
