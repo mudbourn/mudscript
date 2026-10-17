@@ -67,19 +67,62 @@
             $hostProcs = @(Get-CimInstance Win32_Process -Filter "Name = 'lua.exe' OR Name = 'powershell.exe' OR Name = 'wscript.exe'" |
                 Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -match '(main|run_mudscript)\.lua|watchdog\.ps1|Mudspoon\.vbs' })
 
-            foreach ($p in $hostProcs) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
+            $hidden = @(Get-CimInstance Win32_Process -Filter "Name = 'lua.exe'" |
+                Where-Object { -not $_.CommandLine })
+
+            $webviewHosts = @(Get-CimInstance Win32_Process -Filter "Name = 'msedgewebview2.exe'" |
+                Where-Object { $_.CommandLine -match 'webview-exe-name=lua\.exe' -and $_.CommandLine -match '\\Hammerspoon\\WebView2' } |
+                ForEach-Object { $_.ParentProcessId } |
+                Where-Object { (Get-Process -Id $_ -ErrorAction SilentlyContinue).ProcessName -eq 'lua' })
+
+            $hostPids = @($hostProcs.ProcessId) + @($hidden.ProcessId) + $webviewHosts |
+                Where-Object { $_ } |
+                Sort-Object -Unique
+
+            $denied = @()
+
+            foreach ($id in $hostPids) {
+                try {
+                    Stop-Process -Id $id -Force -ErrorAction Stop
+                }
+                catch [Microsoft.PowerShell.Commands.ProcessCommandException] {
+                }
+                catch {
+                    $denied += $id
+                }
+            }
+
+            if ($denied) {
+                Warn "Hammerspoon is running as administrator. Approve the prompt to stop it."
+
+                $kill = 'Stop-Process -Force -Id ' + ($denied -join ',')
+                $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($kill))
+
+                try {
+                    Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile', '-EncodedCommand', $encoded
+                }
+                catch {
+                    throw "Could not stop Hammerspoon. Quit it from the tray icon and run this command again."
+                }
+            }
 
             $log = Join-Path $HS 'hammerspoon.log'
+
+            $free = $true
 
             for ($i = 0; $i -lt 40 -and (Test-Path $log); $i++) {
                 try {
                     [IO.File]::Open($log, 'Open', 'ReadWrite', 'None').Close()
+                    $free = $true
                     break
                 }
                 catch {
+                    $free = $false
                     Start-Sleep -Milliseconds 250
                 }
             }
+
+            if (-not $free) { throw "Hammerspoon is still running and holds $log. Quit it from the tray icon and run this command again." }
         }
 
         function Uninstall-All {
@@ -282,70 +325,7 @@
         # Stop the host #
             Step "3. Stopping Hammerspoon if it is running ..."
 
-<<<<<<< HEAD
-            & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $hostDir 'stop.ps1') -Root $hostDir -Tray | Out-Null
-
-            $hostProcs = @(Get-CimInstance Win32_Process -Filter "Name = 'lua.exe' OR Name = 'powershell.exe' OR Name = 'wscript.exe'" |
-                Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -match '(main|run_mudscript)\.lua|watchdog\.ps1|Mudspoon\.vbs' })
-
-            $hidden = @(Get-CimInstance Win32_Process -Filter "Name = 'lua.exe'" |
-                Where-Object { -not $_.CommandLine })
-
-            $webviewHosts = @(Get-CimInstance Win32_Process -Filter "Name = 'msedgewebview2.exe'" |
-                Where-Object { $_.CommandLine -match 'webview-exe-name=lua\.exe' -and $_.CommandLine -match '\\Hammerspoon\\WebView2' } |
-                ForEach-Object { $_.ParentProcessId })
-
-            $hostPids = @($hostProcs.ProcessId) + @($hidden.ProcessId) + $webviewHosts |
-                Where-Object { $_ } |
-                Sort-Object -Unique
-
-            $denied = @()
-
-            foreach ($id in $hostPids) {
-                try {
-                    Stop-Process -Id $id -Force -ErrorAction Stop
-                }
-                catch [Microsoft.PowerShell.Commands.ProcessCommandException] {
-                }
-                catch {
-                    $denied += $id
-                }
-            }
-
-            if ($denied) {
-                Warn "Hammerspoon is running as administrator. Approve the prompt to stop it."
-
-                $kill = 'Stop-Process -Force -Id ' + ($denied -join ',')
-                $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($kill))
-
-                try {
-                    Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile', '-EncodedCommand', $encoded
-                }
-                catch {
-                    throw "Could not stop Hammerspoon. Quit it from the tray icon and run this command again."
-                }
-            }
-
-            $log = Join-Path $HS 'hammerspoon.log'
-
-            $free = $true
-
-            for ($i = 0; $i -lt 40 -and (Test-Path $log); $i++) {
-                try {
-                    [IO.File]::Open($log, 'Open', 'ReadWrite', 'None').Close()
-                    $free = $true
-                    break
-                }
-                catch {
-                    $free = $false
-                    Start-Sleep -Milliseconds 250
-                }
-            }
-=======
             Stop-Host $hostDir
->>>>>>> 453487c00bd720d5325e736685167e969dfab2d8
-
-            if (-not $free) { throw "Hammerspoon is still running and holds $log. Quit it from the tray icon and run this command again." }
 
             Ok "Stopped"
         # END #
