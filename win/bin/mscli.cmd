@@ -4,6 +4,8 @@ setlocal EnableDelayedExpansion
 set "HS_BIN="
 for /f "delims=" %%i in ('where hs.cmd 2^>nul') do if not defined HS_BIN set "HS_BIN=%%i"
 if not defined HS_BIN if defined MUDSPOON_ROOT if exist "%MUDSPOON_ROOT%\hs.cmd" set "HS_BIN=%MUDSPOON_ROOT%\hs.cmd"
+set "UNINSTALL=HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{8F4C2D1A-6B3E-4C7A-9D52-3E1B7A0C94F6}_is1"
+if not defined HS_BIN for /f "tokens=2,*" %%a in ('reg query "%UNINSTALL%" /v InstallLocation 2^>nul ^| findstr InstallLocation') do if exist "%%b\app\hs.cmd" set "HS_BIN=%%b\app\hs.cmd"
 
 if not defined HS_BIN (
     echo The hs command was not found.

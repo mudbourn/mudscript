@@ -161,6 +161,17 @@ Set-StrictMode -Version Latest
     Copy-File (Join-Path $Repo 'win\bin\mscli.cmd') (Join-Path $localBin 'mscli.cmd')
 
     Write-Host "deploy: mscli -> $localBin\mscli.cmd"
+
+    $envKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment', $true)
+    $userPath = [string]$envKey.GetValue('Path', '', [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+    $pathParts = @(($userPath -split ';') | Where-Object { $_ })
+    $expanded = @($pathParts | ForEach-Object { [Environment]::ExpandEnvironmentVariables($_).TrimEnd('\') })
+
+    if ($expanded -notcontains $localBin.TrimEnd('\')) {
+        $envKey.SetValue('Path', ((@($pathParts) + $localBin) -join ';'), [Microsoft.Win32.RegistryValueKind]::ExpandString)
+
+        Write-Host "deploy: added $localBin to the user PATH (open a new terminal to use mscli)"
+    }
 # END #
 
 # Gamepad reader #
