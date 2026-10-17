@@ -57,6 +57,16 @@
             return $null
         }
 
+        function Get-LatestRelease($repo) {
+            $releases = Invoke-RestMethod "https://api.github.com/repos/$repo/releases?per_page=100" -Headers $Headers
+
+            $stable = @($releases | Where-Object { -not $_.draft -and -not $_.prerelease -and $_.tag_name -match '^v\d+(\.\d+)+$' })
+
+            if ($stable.Count -eq 0) { throw "$repo has no stable release." }
+
+            return $stable | Sort-Object { [version]($_.tag_name.TrimStart('v')) } -Descending | Select-Object -First 1
+        }
+
         function Get-HostVersion($dir) {
             if (-not $dir) { return $null }
 
@@ -108,7 +118,7 @@
             $hostDir = Get-HostDir
             $installed = Get-HostVersion $hostDir
 
-            $release = Invoke-RestMethod "https://api.github.com/repos/$HostRepo/releases/latest" -Headers $Headers
+            $release = Get-LatestRelease $HostRepo
             $latest = [version]($release.tag_name.TrimStart('v'))
             $asset = $release.assets | Where-Object { $_.name -eq 'Mudspoon-Setup.exe' } | Select-Object -First 1
 
@@ -146,11 +156,13 @@
         # END #
 
         # mudscript source #
-            Step "2. Downloading mudscript ..."
+            $msRelease = Get-LatestRelease $Repo
+
+            Step "2. Downloading mudscript $($msRelease.tag_name) ..."
 
             $zip = Join-Path $Tmp 'mudscript.zip'
 
-            Invoke-WebRequest "https://github.com/$Repo/archive/refs/heads/main.zip" -OutFile $zip -Headers $Headers
+            Invoke-WebRequest "https://github.com/$Repo/archive/refs/tags/$($msRelease.tag_name).zip" -OutFile $zip -Headers $Headers
 
             Expand-Archive $zip -DestinationPath $Tmp -Force
 

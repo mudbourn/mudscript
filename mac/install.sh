@@ -134,39 +134,36 @@ else
     echo "3. Downloading latest release from GitHub ..."
     mkdir -p "$HS"
 
-    echo "   Checking for latest release..."
-    API="https://api.github.com/repos/$REPO/releases/latest"
-    ZIP_URL=$(curl -sf "$API" | grep -o '"browser_download_url": *"[^"]*macos[^"]*"' | head -1 | sed 's/.*": *"//; s/"//')
+    echo "   Checking for the latest stable release..."
+    ZIP_URL=""
+    TAGS=$(curl -sf "https://api.github.com/repos/$REPO/releases?per_page=100" \
+        | grep -o '"tag_name": *"v[0-9][0-9.]*"' | sed 's/.*"v//; s/"//' \
+        | grep -E '^[0-9]+(\.[0-9]+)+$' | sort -t. -k1,1nr -k2,2nr -k3,3nr)
+    for TAG in $TAGS; do
+        INFO=$(curl -sf "https://api.github.com/repos/$REPO/releases/tags/v$TAG" || true)
+        echo "$INFO" | grep -q '"prerelease": *false' || continue
+        echo "$INFO" | grep -q '"draft": *false' || continue
+        ZIP_URL=$(echo "$INFO" | grep -o '"browser_download_url": *"[^"]*macos[^"]*\.zip"' | head -1 | sed 's/.*": *"//; s/"//')
+        [ -n "$ZIP_URL" ] && break
+    done
 
-    if [ -n "$ZIP_URL" ]; then
-        echo "   Downloading: $ZIP_URL"
-        TMP_FILE=$(mktemp)
-        curl -sfL "$ZIP_URL" -o "$TMP_FILE"
-        if echo "$ZIP_URL" | grep -q '\.zip$'; then
-            unzip -o "$TMP_FILE" -d "$HS" > /dev/null
-            NESTED=$(find "$HS" -maxdepth 1 -type d -name "mudscript-*" | head -1)
-            if [ -n "$NESTED" ]; then
-                mv "$NESTED"/* "$HS/" 2>/dev/null || true
-                rm -rf "$NESTED"
-            fi
-        else
-            tar xzf "$TMP_FILE" -C "$HS" --strip-components=1
-        fi
-        rm -f "$TMP_FILE"
-        echo "   OK   Release downloaded and extracted."
-    else
-        echo "   No release found - downloading main branch..."
-        ZIP_URL="https://github.com/$REPO/archive/refs/heads/main.tar.gz"
-        TMP_FILE=$(mktemp)
-        curl -sfL "$ZIP_URL" -o "$TMP_FILE"
-        mkdir -p "$HS-tmp"
-        tar xzf "$TMP_FILE" -C "$HS-tmp" --strip-components=1
-        cp -R "$HS-tmp"/* "$HS/"
-        rm -rf "$HS-tmp" "$TMP_FILE"
-        rm -f "$HS/install.bat" "$HS"/*.ahk
-        rm -rf "$HS/bin"/*.bat "$HS/bin"/*.ps1
-        echo "   OK   Repository downloaded and macOS files extracted."
+    if [ -z "$ZIP_URL" ]; then
+        echo "   FAIL Could not find a stable mudscript release."
+        echo "     See https://github.com/$REPO/releases"
+        exit 1
     fi
+
+    echo "   Downloading: $ZIP_URL"
+    TMP_FILE=$(mktemp)
+    curl -sfL "$ZIP_URL" -o "$TMP_FILE"
+    unzip -o "$TMP_FILE" -d "$HS" > /dev/null
+    NESTED=$(find "$HS" -maxdepth 1 -type d -name "mudscript-*" | head -1)
+    if [ -n "$NESTED" ]; then
+        mv "$NESTED"/* "$HS/" 2>/dev/null || true
+        rm -rf "$NESTED"
+    fi
+    rm -f "$TMP_FILE"
+    echo "   OK   Release downloaded and extracted."
 
     rm -f "$HS/install.sh" 2>/dev/null || true
 fi
