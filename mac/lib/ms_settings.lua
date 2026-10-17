@@ -161,7 +161,7 @@ return function(ms)
 
             socdReset()
 
-            local lastValidity = BindValidity
+            local lastTarget = ms._targetActive
 
             ms._socdListener = hs.eventtap.new({
                 hs.eventtap.event.types.keyDown,
@@ -174,8 +174,8 @@ return function(ms)
                 local key = socdCodeToKey[keyCode]
                 if not key then return false end
 
-                if BindValidity ~= lastValidity then
-                    lastValidity = BindValidity
+                if ms._targetActive ~= lastTarget then
+                    lastTarget = ms._targetActive
                     socdReset()
                 end
 
@@ -184,7 +184,7 @@ return function(ms)
                 local mode = ms.socdMode or "lastWins"
                 local opp = socdOpposite[key]
                 local oppCode = socdKeyCodes[opp]
-                local active = BindValidity == 1
+                local active = ms._targetActive == true
 
                 if isDown then
                     if isRepeat then

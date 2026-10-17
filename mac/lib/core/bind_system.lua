@@ -130,10 +130,19 @@
             },
             octane  = {
                 label = "Toggle Octane Mode",
+                ungated = true,
                 default = {
                     type = "key",
                     mods = {"alt"},
                     key = "o",
+                },
+            },
+            accessibility = {
+                label = "Toggle Accessibility Settings",
+                default = {
+                    type = "key",
+                    mods = {},
+                    key = "\\",
                 },
             },
             zoomIn  = {
@@ -180,6 +189,7 @@
             disable = function() ms.setMacros(0, false, true) end,
             toggle  = function() ms.setMacros(BindValidity == 1 and 0 or 1) end,
             octane  = function() ms.octane.toggle() end,
+            accessibility = function() ms.accessibility.toggle() end,
             zoomIn    = function() _applyUiZoom((ms._uiZoom or 1.0) + 0.1) end,
             zoomOut   = function() _applyUiZoom((ms._uiZoom or 1.0) - 0.1) end,
             zoomReset = function() _applyUiZoom(1.0) end,
@@ -1381,8 +1391,8 @@
                 local isDown = event:getType() == hs.eventtap.event.types.keyDown
                 if not isDown then release() end
                 ms.keytrack[code] = isDown
-                if BindValidity ~= 1 then return false end
-                if isDown and not active and ms._targetActive then
+                if not ms._targetActive then return false end
+                if isDown and not active then
                     active = true
                     ms._runInCoroutine(function()
                         ms.Mouse(Press, mouseBtn, Mouse, 0, 0)

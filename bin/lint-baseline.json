@@ -30,10 +30,6 @@
   "mac/install.sh": {
     "comment": 1
   },
-  "mac/lib/core/bind_controller.lua": {
-    "comment": 1,
-    "lua-inline-table": 1
-  },
   "mac/lib/core/bind_system.lua": {
     "comment": 2,
     "lua-inline-table": 19
@@ -85,7 +81,7 @@
     "lua-inline-table": 1
   },
   "mac/lib/ms_ui.lua": {
-    "lua-inline-table": 6,
+    "lua-inline-table": 5,
     "semicolon": 4
   },
   "mac/lib/settings/menu.lua": {

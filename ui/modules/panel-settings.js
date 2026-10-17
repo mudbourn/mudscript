@@ -200,24 +200,6 @@
                     body.appendChild(divider());
                 })();
 
-                body.appendChild(
-                    row(
-                        "Windows Mode",
-                        S.windowsHost
-                            ? "Always on when running on Windows"
-                            : "Use Windows key conventions: Ctrl for copy and paste, "
-                                + "and Alt shown in shortcut hints instead of the Mac option symbol",
-                        toggle(S.windowsMode ?? false, (e) =>
-                            sendToHost({
-                                action: "setWindowsMode",
-                                value: e.target.checked,
-                            }),
-                        ),
-                        S.windowsHost ? "disabled" : "",
-                    ),
-                );
-                body.appendChild(divider());
-
                 if (hasTrackpad) {
                     body.appendChild(
                         row(
@@ -460,17 +442,23 @@
                     ),
                 );
 
-                const octaneMute = S.octaneMuteSounds === true;
+                const muteBox = h("input", { type: "checkbox" });
+                muteBox.checked = S.octaneMuteSounds === true;
+                muteBox.disabled = !octane;
+                muteBox.addEventListener("change", () =>
+                    sendToHost({
+                        action: "setOctaneMuteSounds",
+                        value: muteBox.checked,
+                    }),
+                );
+                const muteLabel = h("label", { cls: "row-check" });
+                muteLabel.appendChild(muteBox);
                 body.appendChild(
                     row(
-                        "Octane: mute sounds",
-                        "Silence all UI sounds when Octane Mode is active",
-                        toggle(octaneMute, (e) => {
-                            sendToHost({
-                                action: "setOctaneMuteSounds",
-                                value: e.target.checked,
-                            });
-                        }),
+                        "Mute sounds",
+                        "Silence all UI sounds while Octane Mode is on",
+                        muteLabel,
+                        octane ? "row-sub" : "row-sub disabled",
                     ),
                 );
 
@@ -478,7 +466,7 @@
                 body.appendChild(
                     row(
                         "Accessibility Hotkeys",
-                        "Rebind Octane, zoom, and other system shortcuts in Macros > Binds",
+                        "Rebind Octane, the accessibility toggle, zoom and other system shortcuts in Macros > Binds",
                         actionBtn("Open Binds", "", () => {
                             if (window.showPanel) window.showPanel("macros");
                             setTimeout(() => {

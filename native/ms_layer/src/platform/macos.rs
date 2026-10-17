@@ -77,6 +77,7 @@ const OTHER_DRAGGED: u32 = 27;
 const TAP_DISABLED_TIMEOUT: u32 = 0xFFFF_FFFE;
 const TAP_DISABLED_USER: u32 = 0xFFFF_FFFF;
 
+const F_CLICK_STATE: u32 = 1;
 const F_MOUSE_BUTTON: u32 = 3;
 const F_KEYCODE: u32 = 9;
 const F_SCROLL_Y: u32 = 11;
@@ -204,6 +205,7 @@ extern "C" fn callback(_proxy: *mut c_void, etype: u32, ev: CGEventRef, _info: *
             };
             CGEventSetType(ev, t);
             CGEventSetIntegerValueField(ev, F_MOUSE_BUTTON, b);
+            CGEventSetIntegerValueField(ev, F_CLICK_STATE, 1);
         }
         inject(&v.inject);
         if v.swallow {
@@ -279,7 +281,11 @@ pub fn inject(events: &[Inject]) {
                         (_, true) => OTHER_DOWN,
                         (_, false) => OTHER_UP,
                     };
-                    CGEventCreateMouseEvent(ptr::null_mut(), t, at, button as u32)
+                    let ev = CGEventCreateMouseEvent(ptr::null_mut(), t, at, button as u32);
+                    if !ev.is_null() {
+                        CGEventSetIntegerValueField(ev, F_CLICK_STATE, 1);
+                    }
+                    ev
                 }
             };
             if ev.is_null() {

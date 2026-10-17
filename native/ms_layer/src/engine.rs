@@ -290,10 +290,8 @@ impl Engine {
 
     pub fn set_state(&mut self, enabled: bool, target: bool) -> Vec<Inject> {
         let mut out = Vec::new();
-        if !enabled || !target {
+        if !target {
             out.extend(self.release_trackpad());
-        }
-        if !enabled {
             out.extend(self.reset_socd());
         }
         self.enabled = enabled;
@@ -467,10 +465,10 @@ impl Engine {
             v.swallow = true;
             return true;
         }
-        if !self.enabled {
+        if !self.target {
             return false;
         }
-        if down && !self.trackpad_active[side] && self.target {
+        if down && !self.trackpad_active[side] {
             self.trackpad_active[side] = true;
             v.inject.push(Inject::Button {
                 button: side as u8,
@@ -495,7 +493,7 @@ impl Engine {
 
     fn on_socd(&mut self, key: Key, down: bool, repeat: bool, v: &mut Verdict) -> bool {
         let Some(mode) = self.socd else { return false };
-        if !self.enabled {
+        if !self.target {
             return false;
         }
         let Some(opp) = self.socd_opposite(key) else {
@@ -940,12 +938,13 @@ mod tests {
     }
 
     #[test]
-    fn disable_restores_socd_suppressed_keys() {
+    fn target_blur_restores_socd_suppressed_keys() {
         let mut e = socd("lastWins");
         press(&mut e, "a", true);
         press(&mut e, "d", true);
+        assert!(e.set_state(false, true).is_empty());
         assert_eq!(
-            e.set_state(false, true),
+            e.set_state(false, false),
             vec![Inject::Key {
                 key: k("a"),
                 down: true
@@ -989,7 +988,7 @@ mod tests {
     }
 
     #[test]
-    fn trackpad_released_on_disable() {
+    fn trackpad_released_on_target_blur() {
         let mut e = engine(Config {
             trackpad: TrackpadSpec {
                 on: true,

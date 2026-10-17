@@ -53,7 +53,6 @@
                 end)
             elseif state == 0 and BindValidity ~= 0 then
                 BindValidity = 0
-                if ms._releaseTrackpadHolds then ms._releaseTrackpadHolds() end
                 hs.timer.doAfter(0, function()
                     if BindValidity ~= 0 then return end
                     for _, timer in pairs(ms.running) do
@@ -94,6 +93,7 @@
                     if appName == "Hammerspoon" and ms._ownUiHeld then return end
                     ms._inputOpen    = (appName == "Hammerspoon") and (ms._targetActive or ms._inputOpen)
                     ms._targetActive = false
+                    if ms._releaseTrackpadHolds then ms._releaseTrackpadHolds() end
                     ms.dev.log({
                         type = "system",
                         event = "target_blur",
@@ -115,6 +115,7 @@
                 ms._ownUiResume = BindValidity == 1
                 ms._inputOpen = ms._targetActive or ms._inputOpen
                 ms._targetActive = false
+                if ms._releaseTrackpadHolds then ms._releaseTrackpadHolds() end
                 if BindValidity == 1 then ms.setMacros(0, true) end
                 return
             end
@@ -138,13 +139,15 @@
         end)
 
         ms.octane = ms.octane or {}
-        -- Visible pulse whenever octane flips
         ms.octane._notify = function(on)
             if ms.playSlot then pcall(ms.playSlot, on and "toggleOn" or "toggleOff") end
             if not ms.alert then return end
             pcall(ms.alert,
                 on and "Octane enabled!" or "Octane disabled.",
-                3, true, { id = "octane_state", source = "system" })
+                3, true, {
+                    id = "octane_state",
+                    source = "system",
+                })
         end
         ms.octane.on = function()
             if ms._octaneMode then return end
@@ -192,6 +195,55 @@
                 pcall(ms._menuHoverStart)
             end
             if ms.theme and ms.theme.repaint then pcall(ms.theme.repaint) end
+        end
+
+        ms.accessibility = ms.accessibility or {}
+        ms.accessibility._fields = {
+            "trackpadMode",
+            "socdEnabled",
+            "gamepadEnabled",
+        }
+        ms.accessibility._apply = function(field)
+            if field == "socdEnabled" then
+                if ms.socdApply then ms.socdApply() end
+            elseif field == "gamepadEnabled" then
+                if ms.gamepadEnabled then
+                    if ms.gamepadStart then ms.gamepadStart() end
+                    if ms.shell and ms.shell.gpEnsureOpenBind then ms.shell.gpEnsureOpenBind() end
+                else
+                    if ms.shell and ms.shell.gpClearOpenBind then ms.shell.gpClearOpenBind() end
+                    if ms.gamepadStop then ms.gamepadStop() end
+                end
+            end
+        end
+        ms.accessibility.toggle = function()
+            local on = {}
+            for _, f in ipairs(ms.accessibility._fields) do
+                if ms[f] then on[#on + 1] = f end
+            end
+            local turningOn = #on == 0
+            local fields = turningOn and (ms.accessibility._paused or {}) or on
+            if #fields == 0 then
+                if ms.alert then pcall(ms.alert, "No accessibility settings enabled.", 2, true) end
+                return
+            end
+            ms.accessibility._paused = (not turningOn) and on or nil
+            for _, f in ipairs(fields) do
+                ms[f] = turningOn
+                ms.accessibility._apply(f)
+            end
+            if ms.saveSettings then pcall(ms.saveSettings) end
+            if ms.bind and ms.bind.rebind then pcall(ms.bind.rebind) end
+            if ms.playSlot then pcall(ms.playSlot, turningOn and "toggleOn" or "toggleOff") end
+            if ms.alert then
+                pcall(ms.alert,
+                    turningOn and "Accessibility settings on." or "Accessibility settings off.",
+                    2, true, {
+                    id = "accessibility_state",
+                    source = "system",
+                })
+            end
+            if ms.ui and ms.ui.refresh then pcall(ms.ui.refresh) end
         end
 
         ms._hotkeys = {
