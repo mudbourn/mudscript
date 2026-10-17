@@ -106,14 +106,22 @@
                 ms.keytrack[61] = flags.ctrl
                 ms.keytrack[55] = flags.cmd
                 ms.keytrack[54] = flags.cmd
-                -- Modifier-only binds fire once per press on exact match, no real key held
                 if ms._modBindings and #ms._modBindings > 0 and not _anyRealKeyHeld() then
                     for _, mb in ipairs(ms._modBindings) do
-                        local exact =
-                            ((not mb.modSet.cmd)   == (not flags.cmd)) and
-                            ((not mb.modSet.alt)   == (not flags.alt)) and
-                            ((not mb.modSet.ctrl)  == (not flags.ctrl)) and
-                            ((not mb.modSet.shift) == (not flags.shift))
+                        local exact
+                        if mb.subset then
+                            exact =
+                                (not mb.modSet.cmd   or flags.cmd)   and
+                                (not mb.modSet.alt   or flags.alt)   and
+                                (not mb.modSet.ctrl  or flags.ctrl)  and
+                                (not mb.modSet.shift or flags.shift) and true or false
+                        else
+                            exact =
+                                ((not mb.modSet.cmd)   == (not flags.cmd)) and
+                                ((not mb.modSet.alt)   == (not flags.alt)) and
+                                ((not mb.modSet.ctrl)  == (not flags.ctrl)) and
+                                ((not mb.modSet.shift) == (not flags.shift))
+                        end
                         if exact and not mb.fired then
                             mb.fired = true
                             if BindValidity == 1 or mb.system then

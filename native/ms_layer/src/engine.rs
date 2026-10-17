@@ -60,6 +60,7 @@ impl Bind {
 struct ModBind {
     id: u32,
     mods: u8,
+    subset: bool,
     system: bool,
     fired: bool,
 }
@@ -267,6 +268,7 @@ impl Engine {
                 self.mod_binds.push(ModBind {
                     id: s.id,
                     mods: bind.mods,
+                    subset: !matches!(bind.mode, ModMode::Exact),
                     system: s.system,
                     fired: false,
                 });
@@ -290,10 +292,8 @@ impl Engine {
 
     pub fn set_state(&mut self, enabled: bool, target: bool) -> Vec<Inject> {
         let mut out = Vec::new();
-        if !enabled || !target {
+        if !target {
             out.extend(self.release_trackpad());
-        }
-        if !enabled {
             out.extend(self.reset_socd());
         }
         self.enabled = enabled;
@@ -408,7 +408,12 @@ impl Engine {
         let enabled = self.enabled;
         let mut fires = Vec::new();
         for mb in &mut self.mod_binds {
-            if mb.mods == mods {
+            let hit = if mb.subset {
+                mods & mb.mods == mb.mods
+            } else {
+                mb.mods == mods
+            };
+            if hit {
                 if !mb.fired {
                     mb.fired = true;
                     if enabled || mb.system {
@@ -467,10 +472,10 @@ impl Engine {
             v.swallow = true;
             return true;
         }
-        if !self.enabled {
+        if !self.target {
             return false;
         }
-        if down && !self.trackpad_active[side] && self.target {
+        if down && !self.trackpad_active[side] {
             self.trackpad_active[side] = true;
             v.inject.push(Inject::Button {
                 button: side as u8,
@@ -495,7 +500,7 @@ impl Engine {
 
     fn on_socd(&mut self, key: Key, down: bool, repeat: bool, v: &mut Verdict) -> bool {
         let Some(mode) = self.socd else { return false };
-        if !self.enabled {
+        if !self.target {
             return false;
         }
         let Some(opp) = self.socd_opposite(key) else {
@@ -774,6 +779,20 @@ mod tests {
     }
 
     #[test]
+    fn mods_bind_subset_fires_with_extra_modifiers() {
+        let mut m = bind(5, "mods", "", &["ctrl"]);
+        m.key = None;
+        m.mode = Some("subset".into());
+        let mut e = engine(Config {
+            binds: vec![m],
+            ..Default::default()
+        });
+        press(&mut e, "shift", true);
+        press(&mut e, "ctrl", true);
+        assert_eq!(fires(&mut e), vec![(5, "down")]);
+    }
+
+    #[test]
     fn panic_latches_and_cools_down() {
         let mut e = engine(Config {
             panic: Some(HotkeySpec {
@@ -940,12 +959,13 @@ mod tests {
     }
 
     #[test]
-    fn disable_restores_socd_suppressed_keys() {
+    fn target_blur_restores_socd_suppressed_keys() {
         let mut e = socd("lastWins");
         press(&mut e, "a", true);
         press(&mut e, "d", true);
+        assert!(e.set_state(false, true).is_empty());
         assert_eq!(
-            e.set_state(false, true),
+            e.set_state(false, false),
             vec![Inject::Key {
                 key: k("a"),
                 down: true
@@ -989,7 +1009,7 @@ mod tests {
     }
 
     #[test]
-    fn trackpad_released_on_disable() {
+    fn trackpad_released_on_target_blur() {
         let mut e = engine(Config {
             trackpad: TrackpadSpec {
                 on: true,

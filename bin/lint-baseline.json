@@ -27,22 +27,15 @@
   "mac/init.lua": {
     "comment": 2
   },
-  "mac/install.sh": {
-    "comment": 1
-  },
-  "mac/lib/core/bind_controller.lua": {
-    "comment": 1,
-    "lua-inline-table": 1
-  },
   "mac/lib/core/bind_system.lua": {
-    "comment": 2,
+    "comment": 1,
     "lua-inline-table": 19
   },
   "mac/lib/core/compiler_bridge.lua": {
     "comment": 8
   },
   "mac/lib/core/keyboard.lua": {
-    "comment": 6,
+    "comment": 5,
     "marker-indent": 1,
     "marker-label": 1,
     "marker-orphan-end": 1
@@ -85,7 +78,7 @@
     "lua-inline-table": 1
   },
   "mac/lib/ms_ui.lua": {
-    "lua-inline-table": 6,
+    "lua-inline-table": 5,
     "semicolon": 4
   },
   "mac/lib/settings/menu.lua": {

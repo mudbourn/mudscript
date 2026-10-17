@@ -183,9 +183,13 @@
                 if w:isVisible() ~= true then return "window or app hidden" end
                 if hs.spaces then
                     local sok, here = pcall(function()
-                        local active = hs.spaces.focusedSpace()
+                        local active = {}
+                        for _, sp in pairs(hs.spaces.activeSpaces() or {}) do
+                            active[sp] = true
+                        end
+                        active[hs.spaces.focusedSpace()] = true
                         for _, sp in ipairs(hs.spaces.windowSpaces(w) or {}) do
-                            if sp == active then return true end
+                            if active[sp] then return true end
                         end
                         return false
                     end)
