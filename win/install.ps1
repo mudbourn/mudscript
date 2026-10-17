@@ -180,6 +180,23 @@
 
             & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $hostDir 'stop.ps1') -Root $hostDir -Tray | Out-Null
 
+            $hostProcs = @(Get-CimInstance Win32_Process -Filter "Name = 'lua.exe' OR Name = 'powershell.exe' OR Name = 'wscript.exe'" |
+                Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -match '(main|run_mudscript)\.lua|watchdog\.ps1|Mudspoon\.vbs' })
+
+            foreach ($p in $hostProcs) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
+
+            $log = Join-Path $HS 'hammerspoon.log'
+
+            for ($i = 0; $i -lt 40 -and (Test-Path $log); $i++) {
+                try {
+                    [IO.File]::Open($log, 'Open', 'ReadWrite', 'None').Close()
+                    break
+                }
+                catch {
+                    Start-Sleep -Milliseconds 250
+                }
+            }
+
             Ok "Stopped"
         # END #
 
