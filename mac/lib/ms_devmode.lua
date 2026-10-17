@@ -21,7 +21,136 @@ return function(ms)
                 if not task or not task:start() then onDone(false) end
             end
 
+            local _isWin = package.config:sub(1, 1) == "\\"
+
+            -- Windows Flags --
+                local PS = (os.getenv("SystemRoot") or "C:\\Windows") .. "\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+                local B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+                local WRITE_MASK = "0x500D0156"
+                local TRUSTED = "'S-1-5-32-544','S-1-5-18'"
+
+                local function _encode(script)
+                    local bytes = {}
+                    for i = 1, #script do
+                        bytes[#bytes + 1] = script:byte(i)
+                        bytes[#bytes + 1] = 0
+                    end
+                    local out = {}
+                    for i = 1, #bytes, 3 do
+                        local a, b, c = bytes[i], bytes[i + 1], bytes[i + 2]
+                        local n = a * 65536 + (b or 0) * 256 + (c or 0)
+                        local q = {
+                            math.floor(n / 262144) % 64,
+                            math.floor(n / 4096) % 64,
+                            math.floor(n / 64) % 64,
+                            n % 64,
+                        }
+                        out[#out + 1] = B64:sub(q[1] + 1, q[1] + 1) .. B64:sub(q[2] + 1, q[2] + 1)
+                            .. (b and B64:sub(q[3] + 1, q[3] + 1) or "=")
+                            .. (c and B64:sub(q[4] + 1, q[4] + 1) or "=")
+                    end
+                    return table.concat(out)
+                end
+
+                local function _psArgs(script)
+                    return {
+                        "-NoProfile",
+                        "-NonInteractive",
+                        "-WindowStyle",
+                        "Hidden",
+                        "-EncodedCommand",
+                        _encode(script),
+                    }
+                end
+
+                local function _winFlag(name)
+                    local rf = {}
+                    local user = (os.getenv("USERNAME") or ""):gsub("[^%w%._%-]", "")
+                    local flagName = tostring(name):gsub("[^%w%._%-]", "")
+                    local paths = "$ProgressPreference='SilentlyContinue';$b=Join-Path $env:ProgramData 'mudscript';$d=Join-Path $b '" .. flagName
+                        .. "';$f=Join-Path $d '" .. user .. "';"
+                    local checkScript = paths
+                        .. "$ok=Test-Path -LiteralPath $f -PathType Leaf;"
+                        .. "if($ok){foreach($p in @($b,$d,$f)){$a=Get-Acl -LiteralPath $p;"
+                        .. "$s=[System.Security.Principal.SecurityIdentifier];"
+                        .. "if($a.GetOwner($s).Value -notin @(" .. TRUSTED .. ")){$ok=$false};"
+                        .. "foreach($r in $a.GetAccessRules($true,$true,$s)){"
+                        .. "if($r.AccessControlType -eq 'Allow' -and $r.IdentityReference.Value -notin @(" .. TRUSTED .. ")"
+                        .. " -and ([int64]$r.FileSystemRights -band " .. WRITE_MASK .. ")){$ok=$false}}}};"
+                        .. "if($ok){'authorized'}"
+                    local setScript = paths
+                        .. "$ErrorActionPreference='Stop';"
+                        .. "New-Item -ItemType Directory -Force -Path $d|Out-Null;"
+                        .. "foreach($p in @($b,$d)){$acl=New-Object System.Security.AccessControl.DirectorySecurity;"
+                        .. "$acl.SetAccessRuleProtection($true,$false);"
+                        .. "$acl.SetOwner([System.Security.Principal.SecurityIdentifier]'S-1-5-32-544');"
+                        .. "foreach($e in @(@('S-1-5-32-544','FullControl'),@('S-1-5-18','FullControl'),@('S-1-5-32-545','ReadAndExecute'))){"
+                        .. "$acl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule("
+                        .. "([System.Security.Principal.SecurityIdentifier]$e[0]),$e[1],'ContainerInherit,ObjectInherit','None','Allow')))};"
+                        .. "Set-Acl -LiteralPath $p -AclObject $acl};"
+                        .. "if(Test-Path -LiteralPath $f){Remove-Item -LiteralPath $f -Recurse -Force};"
+                        .. "New-Item -ItemType File -Path $f|Out-Null"
+                    local clearScript = paths
+                        .. "if(Test-Path -LiteralPath $f){Remove-Item -LiteralPath $f -Recurse -Force}"
+
+                    local function _elevate(script, onDone)
+                        local outer = "$p=Start-Process -FilePath '" .. PS .. "' -Verb RunAs -Wait -PassThru -WindowStyle Hidden"
+                            .. " -ArgumentList '" .. table.concat(_psArgs(script), " ") .. "';exit $p.ExitCode"
+                        local task = hs.task.new(PS, function(code)
+                            onDone(code == 0)
+                        end, _psArgs(outer))
+                        if not task or not task:start() then onDone(false) end
+                    end
+
+                    local cached = nil
+
+                    local function _recheck(onDone)
+                        local task = hs.task.new(PS, function(_, out)
+                            cached = type(out) == "string" and out:find("authorized", 1, true) ~= nil
+                            onDone(cached)
+                        end, _psArgs(checkScript))
+                        if not task or not task:start() then onDone(cached == true) end
+                    end
+
+                    rf.authorized = function()
+                        if user == "" or flagName == "" then return false end
+                        if cached == nil then
+                            local out = hs.execute('"' .. PS .. '" ' .. table.concat(_psArgs(checkScript), " "), false)
+                            cached = type(out) == "string" and out:find("authorized", 1, true) ~= nil
+                        end
+                        return cached
+                    end
+
+                    rf.set = function(onDone)
+                        if user == "" or flagName == "" then
+                            onDone(false)
+                            return
+                        end
+                        _elevate(setScript, function(ok)
+                            _recheck(function(on)
+                                onDone(ok and on)
+                            end)
+                        end)
+                    end
+
+                    rf.clear = function(onDone)
+                        if user == "" or flagName == "" or not rf.authorized() then
+                            onDone(true)
+                            return
+                        end
+                        _elevate(clearScript, function()
+                            _recheck(function(on)
+                                onDone(not on)
+                            end)
+                        end)
+                    end
+
+                    return rf
+                end
+            -- END Windows Flags --
+
             ms.devmode.rootFlag = function(name)
+                if _isWin then return _winFlag(name) end
                 local flagDir = baseDir .. "/" .. name
                 local rf = {}
 

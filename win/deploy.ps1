@@ -155,6 +155,14 @@ Set-StrictMode -Version Latest
     }
 # END #
 
+# Command line #
+    New-Item -ItemType Directory -Force -Path $localBin | Out-Null
+
+    Copy-File (Join-Path $Repo 'win\bin\mscli.cmd') (Join-Path $localBin 'mscli.cmd')
+
+    Write-Host "deploy: mscli -> $localBin\mscli.cmd"
+# END #
+
 # Gamepad reader #
     $readerSrc = Join-Path $Repo 'win\bin\ms_gc_read.exe'
 

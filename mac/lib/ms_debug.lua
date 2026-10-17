@@ -81,7 +81,7 @@ return function(ms)
                     "==== mudscript debug session " .. os.date("%Y-%m-%d %H:%M:%S") .. " ====",
                     "mudscript: " .. tostring(ms.version or "?"),
                     "hammerspoon: " .. tostring(hs.processInfo and hs.processInfo.version or "?"),
-                    "macos: " .. tostring((hs.host.operatingSystemVersionString and hs.host.operatingSystemVersionString()) or "?"),
+                    "os: " .. tostring((hs.host.operatingSystemVersionString and hs.host.operatingSystemVersionString()) or "?"),
                     "devmode: " .. tostring(_G._guardianDevMode == true),
                 }
                 pcall(function()
