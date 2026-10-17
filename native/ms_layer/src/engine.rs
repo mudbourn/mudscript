@@ -60,6 +60,7 @@ impl Bind {
 struct ModBind {
     id: u32,
     mods: u8,
+    subset: bool,
     system: bool,
     fired: bool,
 }
@@ -267,6 +268,7 @@ impl Engine {
                 self.mod_binds.push(ModBind {
                     id: s.id,
                     mods: bind.mods,
+                    subset: !matches!(bind.mode, ModMode::Exact),
                     system: s.system,
                     fired: false,
                 });
@@ -406,7 +408,12 @@ impl Engine {
         let enabled = self.enabled;
         let mut fires = Vec::new();
         for mb in &mut self.mod_binds {
-            if mb.mods == mods {
+            let hit = if mb.subset {
+                mods & mb.mods == mb.mods
+            } else {
+                mb.mods == mods
+            };
+            if hit {
                 if !mb.fired {
                     mb.fired = true;
                     if enabled || mb.system {
@@ -769,6 +776,20 @@ mod tests {
         press(&mut e, "alt", false);
         press(&mut e, "alt", true);
         assert!(fires(&mut e).is_empty(), "no fire while a real key is held");
+    }
+
+    #[test]
+    fn mods_bind_subset_fires_with_extra_modifiers() {
+        let mut m = bind(5, "mods", "", &["ctrl"]);
+        m.key = None;
+        m.mode = Some("subset".into());
+        let mut e = engine(Config {
+            binds: vec![m],
+            ..Default::default()
+        });
+        press(&mut e, "shift", true);
+        press(&mut e, "ctrl", true);
+        assert_eq!(fires(&mut e), vec![(5, "down")]);
     }
 
     #[test]

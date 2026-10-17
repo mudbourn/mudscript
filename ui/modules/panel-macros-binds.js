@@ -65,8 +65,8 @@
         // END Themed delete confirmation //
 
         // Bind list //
-            function openBindMenu(m, isSub, mode) {
-                window.msBindMenu.open(m, isSub, mode, {
+            function openBindMenu(m) {
+                window.msBindMenu.open(m, {
                     list:          function() { return M.bindList; },
                     confirmDelete: confirmDelete,
                     onDelete:      function(id) {
@@ -91,9 +91,8 @@
                 var acts = document.createElement("div");
                 acts.className = "bind-acts";
 
-                var mode = { full: false };
                 acts.appendChild(bindPill(m.bind, function() {
-                    if (isSub && !mode.full) {
+                    if (m.parent) {
                         shellPost("macros", "startModRebind", {
                             action: "startModRebind",
                             id:     m.id,
@@ -105,9 +104,9 @@
                             systemBind: m.systemBind || false,
                         });
                     }
-                }, isSub
-                    ? "Click to rebind - capture mode is set in the options menu"
-                    : "Click to rebind", function() { openBindMenu(m, isSub, mode); }));
+                }, m.parent
+                    ? "Click to rebind the modifier held with the linked macro"
+                    : "Click to rebind", function() { openBindMenu(m); }));
 
                 var moreBtn = document.createElement("button");
                 moreBtn.className = "bind-act bind-more";
@@ -119,7 +118,7 @@
                 moreBtn.addEventListener("click", function(e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    openBindMenu(m, isSub, mode);
+                    openBindMenu(m);
                 });
                 acts.appendChild(moreBtn);
 

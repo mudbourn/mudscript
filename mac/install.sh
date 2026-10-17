@@ -12,6 +12,64 @@ echo "|        mudscript :// macOS Installer           |"
 echo "+==============================================+"
 echo ""
 
+ask() {
+    local answer=""
+    if [ -r /dev/tty ]; then
+        printf "   %s " "$1"
+        read -r answer < /dev/tty || answer=""
+    fi
+    printf '%s' "${answer:-$2}" | cut -c1 | tr '[:lower:]' '[:upper:]'
+}
+
+if [ -f "$HS/ms_core.lua" ] || [ -d "/Applications/Hammerspoon.app" ]; then
+    echo "0. Found an existing install."
+    if [ "$(ask '[I]nstall or update, or [U]ninstall? (I/u)' I)" = "U" ]; then
+        REMOVE_HS="$(ask 'Also remove Hammerspoon itself? (y/N)' N)"
+        STAMP="$(date +%Y-%m-%d_%H%M%S)"
+        BACKUP="$HS-backup-$STAMP"
+        PLIST="$HOME/Library/LaunchAgents/com.mudscript.guardian.plist"
+
+        echo ""
+        echo "1. Removing the Guardian agent ..."
+        launchctl unload "$PLIST" 2>/dev/null || true
+        rm -f "$PLIST"
+        echo "   OK   Guardian removed."
+
+        echo ""
+        echo "2. Quitting Hammerspoon ..."
+        osascript -e 'quit app "Hammerspoon"' 2>/dev/null || true
+        sleep 1
+        pkill -x Hammerspoon 2>/dev/null || true
+        echo "   OK   Hammerspoon stopped."
+
+        echo ""
+        echo "3. Moving $HS aside ..."
+        if [ -d "$HS" ]; then
+            chmod 644 "$HS/init.lua" 2>/dev/null || true
+            mv "$HS" "$BACKUP"
+            echo "   OK   Your macros and settings are kept in $BACKUP"
+        else
+            echo "   OK   Nothing to move."
+        fi
+        for b in mscli ms_gc_read ms_ocr_read ms_layer ms_spy; do
+            rm -f "$HOME/.local/bin/$b"
+        done
+
+        if [ "$REMOVE_HS" = "Y" ] && [ -d "/Applications/Hammerspoon.app" ]; then
+            echo ""
+            echo "4. Moving Hammerspoon to the Trash ..."
+            mv "/Applications/Hammerspoon.app" "$HOME/.Trash/Hammerspoon-$STAMP.app"
+            echo "   OK   Hammerspoon moved to the Trash."
+        fi
+
+        echo ""
+        echo "mudscript is uninstalled. Delete $BACKUP when you no longer need it."
+        echo ""
+        exit 0
+    fi
+    echo ""
+fi
+
 if [ -d "/Applications/Hammerspoon.app" ]; then
     echo "1. Hammerspoon is already installed."
 else
@@ -31,7 +89,6 @@ else
     HS_TMP=$(mktemp -d)
     curl -sfL "$HS_ZIP_URL" -o "$HS_TMP/hammerspoon.zip"
     unzip -qo "$HS_TMP/hammerspoon.zip" -d "$HS_TMP"
-    # The zip contains Hammerspoon.app at the top level
     cp -R "$HS_TMP/Hammerspoon.app" /Applications/
     rm -rf "$HS_TMP"
     echo "   OK   Hammerspoon installed to /Applications/."

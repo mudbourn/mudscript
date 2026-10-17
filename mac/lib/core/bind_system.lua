@@ -1140,10 +1140,10 @@
                 elseif c.type == "mods" then
                     local modSet = {}
                     for _, m in ipairs(c.mods or {}) do modSet[m] = true end
-                    -- Ignore an empty set (would fire on every key release).
                     if next(modSet) then
                         ms._modBindings[#ms._modBindings + 1] = {
                             modSet  = modSet,
+                            subset  = ignoreMods and true or false,
                             firedFn = firedFn,
                             fired   = false,
                         }

@@ -225,6 +225,10 @@
                 subEl.style.display = text ? "" : "none";
             },
             isOpen: function() { return _stack.indexOf(pop) !== -1; },
+            clear: function() {
+                body.innerHTML = "";
+                actions.innerHTML = "";
+            },
             add: function(node) {
                 body.appendChild(node);
                 return node;

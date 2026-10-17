@@ -153,6 +153,7 @@
                         id = idFor(mb),
                         t = "mods",
                         mods = mods,
+                        mode = mb.subset and "subset" or nil,
                         system = mb.system and true or false,
                     }
                 end

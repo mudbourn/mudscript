@@ -57,6 +57,75 @@
             return $null
         }
 
+        function Stop-Host($dir) {
+            $stop = if ($dir) { Join-Path $dir 'stop.ps1' } else { $null }
+
+            if ($stop -and (Test-Path $stop)) {
+                & powershell -NoProfile -ExecutionPolicy Bypass -File $stop -Root $dir -Tray | Out-Null
+            }
+
+            $hostProcs = @(Get-CimInstance Win32_Process -Filter "Name = 'lua.exe' OR Name = 'powershell.exe' OR Name = 'wscript.exe'" |
+                Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -match '(main|run_mudscript)\.lua|watchdog\.ps1|Mudspoon\.vbs' })
+
+            foreach ($p in $hostProcs) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
+
+            $log = Join-Path $HS 'hammerspoon.log'
+
+            for ($i = 0; $i -lt 40 -and (Test-Path $log); $i++) {
+                try {
+                    [IO.File]::Open($log, 'Open', 'ReadWrite', 'None').Close()
+                    break
+                }
+                catch {
+                    Start-Sleep -Milliseconds 250
+                }
+            }
+        }
+
+        function Uninstall-All {
+            $dir = Get-HostDir
+            $removeHost = $dir -and ((Ask 'Also remove Hammerspoon for Windows? (y/N)' 'N') -eq 'Y')
+
+            Step "1. Stopping Hammerspoon if it is running ..."
+
+            Stop-Host $dir
+
+            Ok "Stopped"
+
+            Step "2. Moving $HS aside ..."
+
+            if (Test-Path $HS) {
+                Move-Item -LiteralPath $HS -Destination $Backup
+
+                Ok "Your macros and settings are kept in $Backup"
+            }
+            else {
+                Ok "Nothing to move"
+            }
+
+            if ($removeHost) {
+                Step "3. Removing Hammerspoon for Windows ..."
+
+                $key = Get-ItemProperty $UninstallKey -ErrorAction SilentlyContinue
+                $exe = if ($key -and $key.UninstallString) { $key.UninstallString.Trim('"') } else { $null }
+
+                if ($exe -and (Test-Path $exe)) {
+                    $proc = Start-Process $exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
+
+                    if ($proc.ExitCode -ne 0) { Warn "The uninstaller exited with code $($proc.ExitCode)." }
+                    else { Ok "Removed" }
+                }
+                else {
+                    Warn "No uninstaller found. Remove it from Settings -> Apps."
+                }
+
+                Remove-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'Mudspoon' -ErrorAction SilentlyContinue
+            }
+
+            Write-Host ""
+            Write-Host "mudscript is uninstalled. Delete $Backup when you no longer need it."
+        }
+
         function Get-LatestRelease($repo) {
             $releases = Invoke-RestMethod "https://api.github.com/repos/$repo/releases?per_page=100" -Headers $Headers
 
@@ -89,6 +158,17 @@
     New-Item -ItemType Directory -Force -Path $Tmp | Out-Null
 
     try {
+        # Install or uninstall #
+            if ((Get-HostDir) -or (Test-Path (Join-Path $HS 'ms_core.lua'))) {
+                Step "0. Found an existing install."
+
+                if ((Ask '[I]nstall or update, or [U]ninstall? (I/u)' 'I') -eq 'U') {
+                    Uninstall-All
+                    return
+                }
+            }
+        # END #
+
         # Existing config #
             $clean = $false
 
@@ -178,24 +258,7 @@
         # Stop the host #
             Step "3. Stopping Hammerspoon if it is running ..."
 
-            & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $hostDir 'stop.ps1') -Root $hostDir -Tray | Out-Null
-
-            $hostProcs = @(Get-CimInstance Win32_Process -Filter "Name = 'lua.exe' OR Name = 'powershell.exe' OR Name = 'wscript.exe'" |
-                Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -match '(main|run_mudscript)\.lua|watchdog\.ps1|Mudspoon\.vbs' })
-
-            foreach ($p in $hostProcs) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
-
-            $log = Join-Path $HS 'hammerspoon.log'
-
-            for ($i = 0; $i -lt 40 -and (Test-Path $log); $i++) {
-                try {
-                    [IO.File]::Open($log, 'Open', 'ReadWrite', 'None').Close()
-                    break
-                }
-                catch {
-                    Start-Sleep -Milliseconds 250
-                }
-            }
+            Stop-Host $hostDir
 
             Ok "Stopped"
         # END #
