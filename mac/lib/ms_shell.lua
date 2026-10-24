@@ -219,6 +219,19 @@
             end
         -- END --
 
+        -- warmOffScreen --
+            ms.shell.warmOffScreen = function()
+                if _shellView then
+                    pcall(function() return _shellView:hswindow() end)
+                end
+                pcall(function()
+                    if not hs.spaces then return end
+                    hs.spaces.focusedSpace()
+                    hs.spaces.activeSpaces()
+                end)
+            end
+        -- END --
+
         -- resizeEdgeMath --
             ms._resizeEdgeMath = function(edge, sf, dx, dy, minW, minH)
                 local x, y, w, h = sf.x, sf.y, sf.w, sf.h

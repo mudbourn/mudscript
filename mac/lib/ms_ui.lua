@@ -1113,6 +1113,9 @@ return function(ms)
                 if ms.shell.webview and ms.shell.webview() then return end
                 ms.shell.init()
             end)
+            if ms.shell.warmOffScreen then
+                pcall(ms.shell.warmOffScreen)
+            end
         end
     -- END UI State Cache --
 
