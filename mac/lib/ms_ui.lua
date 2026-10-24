@@ -51,7 +51,7 @@ return function(ms)
         local function _bindDisplay(c, anyMods)
             if not c then return nil end
             local parts = _modParts(c.mods)
-            if anyMods and (c.type == "key" or c.type == "combo") and parts[1] ~= "Any" then
+            if anyMods and c.type ~= "mods" and parts[1] ~= "Any" then
                 table.insert(parts, 1, "Any")
             end
             if c.type == "mods" then
@@ -503,6 +503,7 @@ return function(ms)
                 macros                  = macros,
                 trackpadMode            = ms.trackpadMode or false,
                 socdEnabled             = ms.socdEnabled or false,
+                accessibilityFollowsMacros = ms._accessibilityFollowsMacros or false,
                 socdMode                = ms.socdMode or "lastWins",
                 windowsMode             = ms.windowsMode or false,
                 windowsHost             = ms.windowsHost or false,

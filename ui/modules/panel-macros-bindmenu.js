@@ -74,14 +74,12 @@
             }));
         }
         if (m.systemBind && m.bindType) {
+            p.row("Ignore extra modifiers", "Fire even when other modifier keys are held.",
+                p.toggle(m.ignoreMods, function(on) {
+                    post("setSystemBindIgnoreMods", { id: m.id, value: on });
+                }));
             if (m.bindType === "key") {
-                p.row("Ignore extra modifiers", "Fire even when other modifier keys are held.",
-                    p.toggle(m.ignoreMods, function(on) {
-                        post("setSystemBindIgnoreMods", { id: m.id, value: on });
-                    }));
-            }
-            if (m.bindType === "key" || m.bindType === "mouse") {
-                p.row("Swallow input", "Keep the key or button from reaching the app while the bind is live.",
+                p.row("Swallow input", "Keep the key from reaching the app while the bind is live.",
                     p.toggle(m.swallow, function(on) {
                         post("setSystemBindSwallow", { id: m.id, value: on });
                     }));
@@ -95,13 +93,13 @@
             p.row("Enabled", null, p.toggle(m.enabled, function(on) {
                 post("setMacroEnabled", { id: m.id, value: on });
             }));
-            if (m.bindType === "key" || m.bindType === "combo" || m.bindType === "mods") {
+            if (m.bindType) {
                 p.row("Ignore extra modifiers", "Fire even when other modifier keys are held.",
                     p.toggle(m.ignoreMods, function(on) {
                         post("setBindIgnoreMods", { id: m.id, value: on });
                     }));
             }
-            if (m.bindType === "key" || m.bindType === "combo" || m.bindType === "mouse") {
+            if (m.bindType === "key" || m.bindType === "combo") {
                 p.row("Swallow input", "Keep the trigger from reaching the app while macros are on.",
                     p.toggle(m.swallow, function(on) {
                         post("setBindSwallow", { id: m.id, value: on });

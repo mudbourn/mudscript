@@ -92,6 +92,9 @@ return function(ms, ctx)
             if data.trackpadMode     ~= nil then ms.trackpadMode           = (data.trackpadMode     == true) end
             if data.gamepadEnabled   ~= nil then ms.gamepadEnabled         = (data.gamepadEnabled   == true) end
             if data.socdEnabled      ~= nil then ms.socdEnabled            = (data.socdEnabled      == true) end
+            if data.accessibilityFollowsMacros ~= nil then
+                ms._accessibilityFollowsMacros = (data.accessibilityFollowsMacros == true)
+            end
             if data.windowsMode      ~= nil then ms.windowsMode            = ms.windowsHost or (data.windowsMode == true) end
 
             if data.socdMode then
@@ -307,6 +310,7 @@ return function(ms, ctx)
                     end
                 elseif key == "trackpadMode"     then data.trackpadMode     = (val == "true")
                 elseif key == "socdEnabled"      then data.socdEnabled      = (val == "true")
+                elseif key == "accessibilityFollowsMacros" then data.accessibilityFollowsMacros = (val == "true")
                 elseif key == "windowsMode"      then data.windowsMode      = (val == "true")
 
                 elseif key == "socdMode" then
@@ -350,6 +354,7 @@ return function(ms, ctx)
                 trackpadMode     = ms.trackpadMode,
                 gamepadEnabled   = ms.gamepadEnabled,
                 socdEnabled      = ms.socdEnabled,
+                accessibilityFollowsMacros = ms._accessibilityFollowsMacros or false,
                 windowsMode      = ms.windowsMode,
                 socdMode         = ms.socdMode or "lastWins",
 

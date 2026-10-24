@@ -49,6 +49,9 @@
                         event = "macros_enabled",
                     })
                     if not silent then _doNotify(1, mute) end
+                    if ms.accessibility._pausedByMacros then
+                        ms.accessibility.toggle(true, true)
+                    end
                     _refreshUIState()
                 end)
             elseif state == 0 and BindValidity ~= 0 then
@@ -64,6 +67,16 @@
                         event = "macros_disabled",
                     })
                     if not silent then _doNotify(0, mute) end
+                    if ms._accessibilityFollowsMacros and ms.accessibility.toggle then
+                        local wasOn = false
+                        for _, f in ipairs(ms.accessibility._fields) do
+                            if ms[f] then wasOn = true end
+                        end
+                        if wasOn then
+                            ms.accessibility.toggle(false, true)
+                            ms.accessibility._pausedByMacros = true
+                        end
+                    end
                     _refreshUIState()
                     ms.cancelMacros()
                 end)
@@ -216,18 +229,22 @@
                 end
             end
         end
-        ms.accessibility.toggle = function()
+        ms.accessibility.toggle = function(want, quiet)
             local on = {}
             for _, f in ipairs(ms.accessibility._fields) do
                 if ms[f] then on[#on + 1] = f end
             end
             local turningOn = #on == 0
+            if want ~= nil then
+                if want ~= turningOn then return end
+            end
             local fields = turningOn and (ms.accessibility._paused or {}) or on
             if #fields == 0 then
-                if ms.alert then pcall(ms.alert, "No accessibility settings enabled.", 2, true) end
+                if ms.alert and not quiet then pcall(ms.alert, "No accessibility settings enabled.", 2, true) end
                 return
             end
             ms.accessibility._paused = (not turningOn) and on or nil
+            ms.accessibility._pausedByMacros = nil
             for _, f in ipairs(fields) do
                 ms[f] = turningOn
                 ms.accessibility._apply(f)

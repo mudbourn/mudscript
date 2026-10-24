@@ -42,6 +42,22 @@
             end
         end
 
+        ms.bind.modsHeld = function(mods, subset)
+            local want = {}
+            for _, m in ipairs(type(mods) == "table" and mods or {}) do want[m] = true end
+            for _, m in ipairs({
+                "cmd",
+                "alt",
+                "ctrl",
+                "shift",
+            }) do
+                local held = ms.keystate(m)
+                if want[m] and not held then return false end
+                if held and not want[m] and not subset then return false end
+            end
+            return true
+        end
+
         ms.bind.swallows = function(id)
             local flag = ms.bindSwallow and ms.bindSwallow[id]
             if flag ~= nil then return flag == true end
@@ -141,7 +157,7 @@
                 label = "Toggle Accessibility Settings",
                 default = {
                     type = "key",
-                    mods = {},
+                    mods = {"alt"},
                     key = "\\",
                 },
             },
@@ -257,19 +273,22 @@
                 local function swallow()
                     return ms.systemBinds._swallow[id] == true and armed()
                 end
+                local ignore = ms.systemBinds.ignoreMods(id)
+                local mods = type(c.mods) == "table" and c.mods or {}
+                local function deviceFire()
+                    if ms.bind.modsHeld(mods, ignore) then fire() end
+                end
                 if c.type == "key" then
-                    local ignore = ms.systemBinds.ignoreMods(id)
-                    local mods = type(c.mods) == "table" and c.mods or {}
                     if ignore and #mods == 0 then mods = "any" end
                     ms.systemBinds._handles[id] = ms.key(mods, c.key, swallow, function()
                         hs.timer.doAfter(0, fire)
                     end, nil, true, ignore)
                 elseif c.type == "mouse" then
-                    ms.systemBinds._handles[id] = ms.mouse(c.button, swallow, fire, true)
+                    ms.systemBinds._handles[id] = ms.mouse(c.button, false, deviceFire, true)
                 elseif c.type == "scroll" then
-                    ms.systemBinds._handles[id] = ms.scrollBind(c.direction, fire)
+                    ms.systemBinds._handles[id] = ms.scrollBind(c.direction, deviceFire)
                 elseif c.type == "gamepad" then
-                    ms.systemBinds._handles[id] = ms.gamepadBind(ms.gpButtons(c), fire)
+                    ms.systemBinds._handles[id] = ms.gamepadBind(ms.gpButtons(c), deviceFire)
                 end
                 ::sysBindContinue::
             end
@@ -1134,7 +1153,7 @@
                     fn()
                 end
                 local ignoreMods = ms.bindIgnoreMods and ms.bindIgnoreMods[id] or false
-                local swallow = ms.bind.swallows(id)
+                local swallow = (c.type == "key" or c.type == "combo") and ms.bind.swallows(id)
                 if c.type == "key" then
                     ms.bindHandles[id] = ms.key(c.mods, c.key, swallow, firedFn, nil, false, ignoreMods)
                 elseif c.type == "mods" then
@@ -1166,9 +1185,9 @@
                     end
                     grp.claimants[#grp.claimants + 1] = {
                         mods = c.mods or {},
+                        subset = ignoreMods and true or false,
                         firedFn = firedFn,
                     }
-                    grp.swallow = grp.swallow or swallow
                 end
 
                 ::continue::
@@ -1179,20 +1198,14 @@
                 local claimants = grp.claimants
                 local function dispatch()
                     for _, cl in ipairs(claimants) do
-                        local match = (#cl.mods == 0)
-                        if not match then
-                            match = true
-                            for _, m in ipairs(cl.mods) do
-                                if not ms.keystate(m) then match = false
-                                break end
-                            end
+                        if ms.bind.modsHeld(cl.mods, cl.subset) then
+                            cl.firedFn()
+                            return
                         end
-                        if match then cl.firedFn()
-                        return end
                     end
                 end
                 if grp.ctype == "mouse" then
-                    ms.mouse(grp.button, grp.swallow == true, dispatch)
+                    ms.mouse(grp.button, false, dispatch)
                 elseif grp.ctype == "scroll" then
                     ms.bindHandles["_disp:" .. tkey] = ms.scrollBind(grp.direction, dispatch)
                 elseif grp.ctype == "gamepad" then

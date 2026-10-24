@@ -414,6 +414,15 @@ return function(ms, ctx)
                     ms.ui.refresh()
                 end,
 
+                setAccessibilityFollowsMacros = function(data)
+                    ms._accessibilityFollowsMacros = (data.value == true)
+                    if not ms._accessibilityFollowsMacros then
+                        ms.accessibility._pausedByMacros = nil
+                    end
+                    ms.saveSettings()
+                    ms.ui.refresh()
+                end,
+
                 setSocdEnabled = function(data)
                     ms.socdEnabled = (data.value == true)
                     ms.saveSettings()
@@ -578,6 +587,9 @@ return function(ms, ctx)
                         ms.trackpadMode = (def.trackpadMode == true)
                         ms.saveSettings()
                         ms.bind.rebind()
+                    elseif key == "accessibilityFollowsMacros" then
+                        ms._accessibilityFollowsMacros = (def.accessibilityFollowsMacros == true)
+                        ms.saveSettings()
                     elseif key == "socdEnabled" then
                         ms.socdEnabled = (def.socdEnabled == true)
                         ms.saveSettings()

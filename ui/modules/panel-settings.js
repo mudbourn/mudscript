@@ -200,6 +200,32 @@
                     body.appendChild(divider());
                 })();
 
+                body.appendChild(
+                    row(
+                        "Pause With Macros",
+                        "Turn accessibility tools off while macros are disabled, and back on when they return",
+                        toggle(S.accessibilityFollowsMacros ?? false, (e) =>
+                            sendToHost({
+                                action: "setAccessibilityFollowsMacros",
+                                value: e.target.checked,
+                            }),
+                        ),
+                        "",
+                        [
+                            {
+                                icon: "",
+                                label: "Reset to default",
+                                action: () =>
+                                    sendToHost({
+                                        action: "resetSetting",
+                                        key: "accessibilityFollowsMacros",
+                                    }),
+                            },
+                        ],
+                    ),
+                );
+                body.appendChild(divider());
+
                 if (hasTrackpad) {
                     body.appendChild(
                         row(
