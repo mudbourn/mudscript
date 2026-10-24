@@ -251,13 +251,14 @@
             end
             if ms.saveSettings then pcall(ms.saveSettings) end
             if ms.bind and ms.bind.rebind then pcall(ms.bind.rebind) end
-            if ms.playSlot then pcall(ms.playSlot, turningOn and "toggleOn" or "toggleOff") end
-            if ms.alert then
+            if ms.playSlot and not quiet then pcall(ms.playSlot, turningOn and "toggleOn" or "toggleOff") end
+            if ms.alert and not quiet then
                 pcall(ms.alert,
-                    turningOn and "Accessibility settings on." or "Accessibility settings off.",
-                    2, true, {
+                    turningOn and "Accessibility enabled!" or "Accessibility disabled.",
+                    3, true, {
                     id = "accessibility_state",
                     source = "system",
+                    state = true,
                 })
             end
             if ms.ui and ms.ui.refresh then pcall(ms.ui.refresh) end
