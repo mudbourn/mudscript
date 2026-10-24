@@ -33,9 +33,29 @@
             _shellFadeTimer = timer
         end
 
+        local _showTrace = nil
+        local _showCount = 0
+
+        local function _traceMark(name)
+            if not _showTrace then return end
+            local elapsed = (hs.timer.absoluteTime() - _showTrace.t0) / 1e6
+            _showTrace.marks[#_showTrace.marks + 1] = string.format("%s=%.1f", name, elapsed)
+        end
+
+        local function _traceFrame()
+            if not _showTrace or _showTrace.frameAsked then return end
+            _showTrace.frameAsked = true
+            ms.shell.eval("(function(){var t=performance.now();var v=document.visibilityState;"
+                .. "requestAnimationFrame(function(){requestAnimationFrame(function(){"
+                .. "shellDispatch('_shell','firstFrame',{js:Math.round(performance.now()-t),vis:v});"
+                .. "});});})()")
+        end
+
         local function _fadeIn(view)
             if _shellFadeInStarted then return end
             _shellFadeInStarted = true
+            _traceMark("fadeIn")
+            _traceFrame()
             _fade(view, 0, 1)
         end
 
@@ -273,8 +293,24 @@
                         return
                     end
 
+                    if panel == "_shell" and action == "firstFrame" then
+                        if _showTrace then
+                            _traceMark("frame")
+                            local b = body or {}
+                            ms.debug.log("shell", string.format("show #%d ready=%s %s jsFrame=%s vis=%s",
+                                _showTrace.n,
+                                tostring(_showTrace.ready),
+                                table.concat(_showTrace.marks, " "),
+                                tostring(b.js),
+                                tostring(b.vis)))
+                            _showTrace = nil
+                        end
+                        return
+                    end
+
                     if panel == "_shell" and action == "ready" then
                         _hydrateShell()
+                        _traceMark("ready")
                         if ms._shellState and ms._shellState.visible and _shellView then
                             _fadeIn(_shellView)
                         end
@@ -680,6 +716,16 @@
         -- show --
             ms.shell.show = function()
                 if ms._restarting or ms._shuttingDown then return end
+                _showCount = _showCount + 1
+                _showTrace = nil
+                if ms.debug and ms.debug.isOn and ms.debug.isOn() then
+                    _showTrace = {
+                        t0 = hs.timer.absoluteTime(),
+                        n = _showCount,
+                        ready = _shellReady,
+                        marks = {},
+                    }
+                end
                 if not (ms._shellState and ms._shellState.visible) then
                     local front = hs.application.frontmostApplication()
                     if front and front:bundleID() ~= hs.processInfo.bundleID then
@@ -687,20 +733,27 @@
                     end
                 end
                 if not _shellView then ms.shell.init() end
+                _traceMark("init")
                 _stopFade()
                 _shellFadeInStarted = false
                 ms.shell._restoreFrame()
+                _traceMark("restoreFrame")
                 if ms.syncExitCurtainFrame then pcall(ms.syncExitCurtainFrame) end
                 pcall(function() ms.playSlot("settingsOpen") end)
+                _traceMark("sound")
                 _shellView:alpha(0)
                 ms.safeShow(_shellView)
+                _traceMark("safeShow")
                 pcall(function() _shellView:bringToFront(true) end)
+                _traceMark("bringToFront")
                 pcall(hs.focus)
+                _traceMark("focus")
                 if ms._ownUiFocus then pcall(ms._ownUiFocus, true) end
                 ms._shellState = ms._shellState or {}
                 ms._shellState.visible = true
                 if ms.ui then ms.ui._open = true end
                 if ms.bus then ms.bus.emit("macroLab:toggled", { visible = true }) end
+                _traceMark("toggledEmit")
                 local view = _shellView
                 if _shellReady then
                     _fadeIn(view)
@@ -726,6 +779,7 @@
                             print("[shell] ready handshake timed out (1.5s) -- forcing "
                                 .. "visible and hydrating anyway; page->Lua bridge may be slow")
                             _hydrateShell()
+                            _traceMark("readyTimeout")
                             _fadeIn(view)
                         end
                     end)
