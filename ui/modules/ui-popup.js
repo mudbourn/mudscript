@@ -295,6 +295,7 @@
         var keysBox = null;
         var btnConfirm = null;
         var btnCancel = null;
+        var toggleRow = null;
         var api = null;
         function result(confirmed) {
             return { confirmed: !!confirmed, value: input ? input.value : "" };
@@ -333,6 +334,10 @@
         api.setKeys = function(keys) {
             keysBox.style.display = "flex";
             renderKeys(keysBox, keys);
+        };
+        api.setToggle = function(t, onChange) {
+            if (toggleRow) toggleRow.remove();
+            toggleRow = api.row(t.label || "", t.hint || null, toggle(t.on, onChange));
         };
         api.setConfirmLabel = function(t) { btnConfirm.textContent = t; };
         api.setCancelLabel = function(t) { btnCancel.textContent = t; };

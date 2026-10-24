@@ -510,10 +510,35 @@ return function(ms, ctx)
                     local def = ms.registry._defs[data.id]
                     if not def then return end
                     local label = def.label or data.id
+                    local cfg = ms.bindConfig[data.id]
+                    local relink = type(cfg) == "table" and type(cfg.relink) == "table"
+                        and ms.registry._defs[cfg.relink.type] and cfg.relink or nil
+                    local toggle
+                    if data.keepLink or relink then
+                        toggle = {
+                            label    = "Linked bind",
+                            hint     = "Off: a full bind of its own. On: modifier plus the linked macro's trigger.",
+                            on       = false,
+                            onChange = function(on)
+                                if not on then return end
+                                if data.keepLink then
+                                    ms.ui._actions.startModRebind({ id = data.id })
+                                else
+                                    ms.ui.modalClose(false)
+                                    ms.ui._actions.bindToMacro({
+                                        id       = data.id,
+                                        targetId = relink.type,
+                                        mods     = relink.mods or {},
+                                    })
+                                end
+                            end,
+                        }
+                    end
                     _rebindModal({
                         label    = label,
                         current  = _bindDisplay(ms.effectiveBind(data.id)),
                         gamepad  = true,
+                        toggle   = toggle,
                         onCancel = function() _restoreAfterCapture()
                         ms.ui.refresh() end,
                         validate = function(parsed, bindStr)
@@ -523,6 +548,14 @@ return function(ms, ctx)
                             return "\"" .. bindStr .. "\" is already used by \"" .. cLabel .. "\"."
                         end,
                         apply    = function(parsed)
+                            local prev = ms.bindConfig[data.id] or def.default
+                            if data.keepLink and type(prev) == "table" and prev.type
+                                and ms.registry._defs[prev.type] then
+                                parsed.relink = {
+                                    type = prev.type,
+                                    mods = prev.mods or {},
+                                }
+                            end
                             ms.bindConfig[data.id] = parsed
                             if not def.system then ms.binds[data.id] = true end
                             ms.saveSettings()
@@ -828,60 +861,83 @@ return function(ms, ctx)
                     if not data.id then return end
                     local def = ms.registry._defs[data.id]
                     if not def then return end
-                    local curCfg  = ms.bindConfig[data.id] or def.default
-                    if not curCfg then return end
-                    local label = def.label or data.id
-                    local curMods = curCfg and curCfg.mods or {}
-                    local cur     = curMods[1]
-                    local curType = curCfg.type or (def.default and def.default.type)
-
-                    ms.alert("Modifier for \"" .. label .. "\""
-                        .. "\nCurrent: " .. (cur or "unset")
-                        .. "\nPress a key, Backspace to clear, Escape to cancel.", 15, false, { id = "_rebind" })
-
-                    ms._inputOpen = true
-                    ms.ui._open   = false
+                    local curCfg = ms.bindConfig[data.id] or def.default
+                    if type(curCfg) ~= "table" or not curCfg.type then return end
+                    local label     = def.label or data.id
+                    local curType   = curCfg.type
+                    local parentDef = ms.registry._defs[curType]
+                    local parentLbl = parentDef and parentDef.label or curType
+                    local cur       = curCfg.mods and curCfg.mods[1]
 
                     local capture, cancelTimer
                     local prevFlags = {}
+                    local done = false
+
+                    local function stop()
+                        done = true
+                        if capture then capture:stop()
+                        capture = nil end
+                        if cancelTimer then cancelTimer:stop()
+                        cancelTimer = nil end
+                        ms._inputOpen = false
+                    end
 
                     local function finish(newKey, cancelled)
-                        ms._inputOpen = false
+                        if done then return end
+                        stop()
+                        ms.ui.modalClose(false)
                         if not cancelled then
-                            if newKey then
-                                ms.bindConfig[data.id] = {
-                                    type = curType,
-                                    mods = { newKey },
-                                }
-                            else
-                                ms.bindConfig[data.id] = {
-                                    type = curType,
-                                    mods = {},
-                                }
-                            end
+                            ms.bindConfig[data.id] = {
+                                type = curType,
+                                mods = newKey and { newKey } or {},
+                            }
                             ms.saveSettings()
                             ms.bind.rebind()
                             ms.playSlot(newKey and "update" or "reset")
                         end
                         ms.ui.ensureVisible()
-                        hs.timer.doAfter(0.1, function()
-                            if not cancelled then
-                                if newKey then
-                                    ms.alert("Modifier set to: " .. newKey, 3, true, { id = "_rebind" })
-                                else
-                                    ms.alert("Modifier cleared.", 3, true, { id = "_rebind" })
-                                end
-                            else
-                                ms.alert("Modifier rebind cancelled.", 2, false, { id = "_rebind" })
-                            end
+                        hs.timer.doAfter(0.1, function() ms.ui.refresh() end)
+                    end
+
+                    ms.ui.ensureVisible()
+                    ms._inputOpen = true
+                    ms.ui.modal({
+                        title   = "Rebind, " .. label,
+                        msg     = "Linked to " .. parentLbl .. ". Current modifier:  " .. (cur or "unset")
+                            .. "\n\nPress a modifier or key to hold with " .. parentLbl .. "'s trigger.\n"
+                            .. "Backspace to clear  -  Escape to cancel.",
+                        confirm = "Set",
+                        cancel  = "Cancel",
+                    }, function()
+                        if not done then
+                            stop()
                             ms.ui.refresh()
-                        end)
+                        end
+                    end)
+                    ms.ui.modalUpdate({
+                        showConfirm = false,
+                        showCancel  = false,
+                        keys        = {},
+                        toggle      = {
+                            label = "Linked bind",
+                            hint  = "On: modifier plus " .. parentLbl .. "'s trigger. Off: capture a full bind of its own.",
+                            on    = true,
+                        },
+                    })
+                    ms.ui._modalToggle = function(on)
+                        if on then return end
+                        stop()
+                        ms.ui._actions.startRebind({
+                            id       = data.id,
+                            keepLink = true,
+                        })
                     end
 
                     capture = hs.eventtap.new({
                         hs.eventtap.event.types.keyDown,
                         hs.eventtap.event.types.flagsChanged,
                     }, function(event)
+                        if done then return false end
                         local t     = event:getType()
                         local flags = event:getFlags()
 
@@ -893,16 +949,10 @@ return function(ms, ctx)
                             elseif flags.cmd   and not prevFlags.cmd   then newMod = "cmd" end
                             prevFlags = flags
                             if not newMod then return false end
-                            capture:stop()
-                            capture = nil
-                            cancelTimer:stop()
                             finish(newMod, false)
                             return false
                         end
 
-                        capture:stop()
-                        capture = nil
-                        cancelTimer:stop()
                         local keyCode = event:getKeyCode()
                         if keyCode == 53 and not (flags.cmd or flags.alt or flags.ctrl or flags.shift) then
                             finish(nil, true)
@@ -916,13 +966,12 @@ return function(ms, ctx)
                     end)
 
                     capture:start()
-                    cancelTimer = hs.timer.doAfter(15, function()
-                        if capture then
-                            capture:stop()
-                            capture = nil
-                            finish(nil, true)
-                        end
-                    end)
+                    cancelTimer = hs.timer.doAfter(15, function() finish(nil, true) end)
+                end,
+
+                modalToggle = function(data)
+                    local fn = ms.ui._modalToggle
+                    if fn then pcall(fn, data.value == true) end
                 end,
             -- END --
     }

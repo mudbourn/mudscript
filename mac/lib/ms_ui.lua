@@ -32,6 +32,7 @@ return function(ms)
             _panel         = nil,
             _open          = false,
             _modalCallback = nil,
+            _modalToggle   = nil,
             _panelPos      = nil,
             _uiFadeTimer   = nil,
         }
@@ -821,6 +822,21 @@ return function(ms)
                     showCancel = false,
                     keys = {},
                 })
+                if opts.toggle then
+                    ms.ui.modalUpdate({
+                        toggle = {
+                            label = opts.toggle.label,
+                            hint  = opts.toggle.hint,
+                            on    = opts.toggle.on and true or false,
+                        },
+                    })
+                    ms.ui._modalToggle = function(on)
+                        settled = true
+                        stopCapture()
+                        ms._inputOpen = false
+                        opts.toggle.onChange(on)
+                    end
+                end
 
                 local function livePreview()
                     if #comboKeys == 0 then return end
@@ -937,6 +953,7 @@ return function(ms)
                         return true
 
                     else
+                        if opts.toggle and t == hs.eventtap.event.types.leftMouseDown then return false end
                         if settled or started then return true end
                         local btn
                         if     t == hs.eventtap.event.types.leftMouseDown  then btn = 0
@@ -1135,6 +1152,7 @@ return function(ms)
             if not ok then pcall(callback, { confirmed = false })
             return end
             ms.ui._modalCallback = callback
+            ms.ui._modalToggle = nil
             pcall(function()
                 ms.shell.eval("openLuaModal(" .. json .. ")")
             end)

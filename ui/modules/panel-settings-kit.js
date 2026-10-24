@@ -233,6 +233,12 @@
                 if (d.showConfirm !== undefined) dlg.showConfirm(d.showConfirm);
                 if (d.showCancel !== undefined) dlg.showCancel(d.showCancel);
                 if (d.keys !== undefined) dlg.setKeys(d.keys);
+                if (d.toggle !== undefined) {
+                    dlg.setToggle(d.toggle, (on) => sendToHost({
+                        action: "modalToggle",
+                        value:  on,
+                    }));
+                }
             }
             window.updateLuaModal = updateLuaModal;
         // END Modal //
