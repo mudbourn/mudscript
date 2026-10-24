@@ -49,6 +49,10 @@
     }
 
     function subText(m) {
+        if (m.parent) {
+            return "Hold " + (m.linkMods || "its modifier") + " with "
+                + (m.linkParent || m.parent) + "'s trigger, fires on " + (m.bind || "Unset");
+        }
         return "Bind: " + (m.bind || "Unset");
     }
 

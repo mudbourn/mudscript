@@ -150,6 +150,9 @@ return function(ms)
                     local host = parent and byId[parent]
                     if host then
                         local eff = ms.effectiveBind(id)
+                        local cfg = ms.bindConfig and ms.bindConfig[id]
+                        local link = (type(cfg) == "table" and cfg.type) and cfg or def.default
+                        local parentDef = ms.registry._defs[directParent]
                         local subEnabled = ms.binds[id]
                         if subEnabled == nil then subEnabled = def.enabled end
                         local subBindable = eff ~= nil
@@ -159,6 +162,8 @@ return function(ms)
                             group    = def.group,
                             bind     = _bindDisplay(eff, ms.bindIgnoreMods and ms.bindIgnoreMods[id]),
                             parent   = directParent,
+                            linkParent = parentDef and parentDef.label or directParent,
+                            linkMods = table.concat(_modParts(link and link.mods), "+"),
                             enabled  = (subEnabled and subBindable) and true or false,
                             bindable = subBindable,
                             bindType = eff and eff.type or nil,

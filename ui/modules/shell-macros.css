@@ -200,6 +200,9 @@
     .bind-pill { padding: 2px 8px; border-radius: var(--radius); font-family: inherit; font-size: 12px; color: var(--text); background: var(--surface2); border: 1px solid var(--border); cursor: pointer; white-space: nowrap; transition: color 0.15s, border-color 0.15s; }
     .bind-pill:hover { color: var(--accent); border-color: var(--accent); }
     .bind-pill.unset { color: var(--text3); font-style: italic; }
+    .bind-pill-link { display: inline-flex; align-items: center; gap: 5px; color: var(--text2); border-style: dashed; }
+    .bind-pill-icon { display: inline-flex; color: var(--text3); }
+    .bind-pill-icon .icon { width: 11px; height: 11px; }
     .bind-act { width: 22px; height: 22px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; line-height: 1; color: var(--text2); background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-s); cursor: pointer; transition: color 0.15s, border-color 0.15s; }
     .bind-act .icon { width: 13px; height: 13px; }
     .bind-act:hover { color: var(--accent); border-color: var(--accent); }

@@ -42,10 +42,19 @@
                 return Promise.resolve(ok);
             }
 
-            function bindPill(text, onClick, title, onMenu) {
+            function bindPill(text, onClick, title, onMenu, link) {
                 var b = document.createElement("button");
-                b.className = "bind-pill" + (text ? "" : " unset");
-                b.textContent = text || "Unset";
+                b.className = "bind-pill" + (text ? "" : " unset") + (link ? " bind-pill-link" : "");
+                if (link) {
+                    var ic = document.createElement("span");
+                    ic.className = "bind-pill-icon";
+                    ic.innerHTML = window.icon ? window.icon("link") : "";
+                    b.appendChild(ic);
+                    b.appendChild(document.createTextNode(
+                        (link.mods ? link.mods + " + " : "") + link.parent));
+                } else {
+                    b.textContent = text || "Unset";
+                }
                 if (title) b.title = title;
                 b.addEventListener("mouseenter", function() {
                     if (window.playSlot) playSlot("hover");
@@ -105,8 +114,13 @@
                         });
                     }
                 }, m.parent
-                    ? "Click to rebind the modifier held with the linked macro"
-                    : "Click to rebind", function() { openBindMenu(m); }));
+                    ? "Sub bind of " + (m.linkParent || m.parent) + ". Fires on "
+                        + (m.bind || "its trigger") + ". Click to rebind the modifier"
+                    : "Click to rebind", function() { openBindMenu(m); },
+                    m.parent ? {
+                        parent: m.linkParent || m.parent,
+                        mods:   m.linkMods,
+                    } : null));
 
                 var moreBtn = document.createElement("button");
                 moreBtn.className = "bind-act bind-more";
