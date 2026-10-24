@@ -135,6 +135,9 @@
                 if ref then return ref end
                 if type(v) == "number" then return tostring(v) end
                 if type(v) == "string" and v ~= "" and tonumber(v) then return v end
+                if type(v) == "string" and v:match("%S") then
+                    return "(" .. v:gsub("{([%a_][%w_]*)}", 'ms.vars.get("%1")') .. ")"
+                end
                 return tostring(default)
             end
 
@@ -647,12 +650,9 @@
             emitters["for"] = function(step, lvl)
                 local p = step.params or {}
                 local varName = ident(p.var, "i")
-                local from    = p.from or 1
-                local to      = p.to or 1
-                local stepVal = p.step
                 local lines = {}
-                local forArgs = tostring(from) .. ", " .. tostring(to)
-                if stepVal then forArgs = forArgs .. ", " .. tostring(stepVal) end
+                local forArgs = numArg(p.from, 1) .. ", " .. numArg(p.to, 1)
+                if p.step ~= nil and p.step ~= "" then forArgs = forArgs .. ", " .. numArg(p.step, 1) end
                 _flowCounter = _flowCounter + 1
                 local fc = "_fc" .. _flowCounter
                 lines[#lines + 1] = indent(lvl) .. "local " .. fc .. " = 0"
@@ -666,7 +666,7 @@
                 end
                 _loopDepth = _loopDepth - 1
                 lines[#lines + 1] = indent(lvl) .. "end"
-                lines[#lines + 1] = indent(lvl) .. "ms.log('for', '" .. varName .. "=" .. forArgs .. "', " .. fc .. ")"
+                lines[#lines + 1] = indent(lvl) .. "ms.log('for', " .. string.format("%q", varName .. "=" .. forArgs) .. ", " .. fc .. ")"
                 return table.concat(lines, "\n")
             end
 
@@ -720,6 +720,19 @@
             emitters["break"] = function(step, lvl)
                 if _loopDepth > 0 then return indent(lvl) .. "do break end" end
                 return indent(lvl) .. "do return end"
+            end
+
+            emitters["return"] = function(step, lvl)
+                local v = step.params and step.params.value
+                local ref = toolRef(v)
+                if ref then return indent(lvl) .. "do return " .. ref .. " end" end
+                if type(v) == "number" or type(v) == "boolean" then
+                    return indent(lvl) .. "do return " .. tostring(v) .. " end"
+                end
+                if type(v) ~= "string" or not v:match("%S") then
+                    return indent(lvl) .. "do return end"
+                end
+                return indent(lvl) .. "do return " .. interpExpr(v) .. " end"
             end
 
             emitters["comment"] = function(step, lvl)
@@ -891,14 +904,16 @@
                 local label = fnDef.name or id
                 local steps = fnDef.steps or {}
                 local fnName = id .. "Tool"
+                local bodyName = id .. "Body"
                 local lines = {}
 
                 local asCoroutine = fnDef.coroutine ~= false
+                local safeLabel = label:gsub('[\r\n"]', " ")
                 local secondArg = asCoroutine
-                    and ('"' .. label:gsub('[\r\n"]', " ") .. '"')
+                    and ('"' .. safeLabel .. '"')
                     or "false"
 
-                lines[#lines + 1] = "local " .. fnName .. " = ms.fn(function()"
+                lines[#lines + 1] = "local " .. bodyName .. ' = ms.sub("' .. safeLabel .. '", function()'
                 lines[#lines + 1] = indent(1) .. "local t = 100"
                 local tvDecl = tempVarDecl(steps)
                 if tvDecl then lines[#lines + 1] = tvDecl end
@@ -908,11 +923,14 @@
                 for _, step in ipairs(steps) do
                     lines[#lines + 1] = emitStep(step, 1)
                 end
-                lines[#lines + 1] = "end, " .. secondArg .. ")"
+                lines[#lines + 1] = "end)"
+                lines[#lines + 1] = ""
+                lines[#lines + 1] = "local " .. fnName .. " = ms.fn(function() return " .. bodyName .. "() end, " .. secondArg .. ")"
                 lines[#lines + 1] = ""
                 lines[#lines + 1] = 'ms.fn.define("' .. id .. '", ' .. fnName .. ", {"
-                lines[#lines + 1] = indent(1) .. 'group = "tool",'
-                lines[#lines + 1] = indent(1) .. 'label = "' .. label:gsub('[\r\n"]', " ") .. '",'
+                lines[#lines + 1] = indent(1) .. 'group  = "tool",'
+                lines[#lines + 1] = indent(1) .. 'label  = "' .. safeLabel .. '",'
+                lines[#lines + 1] = indent(1) .. "inline = " .. bodyName .. ","
                 lines[#lines + 1] = "})"
 
                 return table.concat(lines, "\n")

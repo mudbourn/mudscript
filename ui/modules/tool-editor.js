@@ -40,6 +40,7 @@
       "repeat":           { condition: "condition" },
       "for":              { var: "string", from: "number", to: "number", step: "number" },
       "call_fn":          { name: "string" },
+      "return":           { value: "condition" },
       "hvar_set":         { name: "string", value: "string" },
       "var_set":          { name: "string", value: "string" },
       "var_add":          { name: "string", amount: "number" },
@@ -955,11 +956,17 @@
             wrap.appendChild(btnMinus);
 
             const inp = document.createElement("input");
-            inp.type = "number";
+            inp.type = "text";
+            inp.inputMode = "decimal";
+            inp.spellcheck = false;
             inp.className = "tool-ed-number";
+            inp.title = "A number, or a Lua expression such as math.floor(-3145 * ms.settings.get(\"spin\") + 0.5). {name} reads a helper variable.";
             inp.value = (value !== undefined && value !== null) ? String(value) : "0";
-            inp.step = "1";
             wrap.appendChild(inp);
+
+            const NUMERIC = /^\s*-?(\d+\.?\d*|\.\d+)\s*$/;
+            const isNum = () => NUMERIC.test(inp.value);
+            const num = () => (isNum() ? parseFloat(inp.value) : 0);
 
             const btnPlus = document.createElement("button");
             btnPlus.className = "tool-ed-num-btn";
@@ -967,19 +974,22 @@
             wrap.appendChild(btnPlus);
 
             const emit = () => {
-                const v = parseFloat(inp.value) || 0;
+                const raw = inp.value.trim();
+                const v = raw === "" ? 0 : (isNum() ? parseFloat(raw) : raw);
                 this._updateParam(sid, key, v, true);
             };
 
             inp.addEventListener("input", emit);
             inp.addEventListener("keydown", (e) => {
                 e.stopPropagation();
-                if (e.key === "ArrowUp")   { inp.value = String((parseFloat(inp.value)||0) + (e.shiftKey ? 10 : 1)); emit(); e.preventDefault(); }
-                if (e.key === "ArrowDown") { inp.value = String((parseFloat(inp.value)||0) - (e.shiftKey ? 10 : 1)); emit(); e.preventDefault(); }
+                if (!isNum() && inp.value.trim() !== "") return;
+                if (e.key === "ArrowUp")   { inp.value = String(num() + (e.shiftKey ? 10 : 1)); emit(); e.preventDefault(); }
+                if (e.key === "ArrowDown") { inp.value = String(num() - (e.shiftKey ? 10 : 1)); emit(); e.preventDefault(); }
             });
 
             const step = (delta) => {
-                inp.value = String((parseFloat(inp.value)||0) + delta);
+                if (!isNum() && inp.value.trim() !== "") return;
+                inp.value = String(num() + delta);
                 emit();
             };
             _sfx(btnMinus);

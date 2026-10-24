@@ -145,6 +145,7 @@
                     params  = opts.params,
                     icon    = opts.icon,
                     cleared = opts.cleared ~= false,
+                    inline  = opts.inline,
                 }
                 table.insert(ms.fn.registry._defList, id)
             end,
@@ -186,6 +187,10 @@
                         and getmetatable(f).__call)
             end
             local def = ms.fn and ms.fn.registry and ms.fn.registry._defs[id]
+            if def and callable(def.inline) then
+                local co = coroutine.running()
+                if co and ms._coroContext[co] then return def.inline() end
+            end
             if def and callable(def.fn) then return def.fn() end
             local wired = ms.bind and ms.bind._wires and ms.bind._wires[id]
             if callable(wired) then return ms._runInCoroutine(wired) end

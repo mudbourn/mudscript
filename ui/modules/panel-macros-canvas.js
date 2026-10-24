@@ -22,7 +22,7 @@
           "ms.wait":"timer","ms.copy":"clipboard","ms.paste":"clipboard",
           "ms.cam":"camera",
           "ms.Mouse":"click","ms.click":"click","ms.scroll":"scroll","ms.move":"move","ms.select":"select",
-          "ms.search":"search","ms.record":"record","ms.stop":"stop","break":"stop","ms.cancelMacros":"stop","ms.pause":"pause",
+          "ms.search":"search","ms.record":"record","ms.stop":"stop","break":"stop","return":"stop","ms.cancelMacros":"stop","ms.pause":"pause",
           "ms.play":"play","ms.save":"save","ms.load":"upload","ms.alert":"alert",
           "ms.refresh":"refresh","ms.pixelScan":"pixelscan","ms.window":"window",
           "ms.input":"inputs","ms.variable":"variable","ms.watch":"watcher",

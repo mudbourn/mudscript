@@ -814,6 +814,17 @@
                 params: []
             },
             {
+                id: "return",
+                name: "return",
+                label: "Return",
+                sig: "return <value>",
+                desc: "End this function and hand a value back to the caller. Use it in a Function tool, then test the result in a condition such as ms.callFn(\"JumpHigh\"). Blank returns nothing.",
+                category: "logic",
+                params: [
+                    { name: "value", type: "condition", label: "Value", required: false }
+                ]
+            },
+            {
                 id: "var_set",
                 name: "var_set",
                 label: "Set Variable",
@@ -866,7 +877,7 @@
                 name: "call_fn",
                 label: "Call Function",
                 sig: "ms.callFn(name)",
-                desc: "Run a function tool or pack macro by name. Author functions in the Tools panel's Function tab.",
+                desc: "Run a function tool or pack macro by name and wait for it to finish. Author functions in the Tools panel's Function tab. Its Return value can be tested in a condition with ms.callFn(name).",
                 category: "logic",
                 params: [
                     { name: "name", type: "string", label: "Function", required: true }
