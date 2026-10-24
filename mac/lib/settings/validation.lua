@@ -636,7 +636,7 @@ return function(ms, ctx)
                 local chunk = load(
                     rawSrc,
                     "@ms_macros.lua",
-                    "bt",
+                    "t",
                     ms._macroSandbox
                 )
                 if chunk then pcall(chunk) end

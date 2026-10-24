@@ -170,6 +170,7 @@ return function(ms, ctx)
         end
 
         function MsDevTools:hideConsole()
+            if not S.consoleOpen then return end
             S.consoleOpen = false
 
             if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
@@ -296,6 +297,7 @@ return function(ms, ctx)
         end
 
         function MsDevTools:hideWatcher()
+            if not S.watcherOpen then return end
             S.watcherOpen = false
 
             if ms.ui and ms.ui.markDirty then ms.ui.markDirty() end
@@ -480,6 +482,7 @@ return function(ms, ctx)
         end
 
         function MsDevTools:hideKeys()
+            if not S.keysOpen then return end
             if S.mousePoller then
                 S.mousePoller:stop()
                 S.mousePoller = nil

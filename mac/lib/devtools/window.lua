@@ -139,6 +139,8 @@ return function(ms, ctx)
 
             local el = ev.element
 
+            payload.element = { axPermission = true }
+
             if type(el) == "table" then
                 local fr = el.frame
                 local frame
@@ -202,6 +204,7 @@ return function(ms, ctx)
         function MsDevTools:_winEngineStart()
             self:_winEngineStop()
             S.winDirty, S.winMoveN, S.winResizeN, S.winLastMouse = false, 0, 0, nil
+            S.winNeedFull = false
             S.winElementTab = true
             S.winSpyFrame = nil
             local _winLastFullState = nil
@@ -257,8 +260,10 @@ return function(ms, ctx)
                                 win = _winG(function() return el:asHSWindow() end) }
                         elseif ev == hs.uielement.watcher.windowResized then
                             S.winResizeN = S.winResizeN + 1
-                        else
+                        elseif ev == hs.uielement.watcher.windowMoved then
                             S.winMoveN = S.winMoveN + 1
+                        else
+                            S.winNeedFull = true
                         end
                         S.winDirty = true
                     end)
@@ -310,9 +315,15 @@ return function(ms, ctx)
 
                 if S.winDirty then
                     S.winDirty = false
-                    local st = _winReadLight(
-                        (S.winPendingEvent and S.winPendingEvent.win) or _winSubject()
-                    )
+                    local subject = (S.winPendingEvent and S.winPendingEvent.win) or _winSubject()
+                    local st
+                    if S.winNeedFull then
+                        S.winNeedFull = false
+                        st = S.winRead(subject)
+                        _winLastFullState = st
+                    else
+                        st = _winReadLight(subject)
+                    end
                     if st and _winLastFullState then
                         for k, v in pairs(_winLastFullState) do
                             if st[k] == nil then st[k] = v end
@@ -403,6 +414,7 @@ return function(ms, ctx)
                             pixel = pixel,
                         }
                         local el = _winG(function() return hs.axuielement.systemElementAtPosition(p.x, p.y) end)
+                        payload.element = { axPermission = true }
                         if el then
                             local function ga(a) return _axStr(_winG(function() return el:attributeValue(a) end)) end
                             local fr = _winG(function() return el:attributeValue("AXFrame") end)
@@ -580,6 +592,7 @@ return function(ms, ctx)
         end
 
         function MsDevTools:hideWindow()
+            if not S.windowOpen and not S.windowPanel then return end
             self:_winEngineStop()
             if S.windowPoller then
                 S.windowPoller:stop()

@@ -116,17 +116,11 @@ return function(ms, ctx)
                 __newindex = function() end,
             })
             local chunk, err
-            if setfenv then
-                chunk, err = loadfile(filePath)
-                if chunk then setfenv(chunk, env) end
-            else
-                chunk, err = loadfile(filePath, "bt", env)
-            end
+            chunk, err = loadfile(filePath, "t", env)
             if not chunk then
                 print("readMacroMeta: parse error in " .. filePath .. ": " .. tostring(err))
                 return nil
             end
-            if jit then pcall(jit.off, chunk, true) end
 
             local _co = coroutine.create(chunk)
             local _hookFires = 0

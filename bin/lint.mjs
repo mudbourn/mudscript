@@ -44,7 +44,7 @@ import { build as buildIcons } from "./gen-icons.mjs";
         "non-ascii": "Plain QWERTY characters only. Use an SVG from ui/svg for glyphs.",
         "semicolon": "No semicolons in Lua or prose.",
         "lua-inline-table": "A table with more than one field puts each field on its own line.",
-        "luajit-syntax": "Lua 5.3+ operator. Hammerspoon runs LuaJIT: use bit.* or arithmetic.",
+        "lua-bit-library": "No bit or bit32 library on Lua 5.4. Use native operators (& | ~ << >>).",
         "lua-native-dialog": "Native macOS dialogs draw behind the shell and softlock. Use ms.ui.modal.",
         "old-accent-literal": "Retired red accent. Use var(--accent) or color-mix on it.",
         "hardcoded-font": "Use var(--font-mono) or var(--font) instead of a literal font stack.",
@@ -745,7 +745,7 @@ import { build as buildIcons } from "./gen-icons.mjs";
 
             if (inlineTable(code)) report("lua-inline-table", n);
 
-            if (/\/\/|<<|>>|[&|]|~(?!=)/.test(code)) report("luajit-syntax", n);
+            if (/\bbit(32)?\./.test(code)) report("lua-bit-library", n);
 
             if (!nativeOk && /hs\.dialog\.blockAlert|hs\.alert\.show|hs\.chooser\b/.test(code)) {
                 report("lua-native-dialog", n);

@@ -280,12 +280,7 @@
             end
 
             local chunk, loadErr
-            if _VERSION and _VERSION >= "Lua 5.2" or not setfenv then
-                chunk, loadErr = load(rawSrc, "@ms_macros.lua", "bt", sandbox)
-            else
-                chunk, loadErr = loadstring(rawSrc, "@ms_macros.lua")
-                if chunk then setfenv(chunk, sandbox) end
-            end
+            chunk, loadErr = load(rawSrc, "@ms_macros.lua", "t", sandbox)
             if not chunk then
                 error("ms_macros.lua: failed to load: " .. tostring(loadErr))
             end

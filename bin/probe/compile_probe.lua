@@ -198,14 +198,14 @@
                 failures = failures + 1
                 print("COMPILE ERROR  " .. tostring(code))
             else
-                local fn, err = loadstring(code, "=" .. id)
+                local env = setmetatable({ ms = ms }, { __index = _G })
+                local fn, err = load(code, "=" .. id, "t", env)
                 if not fn then
                     failures = failures + 1
                     print("SYNTAX ERROR  " .. err)
                     print(code)
                 else
                     defined = {}
-                    setfenv(fn, setmetatable({ ms = ms }, { __index = _G }))
                     local okRun, runErr = pcall(fn)
                     local entry = defined[1]
                     if not okRun then

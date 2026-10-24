@@ -888,18 +888,19 @@
         ms.screen.sampleAt = function(ax, ay)
             if not ax or not ay then return nil end
 
-            local scr = hs.screen.mainScreen()
+            local scr, origin
             for _, s in ipairs(hs.screen.allScreens()) do
-                local f = s:frame()
+                local f = s:fullFrame()
                 if ax >= f.x and ax < f.x + f.w
                 and ay >= f.y and ay < f.y + f.h then
                     scr = s
+                    origin = f
                     break
                 end
             end
             if not scr then return nil end
 
-            local snap = scr:snapshot(hs.geometry.rect(ax, ay, 1, 1))
+            local snap = scr:snapshot(hs.geometry.rect(ax - origin.x, ay - origin.y, 1, 1))
             if not snap then return nil end
             local c = snap:colorAt({ x = 0, y = 0 })
             if not c or c.red == nil then return nil end

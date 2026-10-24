@@ -66,7 +66,7 @@
       function updateMousePos(p) {
           if (!p) return;
           if (p.sx != null) setVal('[data-cursor="screen"]', devfmt.coord(p.sx, p.sy));
-          if (p.wx != null) setVal('[data-cursor="win"]', devfmt.coord(p.wx, p.wy));
+          setVal('[data-cursor="win"]', p.wx != null ? devfmt.coord(p.wx, p.wy) : "");
           const cell = _q('[data-cursor="pixel"]');
           if (cell) {
               const sw = cell.querySelector(".pixel-swatch");

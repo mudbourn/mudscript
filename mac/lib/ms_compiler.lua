@@ -928,11 +928,7 @@
             local function syntaxError(src)
                 if type(src) ~= "string" then return "compiler returned non-string" end
                 local chunk, err
-                if loadstring then
-                    chunk, err = loadstring(src, "ms_macro_check")
-                else
-                    chunk, err = load(src, "@ms_macro_check", "t")
-                end
+                chunk, err = load(src, "@ms_macro_check", "t")
                 if chunk then return nil end
                 return tostring(err)
             end
@@ -1165,12 +1161,7 @@
                 end
 
                 local chunk, loadErr
-                if _VERSION and _VERSION >= "Lua 5.2" or not setfenv then
-                    chunk, loadErr = load(rawSrc, "@ms_macros_visual.lua", "bt", sandbox)
-                else
-                    chunk, loadErr = loadstring(rawSrc, "@ms_macros_visual.lua")
-                    if chunk then setfenv(chunk, sandbox) end
-                end
+                chunk, loadErr = load(rawSrc, "@ms_macros_visual.lua", "t", sandbox)
                 if not chunk then
                     print("ms.compiler.load: failed to load: " .. tostring(loadErr))
                     ms.alert("Visual macros load error. See console.", 6)
@@ -1247,7 +1238,7 @@
                 local sandbox = ms._macroSandbox
                 if not sandbox then return done(false, "macro sandbox not initialized") end
 
-                local chunk, loadErr = load(src, "@ms_test_run", "bt", sandbox)
+                local chunk, loadErr = load(src, "@ms_test_run", "t", sandbox)
                 if not chunk then return done(false, "load: " .. tostring(loadErr)) end
                 local ok, fnOrErr = pcall(chunk)
                 if not ok then return done(false, tostring(fnOrErr)) end

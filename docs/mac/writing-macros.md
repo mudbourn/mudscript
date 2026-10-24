@@ -138,8 +138,6 @@ ms.bind.define("throwLow", ThrowLowFunction, {
 })
 ```
 
-> **LuaJIT upvalue note.** When a closure references a local function declared *after* it in the same chunk loaded via `setfenv`, LuaJIT can miscompile the reference as a global lookup instead of an upvalue, leaving it `nil` at call time. Look the function up through `ms.bind._wires["id"]` at call time instead, a table field access is never affected.
-
 ### Independent binds
 
 When **Settings > Keybinds > Independent Binds** is enabled, sub-items can also have their own dedicated keybind configured from the menu. They then fire that sub-item directly, bypassing the parent's modifier check.

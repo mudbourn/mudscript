@@ -214,6 +214,48 @@ return function(ms)
             return out:gsub("^\\", ""):match("^(%x+)")
         end
 
+        local _treeHashCache = {}
+
+        local function spoonTreeStamp(absDir)
+            local parts = {}
+            local function walk(dir, rel)
+                local okDir, iter, state = pcall(hs.fs.dir, dir)
+                if not okDir or not iter then return end
+                for entry in iter, state do
+                    if entry ~= "." and entry ~= ".." then
+                        local path = dir .. "/" .. entry
+                        local a = hs.fs.attributes(path)
+                        if a and a.mode == "directory" then
+                            walk(path, rel .. entry .. "/")
+                        elseif a then
+                            parts[#parts + 1] = table.concat({
+                                rel .. entry,
+                                tostring(a.size),
+                                tostring(a.modification),
+                                tostring(a.change),
+                                tostring(a.ino),
+                            }, "|")
+                        end
+                    end
+                end
+            end
+            walk(absDir, "")
+            table.sort(parts)
+            return table.concat(parts, "\n")
+        end
+
+        local function cachedSpoonTreeHash(absDir)
+            local stamp = spoonTreeStamp(absDir)
+            local hit = _treeHashCache[absDir]
+            if hit and hit.stamp == stamp then return hit.hash end
+            local hash = spoonTreeHash(absDir)
+            _treeHashCache[absDir] = hash and {
+                stamp = stamp,
+                hash  = hash,
+            } or nil
+            return hash
+        end
+
         local function readLedger()
             local raw = readFile(_ledgerPath)
             if not raw then return nil end
@@ -1383,7 +1425,7 @@ return function(ms)
                     local rec    = rows[name]
                     local status = "unrecorded"
                     if type(rec) == "table" and type(rec.hash) == "string" then
-                        local live = spoonTreeHash(abs)
+                        local live = cachedSpoonTreeHash(abs)
                         status = (live and live:lower() == rec.hash:lower())
                             and "ok" or "modified"
                     end

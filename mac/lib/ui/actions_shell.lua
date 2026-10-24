@@ -46,7 +46,7 @@ return function(ms, ctx)
                     local chunk, loadErr = load(
                         rawSrc,
                         "@ms_macros.lua",
-                        "bt",
+                        "t",
                         ms._macroSandbox
                     )
                     if not chunk then
@@ -71,6 +71,9 @@ return function(ms, ctx)
                     ms._userSettingDefs  = {}
                     ms._userSettingIndex = {}
                     ms._stashUserSettings()
+                    if ms.plugins and ms.plugins.loadAll then
+                        pcall(ms.plugins.loadAll)
+                    end
 
                     ms._defineOrigin = "pack"
                     local ok, runErr = xpcall(chunk, debug.traceback)
@@ -124,9 +127,6 @@ return function(ms, ctx)
                         ms._systemActions["showIntegrityError"] = function()
                             ms.showGuardian()
                         end
-                    end
-                    if ms.plugins and ms.plugins.loadAll then
-                        pcall(ms.plugins.loadAll)
                     end
                     ms.loadSettings()
                     if not ms.registry._defs["__panicButton"] then ms.bind._registerSystemBinds() end

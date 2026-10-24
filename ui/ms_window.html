@@ -231,12 +231,17 @@
                 <div class="section">
                     <div class="section-head">
                         <span class="section-title">Cursor</span>
-                        <span class="section-desc">Pointer position</span>
+                        <span class="section-desc">Pointer position and the pixel under it</span>
                     </div>
                     <div class="section-body">
                         <div class="kv-grid">
                             <div class="kv-key">Screen</div>  <div class="kv-val empty" id="e-mouse-screen">-</div>
                             <div class="kv-key">Window</div>  <div class="kv-val empty" id="e-mouse-win">-</div>
+                            <div class="kv-key">Pixel</div>
+                            <div class="kv-val empty" id="e-mouse-pixel" style="display:flex;align-items:center;gap:7px;">
+                                <span class="pixel-swatch" style="width:12px;height:12px;border-radius:2px;border:1px solid var(--border);flex-shrink:0;display:none;"></span>
+                                <span class="pixel-hex">-</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -382,8 +387,21 @@
             function updateMousePos(p) {
                 if (!p) return;
                 if (p.sx != null) setVal("e-mouse-screen", devfmt.coord(p.sx, p.sy));
-                if (p.wx != null) setVal("e-mouse-win", devfmt.coord(p.wx, p.wy));
-                else if (p.wx === null) setVal("e-mouse-win", "");
+                setVal("e-mouse-win", p.wx != null ? devfmt.coord(p.wx, p.wy) : "");
+                const cell = document.getElementById("e-mouse-pixel");
+                if (cell) {
+                    const sw = cell.querySelector(".pixel-swatch");
+                    const hx = cell.querySelector(".pixel-hex");
+                    if (p.pixel && p.pixel.hex) {
+                        if (sw) { sw.style.background = p.pixel.hex; sw.style.display = ""; }
+                        if (hx) hx.textContent = p.pixel.hex + devfmt.SEP + p.pixel.r + ", " + p.pixel.g + ", " + p.pixel.b;
+                        cell.classList.remove("empty");
+                    } else {
+                        if (sw) sw.style.display = "none";
+                        if (hx) hx.textContent = devfmt.EMPTY;
+                        cell.classList.add("empty");
+                    }
+                }
             }
 
             function updateAll(payload) {
