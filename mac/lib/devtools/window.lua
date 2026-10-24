@@ -89,6 +89,14 @@ return function(ms, ctx)
             return nil
         end
 
+        local function _winCanInspect(win)
+            if not hs.accessibilityState() then return false end
+            local uia = rawget(hs, "uia")
+            if not (win and type(uia) == "table" and type(uia.canInspect) == "function") then return true end
+            local ok, v = pcall(uia.canInspect, win)
+            return not ok or v ~= false
+        end
+
         local function _winStillOpen()
             if S.windowPanel ~= nil then return S.windowOpen end
             local ms = _G.ms
@@ -138,6 +146,14 @@ return function(ms, ctx)
             }
 
             local el = ev.element
+
+            if not _winCanInspect(hs.window.focusedWindow()) then
+                S.winPush("updateAll", {
+                    mouse = payload.mouse,
+                    element = { axPermission = false },
+                })
+                return
+            end
 
             payload.element = { axPermission = true }
 
@@ -394,7 +410,12 @@ return function(ms, ctx)
                     end
                 end
 
-                if not spyServing and S.winElementInspect and S.winElementTab and hs.accessibilityState() then
+                local inspectable = _winCanInspect(hs.window.focusedWindow())
+                if S.winElementInspect and S.winElementTab and not inspectable then
+                    payload.element = { axPermission = false }
+                    hasData = true
+                end
+                if not spyServing and S.winElementInspect and S.winElementTab and inspectable then
                     local p = hs.mouse.absolutePosition()
                     local _now = hs.timer.secondsSinceEpoch()
                     local _stationaryDue = (not S.winLastInspectAt) or (_now - S.winLastInspectAt) >= 0.5
